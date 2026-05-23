@@ -1,0 +1,4 @@
+interface:
+  display_name: "GitHub Push Guide"
+  short_description: "Commit and push changes by project scope"
+  default_prompt: "Use $github-push-guide to commit and push my completed work by scope."
