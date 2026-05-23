@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { RouterView, useRoute } from 'vue-router'
-
-const route = useRoute()
+import { RouterView } from 'vue-router'
+import { BackgroundEffect } from '@/components'
 </script>
 
 <template>
   <RouterView />
+  <BackgroundEffect />
 </template>
 
 <style scoped></style>
