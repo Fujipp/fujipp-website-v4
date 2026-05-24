@@ -1,1 +1,6 @@
 export { default as HomeView } from './HomeView.vue';
+export { default as ProjectsView } from './ProjectsView.vue';
+export { default as AboutView } from './AboutView.vue';
+export { default as ContactView } from './ContactView.vue';
+export { default as PerformanceView } from './PerformanceView.vue';
+export { default as PrivacyView } from './PrivacyView.vue';

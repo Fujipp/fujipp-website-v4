@@ -8,8 +8,8 @@
   --color-main-divider: #505050;
 
   /* Text */
-  --color-text-primary-text: #1d1d1d;
-  --color-text-secondary-text: #e4e4e4;
+  --color-text-primary: #1d1d1d;
+  --color-text-secondary: #e4e4e4;
   --color-text-muted: #9393934d;
   --color-text-disabled: #a0a0a0;
   --color-text-input: #000000;
@@ -77,8 +77,8 @@
   color-scheme: dark;
   --color-main-background: #272727;
   --color-main-border: #adadad;
-  --color-text-primary-text: #ffffff;
-  --color-text-secondary-text: #ffffff;
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #ffffff;
   --color-status-success: #40d59c;
   --color-status-warning: #ffbc3d;
   --color-status-error: #ff5858;

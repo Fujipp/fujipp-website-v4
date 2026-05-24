@@ -1,6 +1,6 @@
 @layer base {
   body {
-    @apply min-h-screen bg-main-background font-sans text-text-primary-text antialiased;
+    @apply min-h-screen bg-main-background font-sans text-text-primary antialiased;
     margin: 0;
   }
 }

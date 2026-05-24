@@ -74,13 +74,9 @@ src/components/ui/Button/
 
 ## Verification
 
-After implementation changes under `frontend/`, run:
-
-```bash
-npm run build
-```
-
-For visual component work, verify the relevant route in a browser when a runnable view exists.
+- Do not automatically run tests, type checks, builds, or browser verification after implementation changes.
+- Run verification commands such as `npm run build` only when the user explicitly asks for them.
+- When verification was not requested, finish the requested edits and state that no test or build was run by instruction.
 
 ## Prompt Handoff
 
