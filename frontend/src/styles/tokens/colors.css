@@ -66,6 +66,10 @@
   --color-data-pastel-6: #f5a8a8;
   --color-data-pastel-7: #c6b4e8;
   --color-data-pastel-8: #f2b6d4;
+
+  /* Gradient */
+  --gradient-card-highlight: linear-gradient(180deg, #181921 0%, #32384b 55%, #7987ac 100%);
+
 }
 
 :root {
