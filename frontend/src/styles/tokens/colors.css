@@ -4,7 +4,7 @@
   --color-main-secondary: #505050;
   --color-main-background: #ffffff;
   --color-main-border: #5d5d5d;
-  --color-main-surface: #1c1c1c;
+  --color-main-surface: #171717;
   --color-main-divider: #505050;
 
   /* Text */
@@ -79,7 +79,7 @@
 .dark,
 [data-theme="dark"] {
   color-scheme: dark;
-  --color-main-background: #272727;
+  --color-main-background: #1c1c1c;
   --color-main-border: #adadad;
   --color-text-primary: #ffffff;
   --color-text-secondary: #ffffff;
