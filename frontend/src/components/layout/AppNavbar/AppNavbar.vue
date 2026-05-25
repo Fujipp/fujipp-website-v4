@@ -35,7 +35,7 @@ function handleThemeIconClick(theme: ThemeMode) {
 <template>
     <header
         class="fixed top-0 left-0 box-border w-full z-50 h-16 px-2 flex items-center bg-main-surface transition-colors duration-300">
-        <div class="container mx-auto relative flex items-center justify-between px-1 py-3">
+        <div class="relative flex w-full items-center justify-between px-1 py-3">
             <!-- Left: Burger + Logo -->
             <div class="flex items-center gap-3">
                 <button type="button" class="flex items-center justify-center md:hidden" :aria-expanded="isMenuOpen"

@@ -358,6 +358,13 @@ onUnmounted(() => {
 @media (min-width: 768px) and (max-width: 1024px) {
     .home {
         --tablet-fit: min(1, calc(100dvh / 820px));
+        --tablet-shape-fit: min(1, calc(100vw / 1440px), calc(100dvh / 900px));
+    }
+
+    .rectangle_top,
+    .rectangle_bottom,
+    .highlightCards {
+        --shape-height: calc(400px * var(--tablet-shape-fit));
     }
 
     .heroLayout {
@@ -391,24 +398,33 @@ onUnmounted(() => {
     }
 }
 
-/* Preserve the current 1440px desktop composition, and grow shapes only on wider viewports. */
+/* Preserve the 1440x900 composition when a desktop display has a wider aspect ratio. */
 @media (min-width: 1441px) {
+    .home {
+        --desktop-fit: min(calc(100vw / 1440px), calc(100dvh / 900px));
+    }
+
     .rectangle_top,
     .rectangle_bottom,
     .highlightCards {
-        --shape-height: calc(100vw * 400 / 1440);
+        --shape-height: calc(400px * var(--desktop-fit));
+    }
+
+    .rectangle_top,
+    .rectangle_bottom {
+        --diagonal-rise: calc(1440px * tan(var(--diagonal-angle)) * var(--desktop-fit));
     }
 
     .heroLayout {
-        --hero-scale: calc(100vw / 1440px);
+        --hero-scale: var(--desktop-fit);
     }
 
     .highlightCards {
-        --card-scale: calc(100vw / 1440px);
+        --card-scale: var(--desktop-fit);
     }
 
     .mascot {
-        --mascot-top-padding: calc(100vw * 96 / 1440);
+        --mascot-top-padding: calc(96px * var(--desktop-fit));
     }
 }
 </style>

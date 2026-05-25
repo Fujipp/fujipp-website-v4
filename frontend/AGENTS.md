@@ -5,6 +5,11 @@ Read this file before changing anything under `frontend/`. Then read:
 - `docs/design-system.md` for Figma and token mappings.
 - `docs/component-guidelines.md` before creating or changing UI components.
 
+## Critical Workflow Rule
+
+- Do not run tests, type checks, builds, or browser verification unless the user explicitly asks for verification.
+- This applies after all implementation changes, including UI and responsive-layout edits.
+
 ## Stack
 
 - Vue Single File Components with `<script setup lang="ts">`.
