@@ -1,19 +1,27 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { useI18n } from "vue-i18n";
-import { saveLocale, type SupportedLocale } from "@/i18n";
+import type { SupportedLocale } from "@/i18n";
 
-const { locale } = useI18n();
+interface Props {
+    modelValue?: SupportedLocale;
+}
 
-const currentLocale = computed(() => locale.value as SupportedLocale);
+const props = withDefaults(defineProps<Props>(), {
+    modelValue: "en",
+});
+
+const emit = defineEmits<{
+    "update:modelValue": [locale: SupportedLocale];
+}>();
+
+const currentLocale = computed(() => props.modelValue);
 const targetLocale = computed<SupportedLocale>(() => currentLocale.value === "en" ? "th" : "en");
 const switchLabel = computed(() => (
     targetLocale.value === "th" ? "Switch language to Thai" : "เปลี่ยนภาษาเป็นอังกฤษ"
 ));
 
 function toggleLanguage(): void {
-    locale.value = targetLocale.value;
-    saveLocale(targetLocale.value);
+    emit("update:modelValue", targetLocale.value);
 }
 </script>
 

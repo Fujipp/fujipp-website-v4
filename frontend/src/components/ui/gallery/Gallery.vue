@@ -224,7 +224,7 @@ function handleKeydown(event: KeyboardEvent): void {
 }
 
 .thumbnailItem {
-    flex: 0 0 calc((100% - ((var(--visible-items) - 1) * var(--thumbnail-gap)) - (var(--spacing-space-2) * 2)) / var(--visible-items));
+    flex: 0 0 calc((100% - ((var(--visible-items) - 1) * var(--thumbnail-gap))) / var(--visible-items));
     scroll-snap-align: start;
 }
 

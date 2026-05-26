@@ -13,14 +13,17 @@ import {
 } from "@/config";
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import type { SupportedLocale } from "@/i18n";
 
 const { t } = useI18n();
 const heroSection = ref<HTMLElement | null>(null);
 const heroMusic = ref<HTMLAudioElement | null>(null);
+const heroLocale = ref<SupportedLocale>("en");
+const educationLocale = ref<SupportedLocale>("en");
 
 const hiddenScrollbarClass = "about-scrollbar-hidden";
 const heroMusicVolume = 0.35;
-const musicFadeDuration = 4000;
+const musicFadeDuration = 1200;
 
 let isHeroVisible = true;
 let isMusicStarted = false;
@@ -70,6 +73,14 @@ const selectedEducationKey = ref<EducationKey>("university");
 const selectedEducation = computed(() => (
     educationEntries.find((entry) => entry.key === selectedEducationKey.value) ?? educationEntries[0]
 ));
+
+function heroTranslation(key: string): string {
+    return t(key, {}, { locale: heroLocale.value });
+}
+
+function educationTranslation(field: "institution" | "degree" | "field" | "years"): string {
+    return t(`about.education.${selectedEducation.value.key}.${field}`, {}, { locale: educationLocale.value });
+}
 
 function fadeMusicTo(targetVolume: number): void {
     const audio = heroMusic.value;
@@ -172,7 +183,7 @@ onMounted(() => {
     heroMusic.value.volume = 0;
     musicObserver = new IntersectionObserver(
         ([entry]) => updateMusicForHeroVisibility(entry?.isIntersecting ?? false),
-        { threshold: 0 },
+        { threshold: 0.5 },
     );
     musicObserver.observe(heroSection.value);
     addMusicUnlockListeners();
@@ -221,7 +232,7 @@ onUnmounted(() => {
                 <div :class="$style.heroContent" class="bg-main-surface">
                     <header :class="$style.heroHeader">
                         <h1 class="type-subtitle-sb">Anawat Grudtoop</h1>
-                        <LanguageButton />
+                        <LanguageButton v-model="heroLocale" />
                     </header>
                     <hr :class="$style.divider" class="border-main-divider">
                     <p
@@ -229,7 +240,7 @@ onUnmounted(() => {
                         :key="paragraph"
                         class="type-body-main-r"
                     >
-                        {{ t(paragraph) }}
+                        {{ heroTranslation(paragraph) }}
                     </p>
                 </div>
             </section>
@@ -249,30 +260,30 @@ onUnmounted(() => {
                     <img
                         :class="$style.educationImage"
                         :src="selectedEducation.image"
-                        :alt="t(`about.education.${selectedEducation.key}.institution`)"
+                        :alt="educationTranslation('institution')"
                     >
                     <div :class="$style.educationContent" class="bg-main-surface">
                         <header :class="$style.heroHeader">
                             <h3 class="type-subtitle-sb">
-                                {{ t(`about.education.${selectedEducation.key}.institution`) }}
+                                {{ educationTranslation("institution") }}
                             </h3>
                             <div :class="$style.desktopEducationLanguage">
-                                <LanguageButton />
+                                <LanguageButton v-model="educationLocale" />
                             </div>
                         </header>
                         <hr :class="$style.divider" class="border-main-divider">
                         <p class="type-body-main-r">
-                            {{ t(`about.education.${selectedEducation.key}.degree`) }}
+                            {{ educationTranslation("degree") }}
                         </p>
                         <p class="type-body-main-r">
-                            {{ t(`about.education.${selectedEducation.key}.field`) }}
+                            {{ educationTranslation("field") }}
                         </p>
                         <div :class="$style.educationFooter">
                             <p :class="$style.educationYears" class="type-body-main-r">
-                                {{ t(`about.education.${selectedEducation.key}.years`) }}
+                                {{ educationTranslation("years") }}
                             </p>
                             <div :class="$style.mobileEducationLanguage">
-                                <LanguageButton />
+                                <LanguageButton v-model="educationLocale" />
                             </div>
                         </div>
                     </div>
