@@ -10,7 +10,7 @@ import {
     tools,
     ux_ui,
 } from "@/config";
-import { onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
@@ -44,6 +44,31 @@ const skillGroups = [
     ux_ui,
     media_document,
 ];
+
+const educationEntries = [
+    {
+        key: "university",
+        label: "University",
+        image: "/images/education/KMUTT.jpeg",
+    },
+    {
+        key: "seniorHigh",
+        label: "Senior High",
+        image: "/images/education/BPK.jpg",
+    },
+    {
+        key: "foundation",
+        label: "Foundation",
+        image: "/images/education/KJR.jpg",
+    },
+] as const;
+
+type EducationKey = (typeof educationEntries)[number]["key"];
+
+const selectedEducationKey = ref<EducationKey>("university");
+const selectedEducation = computed(() => (
+    educationEntries.find((entry) => entry.key === selectedEducationKey.value) ?? educationEntries[0]
+));
 
 function fadeMusicTo(targetVolume: number): void {
     const audio = heroMusic.value;
@@ -217,8 +242,63 @@ onUnmounted(() => {
                     />
                 </div>
             </section>
-            <section >
+            <section :class="$style.educationSection" aria-label="Education">
                 <HeaderSection title="EDUCATION" />
+                <article :class="$style.educationCard" class="bg-main-surface text-text-secondary">
+                    <img
+                        :class="$style.educationImage"
+                        :src="selectedEducation.image"
+                        :alt="t(`about.education.${selectedEducation.key}.institution`)"
+                    >
+                    <div :class="$style.educationContent" class="bg-main-surface">
+                        <header :class="$style.heroHeader">
+                            <h3 class="type-subtitle-sb">
+                                {{ t(`about.education.${selectedEducation.key}.institution`) }}
+                            </h3>
+                            <div :class="$style.desktopEducationLanguage">
+                                <LanguageButton />
+                            </div>
+                        </header>
+                        <hr :class="$style.divider" class="border-main-divider">
+                        <p class="type-body-main-r">
+                            {{ t(`about.education.${selectedEducation.key}.degree`) }}
+                        </p>
+                        <p class="type-body-main-r">
+                            {{ t(`about.education.${selectedEducation.key}.field`) }}
+                        </p>
+                        <div :class="$style.educationFooter">
+                            <p :class="$style.educationYears" class="type-body-main-r">
+                                {{ t(`about.education.${selectedEducation.key}.years`) }}
+                            </p>
+                            <div :class="$style.mobileEducationLanguage">
+                                <LanguageButton />
+                            </div>
+                        </div>
+                    </div>
+                </article>
+                <div
+                    :class="$style.educationPicker"
+                    class=" text-text-primary"
+                    role="group"
+                    aria-label="Select education level"
+                >
+                    <template v-for="(entry, index) in educationEntries" :key="entry.key">
+                        <button
+                            type="button"
+                            :class="[
+                                $style.educationPickerButton,
+                                entry.key === selectedEducationKey ? 'type-button-sb' : 'type-button-r',
+                            ]"
+                            :aria-pressed="entry.key === selectedEducationKey"
+                            @click="selectedEducationKey = entry.key"
+                        >
+                            {{ entry.label }}
+                        </button>
+                        <span v-if="index < educationEntries.length - 1" class="type-button-r" aria-hidden="true">
+                            |
+                        </span>
+                    </template>
+                </div>
             </section>
         </div>
         <AppFooter />
@@ -286,7 +366,8 @@ onUnmounted(() => {
     gap: 20px;
 }
 
-.heroHeader h1 {
+.heroHeader h1,
+.heroHeader h3 {
     margin: 0;
 }
 
@@ -318,6 +399,85 @@ onUnmounted(() => {
     gap: var(--spacing-space-4);
 }
 
+.educationSection {
+    display: flex;
+    flex-direction: column;
+    width: min(100%, 1133px);
+    margin: 0 auto;
+    gap: var(--spacing-space-6);
+}
+
+.educationPicker {
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
+    width: fit-content;
+    margin: 0 auto;
+    padding: 10px;
+    gap: 10px;
+    border-radius: var(--radius-lg);
+}
+
+.educationPickerButton {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+
+.educationPickerButton:focus-visible {
+    border-radius: var(--radius-sm);
+    outline: 2px solid var(--color-text-primary);
+    outline-offset: 2px;
+}
+
+.educationCard {
+    overflow: hidden;
+    border-radius: var(--radius-2xl);
+}
+
+.educationImage {
+    display: block;
+    width: 100%;
+    height: 528px;
+    object-fit: cover;
+}
+
+.educationContent {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    box-sizing: border-box;
+    margin-top: -21px;
+    padding: var(--spacing-space-4);
+    gap: 10px;
+    border-radius: 0 0 var(--radius-2xl) var(--radius-2xl);
+}
+
+.educationContent h3,
+.educationContent p {
+    width: 100%;
+    margin: 0;
+}
+
+.educationFooter {
+    width: 100%;
+}
+
+.desktopEducationLanguage {
+    flex-shrink: 0;
+}
+
+.educationYears {
+    text-align: center;
+}
+
+.mobileEducationLanguage {
+    display: none;
+}
+
 @media (max-width: 767px) {
     .about {
         gap: var(--spacing-space-8);
@@ -335,6 +495,43 @@ onUnmounted(() => {
         grid-template-columns: 1fr;
         grid-auto-rows: auto;
         gap: var(--spacing-space-4);
+    }
+
+    .educationImage {
+        height: 255px;
+    }
+
+    .educationContent {
+        min-height: 205px;
+        margin-top: -26px;
+    }
+
+    .educationContent h3 {
+        font-size: 1rem;
+    }
+
+    .educationContent p {
+        font-size: 1.125rem;
+    }
+
+    .desktopEducationLanguage {
+        display: none;
+    }
+
+    .educationFooter {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: var(--spacing-space-5);
+    }
+
+    .educationFooter .educationYears {
+        width: auto;
+    }
+
+    .mobileEducationLanguage {
+        display: block;
+        flex-shrink: 0;
     }
 }
 
