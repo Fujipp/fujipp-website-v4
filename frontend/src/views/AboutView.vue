@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { AppFooter, HeaderSection, LanguageButton, SkillCard } from "@/components";
+import { AppFooter, Gallery, HeaderSection, LanguageButton, SkillCard } from "@/components";
 import {
     backend,
     database,
     devops,
     frontend as frontendSkills,
+    galleryImages,
     language,
     media_document,
     tools,
@@ -300,6 +301,10 @@ onUnmounted(() => {
                     </template>
                 </div>
             </section>
+            <section :class="$style.gallerySection" aria-label="Gallery">
+                <HeaderSection title="GALLERY" />
+                <Gallery :images="galleryImages" />
+            </section>
         </div>
         <AppFooter />
     </main>
@@ -400,6 +405,14 @@ onUnmounted(() => {
 }
 
 .educationSection {
+    display: flex;
+    flex-direction: column;
+    width: min(100%, 1133px);
+    margin: 0 auto;
+    gap: var(--spacing-space-6);
+}
+
+.gallerySection {
     display: flex;
     flex-direction: column;
     width: min(100%, 1133px);

@@ -11,3 +11,5 @@ export {
   media_document,
 } from "./skills";
 export type { Skills } from "./skills";
+export { galleryImages } from "./gallery";
+export type { GalleryImage } from "./gallery";
