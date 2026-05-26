@@ -22,10 +22,12 @@ const footerLinks = [
                 <template v-for="(link, index) in footerLinks" :key="link.to">
                     <RouterLink
                         :to="link.to"
-                        class="transition-colors hover:text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-main-primary">
-                        {{ link.label }}
+                        :class="$style.footerLink"
+                        :data-label="link.label"
+                        class="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-main-primary">
+                        <span>{{ link.label }}</span>
                     </RouterLink>
-                    <span v-if="index < footerLinks.length - 1" aria-hidden="true">
+                    <span v-if="index < footerLinks.length - 1" :class="$style.separator" aria-hidden="true">
                         |
                     </span>
                 </template>
@@ -70,6 +72,36 @@ const footerLinks = [
     align-items: center;
     padding: 10px;
     gap: 10px;
+    user-select: none;
+}
+
+.footerLink {
+    display: inline-grid;
+    color: inherit;
+    font-weight: 300;
+    transition: color 180ms ease;
+}
+
+.footerLink::after,
+.footerLink span {
+    grid-area: 1 / 1;
+}
+
+.footerLink::after {
+    visibility: hidden;
+    font-weight: 600;
+    content: attr(data-label);
+}
+
+.footerLink:hover,
+.footerLink:focus-visible {
+    color: var(--color-button-primary-btn-text-active);
+    font-weight: 600;
+}
+
+.separator {
+    flex-shrink: 0;
+    font-weight: 300;
 }
 
 .divider {
