@@ -1,0 +1,2 @@
+-- Seed data for local and preview databases only.
+-- Keep production data changes in application flows or reviewed migrations.
