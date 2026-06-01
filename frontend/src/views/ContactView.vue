@@ -280,7 +280,7 @@ onUnmounted(() => {
     overflow: hidden;
     border-radius: var(--radius-xl);
     background: var(--gradient-card-highlight);
-    transition: background 270ms ease, transform 240ms ease;
+    transition: background 700ms ease, transform 700ms ease;
 }
 
 .contactCard.open {
@@ -529,10 +529,10 @@ onUnmounted(() => {
     }
 
     .contactCard.open .cardDetails {
-        align-items: flex-start;
+        align-items: center;
         align-self: stretch;
-        justify-content: flex-start;
-        padding-top: 10px;
+        justify-content: center;
+        padding-bottom: 34px;
     }
 
     .contactAction:hover {
@@ -595,7 +595,7 @@ onUnmounted(() => {
     }
 
     .contactCard {
-        height: 485px;
+        height: clamp(520px, calc(100dvh - 360px), 600px);
     }
 
     .contactCard.open .cardToggle {
@@ -606,8 +606,8 @@ onUnmounted(() => {
     }
 
     .photoWrap {
-        width: min(293px, 100%);
-        height: 293px;
+        width: min(clamp(293px, 29dvh, 350px), 100%);
+        height: min(clamp(293px, 29dvh, 350px), 100%);
     }
 
     .cardDetails {

@@ -13,3 +13,15 @@ export {
 export type { Skills } from "./skills";
 export { galleryImages } from "./gallery";
 export type { GalleryImage } from "./gallery";
+export { aiModels } from "./ai";
+export type { Ai } from "./ai";
+export { getProjectById, projects } from "./projects";
+export type {
+  ProjectLocale,
+  ProjectLocalizedContent,
+  ProjectLink,
+  ProjectLinkType,
+  ProjectOverview,
+  ProjectRecord,
+  ProjectTechStack,
+} from "./projects";

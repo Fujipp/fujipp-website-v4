@@ -3,6 +3,8 @@ import type { RouteLocationRaw } from "vue-router";
 
 interface Props {
     disabled?: boolean;
+    href?: string;
+    icon?: string;
     to?: RouteLocationRaw;
     type?: "button" | "submit" | "reset";
 }
@@ -17,11 +19,22 @@ const buttonClasses =
 </script>
 
 <template>
+    <a
+        v-if="href"
+        :class="[$style.primaryButton, buttonClasses]"
+        :href="href"
+        target="_blank"
+        rel="noopener noreferrer"
+    >
+        <img v-if="icon" :class="$style.leftIcon" :src="icon" alt="" aria-hidden="true">
+        <slot />
+    </a>
     <RouterLink
-        v-if="to"
+        v-else-if="to"
         :class="[$style.primaryButton, buttonClasses]"
         :to="to"
     >
+        <img v-if="icon" :class="$style.leftIcon" :src="icon" alt="" aria-hidden="true">
         <slot />
     </RouterLink>
     <button
@@ -31,6 +44,7 @@ const buttonClasses =
         :class="[$style.primaryButton, buttonClasses]"
         class="disabled:cursor-not-allowed disabled:bg-button-primary-btn-disabled"
     >
+        <img v-if="icon" :class="$style.leftIcon" :src="icon" alt="" aria-hidden="true">
         <slot />
     </button>
 </template>
@@ -43,6 +57,14 @@ const buttonClasses =
     box-sizing: border-box;
     width: 160px;
     height: 48px;
+    gap: 8px;
     text-decoration: none;
+}
+
+.leftIcon {
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+    object-fit: contain;
 }
 </style>

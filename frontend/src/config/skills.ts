@@ -19,8 +19,10 @@ export const language = [
 export const frontend = [
   { label: "FRONTEND", icon: "/images/icons/stacks/frontend/lsicon_computer-outline.svg" },
   { label: "VUE.JS", icon: "/images/icons/stacks/frontend/material-icon-theme_vue.svg" },
+  { label: "VITE.JS", icon: "/images/icons/stacks/frontend/vite.svg" },
   { label: "REACT", icon: "/images/icons/stacks/frontend/devicon_react.svg" },
   { label: "TAILWIND CSS", icon: "/images/icons/stacks/frontend/devicon_tailwindcss.svg" },
+  { label: "BUN", icon: "/images/icons/stacks/frontend/bun.svg" },
   { label: "NODE.JS", icon: "/images/icons/stacks/frontend/vscode-icons_file-type-node.svg" },
   
 ] satisfies readonly Skills[];
