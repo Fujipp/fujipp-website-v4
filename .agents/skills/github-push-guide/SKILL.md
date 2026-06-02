@@ -36,6 +36,15 @@ Do not stage:
 
 3. Group related changes by scope. Split unrelated folder work into separate commits; keep cross-folder files together only when they are inseparable parts of one behavior.
 
+If the worktree contains both feature code and a skill or instruction update, commit them separately so each change is easy to review and revert.
+
+When the user asks to "push" changes, prefer this order:
+
+1. Inspect the working tree and identify each scope.
+2. Stage only one scope at a time.
+3. Commit each scope with a Conventional Commit message that matches the folder or purpose.
+4. Push after every logical commit, or after the final grouped commit if multiple scopes are intentionally part of one change request.
+
 | Path | Scope | Example |
 | --- | --- | --- |
 | `frontend/` | `frontend` | `feat(frontend): add dashboard navigation` |

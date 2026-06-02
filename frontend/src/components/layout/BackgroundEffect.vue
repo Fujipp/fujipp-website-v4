@@ -18,6 +18,9 @@
     z-index: -1;
     position: fixed;
     inset: 0;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
     overflow: hidden;
     background-color: var(--color-main-background);
     transition: background-color 0.5s ease;
