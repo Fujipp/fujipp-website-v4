@@ -13,6 +13,7 @@ export const language = [
   { label: "JAVA", icon: "/images/icons/stacks/language/devicon_java.svg" },
   { label: "SQL", icon: "/images/icons/stacks/language/ph_file-sql-light.svg" },
   { label: "SHELL / BASH", icon: "/images/icons/stacks/language/ion_terminal-sharp.svg" },
+  { label: "DART", icon: "/images/icons/stacks/language/dart.svg" },
   { label: "LUA", icon: "/images/icons/stacks/language/material-icon-theme_lua.svg" },
 ] satisfies readonly Skills[];
 
@@ -20,6 +21,7 @@ export const frontend = [
   { label: "FRONTEND", icon: "/images/icons/stacks/frontend/lsicon_computer-outline.svg" },
   { label: "VUE.JS", icon: "/images/icons/stacks/frontend/material-icon-theme_vue.svg" },
   { label: "VITE.JS", icon: "/images/icons/stacks/frontend/vite.svg" },
+  { label: "FLUTTER", icon: "/images/icons/stacks/frontend/flutter.svg" },
   { label: "REACT", icon: "/images/icons/stacks/frontend/devicon_react.svg" },
   { label: "TAILWIND CSS", icon: "/images/icons/stacks/frontend/devicon_tailwindcss.svg" },
   { label: "BUN", icon: "/images/icons/stacks/frontend/bun.svg" },

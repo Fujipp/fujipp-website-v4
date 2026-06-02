@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import { ImageModal } from "@/components/ui/modals";
 
 interface Props {
     images: readonly string[];
@@ -8,6 +9,7 @@ interface Props {
 
 const props = defineProps<Props>();
 const activeIndex = ref(0);
+const isImageModalOpen = ref(false);
 
 const visibleImages = computed(() => props.images.slice(0, 5));
 const activeImage = computed(() => visibleImages.value[activeIndex.value] ?? "");
@@ -20,14 +22,33 @@ watch(visibleImages, (images) => {
 </script>
 
 <template>
-    <section :class="$style.gallery" :aria-label="`${projectName} gallery`">
-        <img
-            :class="$style.mainImage"
-            :src="activeImage"
-            :alt="`${projectName} preview ${activeIndex + 1}`"
-            draggable="false"
+    <section
+        :class="[$style.gallery, visibleImages.length < 2 ? $style.singleColumnGallery : '']"
+        :aria-label="`${projectName} gallery`"
+    >
+        <button
+            v-if="activeImage"
+            type="button"
+            :class="$style.mainImageButton"
+            :aria-label="`Open ${projectName} preview ${activeIndex + 1}`"
+            @click="isImageModalOpen = true"
         >
-        <div :class="$style.thumbnailList">
+            <img
+                :class="$style.mainImage"
+                :src="activeImage"
+                :alt="`${projectName} preview ${activeIndex + 1}`"
+                draggable="false"
+            >
+        </button>
+        <div
+            v-else
+            :class="[$style.mainImage, $style.placeholder]"
+            role="img"
+            :aria-label="`${projectName} has no gallery image`"
+        >
+            <img src="/images/icons/assets/gallery.svg" alt="" aria-hidden="true">
+        </div>
+        <div v-if="visibleImages.length > 1" :class="$style.thumbnailList">
             <button
                 v-for="(image, index) in visibleImages"
                 v-show="index !== activeIndex"
@@ -45,6 +66,12 @@ watch(visibleImages, (images) => {
                 >
             </button>
         </div>
+        <ImageModal
+            v-if="isImageModalOpen && activeImage"
+            :src="activeImage"
+            :alt="`${projectName} preview ${activeIndex + 1}`"
+            @close="isImageModalOpen = false"
+        />
     </section>
 </template>
 
@@ -57,26 +84,62 @@ watch(visibleImages, (images) => {
     gap: var(--spacing-space-6);
 }
 
-.mainImage {
+.mainImage,
+.mainImageButton {
     width: 100%;
-    height: 588px;
+    height: auto;
+    aspect-ratio: 16 / 9;
     border-radius: var(--radius-2xl);
+}
+
+.mainImage {
     object-fit: cover;
     user-select: none;
     -webkit-user-drag: none;
+}
+
+.mainImageButton {
+    display: block;
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    background-color: transparent;
+    cursor: zoom-in;
+}
+
+.mainImageButton:focus-visible {
+    outline: 2px solid var(--color-main-primary);
+    outline-offset: 2px;
+}
+
+.singleColumnGallery {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--color-main-surface);
+}
+
+.placeholder img {
+    width: var(--spacing-space-16);
+    height: var(--spacing-space-16);
 }
 
 .thumbnailList {
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: var(--spacing-space-10);
+    gap: var(--spacing-space-4);
 }
 
 .thumbnailButton {
     display: block;
     width: 100%;
-    height: 117px;
+    height: auto;
+    aspect-ratio: 16 / 9;
     min-width: 0;
     flex-shrink: 0;
     padding: 0;
@@ -115,11 +178,6 @@ watch(visibleImages, (images) => {
         gap: var(--spacing-space-6);
     }
 
-    .mainImage {
-        height: auto;
-        aspect-ratio: 409 / 434;
-    }
-
     .thumbnailList {
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -130,7 +188,6 @@ watch(visibleImages, (images) => {
     .thumbnailButton {
         width: auto;
         height: auto;
-        aspect-ratio: 116 / 72;
     }
 }
 </style>

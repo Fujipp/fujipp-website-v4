@@ -1,24 +1,39 @@
 <script setup lang="ts">
+import { computed, onMounted } from "vue";
+import { storeToRefs } from "pinia";
 import { useRouter } from "vue-router";
-import { AiCard, AppFooter, FeaturedProjectCard, HeaderSection, ProjectTable } from "@/components";
+import { AiCard, AppFooter, FeaturedProjectCard, HeaderSection, PrimaryButton, ProjectTable } from "@/components";
 import type { ProjectTableRow } from "@/components";
-import { aiModels, projects } from "@/config";
+import { aiModels } from "@/config";
+import { useProjectStore, useUserStore } from "@/stores";
 
 const router = useRouter();
+const userStore = useUserStore();
+const { isAdmin } = storeToRefs(userStore);
+const projectStore = useProjectStore();
+const { projects } = storeToRefs(projectStore);
 
-const featuredProjects = projects.slice(0, 3);
+const featuredProjects = computed(() => projects.value.filter((project) => project.featured).slice(0, 3));
 
-const projectRows = projects.map((project) => ({
+const projectRows = computed(() => projects.value.map((project) => ({
     id: project.id,
     projectName: project.content.en.projectName,
     description: project.content.en.descriptionShort,
     stack: project.stack,
     category: project.category,
     status: project.status,
-})) satisfies readonly ProjectTableRow[];
+})) satisfies readonly ProjectTableRow[]);
+
+onMounted(() => {
+    void projectStore.fetchProjects();
+});
 
 function openProject(row: ProjectTableRow): void {
     void router.push({ name: "project-detail", params: { projectId: row.id } });
+}
+
+function openNewProject(): void {
+    void router.push({ name: "project-new" });
 }
 </script>
 
@@ -27,6 +42,9 @@ function openProject(row: ProjectTableRow): void {
         <div :class="$style.projectsContainer">
             <section :class="$style.featuredSection" aria-label="Featured projects">
                 <HeaderSection title="FEATURED" />
+                <div v-if="isAdmin" :class="$style.featuredActions">
+                    <PrimaryButton>Edit</PrimaryButton>
+                </div>
                 <div :class="$style.featuredGrid">
                     <FeaturedProjectCard
                         v-for="project in featuredProjects"
@@ -43,7 +61,12 @@ function openProject(row: ProjectTableRow): void {
 
             <section :class="$style.tableSection" aria-label="All projects">
                 <HeaderSection title="PROJECTS" />
-                <ProjectTable :rows="projectRows" @row-click="openProject" />
+                <ProjectTable
+                    :rows="projectRows"
+                    :show-admin-actions="isAdmin"
+                    @add="openNewProject"
+                    @row-click="openProject"
+                />
             </section>
 
             <section :class="$style.aiSection" aria-label="AI skills">
@@ -116,6 +139,11 @@ function openProject(row: ProjectTableRow): void {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: var(--spacing-space-4);
+}
+
+.featuredActions {
+    display: flex;
+    justify-content: center;
 }
 
 @media (max-width: 767px) {

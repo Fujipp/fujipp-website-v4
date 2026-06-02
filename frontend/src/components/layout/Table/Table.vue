@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
-import { FilterButton, TableNextBackButton } from "@/components/ui/buttons";
+import { ActionButton, FilterButton, TableNextBackButton } from "@/components/ui/buttons";
 import { TableStatus } from "@/components/ui/tags";
 import { SearchText } from "@/components/ui/text";
 
@@ -19,14 +19,17 @@ interface Props {
     itemsPerPage?: number;
     rows: readonly ProjectTableRow[];
     searchPlaceholder?: string;
+    showAdminActions?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
     itemsPerPage: 5,
     searchPlaceholder: "Search",
+    showAdminActions: false,
 });
 
 const emit = defineEmits<{
+    add: [];
     filter: [];
     next: [];
     previous: [];
@@ -154,57 +157,65 @@ onUnmounted(() => {
 <template>
     <section :class="$style.projectTable" aria-label="Projects table">
         <nav :class="$style.tableNav" aria-label="Project table controls">
-            <div ref="filterWrap" :class="$style.filterWrap">
-                <FilterButton
-                    :label="activeFilterCount ? `Filter (${activeFilterCount})` : 'Filter'"
-                    :open="isFilterOpen"
-                    @click="isFilterOpen = !isFilterOpen; emit('filter')"
-                />
-                <div v-if="isFilterOpen" :class="$style.filterMenu" class="type-overline-r">
-                    <section :class="$style.filterGroup">
-                        <header :class="$style.filterGroupTitle" class="type-overline-sb">Category</header>
-                        <label
-                            v-for="category in categoryOptions"
-                            :key="category"
-                            :class="$style.checkboxRow"
-                        >
-                            <input
-                                :class="$style.checkboxInput"
-                                type="checkbox"
-                                :checked="selectedCategories.includes(category)"
-                                @change="toggleCategory(category)"
+            <div :class="$style.filterActions">
+                <div ref="filterWrap" :class="$style.filterWrap">
+                    <FilterButton
+                        :label="activeFilterCount ? `Filter (${activeFilterCount})` : 'Filter'"
+                        :open="isFilterOpen"
+                        @click="isFilterOpen = !isFilterOpen; emit('filter')"
+                    />
+                    <div v-if="isFilterOpen" :class="$style.filterMenu" class="type-overline-r">
+                        <section :class="$style.filterGroup">
+                            <header :class="$style.filterGroupTitle" class="type-overline-sb">Category</header>
+                            <label
+                                v-for="category in categoryOptions"
+                                :key="category"
+                                :class="$style.checkboxRow"
                             >
-                            <span :class="$style.checkboxBox" aria-hidden="true" />
-                            <span>{{ category }}</span>
-                        </label>
-                    </section>
-                    <section :class="$style.filterGroup">
-                        <header :class="$style.filterGroupTitle" class="type-overline-sb">Status</header>
-                        <label
-                            v-for="status in statusOptions"
-                            :key="status"
-                            :class="$style.checkboxRow"
-                        >
-                            <input
-                                :class="$style.checkboxInput"
-                                type="checkbox"
-                                :checked="selectedStatuses.includes(status)"
-                                @change="toggleStatus(status)"
+                                <input
+                                    :class="$style.checkboxInput"
+                                    type="checkbox"
+                                    :checked="selectedCategories.includes(category)"
+                                    @change="toggleCategory(category)"
+                                >
+                                <span :class="$style.checkboxBox" aria-hidden="true" />
+                                <span>{{ category }}</span>
+                            </label>
+                        </section>
+                        <section :class="$style.filterGroup">
+                            <header :class="$style.filterGroupTitle" class="type-overline-sb">Status</header>
+                            <label
+                                v-for="status in statusOptions"
+                                :key="status"
+                                :class="$style.checkboxRow"
                             >
-                            <span :class="$style.checkboxBox" aria-hidden="true" />
-                            <span>{{ status }}</span>
-                        </label>
-                    </section>
-                    <button
-                        v-if="activeFilterCount"
-                        :class="$style.clearButton"
-                        class="type-overline-sb"
-                        type="button"
-                        @click="clearFilters"
-                    >
-                        Clear filters
-                    </button>
+                                <input
+                                    :class="$style.checkboxInput"
+                                    type="checkbox"
+                                    :checked="selectedStatuses.includes(status)"
+                                    @change="toggleStatus(status)"
+                                >
+                                <span :class="$style.checkboxBox" aria-hidden="true" />
+                                <span>{{ status }}</span>
+                            </label>
+                        </section>
+                        <button
+                            v-if="activeFilterCount"
+                            :class="$style.clearButton"
+                            class="type-overline-sb"
+                            type="button"
+                            @click="clearFilters"
+                        >
+                            Clear filters
+                        </button>
+                    </div>
                 </div>
+                <ActionButton
+                    v-if="showAdminActions"
+                    variant="add"
+                    aria-label="Add project"
+                    @click="emit('add')"
+                />
             </div>
             <SearchText v-model="searchQuery" :placeholder="searchPlaceholder" />
         </nav>
@@ -322,6 +333,12 @@ onUnmounted(() => {
 .filterWrap {
     position: relative;
     z-index: 2;
+}
+
+.filterActions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .filterMenu {

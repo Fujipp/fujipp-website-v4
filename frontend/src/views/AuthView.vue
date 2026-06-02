@@ -24,6 +24,12 @@ const confirmPassword = ref('')
 const rememberMe      = ref(false)
 const pwMismatch      = ref(false)
 const showPassword    = ref(false)
+const redirectAfterAuth = computed(() => {
+  const redirect = route.query.redirect
+  return typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//')
+    ? redirect
+    : '/'
+})
 
 const ICONS = {
   github:   '/images/icons/auth/mdi_github.svg',
@@ -47,24 +53,24 @@ function switchMode(m: AuthMode) {
   username.value = password.value = confirmPassword.value = ''
   pwMismatch.value = false
   showPassword.value = false
-  router.push({ name: m })
+  router.push({ name: m, query: route.query })
 }
 
 // ─── Actions ──────────────────────────────────────────────────────────────────
 async function handleOAuth(provider: 'google' | 'discord' | 'github') {
-  await store.signInWithOAuth(provider)
+  await store.signInWithOAuth(provider, redirectAfterAuth.value)
 }
 
 async function handleSubmit() {
   if (isSubmitDisabled.value) return
   if (mode.value === 'login') {
     const ok = await store.signInWithUsername(username.value.trim(), password.value)
-    if (ok) router.push({ name: 'home' })
+    if (ok) router.push(redirectAfterAuth.value)
   } else {
     if (password.value !== confirmPassword.value) { pwMismatch.value = true; return }
     pwMismatch.value = false
     const ok = await store.signUpWithUsername(username.value.trim(), password.value)
-    if (ok) router.push({ name: 'home' })
+    if (ok) router.push(redirectAfterAuth.value)
   }
 }
 </script>
