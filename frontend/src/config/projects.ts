@@ -18,7 +18,7 @@ export interface ProjectLocalizedContent {
   whatILearned: readonly ProjectStructuredItem[];
 }
 
-export type ProjectLinkType = "github" | "youtube";
+export type ProjectLinkType = "github" | "youtube" | "certificate" | "figma";
 
 export interface ProjectLink {
   type: ProjectLinkType;
@@ -40,6 +40,19 @@ export interface ProjectTechStack {
   language: readonly string[];
 }
 
+export interface ProjectTimelineMilestone {
+  date: string;
+  description: string;
+  title: string;
+}
+
+export interface ProjectTimeline {
+  endDate: string;
+  milestones: readonly ProjectTimelineMilestone[];
+  startDate: string;
+  status: "Completed" | "In Progress" | "On Hold";
+}
+
 export interface ProjectRecord {
   architectureImage: string;
   category: string;
@@ -55,6 +68,7 @@ export interface ProjectRecord {
   stackGroups: readonly ["frontend", "backend", "database"];
   status: ProjectStatus;
   techStack: ProjectTechStack;
+  timeline: ProjectTimeline;
 }
 
 // Populated from Supabase after the project query layer is connected.

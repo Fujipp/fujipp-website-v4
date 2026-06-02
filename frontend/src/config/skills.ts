@@ -12,6 +12,8 @@ export const language = [
   { label: "TYPESCRIPT", icon: "/images/icons/stacks/language/devicon_typescript.svg" },
   { label: "JAVA", icon: "/images/icons/stacks/language/devicon_java.svg" },
   { label: "SQL", icon: "/images/icons/stacks/language/ph_file-sql-light.svg" },
+  { label: "XML", icon: "/images/icons/stacks/language/ix_xml-document.svg" },
+  { label: "JSON", icon: "/images/icons/stacks/language/ix_json-document.svg"},
   { label: "SHELL / BASH", icon: "/images/icons/stacks/language/ion_terminal-sharp.svg" },
   { label: "DART", icon: "/images/icons/stacks/language/dart.svg" },
   { label: "LUA", icon: "/images/icons/stacks/language/material-icon-theme_lua.svg" },
@@ -53,6 +55,9 @@ export const devops = [
   { label: "PM2", icon: "/images/icons/stacks/devops/devicon_pm2.svg" },
   { label: "NGINX", icon: "/images/icons/stacks/devops/material-icon-theme_nginx.svg" },
   { label: "LINUX SERVER", icon: "/images/icons/stacks/devops/simple-icons_linuxserver.svg" },
+  { label: "NIFI", icon: "/images/icons/stacks/devops/nifi.svg" },
+  { label: "LINUX", icon: "/images/icons/stacks/devops/devicon_linux.svg" },
+  { label: "MAVEN", icon: "/images/icons/stacks/devops/devicon_maven.svg" },
 ] satisfies readonly Skills[];
 
 export const tools = [
@@ -79,4 +84,19 @@ export const media_document = [
   { label: "MICROSOFT WORD", icon: "/images/icons/stacks/meadia/vscode-icons_file-type-word.svg" },
   { label: "POWERPOINT", icon: "/images/icons/stacks/meadia/vscode-icons_file-type-powerpoint.svg" },
   { label: "MICROSOFT EXCEL", icon: "/images/icons/stacks/meadia/vscode-icons_file-type-excel.svg" },
+] satisfies readonly Skills[];
+
+export const externalService = [
+  { label: "EXTERNAL SERVICE", icon: "/images/icons/stacks/material-symbols_code.svg" },
+  { label: "GOOGLE AUTH", icon: "/images/icons/stacks/service/google.svg" },
+  { label: "CLOUDINARY", icon: "/images/icons/stacks/service/cloudinary.svg" },
+  { label: "GEMINI API", icon: "/images/icons/stacks/ai/gemini.svg" },
+  { label: "OPEN ROUTER", icon: "/images/icons/stacks/service/openrouter.svg" },
+  { label: "EMAIL SERVICE", icon: "/images/icons/stacks/service/email-service.svg" },
+  { label: "ETAX SIGN", icon: "/images/icons/stacks/service/etax-sign.svg" },
+  { label: "ETAX SENDER", icon: "/images/icons/stacks/service/etax-sender.svg" },
+  { label: "HSM", icon: "/images/icons/stacks/service/hardware-security-module.svg" },
+  { label: "IAPP", icon: "/images/icons/stacks/service/iapp.svg" },
+  { label: "SMS GATEWAY", icon: "/images/icons/stacks/service/sms-gateway.svg" },
+  { label: "THAI SMS", icon: "/images/icons/stacks/service/thaisms.svg" },
 ] satisfies readonly Skills[];

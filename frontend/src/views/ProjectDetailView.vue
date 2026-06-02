@@ -3,7 +3,7 @@ import { computed, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useRoute, useRouter } from "vue-router";
 import { ActionButton, AppFooter, DeleteModal, HeaderSection, ImageModal, LanguageButton, PrimaryButton, ProjectImage } from "@/components";
-import { backend, database, devops, frontend, language } from "@/config";
+import { backend, database, devops, frontend, language, externalService } from "@/config";
 import type { ProjectLinkType, ProjectLocale } from "@/config";
 import { useProjectStore, useUserStore } from "@/stores";
 
@@ -22,6 +22,25 @@ const project = computed(() => (
 ));
 const content = computed(() => project.value?.content[locale.value]);
 const projectNumber = computed(() => String(project.value?.id ?? "").slice(0, 8).toUpperCase());
+const timeline = computed(() => project.value?.timeline);
+const hasTimeline = computed(() => Boolean(
+    timeline.value?.startDate ||
+    timeline.value?.endDate ||
+    timeline.value?.milestones.length,
+));
+const timelineDuration = computed(() => {
+    if (!timeline.value?.startDate) return "";
+
+    const start = parseTimelineMonth(timeline.value.startDate);
+    const end = parseTimelineMonth(timeline.value.endDate) ?? new Date();
+
+    if (!start) return "";
+
+    const months = ((end.getFullYear() - start.getFullYear()) * 12) + end.getMonth() - start.getMonth() + 1;
+
+    if (months <= 0) return "";
+    return months === 1 ? "1 month" : `${months} months`;
+});
 
 interface TechStackItem {
     icon: string;
@@ -38,6 +57,7 @@ const stackCatalog = {
     frontend,
     backend,
     database,
+    externalService,
     devops,
 } as const;
 
@@ -49,6 +69,14 @@ const projectLinkMeta: Record<ProjectLinkType, { icon: string; label: string }> 
     youtube: {
         icon: "/images/icons/assets/youtube.svg",
         label: "YOUTUBE",
+    },
+    certificate: {
+        icon: "/images/icons/assets/certificate.svg",
+        label: "CERTIFICATE",
+    },
+    figma: {
+        icon: "/images/icons/stacks/ux_ui/devicon_figma.svg",
+        label: "FIGMA",
     },
 };
 
@@ -95,7 +123,7 @@ const techStackGroups = computed<TechStackGroup[]>(() => {
         { label: "FRONTEND", items: resolveStackItems(project.value.techStack.frontend, stackCatalog.frontend) },
         { label: "BACKEND", items: resolveStackItems(project.value.techStack.backend, stackCatalog.backend) },
         { label: "DATABASE", items: resolveStackItems(project.value.techStack.database, stackCatalog.database) },
-        { label: "EXTERNAL SERVICE", items: [] },
+        { label: "EXTERNAL SERVICE", items: resolveStackItems(project.value.techStack.externalService, stackCatalog.externalService) },
         { label: "DEVOPS", items: resolveStackItems(project.value.techStack.devops, stackCatalog.devops) },
     ];
 
@@ -113,6 +141,21 @@ function editProject(): void {
 
 function openImageModal(src: string, alt: string): void {
     expandedImage.value = { alt, src };
+}
+
+function parseTimelineMonth(value: string): Date | null {
+    const match = /^(\d{4})-(\d{2})$/.exec(value);
+
+    if (!match) return null;
+    return new Date(Number(match[1]), Number(match[2]) - 1, 1);
+}
+
+function formatTimelineMonth(value: string): string {
+    const date = parseTimelineMonth(value);
+
+    return date
+        ? new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric" }).format(date)
+        : value;
 }
 
 async function deleteProject(): Promise<void> {
@@ -193,6 +236,28 @@ async function deleteProject(): Promise<void> {
                                     {{ role }}
                                 </span>
                             </div>
+                            <section v-if="hasTimeline && timeline" :class="$style.timelinePanel" aria-label="Project timeline">
+                                <div :class="$style.timelineHeader">
+                                    <h3 class="type-caption-sb">PROJECT TIMELINE</h3>
+                                    <span :class="$style.timelineStatus" class="type-overline-sb">{{ timeline.status }}</span>
+                                </div>
+                                <div :class="$style.timelineSummary" class="type-overline-r">
+                                    <span v-if="timeline.startDate">{{ formatTimelineMonth(timeline.startDate) }}</span>
+                                    <span v-if="timeline.startDate && timeline.endDate" aria-hidden="true">→</span>
+                                    <span v-if="timeline.endDate">{{ formatTimelineMonth(timeline.endDate) }}</span>
+                                    <strong v-if="timelineDuration">{{ timelineDuration }}</strong>
+                                </div>
+                                <ol v-if="timeline.milestones.length" :class="$style.timelineList">
+                                    <li v-for="milestone in timeline.milestones" :key="`${milestone.date}-${milestone.title}`">
+                                        <span :class="$style.timelineDot" aria-hidden="true" />
+                                        <div>
+                                            <time class="type-overline-sb">{{ formatTimelineMonth(milestone.date) }}</time>
+                                            <h4 class="type-caption-sb">{{ milestone.title }}</h4>
+                                            <p v-if="milestone.description" class="type-overline-r">{{ milestone.description }}</p>
+                                        </div>
+                                    </li>
+                                </ol>
+                            </section>
                             <div :class="$style.overviewNote">
                                 <h3 :class="$style.noteTitle" class="type-caption-sb">
                                     <img src="/images/icons/sidebar/about.svg" alt="" aria-hidden="true">
@@ -233,6 +298,28 @@ async function deleteProject(): Promise<void> {
                                 {{ role }}
                             </span>
                         </div>
+                        <section v-if="hasTimeline && timeline" :class="$style.timelinePanel" aria-label="Project timeline">
+                            <div :class="$style.timelineHeader">
+                                <h3 class="type-caption-sb">PROJECT TIMELINE</h3>
+                                <span :class="$style.timelineStatus" class="type-overline-sb">{{ timeline.status }}</span>
+                            </div>
+                            <div :class="$style.timelineSummary" class="type-overline-r">
+                                <span v-if="timeline.startDate">{{ formatTimelineMonth(timeline.startDate) }}</span>
+                                <span v-if="timeline.startDate && timeline.endDate" aria-hidden="true">→</span>
+                                <span v-if="timeline.endDate">{{ formatTimelineMonth(timeline.endDate) }}</span>
+                                <strong v-if="timelineDuration">{{ timelineDuration }}</strong>
+                            </div>
+                            <ol v-if="timeline.milestones.length" :class="$style.timelineList">
+                                <li v-for="milestone in timeline.milestones" :key="`${milestone.date}-${milestone.title}`">
+                                    <span :class="$style.timelineDot" aria-hidden="true" />
+                                    <div>
+                                        <time class="type-overline-sb">{{ formatTimelineMonth(milestone.date) }}</time>
+                                        <h4 class="type-caption-sb">{{ milestone.title }}</h4>
+                                        <p v-if="milestone.description" class="type-overline-r">{{ milestone.description }}</p>
+                                    </div>
+                                </li>
+                            </ol>
+                        </section>
                         <div :class="$style.overviewNote">
                             <h3 :class="$style.noteTitle" class="type-caption-sb">
                                 <img src="/images/icons/sidebar/about.svg" alt="" aria-hidden="true">
@@ -826,6 +913,79 @@ async function deleteProject(): Promise<void> {
     padding: 6px 10px;
     border: 1px solid var(--color-main-border);
     border-radius: var(--radius-full);
+}
+
+.timelinePanel {
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    gap: 8px;
+    border: 1px solid var(--color-main-border);
+    border-radius: var(--radius-xl);
+}
+
+.timelineHeader,
+.timelineSummary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.timelineHeader h3,
+.timelineList,
+.timelineList h4,
+.timelineList p {
+    margin: 0;
+}
+
+.timelineStatus {
+    padding: 4px 8px;
+    border-radius: var(--radius-full);
+    background-color: var(--color-main-primary);
+    color: var(--color-button-primary-btn-text-active);
+}
+
+.timelineSummary strong {
+    margin-left: auto;
+    color: var(--color-main-primary);
+}
+
+.timelineList {
+    display: flex;
+    flex-direction: column;
+    padding: 2px 0 0 16px;
+    gap: 10px;
+    list-style: none;
+}
+
+.timelineList li {
+    position: relative;
+    padding-left: 14px;
+}
+
+.timelineList li:not(:last-child)::before {
+    position: absolute;
+    top: 10px;
+    bottom: -12px;
+    left: -1px;
+    width: 1px;
+    background-color: var(--color-main-primary);
+    content: "";
+}
+
+.timelineDot {
+    position: absolute;
+    top: 5px;
+    left: -5px;
+    width: 9px;
+    height: 9px;
+    border-radius: var(--radius-full);
+    background-color: var(--color-main-primary);
+}
+
+.timelineList time {
+    color: var(--color-main-primary);
 }
 
 .desktopArchitectureStack {

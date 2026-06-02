@@ -9,6 +9,7 @@ export {
   tools,
   ux_ui,
   media_document,
+  externalService,
 } from "./skills";
 export type { Skills } from "./skills";
 export { galleryImages } from "./gallery";
