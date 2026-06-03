@@ -1,19 +1,30 @@
 <script setup lang="ts">
-import { computed, onMounted } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { storeToRefs } from "pinia";
 import { useRouter } from "vue-router";
-import { AiCard, AppFooter, FeaturedProjectCard, HeaderSection, PrimaryButton, ProjectTable } from "@/components";
+import { AiCard, AppFooter, FeaturedProjectCard, FeatureModal, HeaderSection, PrimaryButton, ProjectTable, StatusToast } from "@/components";
 import type { ProjectTableRow } from "@/components";
 import { aiModels } from "@/config";
 import { useProjectStore, useUserStore } from "@/stores";
+import type { FeaturedProjectId } from "@/stores";
+
+type ToastStatus = "success" | "warning" | "error";
 
 const router = useRouter();
 const userStore = useUserStore();
 const { isAdmin } = storeToRefs(userStore);
 const projectStore = useProjectStore();
-const { projects } = storeToRefs(projectStore);
+const { error, isLoading, projects } = storeToRefs(projectStore);
+const isFeatureModalOpen = ref(false);
+const featuredProjectIds = ref<FeaturedProjectId[]>([]);
+const featureError = ref<string | null>(null);
+const toast = ref<{ description: string; status: ToastStatus; title: string } | null>(null);
+let toastTimeout: ReturnType<typeof setTimeout> | undefined;
 
-const featuredProjects = computed(() => projects.value.filter((project) => project.featured).slice(0, 3));
+const featuredProjects = computed(() => projects.value
+    .filter((project) => project.featured)
+    .sort((left, right) => (left.featuredOrder ?? 999) - (right.featuredOrder ?? 999))
+    .slice(0, 3));
 
 const projectRows = computed(() => projects.value.map((project) => ({
     id: project.id,
@@ -25,7 +36,7 @@ const projectRows = computed(() => projects.value.map((project) => ({
 })) satisfies readonly ProjectTableRow[]);
 
 onMounted(() => {
-    void projectStore.fetchProjects();
+    void projectStore.fetchProjects().catch(() => undefined);
 });
 
 function openProject(row: ProjectTableRow): void {
@@ -35,15 +46,67 @@ function openProject(row: ProjectTableRow): void {
 function openNewProject(): void {
     void router.push({ name: "project-new" });
 }
+
+function openFeatureModal(): void {
+    featuredProjectIds.value = featuredProjects.value.map((project) => project.id);
+    featureError.value = null;
+    isFeatureModalOpen.value = true;
+}
+
+async function saveFeaturedProjects(projectIds: FeaturedProjectId[]): Promise<void> {
+    featureError.value = null;
+
+    try {
+        await projectStore.updateFeaturedProjects(projectIds);
+        await projectStore.fetchProjects();
+        isFeatureModalOpen.value = false;
+        showToast(
+            "Featured projects updated",
+            "The featured section has been saved successfully.",
+            "success",
+        );
+    } catch (cause) {
+        const message = cause instanceof Error ? cause.message : "Unable to update featured projects.";
+        featureError.value = message;
+        showToast("Unable to update featured projects", message, "error");
+    }
+}
+
+function showToast(title: string, description: string, status: ToastStatus): void {
+    closeToast();
+    toast.value = { description, status, title };
+    toastTimeout = setTimeout(closeToast, status === "success" ? 2400 : 5000);
+}
+
+function closeToast(): void {
+    if (toastTimeout) {
+        clearTimeout(toastTimeout);
+        toastTimeout = undefined;
+    }
+
+    toast.value = null;
+}
+
+onUnmounted(() => {
+    closeToast();
+});
 </script>
 
 <template>
     <main :class="$style.projects" class="pt-22">
+        <div v-if="toast" :class="$style.toastViewport">
+            <StatusToast
+                :title="toast.title"
+                :description="toast.description"
+                :status="toast.status"
+                @close="closeToast"
+            />
+        </div>
         <div :class="$style.projectsContainer">
             <section :class="$style.featuredSection" aria-label="Featured projects">
                 <HeaderSection title="FEATURED" />
                 <div v-if="isAdmin" :class="$style.featuredActions">
-                    <PrimaryButton>Edit</PrimaryButton>
+                    <PrimaryButton @click="openFeatureModal">Edit</PrimaryButton>
                 </div>
                 <div :class="$style.featuredGrid">
                     <FeaturedProjectCard
@@ -53,6 +116,7 @@ function openNewProject(): void {
                         :description-short="project.content.en.descriptionShort"
                         :project-name="project.content.en.projectName"
                         :stack-groups="project.stackGroups"
+                        :tech-stack="project.techStack"
                         :thumbnail-src="project.gallery[0] ?? ''"
                         :to="{ name: 'project-detail', params: { projectId: project.id } }"
                     />
@@ -62,6 +126,9 @@ function openNewProject(): void {
             <section :class="$style.tableSection" aria-label="All projects">
                 <HeaderSection title="PROJECTS" />
                 <ProjectTable
+                    empty-message="No projects found."
+                    :error-message="error ? `Unable to load projects: ${error}` : null"
+                    :loading="isLoading"
                     :rows="projectRows"
                     :show-admin-actions="isAdmin"
                     @add="openNewProject"
@@ -77,6 +144,15 @@ function openNewProject(): void {
             </section>
         </div>
         <AppFooter />
+        <FeatureModal
+            v-if="isFeatureModalOpen"
+            v-model="featuredProjectIds"
+            :disabled="isLoading"
+            :error-message="featureError"
+            :rows="projectRows"
+            @cancel="isFeatureModalOpen = false"
+            @save="saveFeaturedProjects"
+        />
     </main>
 
 </template>
@@ -144,6 +220,14 @@ function openNewProject(): void {
 .featuredActions {
     display: flex;
     justify-content: center;
+}
+
+.toastViewport {
+    position: fixed;
+    bottom: 25dvh;
+    right: var(--spacing-space-4);
+    z-index: 80;
+    width: min(calc(100% - (var(--spacing-space-4) * 2)), 420px);
 }
 
 @media (max-width: 767px) {

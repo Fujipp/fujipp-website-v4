@@ -419,6 +419,7 @@ function createPayload(slug: string, galleryUrls: string[], architectureUrl: str
             th: cleanLocalizedContent(form.content.th),
         },
         featured: editingProject.value?.featured ?? false,
+        featuredOrder: editingProject.value?.featuredOrder ?? null,
         gallery: galleryUrls,
         links: [
             ...(form.githubUrl ? [{ type: "github" as const, url: form.githubUrl }] : []),
@@ -1519,7 +1520,7 @@ onUnmounted(() => {
 
 .toastViewport {
     position: fixed;
-    top: calc(64px + var(--spacing-space-4));
+    bottom: 25dvh;
     right: var(--spacing-space-4);
     z-index: 30;
     width: min(calc(100% - (var(--spacing-space-4) * 2)), 420px);

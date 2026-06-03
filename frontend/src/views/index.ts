@@ -1,9 +1,3 @@
-export { default as HomeView }        from './HomeView.vue'
-export { default as ProjectsView }    from './ProjectsView.vue'
-export { default as ProjectDetailView } from './ProjectDetailView.vue'
-export { default as NewProjectView }     from './NewProjectView.vue'
-export { default as AboutView }       from './AboutView.vue'
-export { default as ContactView }     from './ContactView.vue'
-export { default as PerformanceView } from './PerformanceView.vue'
-export { default as PrivacyView }     from './PrivacyView.vue'
-export { default as AuthView }        from './AuthView.vue'
+export * from "./fujipp";
+export * from "./shop";
+export * from "./auth";
