@@ -1,0 +1,54 @@
+name: Deploy Frontend
+
+# Deploys the built SPA to the DirectAdmin shared host (fujipp.com).
+# Only main, and only when frontend files change.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/deploy-frontend.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-frontend
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install --frozen-lockfile
+
+      - name: Write production env
+        # FRONTEND_ENV_FILE holds VITE_API_BASE_URL, VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
+        run: printf '%s' "${{ secrets.FRONTEND_ENV_FILE }}" > .env.production
+
+      - name: Build
+        run: bun run build
+
+      - name: Deploy dist/ over SSH (rsync)
+        env:
+          SSH_KEY: ${{ secrets.FE_SSH_KEY }}
+          SSH_HOST: ${{ secrets.FE_SSH_HOST }}
+          SSH_PORT: ${{ secrets.FE_SSH_PORT }}
+          SSH_USER: ${{ secrets.FE_SSH_USER }}
+          DEPLOY_PATH: ${{ secrets.FE_DEPLOY_PATH }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh-keyscan -p "${SSH_PORT:-22}" -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          rsync -az --delete \
+            -e "ssh -p ${SSH_PORT:-22} -i ~/.ssh/id_deploy" \
+            dist/ "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/"

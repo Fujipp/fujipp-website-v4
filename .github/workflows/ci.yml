@@ -1,0 +1,64 @@
+name: CI
+
+# Build checks for non-main work so main stays green. Never deploys.
+on:
+  pull_request:
+  push:
+    branches-ignore: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      backend: ${{ steps.filter.outputs.backend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'frontend/**'
+            backend:
+              - 'backend/**'
+              - 'services/**'
+
+  frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - name: Type-check and build
+        run: bun run build
+
+  backend:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        module: [backend, services/billing-service]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Build ${{ matrix.module }}
+        working-directory: ${{ matrix.module }}
+        # Tests require a live Supabase DB, so compile/package without them here.
+        run: mvn -B -ntp -DskipTests package
