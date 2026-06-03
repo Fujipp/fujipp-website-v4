@@ -9,6 +9,7 @@ public record ProjectRequest(
     @NotBlank String category,
     @NotBlank String status,
     boolean featured,
+    Integer featuredOrder,
     String architectureImage,
     @NotNull JsonNode content,
     @NotNull JsonNode overview,

@@ -1,5 +1,6 @@
 package fujipp.project.backend.controller;
 
+import fujipp.project.backend.dto.FeaturedProjectsRequest;
 import fujipp.project.backend.dto.ProjectRequest;
 import fujipp.project.backend.dto.ProjectResponse;
 import fujipp.project.backend.service.ProjectService;
@@ -45,6 +46,13 @@ public class ProjectController {
         return ResponseEntity
             .status(HttpStatus.CREATED)
             .body(projectService.createProject(getUserId(jwt), request));
+    }
+
+    @PutMapping("/projects/featured")
+    public List<ProjectResponse> updateFeaturedProjects(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestBody @Valid FeaturedProjectsRequest request) {
+        return projectService.updateFeaturedProjects(getUserId(jwt), request.projectIds());
     }
 
     @PutMapping("/projects/{projectId}")

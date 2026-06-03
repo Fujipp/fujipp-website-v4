@@ -10,6 +10,7 @@ public record ProjectResponse(
     String category,
     String status,
     boolean featured,
+    Integer featuredOrder,
     String architectureImage,
     JsonNode content,
     JsonNode overview,

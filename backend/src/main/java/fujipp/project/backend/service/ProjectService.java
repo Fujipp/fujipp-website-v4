@@ -17,9 +17,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -80,6 +82,52 @@ public class ProjectService {
     }
 
     @Transactional
+    public List<ProjectResponse> updateFeaturedProjects(UUID userId, List<UUID> projectIds) {
+        requireAdmin(userId);
+
+        if (projectIds == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Featured project list is required");
+        }
+
+        if (projectIds.size() > 3) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Featured projects are limited to 3 items");
+        }
+
+        if (projectIds.stream().anyMatch(id -> id == null) || new HashSet<>(projectIds).size() != projectIds.size()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Featured project ids must be unique");
+        }
+
+        Set<UUID> requestedIds = new HashSet<>(projectIds);
+        List<Project> projects = projectRepository.findAll();
+
+        if (!projectIds.isEmpty()
+                && projects.stream().filter(project -> requestedIds.contains(project.getId())).count() != projectIds.size()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Featured project not found");
+        }
+
+        projects.forEach(project -> {
+            project.setFeatured(false);
+            project.setFeaturedOrder(null);
+        });
+
+        for (int index = 0; index < projectIds.size(); index++) {
+            UUID projectId = projectIds.get(index);
+            int featuredOrder = index + 1;
+
+            projects.stream()
+                .filter(project -> project.getId().equals(projectId))
+                .findFirst()
+                .ifPresent(project -> {
+                    project.setFeatured(true);
+                    project.setFeaturedOrder(featuredOrder);
+                });
+        }
+
+        projectRepository.saveAllAndFlush(projects);
+        return getProjects();
+    }
+
+    @Transactional
     public void deleteProject(UUID userId, UUID projectId) {
         requireAdmin(userId);
         projectRepository.delete(findProject(projectId));
@@ -112,6 +160,7 @@ public class ProjectService {
         project.setCategory(request.category());
         project.setStatus(request.status());
         project.setFeatured(request.featured());
+        project.setFeaturedOrder(request.featured() ? request.featuredOrder() : null);
         project.setThumbnailPath(gallery.isArray() && !gallery.isEmpty() ? gallery.get(0).asText() : null);
         project.setArchitectureImagePath(request.architectureImage());
         project.setTimelineStartDate(textOrNull(timeline, "startDate"));
@@ -376,6 +425,7 @@ public class ProjectService {
             project.getCategory(),
             project.getStatus(),
             project.isFeatured(),
+            project.getFeaturedOrder(),
             project.getArchitectureImagePath(),
             content,
             overview,
