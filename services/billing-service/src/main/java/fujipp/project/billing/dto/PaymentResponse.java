@@ -7,6 +7,7 @@ import java.util.UUID;
 
 public record PaymentResponse(
     UUID id,
+    UUID userId,
     String reference,
     String status,
     long amountSatang,
@@ -18,6 +19,7 @@ public record PaymentResponse(
     public static PaymentResponse from(Payment payment) {
         return new PaymentResponse(
             payment.getId(),
+            payment.getUserId(),
             payment.getReference(),
             payment.getStatus(),
             payment.getAmountSatang(),

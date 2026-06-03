@@ -51,12 +51,21 @@ public class PaymentService {
         return paymentRepository.findByUserIdOrderByCreatedAtDesc(userId);
     }
 
+    @Transactional(readOnly = true)
+    public Payment getByReference(String reference) {
+        return paymentRepository.findByReference(reference)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment not found"));
+    }
+
     /**
      * Marks a payment PAID and credits the wallet. Idempotent: a payment already
      * PAID is returned untouched, so confirmation retries are safe.
+     *
+     * @param paidAmountSatang  if non-null, must equal the pending amount (anti-tamper)
+     * @param providerPaymentId SlipOK transRef; must be unique (blocks slip reuse)
      */
     @Transactional
-    public Payment confirmPaid(String reference, String providerPaymentId) {
+    public Payment confirmPaid(String reference, String providerPaymentId, Long paidAmountSatang) {
         Payment payment = paymentRepository.findByReference(reference)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment not found"));
 
@@ -66,6 +75,14 @@ public class PaymentService {
         if (!"PENDING".equals(payment.getStatus())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                 "Payment is " + payment.getStatus() + " and cannot be paid");
+        }
+        if (paidAmountSatang != null && paidAmountSatang != payment.getAmountSatang()) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "Paid amount does not match the top-up amount");
+        }
+        if (providerPaymentId != null && paymentRepository.existsByProviderPaymentId(providerPaymentId)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "This slip has already been used");
         }
 
         payment.setStatus("PAID");

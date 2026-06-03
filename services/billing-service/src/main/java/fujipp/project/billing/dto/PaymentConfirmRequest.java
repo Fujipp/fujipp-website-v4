@@ -11,5 +11,9 @@ public record PaymentConfirmRequest(
     @NotBlank
     String reference,
 
-    String providerPaymentId
+    /** SlipOK transRef — stored as provider_payment_id (unique) to block slip reuse. */
+    String providerPaymentId,
+
+    /** Verified amount (satang). If present, must equal the pending payment amount. */
+    Long paidAmountSatang
 ) {}

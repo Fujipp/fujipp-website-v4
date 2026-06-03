@@ -6,6 +6,8 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -37,7 +39,8 @@ public class RuntimePlan {
     @Column(name = "price_satang", nullable = false)
     private long priceSatang;
 
-    @Column(name = "currency", nullable = false)
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "currency", length = 3, nullable = false)
     private String currency = "THB";
 
     @Column(name = "promotion_label")
