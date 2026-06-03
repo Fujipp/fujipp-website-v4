@@ -58,6 +58,7 @@ export interface ProjectRecord {
   category: string;
   content: Record<ProjectLocale, ProjectLocalizedContent>;
   featured: boolean;
+  featuredOrder: number | null;
   gallery: readonly string[];
   id: string | number;
   links: readonly ProjectLink[];

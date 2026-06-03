@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteLocationNormalized } from 'vue-router'
 import {
   HomeView, ProjectsView, ProjectDetailView, NewProjectView, AboutView, ContactView,
-  PerformanceView, PrivacyView, AuthView,
+  PerformanceView, PrivacyView, ShopDashboardView, ShopWalletView, AuthView,
 } from '@/views'
 import { useUserStore } from '@/stores'
 
@@ -32,6 +32,10 @@ const router = createRouter({
     { path: '/contact',     name: 'contact',     component: ContactView },
     { path: '/performance', name: 'performance', component: PerformanceView },
     { path: '/privacy',     name: 'privacy',     component: PrivacyView },
+
+    // Shop routes
+    { path: '/shop', name: 'shop-dashboard', component: ShopDashboardView },
+    { path: '/shop/wallet', name: 'shop-wallet', component: ShopWalletView },
 
     // Auth routes
     { path: '/login',    name: 'login',    component: AuthView },

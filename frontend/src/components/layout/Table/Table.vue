@@ -16,14 +16,20 @@ export interface ProjectTableRow {
 }
 
 interface Props {
+    emptyMessage?: string;
+    errorMessage?: string | null;
     itemsPerPage?: number;
+    loading?: boolean;
     rows: readonly ProjectTableRow[];
     searchPlaceholder?: string;
     showAdminActions?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
+    emptyMessage: "No projects found.",
+    errorMessage: null,
     itemsPerPage: 5,
+    loading: false,
     searchPlaceholder: "Search",
     showAdminActions: false,
 });
@@ -259,12 +265,31 @@ onUnmounted(() => {
                 </span>
             </button>
 
-            <p v-if="filteredRows.length === 0" :class="$style.emptyState" class="type-body-main-r">
-                No projects found.
+            <p
+                v-if="loading && rows.length === 0"
+                :class="$style.emptyState"
+                class="type-body-main-r"
+            >
+                Loading projects...
+            </p>
+            <p
+                v-else-if="errorMessage && rows.length === 0"
+                :class="[$style.emptyState, $style.errorState]"
+                class="type-body-main-r"
+                role="alert"
+            >
+                {{ errorMessage }}
+            </p>
+            <p v-else-if="filteredRows.length === 0" :class="$style.emptyState" class="type-body-main-r">
+                {{ emptyMessage }}
             </p>
         </div>
 
-        <footer :class="$style.tableFoot" aria-label="Project table pagination">
+        <footer
+            v-if="filteredRows.length > 0"
+            :class="$style.tableFoot"
+            aria-label="Project table pagination"
+        >
             <TableNextBackButton
                 direction="previous"
                 label="First page"
@@ -528,6 +553,10 @@ onUnmounted(() => {
 .emptyState {
     margin: auto;
     color: var(--color-text-disabled);
+}
+
+.errorState {
+    color: var(--color-status-error);
 }
 
 .tableFoot {

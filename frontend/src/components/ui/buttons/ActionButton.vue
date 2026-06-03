@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
-export type ActionButtonVariant = "add" | "delete" | "edit";
+export type ActionButtonVariant = "add" | "delete" | "edit" | "restart" | "start" | "stop";
 
 interface Props {
     ariaLabel?: string;
@@ -27,6 +27,18 @@ const actionMeta: Record<ActionButtonVariant, { icon: string; label: string }> =
     edit: {
         icon: "/images/icons/assets/actions/edit.svg",
         label: "Edit",
+    },
+    restart: {
+        icon: "/images/icons/assets/actions/restart.svg",
+        label: "Restart",
+    },
+    start: {
+        icon: "/images/icons/assets/actions/start.svg",
+        label: "Start",
+    },
+    stop: {
+        icon: "/images/icons/assets/actions/stop.svg",
+        label: "Stop",
     },
 };
 

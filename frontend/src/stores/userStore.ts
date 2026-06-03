@@ -12,6 +12,23 @@ const CREDENTIALS_ENABLED = false as const
 // Internal email domain used for username-based accounts (never shown to users)
 const INTERNAL_DOMAIN = '@internal.fujipp'
 
+function clearAuthRedirectFragment() {
+  if (typeof window === 'undefined') return
+
+  const params = new URLSearchParams(window.location.hash.slice(1))
+  const hasAuthFragment = params.has('access_token')
+    || params.has('refresh_token')
+    || params.has('provider_token')
+
+  if (!hasAuthFragment) return
+
+  window.history.replaceState(
+    window.history.state,
+    document.title,
+    `${window.location.pathname}${window.location.search}`,
+  )
+}
+
 export interface UserProfile {
   id: string
   email: string | null
@@ -208,6 +225,7 @@ export const useUserStore = defineStore('user', () => {
         user.value    = data.session.user
         session.value = data.session
         await fetchProfile()
+        clearAuthRedirectFragment()
       }
 
       supabase.auth.onAuthStateChange((_event, newSession) => {
@@ -215,6 +233,7 @@ export const useUserStore = defineStore('user', () => {
         session.value = newSession ?? null
         if (newSession) {
           void fetchProfile()
+          clearAuthRedirectFragment()
         } else {
           profile.value = null
         }

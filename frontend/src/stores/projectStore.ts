@@ -8,6 +8,7 @@ const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string) || "http://lo
 const PROJECT_ASSETS_BUCKET = "project-assets";
 
 export type ProjectPayload = Omit<ProjectRecord, "id">;
+export type FeaturedProjectId = ProjectRecord["id"];
 
 export const useProjectStore = defineStore("project", () => {
     const projects = ref<ProjectRecord[]>([]);
@@ -70,6 +71,15 @@ export const useProjectStore = defineStore("project", () => {
         projects.value = projects.value.filter((project) => String(project.id) !== String(projectId));
     }
 
+    async function updateFeaturedProjects(projectIds: readonly FeaturedProjectId[]): Promise<ProjectRecord[]> {
+        projects.value = await mutate<ProjectRecord[], { projectIds: readonly FeaturedProjectId[] }>(
+            "/api/projects/featured",
+            "PUT",
+            { projectIds },
+        );
+        return projects.value;
+    }
+
     async function uploadProjectAsset(file: File, directory: string): Promise<string> {
         const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
         const objectPath = `${directory}/${crypto.randomUUID()}.${extension}`;
@@ -89,10 +99,10 @@ export const useProjectStore = defineStore("project", () => {
         return data.publicUrl;
     }
 
-    async function mutate<T>(
+    async function mutate<T, Payload = ProjectPayload>(
         path: string,
         method: "POST" | "PUT" | "DELETE",
-        payload?: ProjectPayload,
+        payload?: Payload,
     ): Promise<T> {
         const userStore = useUserStore();
 
@@ -131,6 +141,7 @@ export const useProjectStore = defineStore("project", () => {
         fetchProject,
         fetchProjects,
         updateProject,
+        updateFeaturedProjects,
         uploadProjectAsset,
     };
 });

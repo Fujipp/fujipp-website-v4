@@ -1,5 +1,5 @@
-export { BackgroundEffect, AppFooter, AppNavbar, ProjectTable, UserControl } from "./layout";
-export type { ProjectStatus, ProjectTableRow } from "./layout";
+export { BackgroundEffect, AppFooter, AppNavbar, FeatureTable, ProjectTable, UserControl } from "./layout";
+export type { FeatureCategory, FeatureTableRow, ProjectStatus, ProjectTableRow } from "./layout";
 export {
   ActionButton,
   PrimaryButton,
@@ -9,12 +9,15 @@ export {
   NextBackButton,
   TableNextBackButton,
   AiCard,
+  BotCard,
   FeaturedProjectCard,
+  RuntimeCard,
   SkillCard,
   Gallery,
   ProjectImage,
   ConfirmModal,
   DeleteModal,
+  FeatureModal,
   ImageModal,
   HeaderSection,
   CategoryTag,
@@ -26,4 +29,4 @@ export {
   InputText,
   SearchText,
 } from "./ui";
-export type { ActionButtonVariant, DropdownTextOption, TableStatusValue } from "./ui";
+export type { ActionButtonVariant, BotStatus, DropdownTextOption, RuntimeStatus, TableStatusValue } from "./ui";

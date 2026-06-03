@@ -1,5 +1,5 @@
 export { useProjectStore } from './projectStore'
-export type { ProjectPayload } from './projectStore'
+export type { FeaturedProjectId, ProjectPayload } from './projectStore'
 export { useThemeStore } from './themeStore'
 export { useUserStore } from './userStore'
 export type { UserProfile } from './userStore'
