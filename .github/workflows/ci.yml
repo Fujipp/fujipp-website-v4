@@ -40,7 +40,8 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-      - run: bun install --frozen-lockfile
+      # bun.lock drifts from package.json (vue beta + overrides), so don't freeze it here.
+      - run: bun install
       - name: Type-check and build
         run: bun run build
 
