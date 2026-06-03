@@ -1,0 +1,27 @@
+# Shipped in the Vite build output (public/ is copied verbatim into dist/).
+# Apache on the DirectAdmin shared host uses this to serve the Vue Router
+# history-mode SPA: any path that is not a real file/dir falls back to index.html.
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Force HTTPS
+  RewriteCond %{HTTPS} off
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+  # SPA fallback: serve index.html for non-asset routes
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>
+
+# Long-cache fingerprinted assets, never cache index.html
+<IfModule mod_headers.c>
+  <FilesMatch "\.(?:js|css|woff2?|png|jpe?g|gif|svg|webp|avif|ico|glb)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  <FilesMatch "index\.html$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+</IfModule>

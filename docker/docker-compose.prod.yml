@@ -1,0 +1,72 @@
+# Production stack for the VPS (154.215.14.227).
+# Deployed by .github/workflows/deploy-backend.yml to /opt/fujipp/docker-compose.yml
+#
+# Images are pulled from GHCR (public). The deploy job writes /opt/fujipp/.env with
+# BACKEND_IMAGE / BILLING_IMAGE pinned to the commit SHA, plus all app secrets.
+#
+# Networking (this VPS is shared with pm2 Discord bots — stay off their ports 8080/8081/3000):
+#   - backend  -> published on 127.0.0.1:3600 only; the EXISTING host nginx already
+#                 proxies https://api.fujipp.com -> 127.0.0.1:3600 (do not touch nginx/cert).
+#   - billing  -> internal-only (no published ports); reached by the backend at http://billing:8081
+#
+# Memory is capped so the JVMs can't OOM-kill the bots (host has ~3.8GB RAM).
+name: fujipp
+
+services:
+  backend:
+    image: ${BACKEND_IMAGE}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Inside the compose network the billing service is reachable by name.
+      BILLING_BASE_URL: http://billing:8081
+    ports:
+      # host 3600 (what nginx proxies to) -> container 8080 (Spring's port)
+      - "127.0.0.1:3600:8080"
+    mem_limit: 768m
+    memswap_limit: 768m
+    depends_on:
+      billing:
+        condition: service_started
+    networks: [fujipp]
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/8080' 2>/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+
+  billing:
+    image: ${BILLING_IMAGE}
+    restart: unless-stopped
+    env_file: .env
+    expose:
+      - "8081"
+    mem_limit: 512m
+    memswap_limit: 512m
+    networks: [fujipp]
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/8081' 2>/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+
+  # The backend declares spring-boot-starter-amqp and -session-data-redis.
+  # Sessions are disabled (store-type=none) and AMQP connects lazily, so neither
+  # is required to boot. If you start using RabbitMQ/Redis at runtime, uncomment
+  # the services below and point the backend env vars at them.
+  #
+  # redis:
+  #   image: redis:7-alpine
+  #   restart: unless-stopped
+  #   networks: [fujipp]
+  #
+  # rabbitmq:
+  #   image: rabbitmq:3-management-alpine
+  #   restart: unless-stopped
+  #   networks: [fujipp]
+
+networks:
+  fujipp:
+    driver: bridge

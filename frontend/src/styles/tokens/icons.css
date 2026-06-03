@@ -1,0 +1,7 @@
+@theme static {
+  --spacing-icon-xs: 1rem;
+  --spacing-icon-sm: 1.25rem;
+  --spacing-icon-md: 1.5rem;
+  --spacing-icon-lg: 2rem;
+  --spacing-icon-xl: 2.5rem;
+}

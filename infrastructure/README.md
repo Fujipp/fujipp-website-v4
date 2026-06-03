@@ -1,0 +1,153 @@
+# Deployment & Infrastructure
+
+CI/CD lives in [`.github/workflows`](../.github/workflows). Everything deploys **only from `main`**:
+
+| Workflow | Trigger | What it does |
+| --- | --- | --- |
+| `ci.yml` | PRs / non-main pushes | Type-checks + builds frontend & backend. No deploy. |
+| `deploy-frontend.yml` | push to `main`, `frontend/**` | `bun run build` → rsync `dist/` to the DirectAdmin host (`fujipp.com`). |
+| `deploy-backend.yml` | push to `main`, `backend/** \| services/** \| docker/**` | Builds 2 images → GHCR (public) → SSH to VPS → `docker compose up -d`. |
+
+```
+push main ──┬─ frontend/** ─→ build ─ rsync/SSH ─→ fujipp.com  (Apache, static SPA)
+            └─ backend|services|docker/** ─→ 2 images ─ GHCR ─ SSH ─→ VPS
+                                       (existing) nginx :443 api.fujipp.com ─→ 127.0.0.1:3600
+                                                                  └─ compose: backend(host 3600 → ctr 8080)
+                                                                              billing(8081, internal-only)
+                                                                                └─→ Supabase (cloud Postgres)
+```
+
+> **The VPS is shared.** `154.215.14.227` already runs pm2 Discord bots (ports
+> 8080/8081/3000) and an nginx + Let's Encrypt vhost for `api.fujipp.com` that
+> proxies to `127.0.0.1:3600`. The backend container publishes **host port 3600**
+> to slot into that existing vhost. CI never touches nginx, the cert, the firewall,
+> or the bots. Container memory is capped so the JVMs can't OOM-kill the bots.
+
+---
+
+## One-time setup
+
+### 1. DNS
+
+Already done — `api.fujipp.com` resolves to `154.215.14.227` and a Let's Encrypt
+cert is live on the VPS. (`fujipp.com` itself points at the DirectAdmin shared host.)
+Nothing to change here unless the IP moves.
+
+### 2. SSH key for CI
+
+Generate a dedicated keypair on your machine:
+
+```bash
+ssh-keygen -t ed25519 -f ./fujipp-deploy -C "github-actions" -N ""
+```
+
+- Put the **private** key (`fujipp-deploy`) into GitHub secrets `VPS_SSH_KEY` and `FE_SSH_KEY`.
+- Install the **public** key (`fujipp-deploy.pub`) on **both** servers:
+  - **VPS**: pass it to the bootstrap script (step 4) via `DEPLOY_PUBKEY`, or `ssh-copy-id`.
+  - **DirectAdmin**: panel → *Advanced Features → SSH Keys* → paste the public key (or `ssh-copy-id` if password SSH is enabled).
+
+> You may use the same keypair for both, or generate two. The workflows read them from separate secrets.
+
+### 3. GitHub secrets
+
+Repo → **Settings → Secrets and variables → Actions**. Also create an **Environment** named `production` (the deploy jobs use it).
+
+**Frontend**
+| Secret | Example |
+| --- | --- |
+| `FE_SSH_HOST` | `103.27.200.238` |
+| `FE_SSH_PORT` | `22` |
+| `FE_SSH_USER` | `fujippme` |
+| `FE_SSH_KEY` | *(private key contents)* |
+| `FE_DEPLOY_PATH` | `/home/fujippme/domains/fujipp.com/public_html` |
+| `FRONTEND_ENV_FILE` | *(multi-line, see below)* |
+
+```dotenv
+# FRONTEND_ENV_FILE
+VITE_API_BASE_URL=https://api.fujipp.com
+VITE_SUPABASE_URL=https://<project-ref>.supabase.co
+VITE_SUPABASE_ANON_KEY=<supabase-anon-key>
+```
+
+**Backend**
+| Secret | Example |
+| --- | --- |
+| `VPS_SSH_HOST` | `154.215.14.227` |
+| `VPS_SSH_PORT` | `22` |
+| `VPS_SSH_USER` | `root` |
+| `VPS_SSH_KEY` | *(private key contents)* |
+| `BACKEND_ENV_FILE` | *(multi-line, see below)* |
+
+```dotenv
+# BACKEND_ENV_FILE — read by both backend & billing (Spring ignores keys it doesn't use).
+# BILLING_BASE_URL is injected by compose (http://billing:8081) — do not set it here.
+
+# Supabase Postgres (use the pooler host)
+DB_URL=jdbc:postgresql://<pooler-host>:5432/postgres?sslmode=require
+DB_USERNAME=postgres.<project-ref>
+DB_PASSWORD=<database-password>
+
+# Supabase auth
+SUPABASE_URL=https://<project-ref>.supabase.co
+SUPABASE_JWT_SECRET=<jwt-secret>
+
+# CORS — the production frontend origin
+CORS_ALLOWED_ORIGINS=https://fujipp.com
+CORS_ALLOWED_ORIGIN_PATTERNS=https://fujipp.com
+
+# Internal service auth (must match between backend & billing) — openssl rand -hex 32
+BILLING_SERVICE_TOKEN=<strong-random-secret>
+
+# SlipOK
+SLIPOK_BASE_URL=https://api.slipok.com
+SLIPOK_BRANCH_ID=<your-branch-id>
+SLIPOK_API_KEY=<your-api-key>
+
+# PromptPay receiver id of the shop
+PROMPTPAY_ID=<shop-promptpay-id>
+```
+
+> GHCR uses the built-in `GITHUB_TOKEN` — no secret needed. After the first push,
+> set both packages (`fujipp-backend`, `fujipp-billing`) to **Public** under the
+> repo's *Packages* settings so the VPS can pull without logging in.
+
+### 4. Bootstrap the VPS (once)
+
+```bash
+scp infrastructure/vps-bootstrap.sh root@154.215.14.227:/root/
+ssh root@154.215.14.227 'DEPLOY_PUBKEY="$(cat)" bash /root/vps-bootstrap.sh' < fujipp-deploy.pub
+```
+
+Installs **only Docker** and creates `/opt/fujipp`. It does *not* touch nginx, the
+cert, the firewall, or the pm2 bots — those already exist on this shared box.
+
+### 5. First deploy
+
+Merge to `main` (or run the workflows manually via *Actions → Run workflow*).
+
+---
+
+## Operations
+
+**Rollback the backend** to a previous commit on the VPS:
+
+```bash
+cd /opt/fujipp
+sed -i 's#:[0-9a-f]\{40\}$#:<good-sha>#' .env   # repoint BACKEND_IMAGE/BILLING_IMAGE
+docker compose pull && docker compose up -d
+```
+
+**Logs:** `docker compose -p fujipp logs -f backend` (or `billing`).
+
+**Renew TLS:** automatic via the certbot systemd timer; force with `certbot renew`.
+
+---
+
+## ⚠️ Security
+
+The credentials originally shared in chat are considered exposed. After setup:
+
+1. **Change the VPS root password** and prefer key-only SSH (`PasswordAuthentication no`).
+2. **Change the DirectAdmin / FTP password.**
+3. Rotate `BILLING_SERVICE_TOKEN`, SlipOK keys, and the Supabase DB password if they were ever shared in plaintext.
+4. Never commit real `.env` files — only the GitHub secrets above hold real values.
