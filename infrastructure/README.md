@@ -33,33 +33,30 @@ Already done — `api.fujipp.com` resolves to `154.215.14.227` and a Let's Encry
 cert is live on the VPS. (`fujipp.com` itself points at the DirectAdmin shared host.)
 Nothing to change here unless the IP moves.
 
-### 2. SSH key for CI
+### 2. SSH key for the VPS (backend only)
 
-Generate a dedicated keypair on your machine:
+The backend deploy uses key-based SSH to the VPS. The frontend host is a shared
+DirectAdmin plan with **no SSH**, so the frontend deploys over FTP instead.
 
 ```bash
 ssh-keygen -t ed25519 -f ./fujipp-deploy -C "github-actions" -N ""
 ```
 
-- Put the **private** key (`fujipp-deploy`) into GitHub secrets `VPS_SSH_KEY` and `FE_SSH_KEY`.
-- Install the **public** key (`fujipp-deploy.pub`) on **both** servers:
-  - **VPS**: pass it to the bootstrap script (step 4) via `DEPLOY_PUBKEY`, or `ssh-copy-id`.
-  - **DirectAdmin**: panel → *Advanced Features → SSH Keys* → paste the public key (or `ssh-copy-id` if password SSH is enabled).
-
-> You may use the same keypair for both, or generate two. The workflows read them from separate secrets.
+- Put the **private** key into the GitHub secret `VPS_SSH_KEY`.
+- Install the **public** key on the VPS (bootstrap step 4 via `DEPLOY_PUBKEY`, or `ssh-copy-id`).
 
 ### 3. GitHub secrets
 
 Repo → **Settings → Secrets and variables → Actions**. Also create an **Environment** named `production` (the deploy jobs use it).
 
-**Frontend**
+**Frontend** (shared host has no SSH — deploy over FTP)
 | Secret | Example |
 | --- | --- |
-| `FE_SSH_HOST` | `103.27.200.238` |
-| `FE_SSH_PORT` | `22` |
-| `FE_SSH_USER` | `fujippme` |
-| `FE_SSH_KEY` | *(private key contents)* |
-| `FE_DEPLOY_PATH` | `/home/fujippme/domains/fujipp.com/public_html` |
+| `FTP_HOST` | `103.27.200.238` |
+| `FTP_PORT` | `21` |
+| `FTP_USER` | `fujippme` |
+| `FTP_PASSWORD` | *(DirectAdmin/FTP password)* |
+| `FTP_REMOTE_DIR` | `domains/fujipp.com/public_html` |
 | `FRONTEND_ENV_FILE` | *(multi-line, see below)* |
 
 ```dotenv
