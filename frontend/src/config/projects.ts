@@ -1,4 +1,13 @@
-import type { ProjectStatus } from "@/components/layout";
+export type ProjectStatus = "Active" | "Completed" | "In Progress" | "Archived";
+
+export interface ProjectTableRow {
+  category: string;
+  description: string;
+  id: string | number;
+  projectName: string;
+  stack: readonly string[];
+  status: ProjectStatus;
+}
 
 export type ProjectLocale = "en" | "th";
 

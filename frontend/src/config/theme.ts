@@ -6,7 +6,7 @@ export interface ThemeApp {
 }
 
 export const ThemeApp = [
-  { mode: "LIGHT", src: "/images/icons/navbar/theme/mode_light.svg" },
-  { mode: "DARK", src: "/images/icons/navbar/theme/mode_dark.svg" },
-  { mode: "SYSTEM", src: "/images/icons/navbar/theme/mode_system.svg" },
+  { mode: "LIGHT", src: "/images/icons/navbar/theme/light.svg" },
+  { mode: "DARK", src: "/images/icons/navbar/theme/dark.svg" },
+  { mode: "SYSTEM", src: "/images/icons/navbar/theme/system.svg" },
 ] satisfies readonly ThemeApp[];

@@ -1,9 +1,8 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/shared/lib/supabase'
 import type { User, Session } from '@supabase/supabase-js'
-
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string) || 'http://localhost:8080'
+import { API_BASE_URL } from '@/config'
 
 // ─── Feature flags ───────────────────────────────────────────────────────────
 /** Set to true when username/password auth is ready on the backend */

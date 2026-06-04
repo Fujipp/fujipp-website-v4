@@ -1,9 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteLocationNormalized } from 'vue-router'
-import {
-  HomeView, ProjectsView, ProjectDetailView, NewProjectView, AboutView, ContactView,
-  PerformanceView, PrivacyView, ShopDashboardView, ShopWalletView, AuthView,
-} from '@/views'
+import { HomeView, AboutView, ContactView, PerformanceView, PrivacyView } from '@/features/portfolio'
+import { ProjectsView, ProjectDetailView, NewProjectView } from '@/features/projects'
+import { ShopDashboardView, ShopWalletView } from '@/features/shop'
+import { AuthView } from '@/features/auth'
 import { useUserStore } from '@/stores'
 
 async function requireAdmin(to: RouteLocationNormalized) {

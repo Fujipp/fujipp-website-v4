@@ -1,3 +1,4 @@
+export { API_BASE_URL } from "./api";
 export { mobileNavbarLinks, navbarLinks } from "./navigation";
 export { ThemeApp } from "./theme";
 export {
@@ -12,10 +13,6 @@ export {
   externalService,
 } from "./skills";
 export type { Skills } from "./skills";
-export { galleryImages } from "./gallery";
-export type { GalleryImage } from "./gallery";
-export { aiModels } from "./ai";
-export type { Ai } from "./ai";
 export { getProjectById, projects } from "./projects";
 export type {
   ProjectLocale,
@@ -24,5 +21,7 @@ export type {
   ProjectLinkType,
   ProjectOverview,
   ProjectRecord,
+  ProjectStatus,
+  ProjectTableRow,
   ProjectTechStack,
 } from "./projects";
