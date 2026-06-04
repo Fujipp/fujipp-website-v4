@@ -62,24 +62,60 @@ Token files live in `frontend/src/styles/tokens/`. The only global entrypoint is
 
 ---
 
-## Component Structure
+## Project Structure (shared + features)
+
+Code is split into **`shared/`** (generic, reusable across the whole app) and
+**`features/`** (everything owned by one domain — its views, components, config, store).
 
 | Kind | Location |
 | --- | --- |
-| Primitive UI (Button, Input, Badge) | `src/components/ui/` |
-| Layout (AppHeader, Sidebar) | `src/components/layout/` |
-| Page sections (HeroSection, ProjectGrid) | `src/components/sections/` |
-| Routed pages | `src/views/` |
-| Composables | `src/composables/` |
-| Shared types | `src/types/` |
+| Shared primitive UI (Button, Field, Tag, Toast, Modal) | `src/shared/ui/<category>/` |
+| Shared layout (AppNavbar, AppFooter, BackgroundEffect) | `src/shared/layout/` |
+| Shared libs (supabase client) | `src/shared/lib/` |
+| Feature views | `src/features/<feature>/views/` |
+| Feature-specific components | `src/features/<feature>/components/` |
+| Feature config / store | `src/features/<feature>/config/`, `src/features/<feature>/stores/` |
+| Cross-cutting config / store (theme, navigation, auth, skills) | `src/config/`, `src/stores/` |
+| Global styles & tokens | `src/styles/` |
 
-One folder per reusable component with an `index.ts` barrel export:
+Current features: `portfolio` · `projects` · `shop` · `auth`.
+
+**Dependency rule:** `features/*` may import from `shared/*`, `config/`, `stores/`.
+`shared/*` must **never** import from `features/*` (no backwards dependency).
+
+### Component & file naming
+
+- Group by **category** (plural, lowercase folder): `buttons/`, `fields/`, `tags/`, `modals/`, `toasts/`, `sections/`.
+- One component per `.vue` file, **PascalCase**, name ends with its type: `PrimaryButton.vue`, `TextField.vue`, `CategoryTag.vue`.
+- **File name must equal the exported component name.**
+- Each folder (category or feature `components/`) has an `index.ts` barrel.
+
+### Barrels
+
+- Import from the **category / feature barrel**, not a root mega-barrel:
+  `@/shared/ui`, `@/shared/ui/buttons`, `@/shared/layout`, `@/features/projects/components`.
+- A feature's views import its own components/store from the **sub-barrel**
+  (`@/features/projects/components`, `@/features/projects/stores`) — never the feature root
+  barrel — to avoid import cycles.
 
 ```
-src/components/ui/Button/
-  Button.vue
-  index.ts
+src/shared/ui/buttons/
+  PrimaryButton.vue
+  index.ts            # export { default as PrimaryButton } from "./PrimaryButton.vue"
 ```
+
+---
+
+## Environment & API base URL
+
+- Env vars are typed in `env.d.ts` and read via `import.meta.env`. `.env` is git-ignored;
+  keep `.env.example` in sync (placeholders only).
+- The backend URL is resolved in one place — `src/config/api.ts`, exported as `API_BASE_URL`.
+  **Import `API_BASE_URL` from `@/config`; never read `import.meta.env.VITE_API_*` or hardcode
+  `http://localhost:8080` in a store/view.**
+- Pick which backend to call by flipping `VITE_API_TARGET` in `.env`: `local` | `host`
+  (`bun run dev` = local, `bun run dev:host` = host). `VITE_API_BASE_URL`, if set, is a hard
+  override that wins (used by CI / production builds).
 
 ---
 

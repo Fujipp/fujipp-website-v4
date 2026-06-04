@@ -76,3 +76,6 @@ Each section has its own rules file. Read the relevant one before working:
 | Backend | `.agents/backend.md` |
 | Database | `.agents/database.md` |
 | Commit / Push | `.agents/skills/github-push-guide/SKILL.md` |
+
+After making a change, add a dated entry to the matching per-area changelog in
+`docs/changelog/` (see `docs/changelog/README.md` for the versioning scheme).
