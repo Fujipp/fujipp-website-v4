@@ -94,9 +94,11 @@ Current features: `portfolio` · `projects` · `shop` · `auth`.
 
 - Import from the **category / feature barrel**, not a root mega-barrel:
   `@/shared/ui`, `@/shared/ui/buttons`, `@/shared/layout`, `@/features/projects/components`.
-- A feature's views import its own components/store from the **sub-barrel**
-  (`@/features/projects/components`, `@/features/projects/stores`) — never the feature root
-  barrel — to avoid import cycles.
+- Import a feature's components/store/config from its **sub-barrels**
+  (`@/features/projects/components`, `@/features/projects/stores`, `@/features/projects/config`).
+- **Views are lazy-loaded by route** in `src/router/index.ts`
+  (`() => import('@/features/<feature>/views/<View>.vue')`) so each route is its own chunk —
+  views are not exported through a barrel.
 
 ```
 src/shared/ui/buttons/

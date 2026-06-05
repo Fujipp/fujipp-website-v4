@@ -1,9 +1,10 @@
 # Changelog — Database
 
-**Current version: `0.0.8`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.9`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.9` | 2026-06-05 | allow `live` and `website` project link types |
 | `0.0.8` | 2026-06-03 | add billing service schema |
 | `0.0.7` | 2026-06-02 | allow project certificate PDFs |
 | `0.0.6` | 2026-06-02 | extend project portfolio schema |
