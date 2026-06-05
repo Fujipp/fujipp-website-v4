@@ -5,89 +5,89 @@ export interface Skills {
 
 
 export const language = [
-  { label: "LANGUAGE", icon: "/images/icons/stacks/language/Vector.svg" },
-  { label: "HTML", icon: "/images/icons/stacks/language/material-icon-theme_html.svg" },
-  { label: "CSS", icon: "/images/icons/stacks/language/vscode-icons_file-type-css2.svg" },
-  { label: "JAVASCRIPT", icon: "/images/icons/stacks/language/vscode-icons_file-type-js-official.svg" },
-  { label: "TYPESCRIPT", icon: "/images/icons/stacks/language/devicon_typescript.svg" },
-  { label: "JAVA", icon: "/images/icons/stacks/language/devicon_java.svg" },
-  { label: "SQL", icon: "/images/icons/stacks/language/ph_file-sql-light.svg" },
-  { label: "XML", icon: "/images/icons/stacks/language/ix_xml-document.svg" },
-  { label: "JSON", icon: "/images/icons/stacks/language/ix_json-document.svg"},
-  { label: "SHELL / BASH", icon: "/images/icons/stacks/language/ion_terminal-sharp.svg" },
+  { label: "LANGUAGE", icon: "/images/icons/stacks/language/language.svg" },
+  { label: "HTML", icon: "/images/icons/stacks/language/html.svg" },
+  { label: "CSS", icon: "/images/icons/stacks/language/css.svg" },
+  { label: "JAVASCRIPT", icon: "/images/icons/stacks/language/javascript.svg" },
+  { label: "TYPESCRIPT", icon: "/images/icons/stacks/language/typescript.svg" },
+  { label: "JAVA", icon: "/images/icons/stacks/language/java.svg" },
+  { label: "SQL", icon: "/images/icons/stacks/language/sql.svg" },
+  { label: "XML", icon: "/images/icons/stacks/language/xml.svg" },
+  { label: "JSON", icon: "/images/icons/stacks/language/json.svg"},
+  { label: "SHELL / BASH", icon: "/images/icons/stacks/language/shell.svg" },
   { label: "DART", icon: "/images/icons/stacks/language/dart.svg" },
-  { label: "LUA", icon: "/images/icons/stacks/language/material-icon-theme_lua.svg" },
+  { label: "LUA", icon: "/images/icons/stacks/language/lua.svg" },
 ] satisfies readonly Skills[];
 
 export const frontend = [
-  { label: "FRONTEND", icon: "/images/icons/stacks/frontend/lsicon_computer-outline.svg" },
-  { label: "VUE.JS", icon: "/images/icons/stacks/frontend/material-icon-theme_vue.svg" },
+  { label: "FRONTEND", icon: "/images/icons/stacks/frontend/frontend.svg" },
+  { label: "VUE.JS", icon: "/images/icons/stacks/frontend/vue.svg" },
   { label: "VITE.JS", icon: "/images/icons/stacks/frontend/vite.svg" },
   { label: "FLUTTER", icon: "/images/icons/stacks/frontend/flutter.svg" },
-  { label: "REACT", icon: "/images/icons/stacks/frontend/devicon_react.svg" },
-  { label: "TAILWIND CSS", icon: "/images/icons/stacks/frontend/devicon_tailwindcss.svg" },
+  { label: "REACT", icon: "/images/icons/stacks/frontend/react.svg" },
+  { label: "TAILWIND CSS", icon: "/images/icons/stacks/frontend/tailwind.svg" },
   { label: "BUN", icon: "/images/icons/stacks/frontend/bun.svg" },
-  { label: "NODE.JS", icon: "/images/icons/stacks/frontend/vscode-icons_file-type-node.svg" },
+  { label: "NODE.JS", icon: "/images/icons/stacks/frontend/node.svg" },
 
 ] satisfies readonly Skills[];
 
 export const backend = [
-  { label: "BACKEND", icon: "/images/icons/stacks/backend/tdesign_server-filled.svg" },
-  { label: "SPRING BOOT", icon: "/images/icons/stacks/backend/devicon_spring.svg" },
-  { label: "JWT", icon: "/images/icons/stacks/backend/devicon_jwt.svg" },
-  { label: "SOCKET.IO", icon: "/images/icons/stacks/backend/simple-icons_socketdotio.svg" },
+  { label: "BACKEND", icon: "/images/icons/stacks/backend/backend.svg" },
+  { label: "SPRING BOOT", icon: "/images/icons/stacks/backend/spring.svg" },
+  { label: "JWT", icon: "/images/icons/stacks/backend/jwt.svg" },
+  { label: "SOCKET.IO", icon: "/images/icons/stacks/backend/socketio.svg" },
 ] satisfies readonly Skills[];
 
 export const database = [
-  { label: "DATABASE", icon: "/images/icons/stacks/database/icon-park-solid_data.svg" },
-  { label: "MYSQL", icon: "/images/icons/stacks/database/devicon_mysql.svg" },
-  { label: "POSTGRESQL", icon: "/images/icons/stacks/database/devicon_postgresql.svg" },
-  { label: "MONGODB", icon: "/images/icons/stacks/database/devicon_mongodb.svg" },
-  { label: "ORACLE", icon: "/images/icons/stacks/database/lineicons_oracle.svg" },
-  { label: "FIREBASE", icon: "/images/icons/stacks/database/logos_firebase-icon.svg" },
-  { label: "REDIS", icon: "/images/icons/stacks/database/devicon_redis.svg" },
+  { label: "DATABASE", icon: "/images/icons/stacks/database/database.svg" },
+  { label: "MYSQL", icon: "/images/icons/stacks/database/mysql.svg" },
+  { label: "POSTGRESQL", icon: "/images/icons/stacks/database/postgresql.svg" },
+  { label: "MONGODB", icon: "/images/icons/stacks/database/mongodb.svg" },
+  { label: "ORACLE", icon: "/images/icons/stacks/database/oracle.svg" },
+  { label: "FIREBASE", icon: "/images/icons/stacks/database/firebase.svg" },
+  { label: "REDIS", icon: "/images/icons/stacks/database/redis.svg" },
 ] satisfies readonly Skills[];
 
 export const devops = [
-  { label: "DEVOPS", icon: "/images/icons/stacks/devops/lucide_box.svg" },
-  { label: "GITHUB ACTIONS", icon: "/images/icons/stacks/devops/devicon_githubactions.svg" },
-  { label: "DOCKER", icon: "/images/icons/stacks/devops/material-icon-theme_docker.svg" },
-  { label: "PM2", icon: "/images/icons/stacks/devops/devicon_pm2.svg" },
-  { label: "NGINX", icon: "/images/icons/stacks/devops/material-icon-theme_nginx.svg" },
-  { label: "LINUX SERVER", icon: "/images/icons/stacks/devops/simple-icons_linuxserver.svg" },
+  { label: "DEVOPS", icon: "/images/icons/stacks/devops/devops.svg" },
+  { label: "GITHUB ACTIONS", icon: "/images/icons/stacks/devops/github-actions.svg" },
+  { label: "DOCKER", icon: "/images/icons/stacks/devops/docker.svg" },
+  { label: "PM2", icon: "/images/icons/stacks/devops/pm2.svg" },
+  { label: "NGINX", icon: "/images/icons/stacks/devops/nginx.svg" },
+  { label: "LINUX SERVER", icon: "/images/icons/stacks/devops/linux-server.svg" },
   { label: "NIFI", icon: "/images/icons/stacks/devops/nifi.svg" },
-  { label: "LINUX", icon: "/images/icons/stacks/devops/devicon_linux.svg" },
-  { label: "MAVEN", icon: "/images/icons/stacks/devops/devicon_maven.svg" },
+  { label: "LINUX", icon: "/images/icons/stacks/devops/linux.svg" },
+  { label: "MAVEN", icon: "/images/icons/stacks/devops/maven.svg" },
 ] satisfies readonly Skills[];
 
 export const tools = [
-  { label: "TOOLS", icon: "/images/icons/stacks/tools/material-symbols_code.svg" },
-  { label: "VISUAL STUDIO CODE", icon: "/images/icons/stacks/tools/material-icon-theme_vscode.svg" },
-  { label: "INTELLIJ IDEA", icon: "/images/icons/stacks/tools/devicon_intellij.svg" },
-  { label: "MYSQL", icon: "/images/icons/stacks/tools/skill-icons_mysql-dark.svg" },
-  { label: "POSTMAN", icon: "/images/icons/stacks/tools/logos_postman-icon.svg" },
+  { label: "TOOLS", icon: "/images/icons/stacks/tools/tools.svg" },
+  { label: "VISUAL STUDIO CODE", icon: "/images/icons/stacks/tools/vscode.svg" },
+  { label: "INTELLIJ IDEA", icon: "/images/icons/stacks/tools/intellij.svg" },
+  { label: "MYSQL", icon: "/images/icons/stacks/tools/mysql.svg" },
+  { label: "POSTMAN", icon: "/images/icons/stacks/tools/postman.svg" },
   { label: "GITHUB", icon: "/images/icons/stacks/tools/github.svg" },
-  { label: "GITHUB DESKTOP", icon: "/images/icons/stacks/tools/fa_github-square.svg" },
+  { label: "GITHUB DESKTOP", icon: "/images/icons/stacks/tools/github-square.svg" },
 ] satisfies readonly Skills[];
 
 export const ux_ui = [
-  { label: "UX / UI", icon: "/images/icons/stacks/ux_ui/mdi_design.svg" },
-  { label: "FIGMA", icon: "/images/icons/stacks/ux_ui/devicon_figma.svg" },
-  { label: "CANVA", icon: "/images/icons/stacks/ux_ui/devicon_canva.svg" },
+  { label: "UX / UI", icon: "/images/icons/stacks/ux-ui/ux-ui.svg" },
+  { label: "FIGMA", icon: "/images/icons/stacks/ux-ui/figma.svg" },
+  { label: "CANVA", icon: "/images/icons/stacks/ux-ui/canva.svg" },
 ] satisfies readonly Skills[];
 
 export const media_document = [
-  { label: "MEDIA / DOCUMENT", icon: "/images/icons/stacks/meadia/ic_sharp-perm-media.svg" },
-  { label: "CAPCUT", icon: "/images/icons/stacks/meadia/hugeicons_capcut.svg" },
-  { label: "PHOTOSHOP", icon: "/images/icons/stacks/meadia/logos_adobe-photoshop.svg" },
-  { label: "LIGHTROOM", icon: "/images/icons/stacks/meadia/logos_adobe-lightroom.svg" },
-  { label: "MICROSOFT WORD", icon: "/images/icons/stacks/meadia/vscode-icons_file-type-word.svg" },
-  { label: "POWERPOINT", icon: "/images/icons/stacks/meadia/vscode-icons_file-type-powerpoint.svg" },
-  { label: "MICROSOFT EXCEL", icon: "/images/icons/stacks/meadia/vscode-icons_file-type-excel.svg" },
+  { label: "MEDIA / DOCUMENT", icon: "/images/icons/stacks/media/media.svg" },
+  { label: "CAPCUT", icon: "/images/icons/stacks/media/capcut.svg" },
+  { label: "PHOTOSHOP", icon: "/images/icons/stacks/media/photoshop.svg" },
+  { label: "LIGHTROOM", icon: "/images/icons/stacks/media/lightroom.svg" },
+  { label: "MICROSOFT WORD", icon: "/images/icons/stacks/media/word.svg" },
+  { label: "POWERPOINT", icon: "/images/icons/stacks/media/powerpoint.svg" },
+  { label: "MICROSOFT EXCEL", icon: "/images/icons/stacks/media/excel.svg" },
 ] satisfies readonly Skills[];
 
 export const externalService = [
-  { label: "EXTERNAL SERVICE", icon: "/images/icons/stacks/material-symbols_code.svg" },
+  { label: "EXTERNAL SERVICE", icon: "/images/icons/stacks/service/service.svg" },
   { label: "GOOGLE AUTH", icon: "/images/icons/stacks/service/google.svg" },
   { label: "CLOUDINARY", icon: "/images/icons/stacks/service/cloudinary.svg" },
   { label: "GEMINI API", icon: "/images/icons/stacks/ai/gemini.svg" },

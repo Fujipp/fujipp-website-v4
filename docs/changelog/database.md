@@ -1,0 +1,16 @@
+# Changelog — Database
+
+**Current version: `0.0.9`**  ·  see [versioning scheme](./README.md)
+
+| Version | Date | Change |
+| --- | --- | --- |
+| `0.0.9` | 2026-06-05 | allow `live` and `website` project link types |
+| `0.0.8` | 2026-06-03 | add billing service schema |
+| `0.0.7` | 2026-06-02 | allow project certificate PDFs |
+| `0.0.6` | 2026-06-02 | extend project portfolio schema |
+| `0.0.5.1` | 2026-06-02 | update supabase config |
+| `0.0.5` | 2026-06-01 | add auth profiles and admin roles |
+| `0.0.4` | 2026-05-28 | add project translations |
+| `0.0.3` | 2026-05-28 | add profiles auth schema |
+| `0.0.2` | 2026-05-28 | add project portfolio schema |
+| `0.0.1` | 2026-05-24 | add initial supabase baseline |

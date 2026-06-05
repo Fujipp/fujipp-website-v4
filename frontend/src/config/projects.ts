@@ -1,4 +1,13 @@
-import type { ProjectStatus } from "@/components/layout";
+export type ProjectStatus = "Active" | "Completed" | "In Progress" | "Archived";
+
+export interface ProjectTableRow {
+  category: string;
+  description: string;
+  id: string | number;
+  projectName: string;
+  stack: readonly string[];
+  status: ProjectStatus;
+}
 
 export type ProjectLocale = "en" | "th";
 
@@ -18,7 +27,7 @@ export interface ProjectLocalizedContent {
   whatILearned: readonly ProjectStructuredItem[];
 }
 
-export type ProjectLinkType = "github" | "youtube" | "certificate" | "figma";
+export type ProjectLinkType = "github" | "youtube" | "certificate" | "figma" | "live" | "website";
 
 export interface ProjectLink {
   type: ProjectLinkType;

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
-import { BackgroundEffect, AppNavbar, UserControl } from '@/components'
+import { BackgroundEffect, AppNavbar, UserControl } from '@/shared/layout'
 import { useUserStore } from '@/stores'
 
 const userStore = useUserStore()
