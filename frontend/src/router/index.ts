@@ -1,10 +1,19 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteLocationNormalized } from 'vue-router'
-import { HomeView, AboutView, ContactView, PerformanceView, PrivacyView } from '@/features/portfolio'
-import { ProjectsView, ProjectDetailView, NewProjectView } from '@/features/projects'
-import { ShopDashboardView, ShopWalletView } from '@/features/shop'
-import { AuthView } from '@/features/auth'
 import { useUserStore } from '@/stores'
+
+// Views are lazy-loaded so each route ships as its own chunk (smaller initial bundle).
+const HomeView = () => import('@/features/portfolio/views/HomeView.vue')
+const AboutView = () => import('@/features/portfolio/views/AboutView.vue')
+const ContactView = () => import('@/features/portfolio/views/ContactView.vue')
+const PerformanceView = () => import('@/features/portfolio/views/PerformanceView.vue')
+const PrivacyView = () => import('@/features/portfolio/views/PrivacyView.vue')
+const ProjectsView = () => import('@/features/projects/views/ProjectsView.vue')
+const ProjectDetailView = () => import('@/features/projects/views/ProjectDetailView.vue')
+const NewProjectView = () => import('@/features/projects/views/NewProjectView.vue')
+const ShopDashboardView = () => import('@/features/shop/views/ShopDashboardView.vue')
+const ShopWalletView = () => import('@/features/shop/views/ShopWalletView.vue')
+const AuthView = () => import('@/features/auth/views/AuthView.vue')
 
 async function requireAdmin(to: RouteLocationNormalized) {
   const store = useUserStore()

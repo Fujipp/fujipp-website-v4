@@ -81,6 +81,14 @@ const projectLinkMeta: Record<ProjectLinkType, { icon: string; label: string }> 
         icon: "/images/icons/stacks/ux-ui/figma.svg",
         label: "FIGMA",
     },
+    live: {
+        icon: "/images/icons/common/live-demo.svg",
+        label: "LIVE DEMO",
+    },
+    website: {
+        icon: "/images/icons/common/website.svg",
+        label: "WEBSITE",
+    },
 };
 
 watch(

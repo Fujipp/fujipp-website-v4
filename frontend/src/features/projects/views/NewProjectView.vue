@@ -112,6 +112,8 @@ const form = reactive({
     },
     githubUrl: "",
     figmaUrl: "",
+    liveUrl: "",
+    websiteUrl: "",
     roles: [] as string[],
     status: "",
     timeline: {
@@ -426,6 +428,8 @@ function createPayload(slug: string, galleryUrls: string[], architectureUrl: str
             ...(form.youtubeUrl ? [{ type: "youtube" as const, url: form.youtubeUrl }] : []),
             ...(certificateUrl ? [{ type: "certificate" as const, url: certificateUrl }] : []),
             ...(form.figmaUrl ? [{ type: "figma" as const, url: form.figmaUrl }] : []),
+            ...(form.liveUrl ? [{ type: "live" as const, url: form.liveUrl }] : []),
+            ...(form.websiteUrl ? [{ type: "website" as const, url: form.websiteUrl }] : []),
         ],
         overview: {
             challengeAreas: Math.max(
@@ -529,6 +533,8 @@ function populateForm(project: ProjectRecord): void {
     form.content.th = createEditableLocalizedContent(project.content.th);
     form.figmaUrl = project.links.find((link) => link.type === "figma")?.url ?? "";
     form.githubUrl = project.links.find((link) => link.type === "github")?.url ?? "";
+    form.liveUrl = project.links.find((link) => link.type === "live")?.url ?? "";
+    form.websiteUrl = project.links.find((link) => link.type === "website")?.url ?? "";
     form.roles = [...project.roles];
     form.status = project.status;
     form.timeline.endDate = project.timeline?.endDate ?? "";
@@ -1027,6 +1033,8 @@ onUnmounted(() => {
                         <TextField v-model="form.githubUrl" label="Github" placeholder="https://github.com/..." type="url" />
                         <TextField v-model="form.youtubeUrl" label="Youtube" placeholder="https://youtube.com/..." type="url" />
                         <TextField v-model="form.figmaUrl" label="Figma" placeholder="https://figma.com/..." type="url" />
+                        <TextField v-model="form.liveUrl" label="Live Demo" placeholder="https://..." type="url" />
+                        <TextField v-model="form.websiteUrl" label="Website" placeholder="https://..." type="url" />
                         <div :class="$style.certificateField">
                             <span class="type-overline-r">Certificate</span>
                             <div :class="$style.certificateControl">

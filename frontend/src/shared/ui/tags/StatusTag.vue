@@ -1,13 +1,13 @@
 <script setup lang="ts">
-export type TableStatusValue = "Active" | "Completed" | "In Progress" | "Archived";
+export type StatusTagValue = "Active" | "Completed" | "In Progress" | "Archived";
 
 interface Props {
-    status: TableStatusValue;
+    status: StatusTagValue;
 }
 
 defineProps<Props>();
 
-function dotClass(status: TableStatusValue): string {
+function dotClass(status: StatusTagValue): string {
     return {
         Active: "activeDot",
         Completed: "completedDot",

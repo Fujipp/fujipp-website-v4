@@ -55,17 +55,17 @@ const educationEntries = [
     {
         key: "university",
         label: "University",
-        image: "/images/education/KMUTT.jpeg",
+        image: "/images/education/kmutt.jpeg",
     },
     {
         key: "seniorHigh",
         label: "Senior High",
-        image: "/images/education/BPK.jpg",
+        image: "/images/education/bpk.jpg",
     },
     {
         key: "foundation",
         label: "Foundation",
-        image: "/images/education/KJR.jpg",
+        image: "/images/education/kjr.jpg",
     },
 ] as const;
 
@@ -217,14 +217,14 @@ onUnmounted(() => {
             >
                 <audio
                     ref="heroMusic"
-                    src="/music/Beauty And A Beat Justin Bieber Nicki Minaj.mp3"
+                    src="/music/beauty-and-a-beat-justin-bieber-nicki-minaj.mp3"
                     preload="metadata"
                     loop
                 />
                 <div :class="$style.modelSpace">
                     <model-viewer
                         :class="$style.modelViewer"
-                        src="/models/fujipp/Fujipp-Dancing.glb"
+                        src="/models/fujipp/fujipp-dancing.glb"
                         alt="Animated 3D model of Fujipp"
                         autoplay
                         camera-controls

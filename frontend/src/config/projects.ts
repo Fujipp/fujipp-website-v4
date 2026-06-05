@@ -27,7 +27,7 @@ export interface ProjectLocalizedContent {
   whatILearned: readonly ProjectStructuredItem[];
 }
 
-export type ProjectLinkType = "github" | "youtube" | "certificate" | "figma";
+export type ProjectLinkType = "github" | "youtube" | "certificate" | "figma" | "live" | "website";
 
 export interface ProjectLink {
   type: ProjectLinkType;

@@ -43,7 +43,7 @@ const contactCards: ContactCard[] = [
         id: "gmail",
         platform: "Gmail",
         handle: "anawat.grudtoop@gmail.com",
-        image: "/images/users/fujipp/anawat_grudtoop.png",
+        image: "/images/users/fujipp/anawat-grudtoop.png",
         icon: `${CONTACT_ICON_PATH}/gmail.svg`,
         href: "mailto:anawat.grudtoop@gmail.com",
         action: "Send Email",

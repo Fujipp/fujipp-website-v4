@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { FilterButton, NextBackButton } from "@/shared/ui/buttons";
-import { TableStatus } from "@/shared/ui/tags";
+import { StatusTag } from "@/shared/ui/tags";
 import { SearchField } from "@/shared/ui/fields";
 import type { ProjectTableRow } from "@/config";
 
@@ -307,7 +307,7 @@ onUnmounted(() => {
                         <span :class="$style.projectCell">{{ row.projectName }}</span>
                         <span :class="$style.categoryCell">{{ row.category }}</span>
                         <span :class="$style.statusCell">
-                            <TableStatus :status="row.status" />
+                            <StatusTag :status="row.status" />
                         </span>
                     </button>
                     <p v-if="filteredRows.length === 0" :class="$style.emptyState" class="type-body-main-r">

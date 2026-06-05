@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { ActionButton, FilterButton, TableNextBackButton } from "@/shared/ui/buttons";
-import { TableStatus } from "@/shared/ui/tags";
+import { StatusTag } from "@/shared/ui/tags";
 import { SearchField } from "@/shared/ui/fields";
 import type { ProjectStatus, ProjectTableRow } from "@/config";
 
@@ -244,7 +244,7 @@ onUnmounted(() => {
                 </span>
                 <span :class="$style.categoryCell">{{ row.category }}</span>
                 <span :class="[$style.statusCell, $style.desktopCell]">
-                    <TableStatus :status="row.status" />
+                    <StatusTag :status="row.status" />
                 </span>
                 <span :class="$style.mobileAction" aria-hidden="true">
                     <TableNextBackButton

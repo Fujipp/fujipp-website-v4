@@ -1,9 +1,10 @@
 # Changelog — Frontend
 
-**Current version: `0.1.7`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.1.8`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.1.8` | 2026-06-05 | add Live Demo & Website project links (form + detail view) |
 | `0.1.7` | 2026-06-05 | select backend via VITE_API_TARGET (local / host) in .env |
 | `0.1.6` | 2026-06-05 | reorganize src into shared/ + features (portfolio, projects, shop, auth) |
 | `0.1.5` | 2026-06-05 | rename public icons & folders to kebab-case, strip library prefixes |

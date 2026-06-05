@@ -67,7 +67,7 @@ onUnmounted(() => {
         </ul>
         <img
             :class="$style.mascot"
-            src="/images/users/fujipp/mascot_home_nobg.PNG"
+            src="/images/users/fujipp/mascot-home-nobg.png"
             alt=""
             aria-hidden="true"
         />
