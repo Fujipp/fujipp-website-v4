@@ -3,6 +3,12 @@
 FROM node:20-bookworm-slim AS build
 WORKDIR /app
 
+# Prisma's query engine needs OpenSSL; the slim image ships without it, which
+# makes prisma misdetect the engine. Install it before `npm ci` runs prisma generate.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends openssl ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
 COPY package.json package-lock.json ./
 COPY prisma ./prisma
 RUN npm ci
@@ -13,6 +19,12 @@ RUN npm run build
 
 FROM node:20-bookworm-slim AS runtime
 WORKDIR /app
+
+# OpenSSL for the Prisma query engine at runtime (and for prisma generate during
+# this stage's npm ci). Without it Prisma fails with "libssl.so cannot open".
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends openssl ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 
 # Install ALL deps (incl. prisma CLI + ts-node) before setting NODE_ENV, so the
 # runtime image can run `prisma migrate deploy` and the ts-node bootstrap command.
