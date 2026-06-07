@@ -68,8 +68,10 @@ services:
       - "127.0.0.1:3611:3611"
     volumes:
       - /opt/fujipp/truemoney-voucher-data:/app/data
-    mem_limit: 256m
-    memswap_limit: 256m
+    # 512m: argon2 key hashing is memory-hard (~64MB/op) and the one-off
+    # ts-node bootstrap shares this limit — 256m OOM-kills both.
+    mem_limit: 512m
+    memswap_limit: 512m
     networks: [fujipp]
     healthcheck:
       test:
