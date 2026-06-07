@@ -246,6 +246,32 @@ jobs:
             docker compose up -d --no-deps --remove-orphans $SERVICES
           fi
 
+          # Smoke test the voucher service before pointing the bot at it. Proves Spring
+          # booted (schema validated + DB reachable) and the token auth works — without
+          # hitting TrueMoney or writing any redeem row.
+          if [ "$VOUCHER_CHANGED" = "true" ]; then
+            echo "== voucher smoke test =="
+            health=""
+            for i in $(seq 1 40); do
+              health=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3611/actuator/health || true)
+              [ "$health" = "200" ] && break
+              sleep 3
+            done
+            echo "health -> $health (expect 200)"
+            [ "$health" = "200" ] || { echo "ERROR: voucher service not healthy"; exit 1; }
+
+            noauth=$(curl -s -o /dev/null -w '%{http_code}' -XPOST http://127.0.0.1:3611/v1/redeem \
+              -H 'content-type: application/json' -d '{}' || true)
+            echo "no-token -> $noauth (expect 401)"
+            [ "$noauth" = "401" ] || { echo "ERROR: auth not enforced"; exit 1; }
+
+            withauth=$(curl -s -o /dev/null -w '%{http_code}' -XPOST http://127.0.0.1:3611/v1/redeem \
+              -H "x-api-key: $VOUCHER_SERVICE_TOKEN" -H 'content-type: application/json' -d '{}' || true)
+            echo "token+bad-body -> $withauth (expect 400)"
+            [ "$withauth" = "400" ] || { echo "ERROR: token rejected or validation off"; exit 1; }
+            echo "== smoke test passed =="
+          fi
+
           # Keep the legacy PM2 bot pointed at the local voucher service. The bot sends
           # its configured key as x-api-key, so we set it to VOUCHER_SERVICE_TOKEN. Runs
           # on every voucher roll, so rotating the token just needs a redeploy.
