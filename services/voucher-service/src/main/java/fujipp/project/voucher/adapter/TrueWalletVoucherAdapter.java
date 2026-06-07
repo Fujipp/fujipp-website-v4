@@ -28,7 +28,7 @@ import java.util.Map;
 public class TrueWalletVoucherAdapter implements VoucherAdapter {
 
     private static final String BASE = "https://gift.truemoney.com/campaign/vouchers";
-    private static final MediaType ACCEPT = MediaType.parseMediaType("application/json, text/plain, */*");
+    private static final List<MediaType> ACCEPT = MediaType.parseMediaTypes("application/json, text/plain, */*");
 
     private final RestClient http;
     private final ObjectMapper mapper;
@@ -97,7 +97,7 @@ public class TrueWalletVoucherAdapter implements VoucherAdapter {
                     .uri(url)
                     .headers(h -> {
                         h.set("User-Agent", userAgent);
-                        h.setAccept(List.of(ACCEPT));
+                        h.setAccept(ACCEPT);
                     });
             RestClient.RequestHeadersSpec<?> finalSpec =
                     body != null ? spec.contentType(MediaType.APPLICATION_JSON).body(body) : spec;
