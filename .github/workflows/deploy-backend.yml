@@ -222,6 +222,10 @@ jobs:
             echo "TRUEMONEY_IMAGE=$TRUEMONEY_IMAGE"
           } >> .env
 
+          # Export so `docker compose` sees them for ${...} interpolation (the .env
+          # file alone is not relied on — shell env takes precedence and is robust).
+          export BACKEND_IMAGE BILLING_IMAGE TRUEMONEY_IMAGE
+
           # Roll only the services that changed; leave the rest running untouched.
           SERVICES=""
           [ "$BACKEND_CHANGED" = "true" ] && SERVICES="$SERVICES backend"
