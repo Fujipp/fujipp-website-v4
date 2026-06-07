@@ -243,6 +243,48 @@ jobs:
             docker compose up -d --no-deps $SERVICES
           fi
 
+          # Keep the legacy PM2 bot pointed at the local voucher service. The bot sends
+          # its configured key as x-api-key, so we set it to VOUCHER_SERVICE_TOKEN. Runs
+          # on every voucher roll, so rotating the token just needs a redeploy.
+          if [ "$VOUCHER_CHANGED" = "true" ] && [ -n "${VOUCHER_SERVICE_TOKEN:-}" ] \
+            && [ -d /root/discord-bot-001-kanom-roblox ]; then
+            KANOM_TOKEN="$VOUCHER_SERVICE_TOKEN" \
+            KANOM_BASE="http://127.0.0.1:3611" \
+            KANOM_DIR="/root/discord-bot-001-kanom-roblox" node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const dir = process.env.KANOM_DIR;
+          const token = process.env.KANOM_TOKEN;
+          const base = process.env.KANOM_BASE;
+
+          function setEnvFile(filePath) {
+            if (!fs.existsSync(filePath)) return;
+            let text = fs.readFileSync(filePath, 'utf8');
+            const pairs = { API_TRUEMONEY_KEY_ID: token, TRUEMONEY_BASE: base };
+            for (const [name, value] of Object.entries(pairs)) {
+              const line = `${name}=${value}`;
+              const re = new RegExp(`^${name}=.*$`, 'm');
+              text = re.test(text) ? text.replace(re, line) : `${text}${text.endsWith('\n') ? '' : '\n'}${line}\n`;
+            }
+            fs.writeFileSync(filePath, text, { mode: 0o600 });
+          }
+
+          setEnvFile(path.join(dir, '.env'));
+          setEnvFile(path.join(dir, '.env.save'));
+
+          const jsonPath = path.join(dir, 'update', 'logdata.json');
+          if (fs.existsSync(jsonPath)) {
+            const data = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+            data.API_TRUEMONEY_KEY_ID = token;
+            data.TRUEMONEY_BASE = base;
+            fs.writeFileSync(jsonPath, JSON.stringify(data, null, 2));
+          }
+          NODE
+            if command -v pm2 >/dev/null 2>&1; then
+              pm2 restart bot-kanom-roblox --update-env || true
+            fi
+          fi
+
           docker image prune -f
           docker compose ps
           REMOTE
