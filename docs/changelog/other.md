@@ -1,9 +1,10 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.5.7`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.5.8`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.5.8` | 2026-06-07 | inject truemoney MASTER_KEY from its own secret into the rendered .env |
 | `0.0.5.7` | 2026-06-07 | raise truemoney mem_limit to 512m (argon2 + ts-node bootstrap OOM at 256m) |
 | `0.0.5.6` | 2026-06-07 | point truemoney DATABASE_URL at /app/data (absolute) and migrate before bootstrap |
 | `0.0.5.5` | 2026-06-07 | install OpenSSL in the truemoney image so the Prisma query engine loads |
