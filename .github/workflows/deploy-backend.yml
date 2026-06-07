@@ -249,10 +249,18 @@ jobs:
           # Only when the TrueMoney service rolled: ensure its Kanom 001 client + key,
           # then point the legacy PM2 bot bridge at the local service.
           if [ "$TRUEMONEY_CHANGED" = "true" ]; then
+            # Fail loudly (not deep inside the app) if the key never arrived.
+            echo "MASTER_KEY length: ${#MASTER_KEY}"
+            if [ -z "${MASTER_KEY:-}" ]; then
+              echo "ERROR: TRUEMONEY_MASTER_KEY secret is empty — set it and re-run." >&2
+              exit 1
+            fi
+
             # Apply migrations in a one-off container first so the schema exists
             # regardless of the main container's async prestart timing (no race).
             docker compose run --rm --no-deps true-wallet-voucher npm run db:migrate
-            docker compose run --rm --no-deps true-wallet-voucher \
+            # Inject MASTER_KEY straight into the one-off container (most direct path).
+            docker compose run --rm --no-deps -e "MASTER_KEY=$MASTER_KEY" true-wallet-voucher \
               npm run db:bootstrap -- \
                 --client kanom-001 \
                 --name "Kanom 001" \
