@@ -241,6 +241,9 @@ jobs:
           # Only when the TrueMoney service rolled: ensure its Kanom 001 client + key,
           # then point the legacy PM2 bot bridge at the local service.
           if [ "$TRUEMONEY_CHANGED" = "true" ]; then
+            # Apply migrations in a one-off container first so the schema exists
+            # regardless of the main container's async prestart timing (no race).
+            docker compose run --rm --no-deps true-wallet-voucher npm run db:migrate
             docker compose run --rm --no-deps true-wallet-voucher \
               npm run db:bootstrap -- \
                 --client kanom-001 \
