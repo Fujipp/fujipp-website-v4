@@ -258,7 +258,12 @@ jobs:
               sleep 3
             done
             echo "health -> $health (expect 200)"
-            [ "$health" = "200" ] || { echo "ERROR: voucher service not healthy"; exit 1; }
+            if [ "$health" != "200" ]; then
+              echo "ERROR: voucher service not healthy — recent logs:"
+              docker compose logs --tail=80 voucher 2>&1 | tail -80 || true
+              docker compose ps || true
+              exit 1
+            fi
 
             noauth=$(curl -s -o /dev/null -w '%{http_code}' -XPOST http://127.0.0.1:3611/v1/redeem \
               -H 'content-type: application/json' -d '{}' || true)
