@@ -1,9 +1,10 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.7.3`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.7.4`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.7.4` | 2026-06-07 | fix voucher Accept header (parseMediaTypes) — invalid mime crashed boot |
 | `0.0.7.3` | 2026-06-07 | fix .env newline so VOUCHER_SERVICE_TOKEN reaches the container (voucher boot failure) |
 | `0.0.7.2` | 2026-06-07 | smoke-test the voucher service (health + auth) on deploy before repointing the bot |
 | `0.0.7.1` | 2026-06-07 | point the PM2 bot at the voucher service via VOUCHER_SERVICE_TOKEN on deploy |
