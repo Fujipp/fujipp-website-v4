@@ -1,7 +1,11 @@
 name: Deploy Backend
 
-# Builds the backend + billing images, pushes them to GHCR (public), then rolls
+# Builds the backend + service images, pushes them to GHCR (public), then rolls
 # the VPS stack to the new commit. Only main, and only when backend files change.
+#
+# Per-service deploys: a push only rebuilds and recreates the service(s) whose
+# files actually changed. A change to docker/** or this workflow, or a manual
+# workflow_dispatch, rolls the whole stack (the compose file affects everyone).
 on:
   push:
     branches: [main]
@@ -20,7 +24,60 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.decide.outputs.backend }}
+      billing: ${{ steps.decide.outputs.billing }}
+      truemoney: ${{ steps.decide.outputs.truemoney }}
+      any: ${{ steps.decide.outputs.any }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+            billing:
+              - 'services/billing-service/**'
+            truemoney:
+              - 'services/true-wallet-voucher/**'
+            infra:
+              - 'docker/**'
+              - '.github/workflows/deploy-backend.yml'
+
+      - name: Decide which services to roll
+        id: decide
+        env:
+          EVENT: ${{ github.event_name }}
+          INFRA: ${{ steps.filter.outputs.infra }}
+          BACKEND: ${{ steps.filter.outputs.backend }}
+          BILLING: ${{ steps.filter.outputs.billing }}
+          TRUEMONEY: ${{ steps.filter.outputs.truemoney }}
+        run: |
+          # A manual run, or a change to the compose file / this workflow, affects
+          # every service — roll the whole stack. Otherwise roll only what changed.
+          if [ "$EVENT" = "workflow_dispatch" ] || [ "$INFRA" = "true" ]; then
+            backend=true; billing=true; truemoney=true
+          else
+            backend=$BACKEND; billing=$BILLING; truemoney=$TRUEMONEY
+          fi
+          {
+            echo "backend=$backend"
+            echo "billing=$billing"
+            echo "truemoney=$truemoney"
+          } >> "$GITHUB_OUTPUT"
+          if [ "$backend" = "true" ] || [ "$billing" = "true" ] || [ "$truemoney" = "true" ]; then
+            echo "any=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "any=false" >> "$GITHUB_OUTPUT"
+          fi
+
   build:
+    needs: changes
+    if: needs.changes.outputs.any == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -42,6 +99,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build & push backend
+        if: needs.changes.outputs.backend == 'true'
         uses: docker/build-push-action@v6
         with:
           context: ./backend
@@ -53,6 +111,7 @@ jobs:
           cache-to: type=gha,scope=backend,mode=max
 
       - name: Build & push billing
+        if: needs.changes.outputs.billing == 'true'
         uses: docker/build-push-action@v6
         with:
           context: ./services/billing-service
@@ -63,8 +122,20 @@ jobs:
           cache-from: type=gha,scope=billing
           cache-to: type=gha,scope=billing,mode=max
 
+      - name: Build & push TrueMoney voucher
+        if: needs.changes.outputs.truemoney == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: ./services/true-wallet-voucher
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ steps.vars.outputs.owner }}/fujipp-truemoney-voucher:latest
+            ${{ env.REGISTRY }}/${{ steps.vars.outputs.owner }}/fujipp-truemoney-voucher:${{ github.sha }}
+          cache-from: type=gha,scope=truemoney-voucher
+          cache-to: type=gha,scope=truemoney-voucher,mode=max
+
   deploy:
-    needs: build
+    needs: [changes, build]
     runs-on: ubuntu-latest
     environment: production
     steps:
@@ -95,34 +166,128 @@ jobs:
             docker/docker-compose.prod.yml \
             "$SSH_USER@$SSH_HOST:/opt/fujipp/docker-compose.yml"
 
-      - name: Render .env and roll the stack
+      - name: Render .env and roll the changed services
         env:
           SSH_HOST: ${{ secrets.VPS_SSH_HOST }}
           SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
           SSH_USER: ${{ secrets.VPS_SSH_USER }}
           BACKEND_ENV_FILE: ${{ secrets.BACKEND_ENV_FILE }}
-          BACKEND_IMAGE: ${{ env.REGISTRY }}/${{ steps.vars.outputs.owner }}/fujipp-backend:${{ github.sha }}
-          BILLING_IMAGE: ${{ env.REGISTRY }}/${{ steps.vars.outputs.owner }}/fujipp-billing:${{ github.sha }}
+          BACKEND_CHANGED: ${{ needs.changes.outputs.backend }}
+          BILLING_CHANGED: ${{ needs.changes.outputs.billing }}
+          TRUEMONEY_CHANGED: ${{ needs.changes.outputs.truemoney }}
+          OWNER: ${{ steps.vars.outputs.owner }}
+          SHA: ${{ github.sha }}
         run: |
           # base64-encode the secret so newlines/quotes survive the SSH hop intact
           ENV_B64=$(printf '%s' "$BACKEND_ENV_FILE" | base64 -w0)
           ssh -p "${SSH_PORT:-22}" -i ~/.ssh/id_deploy "$SSH_USER@$SSH_HOST" \
-            "ENV_B64='$ENV_B64' BACKEND_IMAGE='$BACKEND_IMAGE' BILLING_IMAGE='$BILLING_IMAGE' bash -se" <<'REMOTE'
+            "ENV_B64='$ENV_B64' REGISTRY='${{ env.REGISTRY }}' OWNER='$OWNER' SHA='$SHA' BACKEND_CHANGED='$BACKEND_CHANGED' BILLING_CHANGED='$BILLING_CHANGED' TRUEMONEY_CHANGED='$TRUEMONEY_CHANGED' bash -se" <<'REMOTE'
           set -euo pipefail
           cd /opt/fujipp
           umask 077
+          mkdir -p /opt/fujipp/truemoney-voucher-data
+          chmod 700 /opt/fujipp/truemoney-voucher-data
+
+          # Preserve the image pins of services we are NOT rolling this run, so the
+          # regenerated .env keeps them on their current commit instead of bumping them.
+          prev_backend=$(grep -E '^BACKEND_IMAGE=' .env 2>/dev/null | tail -n1 | cut -d= -f2- || true)
+          prev_billing=$(grep -E '^BILLING_IMAGE=' .env 2>/dev/null | tail -n1 | cut -d= -f2- || true)
+          prev_truemoney=$(grep -E '^TRUEMONEY_IMAGE=' .env 2>/dev/null | tail -n1 | cut -d= -f2- || true)
 
           # App secrets (single source of truth = the BACKEND_ENV_FILE GitHub secret)
           printf '%s' "$ENV_B64" | base64 -d > .env
 
-          # Pin the images for this deploy (enables clean rollback by SHA)
+          # Final image pins: changed services move to this commit's SHA; unchanged
+          # ones keep their previous pin (falling back to :latest on a first deploy).
+          if [ "$BACKEND_CHANGED" = "true" ]; then
+            BACKEND_IMAGE="$REGISTRY/$OWNER/fujipp-backend:$SHA"
+          else
+            BACKEND_IMAGE="${prev_backend:-$REGISTRY/$OWNER/fujipp-backend:latest}"
+          fi
+          if [ "$BILLING_CHANGED" = "true" ]; then
+            BILLING_IMAGE="$REGISTRY/$OWNER/fujipp-billing:$SHA"
+          else
+            BILLING_IMAGE="${prev_billing:-$REGISTRY/$OWNER/fujipp-billing:latest}"
+          fi
+          if [ "$TRUEMONEY_CHANGED" = "true" ]; then
+            TRUEMONEY_IMAGE="$REGISTRY/$OWNER/fujipp-truemoney-voucher:$SHA"
+          else
+            TRUEMONEY_IMAGE="${prev_truemoney:-$REGISTRY/$OWNER/fujipp-truemoney-voucher:latest}"
+          fi
+
+          # Pin every service (compose needs all three defined) for clean rollback by SHA.
           {
             echo "BACKEND_IMAGE=$BACKEND_IMAGE"
             echo "BILLING_IMAGE=$BILLING_IMAGE"
+            echo "TRUEMONEY_IMAGE=$TRUEMONEY_IMAGE"
           } >> .env
 
-          docker compose pull
-          docker compose up -d --remove-orphans
+          # Roll only the services that changed; leave the rest running untouched.
+          SERVICES=""
+          [ "$BACKEND_CHANGED" = "true" ] && SERVICES="$SERVICES backend"
+          [ "$BILLING_CHANGED" = "true" ] && SERVICES="$SERVICES billing"
+          [ "$TRUEMONEY_CHANGED" = "true" ] && SERVICES="$SERVICES true-wallet-voucher"
+          SERVICES=$(echo "$SERVICES" | xargs)
+
+          if [ -n "$SERVICES" ]; then
+            docker compose pull $SERVICES
+            docker compose up -d --no-deps $SERVICES
+          fi
+
+          # Only when the TrueMoney service rolled: ensure its Kanom 001 client + key,
+          # then point the legacy PM2 bot bridge at the local service.
+          if [ "$TRUEMONEY_CHANGED" = "true" ]; then
+            docker compose run --rm --no-deps true-wallet-voucher \
+              npm run db:bootstrap -- \
+                --client kanom-001 \
+                --name "Kanom 001" \
+                --key-file /app/data/kanom-001.full-key
+
+            if [ -f /opt/fujipp/truemoney-voucher-data/kanom-001.full-key ] \
+              && [ -d /root/discord-bot-001-kanom-roblox ]; then
+              KANOM_KEY="$(tr -d '\r\n' < /opt/fujipp/truemoney-voucher-data/kanom-001.full-key)"
+              KANOM_BASE="http://127.0.0.1:3611"
+              KANOM_DIR="/root/discord-bot-001-kanom-roblox"
+              KANOM_KEY="$KANOM_KEY" KANOM_BASE="$KANOM_BASE" KANOM_DIR="$KANOM_DIR" node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+
+          const dir = process.env.KANOM_DIR;
+          const key = process.env.KANOM_KEY;
+          const base = process.env.KANOM_BASE;
+
+          function setEnvFile(filePath) {
+            if (!fs.existsSync(filePath)) return;
+            let text = fs.readFileSync(filePath, 'utf8');
+            const pairs = {
+              API_TRUEMONEY_KEY_ID: key,
+              TRUEMONEY_BASE: base,
+            };
+            for (const [name, value] of Object.entries(pairs)) {
+              const line = `${name}=${value}`;
+              const re = new RegExp(`^${name}=.*$`, 'm');
+              text = re.test(text) ? text.replace(re, line) : `${text}${text.endsWith('\n') ? '' : '\n'}${line}\n`;
+            }
+            fs.writeFileSync(filePath, text, { mode: 0o600 });
+          }
+
+          setEnvFile(path.join(dir, '.env'));
+          setEnvFile(path.join(dir, '.env.save'));
+
+          const jsonPath = path.join(dir, 'update', 'logdata.json');
+          if (fs.existsSync(jsonPath)) {
+            const data = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+            data.API_TRUEMONEY_KEY_ID = key;
+            data.TRUEMONEY_BASE = base;
+            fs.writeFileSync(jsonPath, JSON.stringify(data, null, 2));
+          }
+          NODE
+              if command -v pm2 >/dev/null 2>&1; then
+                pm2 restart bot-kanom-roblox --update-env || true
+              fi
+            fi
+          fi
+
           docker image prune -f
           docker compose ps
           REMOTE
