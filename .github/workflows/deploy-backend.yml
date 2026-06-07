@@ -240,7 +240,10 @@ jobs:
 
           if [ -n "$SERVICES" ]; then
             docker compose pull $SERVICES
-            docker compose up -d --no-deps $SERVICES
+            # --remove-orphans clears containers no longer in the compose file (e.g. the
+            # retired true-wallet-voucher holding port 3611); it never touches services
+            # that are still defined (backend/billing), only true orphans.
+            docker compose up -d --no-deps --remove-orphans $SERVICES
           fi
 
           # Keep the legacy PM2 bot pointed at the local voucher service. The bot sends
