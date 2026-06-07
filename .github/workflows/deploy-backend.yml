@@ -15,11 +15,6 @@ on:
       - 'docker/**'
       - '.github/workflows/deploy-backend.yml'
   workflow_dispatch:
-    inputs:
-      rotate_truemoney_key:
-        description: 'Rotate the kanom-001 API key (issue a new one, revoke the old)'
-        type: boolean
-        default: false
 
 concurrency:
   group: deploy-backend
@@ -34,7 +29,7 @@ jobs:
     outputs:
       backend: ${{ steps.decide.outputs.backend }}
       billing: ${{ steps.decide.outputs.billing }}
-      truemoney: ${{ steps.decide.outputs.truemoney }}
+      voucher: ${{ steps.decide.outputs.voucher }}
       any: ${{ steps.decide.outputs.any }}
     steps:
       - uses: actions/checkout@v4
@@ -47,8 +42,8 @@ jobs:
               - 'backend/**'
             billing:
               - 'services/billing-service/**'
-            truemoney:
-              - 'services/true-wallet-voucher/**'
+            voucher:
+              - 'services/voucher-service/**'
             infra:
               - 'docker/**'
               - '.github/workflows/deploy-backend.yml'
@@ -60,21 +55,21 @@ jobs:
           INFRA: ${{ steps.filter.outputs.infra }}
           BACKEND: ${{ steps.filter.outputs.backend }}
           BILLING: ${{ steps.filter.outputs.billing }}
-          TRUEMONEY: ${{ steps.filter.outputs.truemoney }}
+          VOUCHER: ${{ steps.filter.outputs.voucher }}
         run: |
           # A manual run, or a change to the compose file / this workflow, affects
           # every service — roll the whole stack. Otherwise roll only what changed.
           if [ "$EVENT" = "workflow_dispatch" ] || [ "$INFRA" = "true" ]; then
-            backend=true; billing=true; truemoney=true
+            backend=true; billing=true; voucher=true
           else
-            backend=$BACKEND; billing=$BILLING; truemoney=$TRUEMONEY
+            backend=$BACKEND; billing=$BILLING; voucher=$VOUCHER
           fi
           {
             echo "backend=$backend"
             echo "billing=$billing"
-            echo "truemoney=$truemoney"
+            echo "voucher=$voucher"
           } >> "$GITHUB_OUTPUT"
-          if [ "$backend" = "true" ] || [ "$billing" = "true" ] || [ "$truemoney" = "true" ]; then
+          if [ "$backend" = "true" ] || [ "$billing" = "true" ] || [ "$voucher" = "true" ]; then
             echo "any=true" >> "$GITHUB_OUTPUT"
           else
             echo "any=false" >> "$GITHUB_OUTPUT"
@@ -127,17 +122,17 @@ jobs:
           cache-from: type=gha,scope=billing
           cache-to: type=gha,scope=billing,mode=max
 
-      - name: Build & push TrueMoney voucher
-        if: needs.changes.outputs.truemoney == 'true'
+      - name: Build & push voucher
+        if: needs.changes.outputs.voucher == 'true'
         uses: docker/build-push-action@v6
         with:
-          context: ./services/true-wallet-voucher
+          context: ./services/voucher-service
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ steps.vars.outputs.owner }}/fujipp-truemoney-voucher:latest
-            ${{ env.REGISTRY }}/${{ steps.vars.outputs.owner }}/fujipp-truemoney-voucher:${{ github.sha }}
-          cache-from: type=gha,scope=truemoney-voucher
-          cache-to: type=gha,scope=truemoney-voucher,mode=max
+            ${{ env.REGISTRY }}/${{ steps.vars.outputs.owner }}/fujipp-voucher:latest
+            ${{ env.REGISTRY }}/${{ steps.vars.outputs.owner }}/fujipp-voucher:${{ github.sha }}
+          cache-from: type=gha,scope=voucher
+          cache-to: type=gha,scope=voucher,mode=max
 
   deploy:
     needs: [changes, build]
@@ -177,38 +172,34 @@ jobs:
           SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
           SSH_USER: ${{ secrets.VPS_SSH_USER }}
           BACKEND_ENV_FILE: ${{ secrets.BACKEND_ENV_FILE }}
-          MASTER_KEY: ${{ secrets.TRUEMONEY_MASTER_KEY }}
-          ROTATE_KEY: ${{ github.event.inputs.rotate_truemoney_key || 'false' }}
+          VOUCHER_SERVICE_TOKEN: ${{ secrets.VOUCHER_SERVICE_TOKEN }}
           BACKEND_CHANGED: ${{ needs.changes.outputs.backend }}
           BILLING_CHANGED: ${{ needs.changes.outputs.billing }}
-          TRUEMONEY_CHANGED: ${{ needs.changes.outputs.truemoney }}
+          VOUCHER_CHANGED: ${{ needs.changes.outputs.voucher }}
           OWNER: ${{ steps.vars.outputs.owner }}
           SHA: ${{ github.sha }}
         run: |
           # base64-encode the secret so newlines/quotes survive the SSH hop intact
           ENV_B64=$(printf '%s' "$BACKEND_ENV_FILE" | base64 -w0)
           ssh -p "${SSH_PORT:-22}" -i ~/.ssh/id_deploy "$SSH_USER@$SSH_HOST" \
-            "ENV_B64='$ENV_B64' MASTER_KEY='$MASTER_KEY' ROTATE_KEY='$ROTATE_KEY' REGISTRY='${{ env.REGISTRY }}' OWNER='$OWNER' SHA='$SHA' BACKEND_CHANGED='$BACKEND_CHANGED' BILLING_CHANGED='$BILLING_CHANGED' TRUEMONEY_CHANGED='$TRUEMONEY_CHANGED' bash -se" <<'REMOTE'
+            "ENV_B64='$ENV_B64' VOUCHER_SERVICE_TOKEN='$VOUCHER_SERVICE_TOKEN' REGISTRY='${{ env.REGISTRY }}' OWNER='$OWNER' SHA='$SHA' BACKEND_CHANGED='$BACKEND_CHANGED' BILLING_CHANGED='$BILLING_CHANGED' VOUCHER_CHANGED='$VOUCHER_CHANGED' bash -se" <<'REMOTE'
           set -euo pipefail
           cd /opt/fujipp
           umask 077
-          mkdir -p /opt/fujipp/truemoney-voucher-data
-          chmod 700 /opt/fujipp/truemoney-voucher-data
 
           # Preserve the image pins of services we are NOT rolling this run, so the
           # regenerated .env keeps them on their current commit instead of bumping them.
           prev_backend=$(grep -E '^BACKEND_IMAGE=' .env 2>/dev/null | tail -n1 | cut -d= -f2- || true)
           prev_billing=$(grep -E '^BILLING_IMAGE=' .env 2>/dev/null | tail -n1 | cut -d= -f2- || true)
-          prev_truemoney=$(grep -E '^TRUEMONEY_IMAGE=' .env 2>/dev/null | tail -n1 | cut -d= -f2- || true)
+          prev_voucher=$(grep -E '^VOUCHER_IMAGE=' .env 2>/dev/null | tail -n1 | cut -d= -f2- || true)
 
           # App secrets (single source of truth = the BACKEND_ENV_FILE GitHub secret)
           printf '%s' "$ENV_B64" | base64 -d > .env
 
-          # TrueMoney voucher needs MASTER_KEY (AES-GCM) — kept in its own secret so
-          # it can be set without touching the BACKEND_ENV_FILE blob. Appended last so
-          # it wins if the blob also defines one. Harmless to the other services.
-          if [ -n "${MASTER_KEY:-}" ]; then
-            echo "MASTER_KEY=$MASTER_KEY" >> .env
+          # Voucher service token (own secret so it can be set/rotated without touching
+          # the BACKEND_ENV_FILE blob). Appended last so it wins; harmless to others.
+          if [ -n "${VOUCHER_SERVICE_TOKEN:-}" ]; then
+            echo "VOUCHER_SERVICE_TOKEN=$VOUCHER_SERVICE_TOKEN" >> .env
           fi
 
           # Final image pins: changed services move to this commit's SHA; unchanged
@@ -223,104 +214,33 @@ jobs:
           else
             BILLING_IMAGE="${prev_billing:-$REGISTRY/$OWNER/fujipp-billing:latest}"
           fi
-          if [ "$TRUEMONEY_CHANGED" = "true" ]; then
-            TRUEMONEY_IMAGE="$REGISTRY/$OWNER/fujipp-truemoney-voucher:$SHA"
+          if [ "$VOUCHER_CHANGED" = "true" ]; then
+            VOUCHER_IMAGE="$REGISTRY/$OWNER/fujipp-voucher:$SHA"
           else
-            TRUEMONEY_IMAGE="${prev_truemoney:-$REGISTRY/$OWNER/fujipp-truemoney-voucher:latest}"
+            VOUCHER_IMAGE="${prev_voucher:-$REGISTRY/$OWNER/fujipp-voucher:latest}"
           fi
 
           # Pin every service (compose needs all three defined) for clean rollback by SHA.
           {
             echo "BACKEND_IMAGE=$BACKEND_IMAGE"
             echo "BILLING_IMAGE=$BILLING_IMAGE"
-            echo "TRUEMONEY_IMAGE=$TRUEMONEY_IMAGE"
+            echo "VOUCHER_IMAGE=$VOUCHER_IMAGE"
           } >> .env
 
           # Export so `docker compose` sees them for ${...} interpolation (the .env
           # file alone is not relied on — shell env takes precedence and is robust).
-          export BACKEND_IMAGE BILLING_IMAGE TRUEMONEY_IMAGE
+          export BACKEND_IMAGE BILLING_IMAGE VOUCHER_IMAGE
 
           # Roll only the services that changed; leave the rest running untouched.
           SERVICES=""
           [ "$BACKEND_CHANGED" = "true" ] && SERVICES="$SERVICES backend"
           [ "$BILLING_CHANGED" = "true" ] && SERVICES="$SERVICES billing"
-          [ "$TRUEMONEY_CHANGED" = "true" ] && SERVICES="$SERVICES true-wallet-voucher"
+          [ "$VOUCHER_CHANGED" = "true" ] && SERVICES="$SERVICES voucher"
           SERVICES=$(echo "$SERVICES" | xargs)
 
           if [ -n "$SERVICES" ]; then
             docker compose pull $SERVICES
             docker compose up -d --no-deps $SERVICES
-          fi
-
-          # Only when the TrueMoney service rolled: ensure its Kanom 001 client + key,
-          # then point the legacy PM2 bot bridge at the local service.
-          if [ "$TRUEMONEY_CHANGED" = "true" ]; then
-            # Fail loudly (not deep inside the app) if the key never arrived.
-            echo "MASTER_KEY length: ${#MASTER_KEY}"
-            if [ -z "${MASTER_KEY:-}" ]; then
-              echo "ERROR: TRUEMONEY_MASTER_KEY secret is empty — set it and re-run." >&2
-              exit 1
-            fi
-
-            # Apply migrations in a one-off container first so the schema exists
-            # regardless of the main container's async prestart timing (no race).
-            docker compose run --rm --no-deps true-wallet-voucher npm run db:migrate
-            # On-demand rotation: a manual run with rotate_truemoney_key=true issues a
-            # fresh key and revokes the old one. Normal deploys reuse the active key.
-            FORCE_ARG=""
-            [ "${ROTATE_KEY:-false}" = "true" ] && FORCE_ARG="--force-key"
-
-            # Inject MASTER_KEY straight into the one-off container (most direct path).
-            docker compose run --rm --no-deps -e "MASTER_KEY=$MASTER_KEY" true-wallet-voucher \
-              npm run db:bootstrap -- \
-                --client kanom-001 \
-                --name "Kanom 001" \
-                --key-file /app/data/kanom-001.full-key \
-                $FORCE_ARG
-
-            if [ -f /opt/fujipp/truemoney-voucher-data/kanom-001.full-key ] \
-              && [ -d /root/discord-bot-001-kanom-roblox ]; then
-              KANOM_KEY="$(tr -d '\r\n' < /opt/fujipp/truemoney-voucher-data/kanom-001.full-key)"
-              KANOM_BASE="http://127.0.0.1:3611"
-              KANOM_DIR="/root/discord-bot-001-kanom-roblox"
-              KANOM_KEY="$KANOM_KEY" KANOM_BASE="$KANOM_BASE" KANOM_DIR="$KANOM_DIR" node <<'NODE'
-          const fs = require('fs');
-          const path = require('path');
-
-          const dir = process.env.KANOM_DIR;
-          const key = process.env.KANOM_KEY;
-          const base = process.env.KANOM_BASE;
-
-          function setEnvFile(filePath) {
-            if (!fs.existsSync(filePath)) return;
-            let text = fs.readFileSync(filePath, 'utf8');
-            const pairs = {
-              API_TRUEMONEY_KEY_ID: key,
-              TRUEMONEY_BASE: base,
-            };
-            for (const [name, value] of Object.entries(pairs)) {
-              const line = `${name}=${value}`;
-              const re = new RegExp(`^${name}=.*$`, 'm');
-              text = re.test(text) ? text.replace(re, line) : `${text}${text.endsWith('\n') ? '' : '\n'}${line}\n`;
-            }
-            fs.writeFileSync(filePath, text, { mode: 0o600 });
-          }
-
-          setEnvFile(path.join(dir, '.env'));
-          setEnvFile(path.join(dir, '.env.save'));
-
-          const jsonPath = path.join(dir, 'update', 'logdata.json');
-          if (fs.existsSync(jsonPath)) {
-            const data = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
-            data.API_TRUEMONEY_KEY_ID = key;
-            data.TRUEMONEY_BASE = base;
-            fs.writeFileSync(jsonPath, JSON.stringify(data, null, 2));
-          }
-          NODE
-              if command -v pm2 >/dev/null 2>&1; then
-                pm2 restart bot-kanom-roblox --update-env || true
-              fi
-            fi
           fi
 
           docker image prune -f
