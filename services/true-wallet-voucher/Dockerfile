@@ -13,11 +13,14 @@ RUN npm run build
 
 FROM node:20-bookworm-slim AS runtime
 WORKDIR /app
-ENV NODE_ENV=production
 
+# Install ALL deps (incl. prisma CLI + ts-node) before setting NODE_ENV, so the
+# runtime image can run `prisma migrate deploy` and the ts-node bootstrap command.
+# NODE_ENV=production is set afterwards so it only affects the running app.
 COPY package.json package-lock.json ./
 COPY prisma ./prisma
 RUN npm ci
+ENV NODE_ENV=production
 
 COPY --from=build /app/dist ./dist
 
