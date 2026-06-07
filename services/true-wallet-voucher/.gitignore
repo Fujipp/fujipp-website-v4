@@ -1,7 +1,0 @@
-node_modules
-dist
-.env
-data/
-prisma/data/
-*.db
-generated_keys*.txt
