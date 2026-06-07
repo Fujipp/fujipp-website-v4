@@ -195,6 +195,9 @@ jobs:
 
           # App secrets (single source of truth = the BACKEND_ENV_FILE GitHub secret)
           printf '%s' "$ENV_B64" | base64 -d > .env
+          # Ensure a trailing newline so the first appended var below can't merge into
+          # the blob's last line (the blob may not end in a newline).
+          echo >> .env
 
           # Voucher service token (own secret so it can be set/rotated without touching
           # the BACKEND_ENV_FILE blob). Appended last so it wins; harmless to others.
