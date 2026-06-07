@@ -8,6 +8,8 @@
 #   - backend  -> published on 127.0.0.1:3600 only; the EXISTING host nginx already
 #                 proxies https://api.fujipp.com -> 127.0.0.1:3600 (do not touch nginx/cert).
 #   - billing  -> internal-only (no published ports); reached by the backend at http://billing:8081
+#   - true-wallet-voucher -> published on 127.0.0.1:3611 only; legacy PM2 bots call it
+#                 from the host loopback. It stores its SQLite DB in a host volume.
 #
 # Memory is capped so the JVMs can't OOM-kill the bots (host has ~3.8GB RAM).
 name: fujipp
@@ -51,6 +53,34 @@ services:
       timeout: 5s
       retries: 5
       start_period: 90s
+
+  true-wallet-voucher:
+    image: ${TRUEMONEY_IMAGE}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3611
+      DATABASE_URL: file:./data/tmn.db
+    ports:
+      - "127.0.0.1:3611:3611"
+    volumes:
+      - /opt/fujipp/truemoney-voucher-data:/app/data
+    mem_limit: 256m
+    memswap_limit: 256m
+    networks: [fujipp]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "const net=require('net'); const s=net.connect(3611,'127.0.0.1'); s.on('connect',()=>process.exit(0)); s.on('error',()=>process.exit(1)); setTimeout(()=>process.exit(1),3000);",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   # The backend declares spring-boot-starter-amqp and -session-data-redis.
   # Sessions are disabled (store-type=none) and AMQP connects lazily, so neither

@@ -1,9 +1,16 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.1.5`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.5.1`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.5.1` | 2026-06-07 | backend deploy rolls only the changed service(s) (paths-filter + targeted compose up) |
+| `0.0.5` | 2026-06-07 | wire TrueMoney voucher service into backend CI/CD and production compose |
+| `0.0.4.1` | 2026-06-07 | add bootstrap migration command for TrueMoney voucher service |
+| `0.0.4` | 2026-06-07 | add TrueMoney voucher redeem service scaffold |
+| `0.0.3` | 2026-06-05 | scaffold bot-runtime-service orchestrator (PM2 runner, AES-GCM secret decrypt) |
+| `0.0.2` | 2026-06-05 | scaffold central-bot service (feature-module system + Roblox feature) |
+| `0.0.1.6` | 2026-06-05 | add Feature Bot platform design doc (sell/config/run flow) |
 | `0.0.1.5` | 2026-06-05 | add backend & database agent rules and per-area changelog |
 | `0.0.1.4` | 2026-06-04 | deploy frontend over FTP (shared host has no SSH) |
 | `0.0.1.3` | 2026-06-04 | drop --frozen-lockfile for frontend (bun.lock drifts from package.json) |
