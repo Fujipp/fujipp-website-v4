@@ -2,14 +2,14 @@
 # Deployed by .github/workflows/deploy-backend.yml to /opt/fujipp/docker-compose.yml
 #
 # Images are pulled from GHCR (public). The deploy job writes /opt/fujipp/.env with
-# BACKEND_IMAGE / BILLING_IMAGE pinned to the commit SHA, plus all app secrets.
+# BACKEND_IMAGE / BILLING_IMAGE / VOUCHER_IMAGE pinned to the commit SHA, plus all app secrets.
 #
 # Networking (this VPS is shared with pm2 Discord bots — stay off their ports 8080/8081/3000):
 #   - backend  -> published on 127.0.0.1:3600 only; the EXISTING host nginx already
 #                 proxies https://api.fujipp.com -> 127.0.0.1:3600 (do not touch nginx/cert).
 #   - billing  -> internal-only (no published ports); reached by the backend at http://billing:8081
-#   - true-wallet-voucher -> published on 127.0.0.1:3611 only; legacy PM2 bots call it
-#                 from the host loopback. It stores its SQLite DB in a host volume.
+#   - voucher  -> published on 127.0.0.1:3611 only; legacy PM2 bots call it from the host
+#                 loopback (x-api-key). Data lives in Supabase (voucher schema), no volume.
 #
 # Memory is capped so the JVMs can't OOM-kill the bots (host has ~3.8GB RAM).
 name: fujipp
@@ -54,37 +54,25 @@ services:
       retries: 5
       start_period: 90s
 
-  true-wallet-voucher:
-    image: ${TRUEMONEY_IMAGE}
+  voucher:
+    image: ${VOUCHER_IMAGE}
     restart: unless-stopped
     env_file: .env
     environment:
-      HOST: 0.0.0.0
-      PORT: 3611
-      # Absolute path: Prisma resolves a relative file: URL against the schema
-      # dir (prisma/), so ./data would miss the volume mounted at /app/data.
-      DATABASE_URL: file:/app/data/tmn.db
+      # Spring's port inside the container; DB creds + VOUCHER_SERVICE_TOKEN come from .env.
+      VOUCHER_SERVER_PORT: 8082
     ports:
-      - "127.0.0.1:3611:3611"
-    volumes:
-      - /opt/fujipp/truemoney-voucher-data:/app/data
-    # 512m: argon2 key hashing is memory-hard (~64MB/op) and the one-off
-    # ts-node bootstrap shares this limit — 256m OOM-kills both.
+      # keep host 3611 so the legacy bots' base URL is unchanged -> container 8082
+      - "127.0.0.1:3611:8082"
     mem_limit: 512m
     memswap_limit: 512m
     networks: [fujipp]
     healthcheck:
-      test:
-        [
-          "CMD",
-          "node",
-          "-e",
-          "const net=require('net'); const s=net.connect(3611,'127.0.0.1'); s.on('connect',()=>process.exit(0)); s.on('error',()=>process.exit(1)); setTimeout(()=>process.exit(1),3000);",
-        ]
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/8082' 2>/dev/null || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 90s
 
   # The backend declares spring-boot-starter-amqp and -session-data-redis.
   # Sessions are disabled (store-type=none) and AMQP connects lazily, so neither

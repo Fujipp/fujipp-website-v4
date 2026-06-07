@@ -1,9 +1,11 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.6.1`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.7.1`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.7.1` | 2026-06-07 | point the PM2 bot at the voucher service via VOUCHER_SERVICE_TOKEN on deploy |
+| `0.0.7` | 2026-06-07 | rewrite voucher service in Java/Supabase (mirrors billing); drop SQLite/MASTER_KEY/bootstrap from deploy |
 | `0.0.6.1` | 2026-06-07 | add on-demand truemoney key rotation (workflow_dispatch input; revokes the old key) |
 | `0.0.6` | 2026-06-07 | stop bootstrap from printing the full API key when writing it to a file (CI log leak) |
 | `0.0.5.9` | 2026-06-07 | inject MASTER_KEY directly into the bootstrap container + guard against an empty key |

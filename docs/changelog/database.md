@@ -1,9 +1,13 @@
 # Changelog — Database
 
-**Current version: `0.0.9`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.1.1`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.1.1` | 2026-06-07 | add `voucher` schema: redeem (top-up) history + phone_summary view |
+| `0.1.0` | 2026-06-05 | add `bots` schema + bot_instances registry (encrypted Discord token) |
+| `0.0.9.2` | 2026-06-05 | seed prices for Roblox + wallet-topup features (rent/permanent) |
+| `0.0.9.1` | 2026-06-05 | seed Roblox + wallet-topup features and their config schema |
 | `0.0.9` | 2026-06-05 | allow `live` and `website` project link types |
 | `0.0.8` | 2026-06-03 | add billing service schema |
 | `0.0.7` | 2026-06-02 | allow project certificate PDFs |
