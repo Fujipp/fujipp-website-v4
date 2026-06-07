@@ -1,9 +1,10 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.5.4`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.5.5`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.5.5` | 2026-06-07 | install OpenSSL in the truemoney image so the Prisma query engine loads |
 | `0.0.5.4` | 2026-06-07 | ship truemoney src + scripts + tsconfig in prod image so the ts-node bootstrap can run |
 | `0.0.5.3` | 2026-06-07 | set truemoney NODE_ENV after npm ci so prod image keeps prisma CLI + ts-node (migrate/bootstrap work) |
 | `0.0.5.2` | 2026-06-07 | export image vars in deploy so docker compose interpolation resolves them |
