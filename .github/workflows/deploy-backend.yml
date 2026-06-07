@@ -172,6 +172,7 @@ jobs:
           SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
           SSH_USER: ${{ secrets.VPS_SSH_USER }}
           BACKEND_ENV_FILE: ${{ secrets.BACKEND_ENV_FILE }}
+          MASTER_KEY: ${{ secrets.TRUEMONEY_MASTER_KEY }}
           BACKEND_CHANGED: ${{ needs.changes.outputs.backend }}
           BILLING_CHANGED: ${{ needs.changes.outputs.billing }}
           TRUEMONEY_CHANGED: ${{ needs.changes.outputs.truemoney }}
@@ -181,7 +182,7 @@ jobs:
           # base64-encode the secret so newlines/quotes survive the SSH hop intact
           ENV_B64=$(printf '%s' "$BACKEND_ENV_FILE" | base64 -w0)
           ssh -p "${SSH_PORT:-22}" -i ~/.ssh/id_deploy "$SSH_USER@$SSH_HOST" \
-            "ENV_B64='$ENV_B64' REGISTRY='${{ env.REGISTRY }}' OWNER='$OWNER' SHA='$SHA' BACKEND_CHANGED='$BACKEND_CHANGED' BILLING_CHANGED='$BILLING_CHANGED' TRUEMONEY_CHANGED='$TRUEMONEY_CHANGED' bash -se" <<'REMOTE'
+            "ENV_B64='$ENV_B64' MASTER_KEY='$MASTER_KEY' REGISTRY='${{ env.REGISTRY }}' OWNER='$OWNER' SHA='$SHA' BACKEND_CHANGED='$BACKEND_CHANGED' BILLING_CHANGED='$BILLING_CHANGED' TRUEMONEY_CHANGED='$TRUEMONEY_CHANGED' bash -se" <<'REMOTE'
           set -euo pipefail
           cd /opt/fujipp
           umask 077
@@ -196,6 +197,13 @@ jobs:
 
           # App secrets (single source of truth = the BACKEND_ENV_FILE GitHub secret)
           printf '%s' "$ENV_B64" | base64 -d > .env
+
+          # TrueMoney voucher needs MASTER_KEY (AES-GCM) — kept in its own secret so
+          # it can be set without touching the BACKEND_ENV_FILE blob. Appended last so
+          # it wins if the blob also defines one. Harmless to the other services.
+          if [ -n "${MASTER_KEY:-}" ]; then
+            echo "MASTER_KEY=$MASTER_KEY" >> .env
+          fi
 
           # Final image pins: changed services move to this commit's SHA; unchanged
           # ones keep their previous pin (falling back to :latest on a first deploy).
