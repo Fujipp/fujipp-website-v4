@@ -107,9 +107,13 @@ async function main() {
     const key = await keys.createKey(client.id, 'ak_live', ['redeem:create'], opts.ttlDays);
     console.log('KEY_CREATED');
     console.log(`keyId=${key.keyId}`);
-    console.log(`fullKey=${key.fullKey}`);
     console.log(`expiresAt=${key.expiresAt ? key.expiresAt.toISOString() : 'none'}`);
     writeKeyFile(opts.keyFile, key.fullKey);
+    // Only echo the secret full key when there's no file to receive it (manual
+    // interactive use). Never print it during CI deploys — that leaks it to logs.
+    if (!opts.keyFile) {
+      console.log(`fullKey=${key.fullKey}`);
+    }
   } finally {
     await prisma.$disconnect();
   }
