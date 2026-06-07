@@ -1,9 +1,10 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.6`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.6.1`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.6.1` | 2026-06-07 | add on-demand truemoney key rotation (workflow_dispatch input; revokes the old key) |
 | `0.0.6` | 2026-06-07 | stop bootstrap from printing the full API key when writing it to a file (CI log leak) |
 | `0.0.5.9` | 2026-06-07 | inject MASTER_KEY directly into the bootstrap container + guard against an empty key |
 | `0.0.5.8` | 2026-06-07 | inject truemoney MASTER_KEY from its own secret into the rendered .env |

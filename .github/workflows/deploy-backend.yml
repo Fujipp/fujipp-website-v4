@@ -15,6 +15,11 @@ on:
       - 'docker/**'
       - '.github/workflows/deploy-backend.yml'
   workflow_dispatch:
+    inputs:
+      rotate_truemoney_key:
+        description: 'Rotate the kanom-001 API key (issue a new one, revoke the old)'
+        type: boolean
+        default: false
 
 concurrency:
   group: deploy-backend
@@ -173,6 +178,7 @@ jobs:
           SSH_USER: ${{ secrets.VPS_SSH_USER }}
           BACKEND_ENV_FILE: ${{ secrets.BACKEND_ENV_FILE }}
           MASTER_KEY: ${{ secrets.TRUEMONEY_MASTER_KEY }}
+          ROTATE_KEY: ${{ github.event.inputs.rotate_truemoney_key || 'false' }}
           BACKEND_CHANGED: ${{ needs.changes.outputs.backend }}
           BILLING_CHANGED: ${{ needs.changes.outputs.billing }}
           TRUEMONEY_CHANGED: ${{ needs.changes.outputs.truemoney }}
@@ -182,7 +188,7 @@ jobs:
           # base64-encode the secret so newlines/quotes survive the SSH hop intact
           ENV_B64=$(printf '%s' "$BACKEND_ENV_FILE" | base64 -w0)
           ssh -p "${SSH_PORT:-22}" -i ~/.ssh/id_deploy "$SSH_USER@$SSH_HOST" \
-            "ENV_B64='$ENV_B64' MASTER_KEY='$MASTER_KEY' REGISTRY='${{ env.REGISTRY }}' OWNER='$OWNER' SHA='$SHA' BACKEND_CHANGED='$BACKEND_CHANGED' BILLING_CHANGED='$BILLING_CHANGED' TRUEMONEY_CHANGED='$TRUEMONEY_CHANGED' bash -se" <<'REMOTE'
+            "ENV_B64='$ENV_B64' MASTER_KEY='$MASTER_KEY' ROTATE_KEY='$ROTATE_KEY' REGISTRY='${{ env.REGISTRY }}' OWNER='$OWNER' SHA='$SHA' BACKEND_CHANGED='$BACKEND_CHANGED' BILLING_CHANGED='$BILLING_CHANGED' TRUEMONEY_CHANGED='$TRUEMONEY_CHANGED' bash -se" <<'REMOTE'
           set -euo pipefail
           cd /opt/fujipp
           umask 077
@@ -259,12 +265,18 @@ jobs:
             # Apply migrations in a one-off container first so the schema exists
             # regardless of the main container's async prestart timing (no race).
             docker compose run --rm --no-deps true-wallet-voucher npm run db:migrate
+            # On-demand rotation: a manual run with rotate_truemoney_key=true issues a
+            # fresh key and revokes the old one. Normal deploys reuse the active key.
+            FORCE_ARG=""
+            [ "${ROTATE_KEY:-false}" = "true" ] && FORCE_ARG="--force-key"
+
             # Inject MASTER_KEY straight into the one-off container (most direct path).
             docker compose run --rm --no-deps -e "MASTER_KEY=$MASTER_KEY" true-wallet-voucher \
               npm run db:bootstrap -- \
                 --client kanom-001 \
                 --name "Kanom 001" \
-                --key-file /app/data/kanom-001.full-key
+                --key-file /app/data/kanom-001.full-key \
+                $FORCE_ARG
 
             if [ -f /opt/fujipp/truemoney-voucher-data/kanom-001.full-key ] \
               && [ -d /root/discord-bot-001-kanom-roblox ]; then
