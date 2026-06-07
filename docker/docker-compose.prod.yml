@@ -61,7 +61,9 @@ services:
     environment:
       HOST: 0.0.0.0
       PORT: 3611
-      DATABASE_URL: file:./data/tmn.db
+      # Absolute path: Prisma resolves a relative file: URL against the schema
+      # dir (prisma/), so ./data would miss the volume mounted at /app/data.
+      DATABASE_URL: file:/app/data/tmn.db
     ports:
       - "127.0.0.1:3611:3611"
     volumes:
