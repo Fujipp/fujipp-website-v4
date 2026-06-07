@@ -105,8 +105,17 @@ async function main() {
     }
 
     const key = await keys.createKey(client.id, 'ak_live', ['redeem:create'], opts.ttlDays);
+
+    // Revoke every other still-active key for this client so issuing a new key
+    // (e.g. --force-key rotation) actually invalidates the previous one.
+    const revoked = await prisma.apiKey.updateMany({
+      where: { clientId: client.id, id: { not: key.keyId }, status: 'ACTIVE' },
+      data: { status: 'REVOKED' },
+    });
+
     console.log('KEY_CREATED');
     console.log(`keyId=${key.keyId}`);
+    console.log(`revokedPrevious=${revoked.count}`);
     console.log(`expiresAt=${key.expiresAt ? key.expiresAt.toISOString() : 'none'}`);
     writeKeyFile(opts.keyFile, key.fullKey);
     // Only echo the secret full key when there's no file to receive it (manual
