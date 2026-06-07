@@ -1,9 +1,10 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.5.3`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.5.4`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.5.4` | 2026-06-07 | ship truemoney src + scripts + tsconfig in prod image so the ts-node bootstrap can run |
 | `0.0.5.3` | 2026-06-07 | set truemoney NODE_ENV after npm ci so prod image keeps prisma CLI + ts-node (migrate/bootstrap work) |
 | `0.0.5.2` | 2026-06-07 | export image vars in deploy so docker compose interpolation resolves them |
 | `0.0.5.1` | 2026-06-07 | backend deploy rolls only the changed service(s) (paths-filter + targeted compose up) |
