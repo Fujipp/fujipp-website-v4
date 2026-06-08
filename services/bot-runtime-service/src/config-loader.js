@@ -21,7 +21,7 @@ function portForSubject(subjectId) {
 async function loadBot(subjectId) {
   const { rows } = await db.query(
     `SELECT id, user_id, name, discord_application_id, discord_guild_id,
-            discord_token_cipher, status
+            discord_token_cipher, discord_public_key, discord_client_secret_cipher, status
        FROM bots.bot_instances WHERE id = $1`,
     [subjectId],
   );
@@ -80,6 +80,8 @@ async function buildEnv(subjectId) {
     DISCORD_TOKEN: decrypt(bot.discord_token_cipher),
     DISCORD_APPLICATION_ID: bot.discord_application_id || '',
     DISCORD_GUILD_ID: bot.discord_guild_id || '',
+    DISCORD_PUBLIC_KEY: bot.discord_public_key || '',
+    DISCORD_CLIENT_SECRET: bot.discord_client_secret_cipher ? decrypt(bot.discord_client_secret_cipher) : '',
     ENABLED_FEATURES: codes.join(','),
     // Shop wallet (layer B) lives in the same Postgres; pass the connection through.
     DATABASE_URL: process.env.SHOP_DATABASE_URL || process.env.DATABASE_URL || '',
