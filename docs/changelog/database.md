@@ -1,9 +1,11 @@
 # Changelog — Database
 
-**Current version: `0.1.1`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.1.2`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.1.2` | 2026-06-08 | add `shop` schema: member_wallets + wallet_ledger (in-bot shop wallet, layer B) |
+| `0.1.1.1` | 2026-06-08 | features sold permanent per-bot: drop monthly SKUs, reprice (roblox 490 / wallet 290) |
 | `0.1.1` | 2026-06-07 | add `voucher` schema: redeem (top-up) history + phone_summary view |
 | `0.1.0` | 2026-06-05 | add `bots` schema + bot_instances registry (encrypted Discord token) |
 | `0.0.9.2` | 2026-06-05 | seed prices for Roblox + wallet-topup features (rent/permanent) |

@@ -1,9 +1,13 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.7.5`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.9`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.9` | 2026-06-08 | central-bot wallet-topup feature (shop wallet store) + Roblox `/robux-redeem` debits it |
+| `0.0.8.1` | 2026-06-08 | billing: expose `priceId` in FeaturePriceResponse so the shop can purchase a SKU |
+| `0.0.8` | 2026-06-08 | billing: per-bot feature config endpoints (`/api/billing/bots/{id}/config` GET/PUT, AES-GCM secrets) |
+| `0.0.7.6` | 2026-06-08 | billing OrderService: permanent feature purchase is now per-bot (scope=BOT) |
 | `0.0.7.5` | 2026-06-07 | remove the retired Node true-wallet-voucher service (replaced by voucher-service) |
 | `0.0.7.4` | 2026-06-07 | fix voucher Accept header (parseMediaTypes) — invalid mime crashed boot |
 | `0.0.7.3` | 2026-06-07 | fix .env newline so VOUCHER_SERVICE_TOKEN reaches the container (voucher boot failure) |
