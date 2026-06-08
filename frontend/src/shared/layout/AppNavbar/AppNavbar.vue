@@ -45,8 +45,17 @@ function handleThemeIconClick(theme: ThemeMode) {
                         : '/images/icons/navbar/burger.svg'" :alt="isMenuOpen ? 'Close menu' : 'Open menu'"
                         class="w-3 h-3" />
                 </button>
-                <RouterLink to="/" class="type-h1-page-title-sb text-text-secondary">
-                    FUJIPP
+                <RouterLink
+                    to="/"
+                    class="inline-flex items-center focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-main-primary"
+                    aria-label="Fujipp home"
+                >
+                    <img
+                        src="/images/icons/navbar/fujipp.svg"
+                        alt=""
+                        aria-hidden="true"
+                        class="h-[45px] w-[48px]"
+                    >
                 </RouterLink>
             </div>
             <!-- Center: Navigation Links -->

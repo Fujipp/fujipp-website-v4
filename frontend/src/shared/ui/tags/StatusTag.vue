@@ -28,15 +28,17 @@ function dotClass(status: StatusTagValue): string {
 .tableStatus {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     box-sizing: border-box;
-    width: 100%;
+    width: fit-content;
     min-width: 143px;
     height: 30px;
     padding: 10px;
     gap: 10px;
     overflow: hidden;
+    border: 1px solid var(--color-main-border);
     border-radius: var(--radius-full);
-    background: var(--gradient-card-highlight);
+    background-color: var(--color-main-surface);
     color: var(--color-text-secondary);
     font-family: var(--font-sans);
     text-align: left;
@@ -62,7 +64,7 @@ function dotClass(status: StatusTagValue): string {
 }
 
 .archivedDot {
-    background-color: var(--color-text-secondary);
+    background-color: var(--color-text-disabled);
 }
 
 .label {

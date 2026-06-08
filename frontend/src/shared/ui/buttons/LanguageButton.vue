@@ -52,7 +52,7 @@ function toggleLanguage(): void {
     gap: 12px;
     overflow: hidden;
     border: 0;
-    border-radius: 8px;
+    border-radius: var(--radius-3xl);
     cursor: pointer;
 }
 </style>
