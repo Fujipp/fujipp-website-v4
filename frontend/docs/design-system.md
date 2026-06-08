@@ -22,7 +22,8 @@ When an AI can access Figma, it should inspect the relevant component or frame b
 | Corner radius tokens | `src/styles/tokens/radius.css` |
 | Icon sizing tokens | `src/styles/tokens/icons.css` |
 | Shared element defaults | `src/styles/base.css` |
-| Local Kanit assets and license | `public/fonts/kanit/` |
+| Local Inter assets and license | `public/fonts/inter/` |
+| Local Sora assets and license | `public/fonts/sora/` |
 
 `src/style.css` is the only global entrypoint imported from application code. Token files are assembled there.
 
@@ -60,34 +61,45 @@ Dark overrides currently apply to background, border, primary/secondary text, an
 
 ## Typography
 
-The Figma font family is **Kanit**. It is hosted locally and must not be replaced with a CDN or runtime font import.
+The primary English font family is **Inter**. **Sora** is also hosted locally for alternate display use during UI revisions. Thai text falls through the system stack led by **SF Pro** on Apple platforms.
 
-One important implementation detail: Figma styles in the `Text Regular` group use Kanit **Light** (`300`), not Kanit Regular (`400`). The `Text Semibold` group uses `600`, except `caption-sb`, which is `700` in Figma.
+Fonts are hosted locally and must not be replaced with a CDN or runtime font import. The typography scale supports Regular (`400`), Semibold (`600`), and Extrabold (`800`).
 
 | Figma Style | CSS Utility | Font Size | Weight |
 | --- | --- | ---: | ---: |
-| `Text Regular/h1-page-title-r` | `type-h1-page-title-r` | 32px | 300 |
-| `Text Regular/h2-section-title-r` | `type-h2-section-title-r` | 28px | 300 |
-| `Text Regular/h3-card-title-r` | `type-h3-card-title-r` | 24px | 300 |
-| `Text Regular/subtitle-r` | `type-subtitle-r` | 22px | 300 |
-| `Text Regular/body-main-r` | `type-body-main-r` | 20px | 300 |
-| `Text Regular/body-small-r` | `type-body-small-r` | 18px | 300 |
-| `Text Regular/caption-r` | `type-caption-r` | 16px | 300 |
-| `Text Regular/overline-r` | `type-overline-r` | 14px | 300 |
-| `Text Regular/button-r` | `type-button-r` | 16px | 300 |
-| `Text Regular/input-label-r` | `type-input-label-r` | 14px | 300 |
-| `Text Regular/handling-r` | `type-handling-r` | 14px | 300 |
+| `Text Regular/h1-page-title-r` | `type-h1-page-title-r` | 32px | 400 |
+| `Text Regular/h2-section-title-r` | `type-h2-section-title-r` | 28px | 400 |
+| `Text Regular/h3-card-title-r` | `type-h3-card-title-r` | 24px | 400 |
+| `Text Regular/subtitle-r` | `type-subtitle-r` | 22px | 400 |
+| `Text Regular/body-main-r` | `type-body-main-r` | 20px | 400 |
+| `Text Regular/body-small-r` | `type-body-small-r` | 18px | 400 |
+| `Text Regular/caption-r` | `type-caption-r` | 16px | 400 |
+| `Text Regular/overline-r` | `type-overline-r` | 14px | 400 |
+| `Text Regular/button-r` | `type-button-r` | 16px | 400 |
+| `Text Regular/input-label-r` | `type-input-label-r` | 14px | 400 |
+| `Text Regular/handling-r` | `type-handling-r` | 14px | 400 |
 | `Text Semibold/h1-page-title-sb` | `type-h1-page-title-sb` | 32px | 600 |
 | `Text Semibold/h2-section-title-sb` | `type-h2-section-title-sb` | 28px | 600 |
 | `Text Semibold/h3-card-title-sb` | `type-h3-card-title-sb` | 24px | 600 |
 | `Text Semibold/subtitle-sb` | `type-subtitle-sb` | 22px | 600 |
 | `Text Semibold/body-main-sb` | `type-body-main-sb` | 20px | 600 |
 | `Text Semibold/body-small-sb` | `type-body-small-sb` | 18px | 600 |
-| `Text Semibold/caption-sb` | `type-caption-sb` | 16px | 700 |
+| `Text Semibold/caption-sb` | `type-caption-sb` | 16px | 600 |
 | `Text Semibold/overline-sb` | `type-overline-sb` | 14px | 600 |
 | `Text Semibold/button-sb` | `type-button-sb` | 16px | 600 |
 | `Text Semibold/input-label-sb` | `type-input-label-sb` | 14px | 600 |
 | `Text Semibold/handling-sb` | `type-handling-sb` | 14px | 600 |
+| `Text Extrabold/h1-page-title-eb` | `type-h1-page-title-eb` | 32px | 800 |
+| `Text Extrabold/h2-section-title-eb` | `type-h2-section-title-eb` | 28px | 800 |
+| `Text Extrabold/h3-card-title-eb` | `type-h3-card-title-eb` | 24px | 800 |
+| `Text Extrabold/subtitle-eb` | `type-subtitle-eb` | 22px | 800 |
+| `Text Extrabold/body-main-eb` | `type-body-main-eb` | 20px | 800 |
+| `Text Extrabold/body-small-eb` | `type-body-small-eb` | 18px | 800 |
+| `Text Extrabold/caption-eb` | `type-caption-eb` | 16px | 800 |
+| `Text Extrabold/overline-eb` | `type-overline-eb` | 14px | 800 |
+| `Text Extrabold/button-eb` | `type-button-eb` | 16px | 800 |
+| `Text Extrabold/input-label-eb` | `type-input-label-eb` | 14px | 800 |
+| `Text Extrabold/handling-eb` | `type-handling-eb` | 14px | 800 |
 
 Figma currently sets line height to `Auto` and letter spacing to `0`; the CSS utility mapping uses `line-height: normal` and `letter-spacing: 0`.
 
