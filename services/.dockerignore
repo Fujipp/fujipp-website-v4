@@ -1,0 +1,8 @@
+# Build context for the combined bot-runtime image (orchestrator + central-bot).
+**/node_modules
+**/.env
+**/.env.*
+!**/.env.example
+**/target
+*.log
+.DS_Store

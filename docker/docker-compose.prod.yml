@@ -20,8 +20,9 @@ services:
     restart: unless-stopped
     env_file: .env
     environment:
-      # Inside the compose network the billing service is reachable by name.
+      # Inside the compose network the other services are reachable by name.
       BILLING_BASE_URL: http://billing:8081
+      RUNTIME_BASE_URL: http://runtime:8090
     ports:
       # host 3600 (what nginx proxies to) -> container 8080 (Spring's port)
       - "127.0.0.1:3600:8080"
@@ -73,6 +74,30 @@ services:
       timeout: 5s
       retries: 5
       start_period: 90s
+
+  # Bot orchestrator + central-bot (one image). Spawns customer bots via PM2 inside
+  # this container, so their gateway connections and health ports stay isolated from
+  # the host's legacy PM2 bots. Internal-only; the backend reaches it at http://runtime:8090.
+  # Memory covers the orchestrator plus a handful of small bots — raise it as bots grow.
+  runtime:
+    image: ${RUNTIME_IMAGE}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # The orchestrator reads SERVICE_TOKEN; the .env carries RUNTIME_SERVICE_TOKEN.
+      SERVICE_TOKEN: ${RUNTIME_SERVICE_TOKEN:-}
+      DB_SSL_NO_VERIFY: "true"
+    expose:
+      - "8090"
+    mem_limit: 640m
+    memswap_limit: 640m
+    networks: [fujipp]
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/8090' 2>/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
 
   # The backend declares spring-boot-starter-amqp and -session-data-redis.
   # Sessions are disabled (store-type=none) and AMQP connects lazily, so neither
