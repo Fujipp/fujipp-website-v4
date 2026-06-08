@@ -3,6 +3,7 @@ package fujipp.project.backend.controller;
 import fujipp.project.backend.billing.BillingClient;
 import fujipp.project.backend.dto.BotResponse;
 import fujipp.project.backend.dto.CreateBotRequest;
+import fujipp.project.backend.dto.UpdateBotRequest;
 import fujipp.project.backend.runtime.RuntimeClient;
 import fujipp.project.backend.service.BotService;
 import jakarta.validation.Valid;
@@ -44,6 +45,23 @@ public class BotController {
             @RequestBody @Valid CreateBotRequest request) {
         UUID userId = UUID.fromString(jwt.getSubject());
         return ResponseEntity.ok(botService.createBot(userId, request));
+    }
+
+    /** Single bot details (no secrets) — used to prefill the edit form. */
+    @GetMapping("/{botId}")
+    public ResponseEntity<BotResponse> get(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID botId) {
+        UUID userId = UUID.fromString(jwt.getSubject());
+        return ResponseEntity.ok(botService.getBot(userId, botId));
+    }
+
+    /** Update bot settings (name, credentials). Blank token/secret keeps the existing value. */
+    @PutMapping("/{botId}")
+    public ResponseEntity<BotResponse> update(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID botId,
+            @RequestBody UpdateBotRequest request) {
+        UUID userId = UUID.fromString(jwt.getSubject());
+        return ResponseEntity.ok(botService.updateBot(userId, botId, request));
     }
 
     /** Config form (features + values) for a bot the caller owns. */
