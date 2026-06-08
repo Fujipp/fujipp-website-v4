@@ -11,21 +11,68 @@ const CREDENTIALS_ENABLED = false as const
 // Internal email domain used for username-based accounts (never shown to users)
 const INTERNAL_DOMAIN = '@internal.fujipp'
 
-function clearAuthRedirectFragment() {
-  if (typeof window === 'undefined') return
+function getAuthRedirectFragment() {
+  if (typeof window === 'undefined') {
+    return { hasAuthFragment: false, accessToken: null, refreshToken: null }
+  }
 
   const params = new URLSearchParams(window.location.hash.slice(1))
   const hasAuthFragment = params.has('access_token')
     || params.has('refresh_token')
     || params.has('provider_token')
 
-  if (!hasAuthFragment) return
+  return {
+    hasAuthFragment,
+    accessToken: params.get('access_token'),
+    refreshToken: params.get('refresh_token'),
+  }
+}
+
+function getAuthRedirectCode() {
+  if (typeof window === 'undefined') return null
+  return new URLSearchParams(window.location.search).get('code')
+}
+
+function clearAuthRedirectUrl() {
+  if (typeof window === 'undefined') return
+
+  const { hasAuthFragment } = getAuthRedirectFragment()
+  const params = new URLSearchParams(window.location.search)
+  const hasPkceCallback = params.has('code') || params.has('error_code')
+
+  if (!hasAuthFragment && !hasPkceCallback) return
+
+  params.delete('code')
+  params.delete('error')
+  params.delete('error_code')
+  params.delete('error_description')
+
+  const query = params.toString()
 
   window.history.replaceState(
     window.history.state,
     document.title,
-    `${window.location.pathname}${window.location.search}`,
+    `${window.location.pathname}${query ? `?${query}` : ''}`,
   )
+}
+
+async function hydrateSessionFromAuthRedirect(): Promise<Session | null> {
+  const code = getAuthRedirectCode()
+  if (code) {
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+    if (!error && data.session) return data.session
+  }
+
+  const { hasAuthFragment, accessToken, refreshToken } = getAuthRedirectFragment()
+  if (!hasAuthFragment || !accessToken || !refreshToken) return null
+
+  const { data, error } = await supabase.auth.setSession({
+    access_token: accessToken,
+    refresh_token: refreshToken,
+  })
+
+  if (error) return null
+  return data.session
 }
 
 export interface UserProfile {
@@ -220,11 +267,12 @@ export const useUserStore = defineStore('user', () => {
   async function initializeAuth() {
     try {
       const { data } = await supabase.auth.getSession()
-      if (data.session) {
-        user.value    = data.session.user
-        session.value = data.session
+      const activeSession = data.session ?? await hydrateSessionFromAuthRedirect()
+
+      if (activeSession) {
+        user.value    = activeSession.user
+        session.value = activeSession
         await fetchProfile()
-        clearAuthRedirectFragment()
       }
 
       supabase.auth.onAuthStateChange((_event, newSession) => {
@@ -232,12 +280,13 @@ export const useUserStore = defineStore('user', () => {
         session.value = newSession ?? null
         if (newSession) {
           void fetchProfile()
-          clearAuthRedirectFragment()
+          clearAuthRedirectUrl()
         } else {
           profile.value = null
         }
       })
     } finally {
+      clearAuthRedirectUrl()
       initialized.value = true
       initAuthPromise = null
     }

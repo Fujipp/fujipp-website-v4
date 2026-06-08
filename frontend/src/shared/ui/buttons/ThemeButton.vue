@@ -23,12 +23,11 @@ function selectTheme(theme: ThemeMode): void {
             :aria-pressed="selectedTheme === theme.mode"
             @click="selectTheme(theme.mode)"
         >
-            <img
-                :src="theme.src"
-                :alt="`${theme.mode} theme`"
+            <span
                 :class="$style.themeIcon"
-                draggable="false"
-            >
+                :style="{ '--theme-icon': `url(${theme.src})` }"
+                aria-hidden="true"
+            />
         </button>
     </div>
 </template>
@@ -53,20 +52,19 @@ function selectTheme(theme: ThemeMode): void {
     height: 40px;
     padding: 10px;
     overflow: hidden;
-    border: 1px solid var(--color-main-secondary);
+    border: 0;
     border-radius: var(--radius-xl);
     background-color: var(--color-main-secondary);
+    color: var(--color-input-placeholder);
     cursor: pointer;
-    transition: background-color 160ms ease, border-color 160ms ease, transform 160ms ease;
+    transition: background-color 160ms ease, color 160ms ease, transform 160ms ease;
 }
 
 .themeOption:hover {
-    border-color: var(--color-button-secondary-btn-hover);
     background-color: var(--color-button-secondary-btn-hover);
 }
 
 .themeOption:active {
-    border-color: var(--color-button-secondary-btn-active);
     background-color: var(--color-button-secondary-btn-active);
     transform: translateY(1px);
 }
@@ -77,14 +75,15 @@ function selectTheme(theme: ThemeMode): void {
 }
 
 .active {
-    border-color: var(--color-main-primary);
+    color: var(--color-text-secondary);
 }
 
 .themeIcon {
     width: var(--spacing-icon-md);
     height: var(--spacing-icon-md);
     flex-shrink: 0;
-    user-select: none;
-    -webkit-user-drag: none;
+    background-color: currentColor;
+    mask: var(--theme-icon) center / contain no-repeat;
+    -webkit-mask: var(--theme-icon) center / contain no-repeat;
 }
 </style>
