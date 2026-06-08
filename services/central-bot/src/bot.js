@@ -17,12 +17,10 @@ async function start() {
   const features = loadEnabled(config);
   log(`subject=${config.subjectId} enabled=[${features.map((f) => f.code).join(', ') || 'none'}]`);
 
+  // Slash commands only need Guilds — GuildMembers/MessageContent are PRIVILEGED
+  // and make login fail with "disallowed intents" unless enabled in the Dev Portal.
   const client = new Client({
-    intents: [
-      GatewayIntentBits.Guilds,
-      GatewayIntentBits.GuildMembers,
-      GatewayIntentBits.GuildMessages,
-    ],
+    intents: [GatewayIntentBits.Guilds],
     partials: [Partials.Channel],
   });
 
@@ -54,13 +52,13 @@ async function start() {
   client.once(Events.ClientReady, async (c) => {
     log(`logged in as ${c.user.tag}`);
     try {
+      // Register globally (public — usable in any server, ~1h to propagate).
+      await c.application.commands.set(commandData);
+      // Also register to the bot's own server for instant availability while testing.
       if (config.guildId) {
         await c.application.commands.set(commandData, config.guildId);
-        log(`registered ${commandData.length} command(s) to guild ${config.guildId}`);
-      } else {
-        await c.application.commands.set(commandData);
-        log(`registered ${commandData.length} global command(s)`);
       }
+      log(`registered ${commandData.length} command(s) global${config.guildId ? ' + guild' : ''}`);
     } catch (err) {
       console.error('[central-bot] command registration failed:', err.message);
     }
