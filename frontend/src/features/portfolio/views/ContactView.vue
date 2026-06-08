@@ -19,9 +19,6 @@ interface LanyardData {
     discord_user: {
         username: string;
         avatar: string | null;
-        avatar_decoration_data?: {
-            asset: string;
-        } | null;
     };
     discord_status: DiscordStatus;
 }
@@ -37,6 +34,13 @@ interface LanyardSocketMessage {
 const DISCORD_USER_ID = "1108816021915176962";
 const DISCORD_FALLBACK_AVATAR = "https://cdn.discordapp.com/embed/avatars/0.png";
 const CONTACT_ICON_PATH = "/images/icons/contacts";
+const openCardId = ref<ContactId | null>(null);
+const lanyardData = ref<LanyardData | null>(null);
+const discordAvatarFailed = ref(false);
+let lanyardSocket: WebSocket | undefined;
+let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
+let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+let isUnmounted = false;
 
 const contactCards: ContactCard[] = [
     {
@@ -68,14 +72,6 @@ const contactCards: ContactCard[] = [
     },
 ];
 
-const openCardId = ref<ContactId | null>(null);
-const lanyardData = ref<LanyardData | null>(null);
-const discordAvatarFailed = ref(false);
-let lanyardSocket: WebSocket | undefined;
-let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
-let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
-let isUnmounted = false;
-
 const discordAvatar = computed(() => {
     const avatar = lanyardData.value?.discord_user.avatar;
     if (!avatar || discordAvatarFailed.value) {
@@ -86,19 +82,19 @@ const discordAvatar = computed(() => {
     return `https://cdn.discordapp.com/avatars/${DISCORD_USER_ID}/${avatar}.${extension}?size=512`;
 });
 
-const discordDecoration = computed(() => {
-    const asset = lanyardData.value?.discord_user.avatar_decoration_data?.asset;
-    return asset
-        ? `https://cdn.discordapp.com/avatar-decoration-presets/${asset}.png?size=512&passthrough=true`
-        : "";
-});
-
 const discordHandle = computed(() => {
     const username = lanyardData.value?.discord_user.username;
     return username ? `@${username}` : "@fujipp.";
 });
 
-const discordStatus = computed(() => lanyardData.value?.discord_status ?? "offline");
+const discordStatus = computed<DiscordStatus>(() => lanyardData.value?.discord_status ?? "offline");
+
+const statusLabels: Record<DiscordStatus, string> = {
+    online: "Online",
+    idle: "Away",
+    dnd: "Busy",
+    offline: "Offline",
+};
 
 function toggleCard(cardId: ContactId): void {
     openCardId.value = openCardId.value === cardId ? null : cardId;
@@ -110,6 +106,10 @@ function cardImage(card: ContactCard): string {
 
 function cardHandle(card: ContactCard): string {
     return card.id === "discord" ? discordHandle.value : card.handle;
+}
+
+function cardStatus(card: ContactCard): DiscordStatus {
+    return card.id === "discord" ? discordStatus.value : "online";
 }
 
 function clearHeartbeat(): void {
@@ -168,9 +168,8 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <main :class="$style.contact" class="pt-22">
+    <main :class="$style.contact">
         <section :class="$style.contactSection" aria-label="Contact">
-
             <div :class="$style.cardList">
                 <article
                     v-for="card in contactCards"
@@ -185,39 +184,29 @@ onUnmounted(() => {
                         @click="toggleCard(card.id)"
                     >
                         <template v-if="openCardId !== card.id">
-                            <img
-                                :class="$style.platformIcon"
-                                :src="card.icon"
-                                :alt="`${card.platform} icon`"
-                            >
+                            <img :class="$style.platformIcon" :src="card.icon" :alt="`${card.platform} icon`">
                         </template>
                         <template v-else>
-                            <span :class="$style.photoWrap">
+                            <span :class="$style.previewImage">
                                 <img
-                                    :class="[$style.profilePhoto, card.id === 'discord' && $style.discordProfilePhoto]"
                                     :src="cardImage(card)"
                                     :alt="`${card.platform} profile`"
                                     @error="card.id === 'discord' && (discordAvatarFailed = true)"
                                 >
-                                <img
-                                    v-if="card.id === 'discord' && discordDecoration"
-                                    :class="$style.discordDecoration"
-                                    :src="discordDecoration"
-                                    alt=""
-                                    aria-hidden="true"
-                                >
-                                <span
-                                    v-if="card.id === 'discord'"
-                                    :class="[$style.discordBadge, $style[discordStatus]]"
-                                    aria-hidden="true"
-                                />
                             </span>
-                            <span :class="$style.cardDetails">
-                                <span :class="$style.platformName">{{ card.platform }}</span>
+                            <span :class="$style.cardContent">
+                                <span :class="$style.cardHeader">
+                                    <span :class="$style.platformName">{{ card.platform }}</span>
+                                    <span :class="$style.statusPill">
+                                        <span :class="[$style.statusDot, $style[cardStatus(card)]]" aria-hidden="true" />
+                                        <span>{{ statusLabels[cardStatus(card)] }}</span>
+                                    </span>
+                                </span>
                                 <span :class="$style.accountName">{{ cardHandle(card) }}</span>
                             </span>
                         </template>
                     </button>
+
                     <a
                         v-if="openCardId === card.id"
                         :class="$style.contactAction"
@@ -230,76 +219,88 @@ onUnmounted(() => {
                                 ? `${CONTACT_ICON_PATH}/mail-send.svg`
                                 : `${CONTACT_ICON_PATH}/mail-open.svg`"
                             alt=""
+                            aria-hidden="true"
                         >
                         <span>{{ card.action }}</span>
                     </a>
                 </article>
             </div>
         </section>
+
         <AppFooter />
     </main>
 </template>
 
 <style module>
 .contact {
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
     min-height: 100dvh;
-    gap: var(--spacing-space-16);
+    padding-top: var(--spacing-space-16);
 }
 
 .contactSection {
     box-sizing: border-box;
     display: flex;
-    flex-direction: column;
-    width: min(100%, 1261px);
-    margin: 0 auto;
-    padding-inline: var(--spacing-space-16);
-    gap: var(--spacing-space-6);
-}
-
-.contact :global(footer) {
-    margin-top: auto;
-}
-
-.mobileHeader {
-    display: none;
+    justify-content: center;
+    width: 100%;
+    padding: var(--spacing-space-5);
 }
 
 .cardList {
     display: flex;
-    flex-direction: column;
-    gap: var(--spacing-space-4);
+    width: 100%;
+    max-width: var(--container-7xl);
+    align-items: center;
+    justify-content: center;
+    gap: 38px;
 }
 
 .contactCard {
     position: relative;
     box-sizing: border-box;
-    width: 100%;
-    height: 300px;
+    display: flex;
+    flex-direction: column;
+    width: 380px;
+    height: 450px;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
     overflow: hidden;
+    padding: 10px;
+    border: 2px solid var(--color-main-border);
     border-radius: var(--radius-xl);
-    background: var(--gradient-card-highlight);
-    transition: background 700ms ease, transform 700ms ease;
+    background: var(--color-main-surface);
+    transition: border-color 180ms ease, transform 180ms ease;
 }
 
 .contactCard.open {
-    background: var(--color-main-surface);
+    align-items: center;
+    justify-content: space-between;
+}
+
+.contactCard.open .cardToggle {
+    height: auto;
+    flex: 0 1 auto;
+    justify-content: flex-start;
+    gap: 10px;
 }
 
 .cardToggle {
-    box-sizing: border-box;
     display: flex;
-    align-items: center;
-    justify-content: center;
     width: 100%;
     height: 100%;
-    padding: 10px;
-    gap: 20px;
+    flex: 1 1 auto;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+    padding: 0;
     border: 0;
     background: transparent;
     color: var(--color-text-secondary);
-    font-family: var(--font-sans);
+    font: inherit;
     cursor: pointer;
 }
 
@@ -313,389 +314,193 @@ onUnmounted(() => {
     display: block;
     width: 84px;
     height: 84px;
-    transition: transform 240ms ease;
+    object-fit: contain;
+    transition: transform 180ms ease;
 }
 
-.photoWrap {
-    position: relative;
-    flex-shrink: 0;
-    width: 242px;
+.previewImage {
+    display: block;
+    width: 100%;
     height: 242px;
+    overflow: hidden;
+    border-radius: var(--radius-xl);
 }
 
-.contactCard.open .photoWrap {
-    animation: card-photo-in 270ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-.profilePhoto {
+.previewImage img {
     display: block;
     width: 100%;
     height: 100%;
-    border-radius: var(--radius-xl);
     object-fit: cover;
 }
 
-.discordProfilePhoto {
-    border-radius: var(--radius-full);
-}
-
-.discordDecoration {
-    position: absolute;
-    inset: -8px;
-    width: calc(100% + 16px);
-    height: calc(100% + 16px);
-    object-fit: contain;
-    pointer-events: none;
-}
-
-.discordBadge {
-    position: absolute;
-    right: 6px;
-    bottom: 16px;
-    box-sizing: border-box;
+.cardContent {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    border: 4px solid var(--color-main-surface);
-    border-radius: 50%;
-}
-
-.discordBadge.online {
-    background-color: #40a258;
-    animation: status-online-pulse 2.4s ease-out infinite;
-}
-
-.discordBadge.idle {
-    background-color: #f0b232;
-}
-
-.discordBadge.dnd {
-    background-color: #d83c3e;
-}
-
-.discordBadge.offline {
-    background-color: #80848e;
-}
-
-.cardDetails {
-    display: flex;
-    flex: 1;
+    width: 100%;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-width: 0;
-    line-height: normal;
+    gap: var(--spacing-space-2);
+    color: var(--color-text-secondary);
 }
 
-.contactCard.open .cardDetails {
-    animation: card-details-in 300ms 45ms cubic-bezier(0.22, 1, 0.36, 1) both;
+.cardHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-space-3);
 }
 
 .platformName {
-    font-size: 24px;
+    overflow: hidden;
+    font-size: 1.5rem;
     font-weight: 600;
+    line-height: normal;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.statusPill {
+    display: inline-flex;
+    height: 36px;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 10px;
+    border: 1px solid var(--color-main-divider);
+    border-radius: var(--radius-full);
+    background: var(--color-main-surface);
+    font-size: 1.25rem;
+    font-weight: 400;
+    line-height: normal;
+    white-space: nowrap;
+}
+
+.statusDot {
+    width: 15px;
+    height: 15px;
+    border-radius: var(--radius-full);
+}
+
+.statusDot.online {
+    background: var(--color-status-success);
+}
+
+.statusDot.idle {
+    background: var(--color-status-warning);
+}
+
+.statusDot.dnd {
+    background: var(--color-status-error);
+}
+
+.statusDot.offline {
+    background: var(--color-neutral-500);
 }
 
 .accountName {
-    max-width: 100%;
     overflow: hidden;
-    font-size: 24px;
-    font-weight: 300;
+    width: 100%;
+    font-size: 1.25rem;
+    font-weight: 400;
+    line-height: normal;
+    text-align: left;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
 .contactAction {
-    position: absolute;
-    top: 50%;
-    right: 24px;
     display: inline-flex;
+    width: 160px;
+    height: 48px;
+    flex-shrink: 0;
     align-items: center;
     justify-content: center;
-    width: 154px;
-    height: 48px;
     gap: var(--spacing-space-2);
-    transform: translateY(-50%);
     border-radius: var(--radius-xl);
-    background-color: var(--color-button-secondary-btn-bg);
+    background: var(--color-button-secondary-btn-bg);
     color: var(--color-button-secondary-btn-text);
-    font-size: 16px;
-    font-weight: 300;
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: normal;
     text-decoration: none;
-    animation: card-action-in 300ms 90ms cubic-bezier(0.22, 1, 0.36, 1) both;
-    transition: background-color 180ms ease, transform 180ms ease;
 }
 
 .contactAction img {
-    width: 16px;
-    height: 16px;
-    transition: transform 180ms ease;
+    width: var(--spacing-icon-xs);
+    height: var(--spacing-icon-xs);
+    object-fit: contain;
 }
 
-.contactAction span {
-    display: inline;
-}
-
-.contactCard.open .cardToggle {
-    justify-content: flex-start;
-    padding: 24px 202px 24px 24px;
+.contact :global(footer) {
+    margin-top: auto;
 }
 
 @media (hover: hover) and (pointer: fine) {
-    .contactCard:not(.open):hover {
+    .contactCard:hover {
+        border-color: var(--color-main-primary);
         transform: translateY(-4px);
     }
 
-    .contactCard:not(.open):hover .platformIcon {
-        transform: scale(1.1);
+    .contactCard:hover .platformIcon {
+        transform: scale(1.08);
     }
 
     .contactAction:hover {
-        background-color: var(--color-button-secondary-btn-hover);
-        transform: translateY(-50%) scale(1.02);
-    }
-
-    .contactAction:hover img {
-        transform: translateX(2px);
+        background: var(--color-button-secondary-btn-hover);
     }
 }
 
 @media (max-width: 767px) {
     .contact {
-        gap: var(--spacing-space-8);
+        padding-top: var(--spacing-space-16);
     }
 
     .contactSection {
-        padding-inline: var(--spacing-space-4);
+        min-height: 542px;
+        align-items: center;
+        padding: var(--spacing-space-5);
     }
 
-    .mobileHeader {
-        display: block;
+    .cardList {
+        flex-direction: column;
+        gap: var(--spacing-space-5);
     }
 
     .contactCard {
-        height: 156px;
+        width: min(100%, 350px);
+        height: 104px;
     }
 
-    .contactCard.open .cardToggle {
-        justify-content: flex-start;
-        padding: 10px 10px;
-        gap: 10px;
-    }
-
-    .photoWrap {
-        width: 118px;
-        height: 118px;
-    }
-
-    .discordDecoration {
-        inset: -4px;
-        width: calc(100% + 8px);
-        height: calc(100% + 8px);
-    }
-
-    .discordBadge {
-        right: 0;
-        bottom: 7px;
-        width: 26px;
-        height: 26px;
-        border-width: 3px;
-    }
-
-    .platformName {
-        font-size: 20px;
-    }
-
-    .accountName {
-        font-size: clamp(14px, 5.35vw, 22px);
-    }
-
-    .contactAction {
-        top: auto;
-        right: 10px;
-        bottom: 10px;
-        width: 112px;
-        height: 34px;
-        gap: 6px;
-        transform: none;
-        font-size: 13px;
-    }
-
-    .contactAction img {
-        width: 13px;
-        height: 13px;
-    }
-
-    .contactCard.open .cardDetails {
-        align-items: center;
-        align-self: stretch;
-        justify-content: center;
-        padding-bottom: 34px;
-    }
-
-    .contactAction:hover {
-        transform: none;
+    .contactCard.open {
+        height: 450px;
     }
 }
 
 @media (min-width: 768px) and (max-width: 1023px) {
-    .contact {
-        box-sizing: border-box;
-        height: 100dvh;
-        min-height: 100dvh;
-        overflow: hidden;
-        gap: var(--spacing-space-4);
-    }
-
     .contactSection {
-        flex: 1 1 auto;
-        min-height: 0;
-        gap: 0;
-    }
-
-    .contact :global(footer) {
-        flex-shrink: 0;
+        padding: var(--spacing-space-5);
     }
 
     .cardList {
-        height: 100%;
-        min-height: 0;
-        gap: var(--spacing-space-3);
-    }
-
-    .contactCard {
-        flex: 1 1 0;
-        height: auto;
-        min-height: 104px;
-    }
-
-    .contactCard.open .cardToggle {
-        padding: 10px 184px 10px 10px;
+        flex-wrap: wrap;
         gap: 10px;
-    }
-
-    .photoWrap {
-        width: auto;
-        height: min(242px, calc(100% - 20px));
-        aspect-ratio: 1;
-    }
-
-    .contactAction {
-        right: 16px;
     }
 }
 
 @media (min-width: 1024px) {
-    .cardList {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: var(--spacing-space-4);
+    .contact {
+        min-height: 100dvh;
     }
 
-    .contactCard {
-        height: clamp(520px, calc(100dvh - 360px), 600px);
-    }
-
-    .contactCard.open .cardToggle {
-        flex-direction: column;
-        justify-content: flex-start;
-        padding: 24px 24px 82px;
-        gap: 10px;
-    }
-
-    .photoWrap {
-        width: min(clamp(293px, 29dvh, 350px), 100%);
-        height: min(clamp(293px, 29dvh, 350px), 100%);
-    }
-
-    .cardDetails {
-        flex: 0 0 auto;
-    }
-
-    .contactAction {
-        top: auto;
-        right: 50%;
-        bottom: 24px;
-        width: 160px;
-        height: 48px;
-        gap: var(--spacing-space-2);
-        transform: translateX(50%);
-        background-color: var(--color-button-secondary-btn-bg);
-        color: var(--color-button-secondary-btn-text);
-        font-size: 16px;
-        font-weight: 300;
-    }
-
-    .contactAction img {
-        width: 16px;
-        height: 16px;
-    }
-
-    .contactAction:hover {
-        transform: translateX(50%) scale(1.02);
-    }
-}
-
-@keyframes card-photo-in {
-    from {
-        opacity: 0;
-        transform: scale(0.95);
-    }
-
-    to {
-        opacity: 1;
-        transform: scale(1);
-    }
-}
-
-@keyframes card-details-in {
-    from {
-        opacity: 0;
-        transform: translateY(8px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-@keyframes card-action-in {
-    from {
-        opacity: 0;
-    }
-
-    to {
-        opacity: 1;
-    }
-}
-
-@keyframes status-online-pulse {
-    0% {
-        box-shadow: 0 0 0 0 rgba(64, 162, 88, 0.55);
-    }
-
-    72%,
-    100% {
-        box-shadow: 0 0 0 10px rgba(64, 162, 88, 0);
+    .contactSection {
+        flex: 1 0 auto;
+        align-items: center;
     }
 }
 
 @media (prefers-reduced-motion: reduce) {
     .contactCard,
     .platformIcon,
-    .contactAction,
-    .contactAction img {
+    .contactAction {
         transition: none;
-    }
-
-    .contactCard.open .photoWrap,
-    .contactCard.open .cardDetails,
-    .contactAction,
-    .discordBadge.online {
-        animation: none;
     }
 }
 </style>
