@@ -1,14 +1,62 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
+import { useRouter } from "vue-router";
 import { ShopSidebar, BotCard, FeatureTable, RuntimeCard } from "@/features/shop/components";
 import type { BotStatus, FeatureTableRow, RuntimeStatus } from "@/features/shop/components";
+import { StatusToast } from "@/shared/ui";
+import { API_BASE_URL } from "@/config";
+import { useUserStore } from "@/stores";
+import type { CatalogFeature, RuntimePlan } from "@/features/shop/config/catalog";
 
-const isSidebarOpen = ref(false);
+type ToastStatus = "info" | "success" | "warning" | "error";
+type BotAction = "start" | "stop" | "restart" | "edit";
+
+const router = useRouter();
+const userStore = useUserStore();
+
+const isSidebarOpen = ref(typeof window === "undefined" ? true : window.innerWidth > 760);
 const isLoading = ref(false);
+const loadError = ref("");
+const toast = ref<{ status: ToastStatus; title: string; description?: string } | null>(null);
+let toastTimeout: ReturnType<typeof setTimeout> | undefined;
 
 interface OverviewMetric {
     label: string;
     value: number | string;
+}
+
+interface BotResponse {
+    id: string;
+    name: string;
+    status: string;
+    discordApplicationId?: string | null;
+    discordGuildId?: string | null;
+    tokenConfigured: boolean;
+    createdAt: string;
+}
+
+interface FeatureSubscriptionResponse {
+    id: string;
+    featureId: string;
+    scope: string;
+    externalSubjectId: string | null;
+    billingType: string;
+    status: string;
+    currentPeriodStart: string | null;
+    currentPeriodEnd: string | null;
+    autoRenew: boolean;
+    renewPriceSatang: number | null;
+}
+
+interface RuntimeSubscriptionResponse {
+    id: string;
+    externalSubjectId: string;
+    runtimePlanId: string;
+    status: string;
+    currentPeriodStart: string | null;
+    currentPeriodEnd: string | null;
+    autoRenew: boolean;
+    renewPriceSatang: number | null;
 }
 
 interface BotDashboardItem {
@@ -28,66 +76,217 @@ interface RuntimeDashboardItem {
     status: RuntimeStatus;
 }
 
-const bots: BotDashboardItem[] = [
-    {
-        id: "bot-1",
-        image: "/images/users/fujipp/mascot-home-mobile.jpg",
-        name: "BOT NAME",
-        renewPrice: "0.00",
-        runtime: "30 Days 24:60:99",
-        status: "online",
-    },
-];
+const botRecords = ref<BotResponse[]>([]);
+const catalogFeatures = ref<CatalogFeature[]>([]);
+const runtimePlans = ref<RuntimePlan[]>([]);
+const featureSubscriptions = ref<FeatureSubscriptionResponse[]>([]);
+const runtimeSubscriptions = ref<RuntimeSubscriptionResponse[]>([]);
 
-const features: FeatureTableRow[] = [
-    {
-        id: "roblox-group-auto",
-        feature: "Roblox Group Auto",
-        category: "Permanent Feature",
-        expire: "-",
-    },
-    {
-        id: "review-credit",
-        feature: "Review Credit",
-        category: "Rental Feature",
-        expire: "30 Days 24:60:99",
-    },
-];
+const featureById = computed(() => new Map(catalogFeatures.value.map((feature) => [feature.id, feature])));
+const runtimePlanById = computed(() => new Map(runtimePlans.value.map((plan) => [plan.id, plan])));
+const botById = computed(() => new Map(botRecords.value.map((bot) => [bot.id, bot])));
+const runtimeBySubject = computed(() => new Map(runtimeSubscriptions.value.map((runtime) => [runtime.externalSubjectId, runtime])));
 
-const runtimes: RuntimeDashboardItem[] = [
-    {
-        id: "runtime-1",
-        botName: "Bot #1",
-        duration: "1 Month",
-        remaining: "30 Days 24:60:99",
-        status: "usage",
-    },
-    {
-        id: "runtime-2",
-        botName: "Bot #2",
-        duration: "2 Month",
-        remaining: "61 Days 24:60:99",
-        status: "usage",
-    },
-    {
-        id: "runtime-3",
-        duration: "3 Month",
-        remaining: "92 Days 24:60:99",
-        status: "idle",
-    },
-];
+const bots = computed<BotDashboardItem[]>(() => botRecords.value.map((bot) => {
+    const runtime = runtimeBySubject.value.get(bot.id);
+
+    return {
+        id: bot.id,
+        name: bot.name,
+        renewPrice: formatMoney(runtime?.renewPriceSatang ?? 0),
+        runtime: formatPeriod(runtime?.currentPeriodEnd),
+        status: mapBotStatus(bot.status),
+    };
+}));
+
+const features = computed<FeatureTableRow[]>(() => featureSubscriptions.value.map((subscription) => {
+    const feature = featureById.value.get(subscription.featureId);
+    const bot = subscription.externalSubjectId ? botById.value.get(subscription.externalSubjectId) : null;
+
+    return {
+        id: subscription.id,
+        feature: feature?.name ?? subscription.featureId,
+        category: [
+            formatBillingType(subscription.billingType),
+            subscription.scope === "BOT" && bot ? bot.name : formatScope(subscription.scope),
+        ].filter(Boolean).join(" · "),
+        expire: formatPeriod(subscription.currentPeriodEnd),
+    };
+}));
+
+const runtimes = computed<RuntimeDashboardItem[]>(() => runtimeSubscriptions.value.map((runtime) => {
+    const plan = runtimePlanById.value.get(runtime.runtimePlanId);
+    const bot = botById.value.get(runtime.externalSubjectId);
+
+    return {
+        id: runtime.id,
+        botName: bot?.name ?? runtime.externalSubjectId,
+        duration: plan ? `${plan.durationMonths} Month` : runtime.runtimePlanId,
+        remaining: formatPeriod(runtime.currentPeriodEnd),
+        status: mapRuntimeStatus(runtime.status),
+    };
+}));
 
 const overviewMetrics = computed<OverviewMetric[]>(() => {
-    const onlineBotCount = bots.filter((bot) => bot.status === "online").length;
-    const offlineBotCount = bots.filter((bot) => bot.status === "offline").length;
+    const onlineBotCount = bots.value.filter((bot) => bot.status === "online").length;
+    const offlineBotCount = bots.value.filter((bot) => bot.status === "offline").length;
 
     return [
         { label: "Online Bot", value: onlineBotCount },
         { label: "Offline Bot", value: offlineBotCount },
-        { label: "Features", value: features.length },
-        { label: "Runtime", value: runtimes.length },
+        { label: "Features", value: features.value.length },
+        { label: "Runtime", value: runtimes.value.length },
     ];
 });
+
+function clearToast(): void {
+    if (toastTimeout) {
+        clearTimeout(toastTimeout);
+        toastTimeout = undefined;
+    }
+
+    toast.value = null;
+}
+
+function notify(status: ToastStatus, title: string, description = ""): void {
+    clearToast();
+    toast.value = { status, title, description };
+    toastTimeout = setTimeout(clearToast, status === "success" ? 2600 : 5200);
+}
+
+async function authHeaders(): Promise<Record<string, string> | null> {
+    await userStore.initAuth();
+    if (!userStore.accessToken) return null;
+    return { Authorization: `Bearer ${userStore.accessToken}` };
+}
+
+function formatMoney(satang: number): string {
+    return (satang / 100).toLocaleString("th-TH", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    });
+}
+
+function formatPeriod(date: string | null | undefined): string {
+    if (!date) return "-";
+
+    const end = new Date(`${date}T00:00:00`);
+    if (Number.isNaN(end.getTime())) return date;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const days = Math.ceil((end.getTime() - today.getTime()) / 86_400_000);
+    if (days < 0) return "Expired";
+    if (days === 0) return "Expires today";
+    return `${days.toLocaleString("th-TH")} days left`;
+}
+
+function formatBillingType(value: string): string {
+    switch (value) {
+        case "RENT_MONTHLY":
+            return "Monthly Feature";
+        case "RENT_PERMANENT":
+            return "Permanent Feature";
+        case "SOURCE_CODE":
+            return "Source Code";
+        default:
+            return value || "Feature";
+    }
+}
+
+function formatScope(value: string): string {
+    switch (value) {
+        case "BOT":
+            return "Bot";
+        case "ACCOUNT":
+            return "Account";
+        default:
+            return value;
+    }
+}
+
+function mapBotStatus(status: string): BotStatus {
+    return status === "RUNNING" || status === "ONLINE" ? "online" : "offline";
+}
+
+function mapRuntimeStatus(status: string): RuntimeStatus {
+    return status === "ACTIVE" || status === "PAST_DUE" ? "usage" : "idle";
+}
+
+async function loadDashboard(): Promise<void> {
+    isLoading.value = true;
+    loadError.value = "";
+    try {
+        const headers = await authHeaders();
+        if (!headers) {
+            await router.push({ name: "login", query: { redirect: "/shop" } });
+            return;
+        }
+
+        const [botsRes, featuresRes, plansRes, featureSubsRes, runtimeSubsRes] = await Promise.all([
+            fetch(`${API_BASE_URL}/api/bots`, { headers }),
+            fetch(`${API_BASE_URL}/api/catalog/features`, { headers }),
+            fetch(`${API_BASE_URL}/api/catalog/runtime-plans`, { headers }),
+            fetch(`${API_BASE_URL}/api/subscriptions/features`, { headers }),
+            fetch(`${API_BASE_URL}/api/subscriptions/runtime`, { headers }),
+        ]);
+
+        if (!botsRes.ok || !featuresRes.ok || !plansRes.ok || !featureSubsRes.ok || !runtimeSubsRes.ok) {
+            throw new Error("dashboard unavailable");
+        }
+
+        botRecords.value = await botsRes.json() as BotResponse[];
+        catalogFeatures.value = await featuresRes.json() as CatalogFeature[];
+        runtimePlans.value = await plansRes.json() as RuntimePlan[];
+        featureSubscriptions.value = await featureSubsRes.json() as FeatureSubscriptionResponse[];
+        runtimeSubscriptions.value = await runtimeSubsRes.json() as RuntimeSubscriptionResponse[];
+    } catch {
+        botRecords.value = [];
+        catalogFeatures.value = [];
+        runtimePlans.value = [];
+        featureSubscriptions.value = [];
+        runtimeSubscriptions.value = [];
+        loadError.value = "โหลด Dashboard ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+        notify("error", "โหลด Dashboard ไม่สำเร็จ", "ระบบไม่สามารถดึงข้อมูลบอทและ subscription ได้");
+    } finally {
+        isLoading.value = false;
+    }
+}
+
+async function handleBotAction(botId: string, action: string): Promise<void> {
+    if (!["start", "stop", "restart", "edit"].includes(action)) return;
+    const botAction = action as BotAction;
+
+    if (botAction === "edit") {
+        await router.push({ name: "shop-bot-config", params: { botId } });
+        return;
+    }
+
+    const headers = await authHeaders();
+    if (!headers) {
+        await router.push({ name: "login", query: { redirect: "/shop" } });
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/bots/${botId}/${botAction}`, {
+            method: "POST",
+            headers,
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        notify("success", "อัปเดตสถานะบอทแล้ว");
+        await loadDashboard();
+    } catch {
+        notify("error", "อัปเดตสถานะบอทไม่สำเร็จ", "กรุณาตรวจสอบ runtime service แล้วลองใหม่อีกครั้ง");
+    }
+}
+
+function handleAddBot(): void {
+    notify("info", "ยังไม่มีฟอร์มเพิ่มบอทในหน้านี้", "ใช้ API /api/bots เพื่อสร้างบอท หรือเพิ่มฟอร์มในขั้นถัดไป");
+}
+
+onMounted(loadDashboard);
+onUnmounted(clearToast);
 </script>
 
 <template>
@@ -131,21 +330,33 @@ const overviewMetrics = computed<OverviewMetric[]>(() => {
                             :image="bot.image"
                             :runtime="bot.runtime"
                             :renew-price="bot.renewPrice"
+                            @action="(action) => handleBotAction(bot.id, action)"
                         />
                         <BotCard
                             mode="add"
                             name="Add bot"
+                            @add="handleAddBot"
                         />
                     </template>
                 </div>
+                <section v-if="!isLoading && !loadError && bots.length === 0" :class="$style.statePanel">
+                    <h3 :class="$style.stateTitle">ยังไม่มีบอท</h3>
+                    <p :class="$style.stateText">สร้างบอทก่อนซื้อ runtime หรือเปิดใช้ฟีเจอร์ในร้าน</p>
+                </section>
             </section>
 
-            <section :class="$style.sectionGroup" aria-labelledby="shop-features-title">
+            <section v-if="loadError" :class="$style.statePanel" aria-live="polite">
+                <h2 :class="$style.stateTitle">โหลดข้อมูลไม่สำเร็จ</h2>
+                <p :class="$style.stateText">{{ loadError }}</p>
+                <button type="button" :class="$style.retryButton" @click="loadDashboard">ลองใหม่</button>
+            </section>
+
+            <section v-else :class="$style.sectionGroup" aria-labelledby="shop-features-title">
                 <h2 id="shop-features-title" :class="$style.sectionTitle">Features</h2>
                 <FeatureTable :rows="isLoading ? [] : features" />
             </section>
 
-            <section :class="$style.sectionGroup" aria-labelledby="shop-runtime-title">
+            <section v-if="!loadError" :class="$style.sectionGroup" aria-labelledby="shop-runtime-title">
                 <h2 id="shop-runtime-title" :class="$style.sectionTitle">Runtime</h2>
                 <div :class="$style.runtimeGrid">
                     <template v-if="isLoading">
@@ -166,7 +377,20 @@ const overviewMetrics = computed<OverviewMetric[]>(() => {
                         />
                     </template>
                 </div>
+                <section v-if="!isLoading && runtimes.length === 0" :class="$style.statePanel">
+                    <h3 :class="$style.stateTitle">ยังไม่มี runtime ที่เปิดใช้งาน</h3>
+                    <p :class="$style.stateText">ซื้อ runtime package แล้วข้อมูลจะแสดงที่นี่</p>
+                </section>
             </section>
+
+            <div v-if="toast" :class="$style.toastRegion" aria-live="polite">
+                <StatusToast
+                    :status="toast.status"
+                    :title="toast.title"
+                    :description="toast.description"
+                    @close="clearToast"
+                />
+            </div>
         </main>
     </div>
 </template>
@@ -185,8 +409,8 @@ const overviewMetrics = computed<OverviewMetric[]>(() => {
     flex: 1;
     flex-direction: column;
     box-sizing: border-box;
-    padding: 20px;
-    gap: 20px;
+    padding: var(--spacing-space-6);
+    gap: var(--spacing-space-6);
     transition: margin-left 180ms ease;
 }
 
@@ -202,7 +426,7 @@ const overviewMetrics = computed<OverviewMetric[]>(() => {
 .sectionGroup {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: var(--spacing-space-4);
 }
 
 .titleSection {
@@ -236,22 +460,22 @@ const overviewMetrics = computed<OverviewMetric[]>(() => {
     display: flex;
     align-items: flex-start;
     flex-wrap: wrap;
-    gap: 10px;
-    padding-inline: 20px;
+    gap: var(--spacing-space-4);
+    padding-inline: var(--spacing-space-5);
 }
 
 .metricCard {
     display: flex;
-    width: min(100%, 238.869px);
-    height: 160px;
+    width: min(100%, 240px);
+    min-height: 132px;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     box-sizing: border-box;
-    padding: var(--spacing-space-2);
+    padding: var(--spacing-space-5);
     border: 1px solid var(--color-main-border);
     border-radius: var(--radius-xl);
-    background: var(--gradient-card-highlight);
+    background-color: var(--color-main-surface);
     color: var(--color-text-secondary);
     text-align: center;
 }
@@ -275,25 +499,96 @@ const overviewMetrics = computed<OverviewMetric[]>(() => {
     display: flex;
     align-items: flex-start;
     flex-wrap: wrap;
-    gap: 20px;
-    padding-inline: 20px;
+    gap: var(--spacing-space-5);
+    padding-inline: var(--spacing-space-5);
 }
 
 .runtimeGrid {
-    gap: 15px;
+    gap: var(--spacing-space-4);
+}
+
+.statePanel {
+    display: flex;
+    max-width: 680px;
+    flex-direction: column;
+    margin-inline: var(--spacing-space-5);
+    padding: var(--spacing-space-6);
+    gap: var(--spacing-space-4);
+    border: 1px solid var(--color-main-border);
+    border-radius: var(--radius-xl);
+    background-color: var(--color-main-surface);
+    color: var(--color-text-primary);
+}
+
+.stateTitle,
+.stateText {
+    margin: 0;
+}
+
+.stateTitle {
+    font-size: 24px;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.stateText {
+    color: var(--color-text-secondary);
+    font-size: 18px;
+    line-height: 1.4;
+}
+
+.retryButton {
+    align-self: flex-start;
+    min-height: 42px;
+    padding: 0 var(--spacing-space-5);
+    border: 0;
+    border-radius: var(--radius-md);
+    background-color: var(--color-button-primary-btn-bg);
+    color: var(--color-button-primary-btn-text-active);
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.retryButton:hover {
+    background-color: var(--color-button-primary-btn-hover);
+}
+
+.retryButton:active {
+    background-color: var(--color-button-primary-btn-active);
+}
+
+.retryButton:focus-visible {
+    outline: 2px solid var(--color-main-primary);
+    outline-offset: 2px;
+}
+
+.toastRegion {
+    position: fixed;
+    right: var(--spacing-space-5);
+    bottom: var(--spacing-space-5);
+    z-index: 60;
+    width: min(360px, calc(100vw - var(--spacing-space-10)));
 }
 
 @media (max-width: 920px) {
     .overviewGrid,
     .botGrid,
-    .runtimeGrid {
+    .runtimeGrid,
+    .statePanel {
         padding-inline: 0;
+        margin-inline: 0;
     }
 }
 
 @media (max-width: 760px) {
     .content {
-        padding: 20px;
+        padding: var(--spacing-space-5);
+    }
+
+    .sidebarOpen,
+    .sidebarClosed {
+        margin-left: 44px;
     }
 
     .overviewGrid {
@@ -301,7 +596,13 @@ const overviewMetrics = computed<OverviewMetric[]>(() => {
     }
 
     .metricCard {
-        width: min(100%, 238.869px);
+        width: min(100%, 240px);
+    }
+
+    .toastRegion {
+        right: var(--spacing-space-3);
+        bottom: var(--spacing-space-3);
+        width: calc(100vw - var(--spacing-space-6));
     }
 }
 </style>

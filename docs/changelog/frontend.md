@@ -1,9 +1,10 @@
 # Changelog — Frontend
 
-**Current version: `0.2.9.5`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.3.0`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.3.0` | 2026-06-08 | connect Shop views to live backend data and remove sample fallbacks |
 | `0.2.9.5` | 2026-06-08 | reuse the default Shop sidebar on the Wallet page |
 | `0.2.9.4` | 2026-06-08 | fix Wallet sidebar Package link and title-case Wallet label |
 | `0.2.9.3` | 2026-06-08 | standardize toast placement to the bottom-right corner |

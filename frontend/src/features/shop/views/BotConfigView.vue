@@ -6,7 +6,6 @@ import { StatusToast, type SelectFieldOption } from "@/shared/ui";
 import { useUserStore } from "@/stores";
 import { API_BASE_URL } from "@/config";
 import {
-    SAMPLE_FEATURES,
     type BotConfigResponse,
     type FeatureDefinition,
 } from "@/features/shop/config/featureConfig";
@@ -26,7 +25,7 @@ const channels = ref<{ id: string; name: string }[]>([]);
 const roles = ref<{ id: string; name: string }[]>([]);
 const isLoading = ref(false);
 const isSaving = ref(false);
-const usingSample = ref(false);
+const configError = ref("");
 const toast = ref<{ status: ToastStatus; title: string; description?: string } | null>(null);
 
 const channelOptions = computed<SelectFieldOption[]>(() => channels.value.map((c) => ({ label: `#${c.name}`, value: c.id })));
@@ -42,45 +41,35 @@ async function authHeaders(): Promise<Record<string, string> | null> {
     return { Authorization: `Bearer ${userStore.accessToken}` };
 }
 
-function applySample(): void {
-    usingSample.value = true;
-    features.value = SAMPLE_FEATURES;
-    values.value = {};
-    channels.value = [];
-    roles.value = [];
-    notify("info", "กำลังแสดงฟอร์มตัวอย่าง", "ยังไม่ได้ต่อ backend — ฟอร์มนี้ gen จาก template เพื่อทดสอบหน้าตา/ฟิลด์");
-}
-
 async function loadConfig(): Promise<void> {
     isLoading.value = true;
+    configError.value = "";
     try {
         const headers = await authHeaders();
         if (!headers) {
-            applySample();
+            configError.value = "กรุณาเข้าสู่ระบบก่อนตั้งค่าบอท";
             return;
         }
         const res = await fetch(`${API_BASE_URL}/api/bots/${botId.value}/config`, { headers });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = (await res.json()) as BotConfigResponse;
-        usingSample.value = false;
         features.value = data.features ?? [];
         values.value = data.values ?? {};
         channels.value = data.channels ?? [];
         roles.value = data.roles ?? [];
     } catch {
-        // Backend endpoint not available yet — fall back to the template sample so
-        // the page is demonstrable. Remove once /api/bots/:id/config is live.
-        applySample();
+        features.value = [];
+        values.value = {};
+        channels.value = [];
+        roles.value = [];
+        configError.value = "โหลดการตั้งค่าบอทไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+        notify("error", "โหลดการตั้งค่าไม่สำเร็จ", "ระบบไม่สามารถดึง config ของบอทนี้ได้");
     } finally {
         isLoading.value = false;
     }
 }
 
 async function saveFeature(payload: Record<string, string>): Promise<void> {
-    if (usingSample.value) {
-        notify("warning", "ยังไม่ได้ต่อ backend", "บันทึกจริงไม่ได้ในโหมดตัวอย่าง — ฝั่ง API ต้องทำ PUT /api/bots/:id/config ก่อน");
-        return;
-    }
     isSaving.value = true;
     try {
         const headers = await authHeaders();
@@ -124,6 +113,11 @@ onMounted(async () => {
             </section>
 
             <p v-if="isLoading" :class="$style.state" class="type-body-small-r">กำลังโหลด…</p>
+            <section v-else-if="configError" :class="$style.statePanel" aria-live="polite">
+                <h2 :class="$style.stateTitle">โหลดการตั้งค่าไม่สำเร็จ</h2>
+                <p :class="$style.stateText">{{ configError }}</p>
+                <button type="button" :class="$style.retryButton" @click="loadConfig">ลองใหม่</button>
+            </section>
             <p v-else-if="features.length === 0" :class="$style.state" class="type-body-small-r">
                 บอทนี้ยังไม่มีฟีเจอร์ที่เปิดใช้งาน — ซื้อฟีเจอร์ในหน้า Package ก่อน
             </p>
@@ -157,22 +151,33 @@ onMounted(async () => {
 .botConfig {
     display: flex;
     min-height: 100vh;
-    background: var(--color-main-primary);
+    background: var(--color-main-background);
+    color: var(--color-text-primary);
 }
 
 .content {
     flex: 1;
-    padding: 32px;
     display: flex;
+    min-width: 0;
     flex-direction: column;
-    gap: 24px;
-    transition: margin 0.2s ease;
+    box-sizing: border-box;
+    padding: var(--spacing-space-8);
+    gap: var(--spacing-space-6);
+    transition: margin-left 180ms ease;
+}
+
+.sidebarOpen {
+    margin-left: 194px;
+}
+
+.sidebarClosed {
+    margin-left: 44px;
 }
 
 .titleSection {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--spacing-space-1);
     color: var(--color-text-primary);
 }
 
@@ -189,10 +194,62 @@ onMounted(async () => {
     opacity: 0.7;
 }
 
+.statePanel {
+    display: flex;
+    max-width: 680px;
+    flex-direction: column;
+    padding: var(--spacing-space-6);
+    gap: var(--spacing-space-4);
+    border: 1px solid var(--color-main-border);
+    border-radius: var(--radius-xl);
+    background-color: var(--color-main-surface);
+}
+
+.stateTitle,
+.stateText {
+    margin: 0;
+}
+
+.stateTitle {
+    font-size: 24px;
+    font-weight: 600;
+}
+
+.stateText {
+    color: var(--color-text-secondary);
+    font-size: 18px;
+}
+
+.retryButton {
+    align-self: flex-start;
+    min-height: 42px;
+    padding: 0 var(--spacing-space-5);
+    border: 0;
+    border-radius: var(--radius-md);
+    background-color: var(--color-button-primary-btn-bg);
+    color: var(--color-button-primary-btn-text-active);
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.retryButton:hover {
+    background-color: var(--color-button-primary-btn-hover);
+}
+
+.retryButton:active {
+    background-color: var(--color-button-primary-btn-active);
+}
+
+.retryButton:focus-visible {
+    outline: 2px solid var(--color-main-primary);
+    outline-offset: 2px;
+}
+
 .forms {
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: var(--spacing-space-6);
     max-width: 960px;
 }
 
@@ -205,6 +262,15 @@ onMounted(async () => {
 }
 
 @media (max-width: 760px) {
+    .content {
+        padding: var(--spacing-space-5);
+    }
+
+    .sidebarOpen,
+    .sidebarClosed {
+        margin-left: 44px;
+    }
+
     .toastRegion {
         bottom: var(--spacing-space-3);
         right: var(--spacing-space-3);
