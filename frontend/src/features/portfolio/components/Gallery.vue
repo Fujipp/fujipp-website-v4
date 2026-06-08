@@ -147,7 +147,7 @@ function handleKeydown(event: KeyboardEvent): void {
     display: flex;
     flex-direction: column;
     width: 100%;
-    gap: var(--spacing-space-6);
+    gap: var(--spacing-space-5);
 }
 
 .gallery:focus-visible {
@@ -157,14 +157,32 @@ function handleKeydown(event: KeyboardEvent): void {
 }
 
 .featured {
+    position: relative;
     width: 100%;
-    height: 528px;
+    height: 540px;
     margin: 0;
     overflow: hidden;
     border-radius: var(--radius-2xl);
+    background: var(--color-neutral-300);
 }
 
-.featuredImage,
+.featured::after,
+.thumbnail::after {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: rgb(0 0 0 / 20%);
+    content: "";
+    pointer-events: none;
+}
+
+.featuredImage {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
 .thumbnailImage {
     display: block;
     width: 100%;
@@ -196,12 +214,12 @@ function handleKeydown(event: KeyboardEvent): void {
     flex-direction: column;
     align-items: center;
     width: 100%;
-    gap: var(--spacing-space-6);
+    gap: var(--spacing-space-5);
 }
 
 .thumbnails {
     --visible-items: 5;
-    --thumbnail-gap: var(--spacing-space-3);
+    --thumbnail-gap: 12px;
 
     display: flex;
     align-items: center;
@@ -209,7 +227,7 @@ function handleKeydown(event: KeyboardEvent): void {
     width: 100%;
     min-width: 0;
     margin: 0;
-    padding: var(--spacing-space-2);
+    padding: 0;
     gap: var(--thumbnail-gap);
     overflow-x: auto;
     overscroll-behavior-x: contain;
@@ -229,13 +247,14 @@ function handleKeydown(event: KeyboardEvent): void {
 }
 
 .thumbnail {
+    position: relative;
     box-sizing: border-box;
     width: 100%;
-    aspect-ratio: 16 / 9;
+    height: 117px;
     padding: 0;
     overflow: hidden;
     border: 2px solid transparent;
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-base);
     background: transparent;
     cursor: pointer;
     filter: grayscale(90%) opacity(0.5);
@@ -268,16 +287,14 @@ function handleKeydown(event: KeyboardEvent): void {
 }
 
 @media (max-width: 767px) {
-    .featured {
-        height: 220px;
-    }
-
     .thumbnails {
-        --visible-items: 3;
+        display: none;
     }
+}
 
-    .thumbnail {
-        aspect-ratio: 16 / 9;
+@media (min-width: 768px) and (max-width: 1023px) {
+    .thumbnails {
+        --visible-items: 4;
     }
 }
 </style>

@@ -50,9 +50,8 @@ onUnmounted(() => {
             </section>
         </div>
         <div :class="$style.mobileProjectAction">
-            <p class="type-handling-sb text-text-primary">PLEASE CLICK TO EXPLORE</p>
             <PrimaryButton to="/projects">
-                VIEW PROJECT
+                View Projects
             </PrimaryButton>
         </div>
         <ul :class="$style.highlightCards">
@@ -152,14 +151,9 @@ onUnmounted(() => {
 .heroTitle {
     font-family: var(--font-sans);
     font-size: 6rem;
-    font-weight: 600;
+    font-weight: 800;
     line-height: 5rem;
     letter-spacing: 0;
-    text-shadow:
-        0 0 2px color-mix(in srgb, var(--color-main-primary) 95%, transparent),
-        0 0 8px color-mix(in srgb, var(--color-main-primary) 70%, transparent),
-        0 0 18px color-mix(in srgb, var(--color-main-primary) 46%, transparent),
-        0 0 32px color-mix(in srgb, var(--color-main-primary) 24%, transparent);
 }
 
 .highlightCards {
@@ -242,11 +236,8 @@ onUnmounted(() => {
     .rectangle_top,
     .rectangle_bottom,
     .highlightCards {
-        /* --shape-height: 208px;
-        --diagonal-angle: 8deg; */
-
-        --shape-height: calc(100px * var(--mobile-fit));
-        --diagonal-angle: 0deg;
+        --shape-height: calc(173px * var(--mobile-fit));
+        --diagonal-angle: 8deg;
     }
 
     .rectangle_top,
@@ -254,8 +245,8 @@ onUnmounted(() => {
         position: fixed;
         left: 0;
         right: 0;
+        z-index: 1;
         width: auto;
-        clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
     }
 
     .rectangle_top {
@@ -265,39 +256,42 @@ onUnmounted(() => {
     .rectangle_bottom {
         right: -2px;
         bottom: -2px;
+        height: calc(109px * var(--mobile-fit));
     }
 
 
     .heroLayout {
         --hero-scale: calc(clamp(0.34, calc(100vw / 1080px), 0.4) * var(--mobile-fit));
 
-        top: calc(15% * var(--mobile-fit));
-        left: calc(var(--spacing-space-4) * var(--mobile-fit));
+        top: calc(176px * var(--mobile-fit));
+        left: calc(var(--spacing-space-5) * var(--mobile-fit));
         transform: scale(var(--hero-scale));
         transform-origin: left top;
     }
 
-    .highlightCards {
-        --card-scale: calc(clamp(0.52, calc(100vw / 680px), 0.62) * var(--mobile-fit));
+    .heroCopy > p {
+        font-size: calc(0.875rem / var(--hero-scale));
+    }
 
-        top: calc(15% * var(--mobile-fit));
-        right: calc(var(--spacing-space-4) * var(--mobile-fit));
+    .highlightCards {
+        --card-scale: calc(0.9 * var(--mobile-fit));
+
+        top: calc(272px * var(--mobile-fit));
+        right: calc(var(--spacing-space-5) * var(--mobile-fit));
         left: auto;
         flex-direction: column;
-        gap: var(--spacing-space-3);
+        gap: 10px;
         transform: scale(var(--card-scale));
         transform-origin: right top;
     }
 
     .mobileProjectAction {
         display: flex;
-        flex-direction: column;
         align-items: center;
-        gap: var(--spacing-space-2);
         width: 160px;
         position: absolute;
-        top: calc((15% + var(--spacing-space-32)) * var(--mobile-fit));
-        left: calc(var(--spacing-space-4) * var(--mobile-fit));
+        top: calc(292px * var(--mobile-fit));
+        left: calc(var(--spacing-space-5) * var(--mobile-fit));
         z-index: 2;
         transform: scale(var(--mobile-fit));
         transform-origin: left top;
@@ -313,7 +307,7 @@ onUnmounted(() => {
         width: 100vw;
         height: auto;
         top: auto;
-        bottom: 97px;
+        bottom: 48px;
         left: 50%;
         z-index: 0;
         max-width: none;
@@ -322,6 +316,14 @@ onUnmounted(() => {
         opacity: 1;
         filter: none;
         transform: translateX(-50%);
+    }
+}
+
+@media (max-width: 380px) {
+    .highlightCards {
+        --card-scale: calc(0.82 * var(--mobile-fit));
+
+        right: calc(var(--spacing-space-4) * var(--mobile-fit));
     }
 }
 

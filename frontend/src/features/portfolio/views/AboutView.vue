@@ -207,7 +207,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <main :class="$style.about" class="pt-22">
+    <main :class="$style.about">
         <div :class="$style.heroContainer">
             <section
                 ref="heroSection"
@@ -234,7 +234,7 @@ onUnmounted(() => {
                 <div :class="$style.heroContent" class="bg-main-surface">
                     <header :class="$style.heroHeader">
                         <h1 class="type-subtitle-sb">Anawat Grudtoop</h1>
-                        <LanguageButton v-model="heroLocale" />
+                        <LanguageButton v-model="heroLocale" :class="$style.languageButton" />
                     </header>
                     <hr :class="$style.divider" class="border-main-divider">
                     <p
@@ -247,7 +247,7 @@ onUnmounted(() => {
                 </div>
             </section>
             <section :class="$style.skillsSection" aria-label="Skills">
-                <HeaderSection title="SKILLS" />
+                <HeaderSection title="Skills" />
                 <div :class="$style.skillGrid">
                     <SkillCard
                         v-for="skills in skillGroups"
@@ -257,7 +257,7 @@ onUnmounted(() => {
                 </div>
             </section>
             <section :class="$style.educationSection" aria-label="Education">
-                <HeaderSection title="EDUCATION" />
+                <HeaderSection title="Educations" />
                 <article :class="$style.educationCard" class="bg-main-surface text-text-secondary">
                     <img
                         :class="$style.educationImage"
@@ -270,7 +270,7 @@ onUnmounted(() => {
                                 {{ educationTranslation("institution") }}
                             </h3>
                             <div :class="$style.desktopEducationLanguage">
-                                <LanguageButton v-model="educationLocale" />
+                                <LanguageButton v-model="educationLocale" :class="$style.languageButton" />
                             </div>
                         </header>
                         <hr :class="$style.divider" class="border-main-divider">
@@ -285,7 +285,7 @@ onUnmounted(() => {
                                 {{ educationTranslation("years") }}
                             </p>
                             <div :class="$style.mobileEducationLanguage">
-                                <LanguageButton v-model="educationLocale" />
+                                <LanguageButton v-model="educationLocale" :class="$style.languageButton" />
                             </div>
                         </div>
                     </div>
@@ -315,7 +315,7 @@ onUnmounted(() => {
                 </div>
             </section>
             <section :class="$style.gallerySection" aria-label="Gallery">
-                <HeaderSection title="GALLERY" />
+                <HeaderSection title="Gallery" />
                 <Gallery :images="galleryImages" />
             </section>
         </div>
@@ -338,14 +338,19 @@ onUnmounted(() => {
 .about {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-space-16);
+    min-height: 100dvh;
+    padding-top: var(--spacing-space-16);
 }
 
 .heroContainer {
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    padding-inline: var(--spacing-space-16);
-    gap: var(--spacing-space-16);
+    width: 100%;
+    max-width: var(--container-7xl);
+    margin: 0 auto;
+    padding: var(--spacing-space-5);
+    gap: var(--spacing-space-5);
 }
 
 .hero {
@@ -353,11 +358,11 @@ onUnmounted(() => {
     width: min(100%, 1133px);
     margin: 0 auto;
     overflow: hidden;
-    border-radius: 16px;
+    border-radius: var(--radius-2xl);
 }
 
 .modelSpace {
-    height: 302px;
+    height: 296px;
 }
 
 .modelViewer {
@@ -373,7 +378,7 @@ onUnmounted(() => {
     box-sizing: border-box;
     padding: 16px;
     gap: 10px;
-    border-radius: 0 0 16px 16px;
+    border-radius: 0 0 var(--radius-2xl) var(--radius-2xl);
 }
 
 .heroHeader {
@@ -387,6 +392,10 @@ onUnmounted(() => {
 .heroHeader h1,
 .heroHeader h3 {
     margin: 0;
+}
+
+.languageButton {
+    border-radius: var(--radius-3xl);
 }
 
 .divider {
@@ -407,30 +416,31 @@ onUnmounted(() => {
     flex-direction: column;
     width: min(100%, 1133px);
     margin: 0 auto;
-    gap: var(--spacing-space-6);
+    gap: var(--spacing-space-5);
 }
 
 .skillGrid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 256px));
     grid-auto-rows: 1fr;
-    gap: var(--spacing-space-4);
+    justify-content: center;
+    gap: 36px;
 }
 
 .educationSection {
     display: flex;
     flex-direction: column;
-    width: min(100%, 1133px);
+    width: min(100%, 1133.5px);
     margin: 0 auto;
-    gap: var(--spacing-space-6);
+    gap: var(--spacing-space-5);
 }
 
 .gallerySection {
     display: flex;
     flex-direction: column;
-    width: min(100%, 1133px);
+    width: min(100%, 1133.5px);
     margin: 0 auto;
-    gap: var(--spacing-space-6);
+    gap: var(--spacing-space-5);
 }
 
 .educationPicker {
@@ -466,7 +476,7 @@ onUnmounted(() => {
 .educationImage {
     display: block;
     width: 100%;
-    height: 528px;
+    height: 507px;
     object-fit: cover;
 }
 
@@ -476,7 +486,6 @@ onUnmounted(() => {
     flex-direction: column;
     align-items: flex-start;
     box-sizing: border-box;
-    margin-top: -21px;
     padding: var(--spacing-space-4);
     gap: 10px;
     border-radius: 0 0 var(--radius-2xl) var(--radius-2xl);
@@ -505,31 +514,32 @@ onUnmounted(() => {
 }
 
 @media (max-width: 767px) {
-    .about {
-        gap: var(--spacing-space-8);
-    }
-
     .heroContainer {
-        padding-inline: var(--spacing-space-4);
-    }
-
-    .modelSpace {
-        height: 220px;
+        padding: var(--spacing-space-5);
     }
 
     .skillGrid {
         grid-template-columns: 1fr;
         grid-auto-rows: auto;
-        gap: var(--spacing-space-4);
+        gap: var(--spacing-space-5);
+    }
+
+    .educationCard {
+        overflow: hidden;
+        border-radius: var(--radius-2xl);
     }
 
     .educationImage {
         height: 255px;
+        border-radius: 0;
+        object-fit: cover;
     }
 
     .educationContent {
+        height: 205px;
         min-height: 205px;
         margin-top: -26px;
+        border-radius: 0 0 var(--radius-2xl) var(--radius-2xl);
     }
 
     .educationContent h3 {
@@ -563,7 +573,7 @@ onUnmounted(() => {
 
 @media (min-width: 768px) and (max-width: 1023px) {
     .skillGrid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 256px));
     }
 }
 </style>
