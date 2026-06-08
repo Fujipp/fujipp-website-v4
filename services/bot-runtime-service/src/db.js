@@ -2,11 +2,12 @@
 // Single pg pool to Supabase (service_role / direct connection).
 
 const { Pool } = require('pg');
+const { resolveDatabaseUrl } = require('./pg-url');
 
 const ssl = process.env.DB_SSL_NO_VERIFY === 'true' ? { rejectUnauthorized: false } : undefined;
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: resolveDatabaseUrl(),
   ssl,
   max: 5,
 });

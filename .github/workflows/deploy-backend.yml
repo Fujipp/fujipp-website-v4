@@ -30,6 +30,7 @@ jobs:
       backend: ${{ steps.decide.outputs.backend }}
       billing: ${{ steps.decide.outputs.billing }}
       voucher: ${{ steps.decide.outputs.voucher }}
+      runtime: ${{ steps.decide.outputs.runtime }}
       any: ${{ steps.decide.outputs.any }}
     steps:
       - uses: actions/checkout@v4
@@ -44,6 +45,9 @@ jobs:
               - 'services/billing-service/**'
             voucher:
               - 'services/voucher-service/**'
+            runtime:
+              - 'services/bot-runtime-service/**'
+              - 'services/central-bot/**'
             infra:
               - 'docker/**'
               - '.github/workflows/deploy-backend.yml'
@@ -56,20 +60,22 @@ jobs:
           BACKEND: ${{ steps.filter.outputs.backend }}
           BILLING: ${{ steps.filter.outputs.billing }}
           VOUCHER: ${{ steps.filter.outputs.voucher }}
+          RUNTIME: ${{ steps.filter.outputs.runtime }}
         run: |
           # A manual run, or a change to the compose file / this workflow, affects
           # every service — roll the whole stack. Otherwise roll only what changed.
           if [ "$EVENT" = "workflow_dispatch" ] || [ "$INFRA" = "true" ]; then
-            backend=true; billing=true; voucher=true
+            backend=true; billing=true; voucher=true; runtime=true
           else
-            backend=$BACKEND; billing=$BILLING; voucher=$VOUCHER
+            backend=$BACKEND; billing=$BILLING; voucher=$VOUCHER; runtime=$RUNTIME
           fi
           {
             echo "backend=$backend"
             echo "billing=$billing"
             echo "voucher=$voucher"
+            echo "runtime=$runtime"
           } >> "$GITHUB_OUTPUT"
-          if [ "$backend" = "true" ] || [ "$billing" = "true" ] || [ "$voucher" = "true" ]; then
+          if [ "$backend" = "true" ] || [ "$billing" = "true" ] || [ "$voucher" = "true" ] || [ "$runtime" = "true" ]; then
             echo "any=true" >> "$GITHUB_OUTPUT"
           else
             echo "any=false" >> "$GITHUB_OUTPUT"
@@ -134,6 +140,19 @@ jobs:
           cache-from: type=gha,scope=voucher
           cache-to: type=gha,scope=voucher,mode=max
 
+      - name: Build & push runtime (orchestrator + central-bot)
+        if: needs.changes.outputs.runtime == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: ./services
+          file: ./services/bot-runtime-service/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ steps.vars.outputs.owner }}/fujipp-runtime:latest
+            ${{ env.REGISTRY }}/${{ steps.vars.outputs.owner }}/fujipp-runtime:${{ github.sha }}
+          cache-from: type=gha,scope=runtime
+          cache-to: type=gha,scope=runtime,mode=max
+
   deploy:
     needs: [changes, build]
     runs-on: ubuntu-latest
@@ -173,16 +192,19 @@ jobs:
           SSH_USER: ${{ secrets.VPS_SSH_USER }}
           BACKEND_ENV_FILE: ${{ secrets.BACKEND_ENV_FILE }}
           VOUCHER_SERVICE_TOKEN: ${{ secrets.VOUCHER_SERVICE_TOKEN }}
+          BOT_SECRET_KEY: ${{ secrets.BOT_SECRET_KEY }}
+          RUNTIME_SERVICE_TOKEN: ${{ secrets.RUNTIME_SERVICE_TOKEN }}
           BACKEND_CHANGED: ${{ needs.changes.outputs.backend }}
           BILLING_CHANGED: ${{ needs.changes.outputs.billing }}
           VOUCHER_CHANGED: ${{ needs.changes.outputs.voucher }}
+          RUNTIME_CHANGED: ${{ needs.changes.outputs.runtime }}
           OWNER: ${{ steps.vars.outputs.owner }}
           SHA: ${{ github.sha }}
         run: |
           # base64-encode the secret so newlines/quotes survive the SSH hop intact
           ENV_B64=$(printf '%s' "$BACKEND_ENV_FILE" | base64 -w0)
           ssh -p "${SSH_PORT:-22}" -i ~/.ssh/id_deploy "$SSH_USER@$SSH_HOST" \
-            "ENV_B64='$ENV_B64' VOUCHER_SERVICE_TOKEN='$VOUCHER_SERVICE_TOKEN' REGISTRY='${{ env.REGISTRY }}' OWNER='$OWNER' SHA='$SHA' BACKEND_CHANGED='$BACKEND_CHANGED' BILLING_CHANGED='$BILLING_CHANGED' VOUCHER_CHANGED='$VOUCHER_CHANGED' bash -se" <<'REMOTE'
+            "ENV_B64='$ENV_B64' VOUCHER_SERVICE_TOKEN='$VOUCHER_SERVICE_TOKEN' REGISTRY='${{ env.REGISTRY }}' OWNER='$OWNER' SHA='$SHA' BOT_SECRET_KEY='$BOT_SECRET_KEY' RUNTIME_SERVICE_TOKEN='$RUNTIME_SERVICE_TOKEN' BACKEND_CHANGED='$BACKEND_CHANGED' BILLING_CHANGED='$BILLING_CHANGED' VOUCHER_CHANGED='$VOUCHER_CHANGED' RUNTIME_CHANGED='$RUNTIME_CHANGED' bash -se" <<'REMOTE'
           set -euo pipefail
           cd /opt/fujipp
           umask 077
@@ -192,6 +214,7 @@ jobs:
           prev_backend=$(grep -E '^BACKEND_IMAGE=' .env 2>/dev/null | tail -n1 | cut -d= -f2- || true)
           prev_billing=$(grep -E '^BILLING_IMAGE=' .env 2>/dev/null | tail -n1 | cut -d= -f2- || true)
           prev_voucher=$(grep -E '^VOUCHER_IMAGE=' .env 2>/dev/null | tail -n1 | cut -d= -f2- || true)
+          prev_runtime=$(grep -E '^RUNTIME_IMAGE=' .env 2>/dev/null | tail -n1 | cut -d= -f2- || true)
 
           # App secrets (single source of truth = the BACKEND_ENV_FILE GitHub secret)
           printf '%s' "$ENV_B64" | base64 -d > .env
@@ -203,6 +226,15 @@ jobs:
           # the BACKEND_ENV_FILE blob). Appended last so it wins; harmless to others.
           if [ -n "${VOUCHER_SERVICE_TOKEN:-}" ]; then
             echo "VOUCHER_SERVICE_TOKEN=$VOUCHER_SERVICE_TOKEN" >> .env
+          fi
+
+          # Bot platform secrets (standalone GitHub secrets, appended like the voucher
+          # token). Shared by backend + billing + runtime via the single .env.
+          if [ -n "${BOT_SECRET_KEY:-}" ]; then
+            echo "BOT_SECRET_KEY=$BOT_SECRET_KEY" >> .env
+          fi
+          if [ -n "${RUNTIME_SERVICE_TOKEN:-}" ]; then
+            echo "RUNTIME_SERVICE_TOKEN=$RUNTIME_SERVICE_TOKEN" >> .env
           fi
 
           # Final image pins: changed services move to this commit's SHA; unchanged
@@ -222,23 +254,30 @@ jobs:
           else
             VOUCHER_IMAGE="${prev_voucher:-$REGISTRY/$OWNER/fujipp-voucher:latest}"
           fi
+          if [ "$RUNTIME_CHANGED" = "true" ]; then
+            RUNTIME_IMAGE="$REGISTRY/$OWNER/fujipp-runtime:$SHA"
+          else
+            RUNTIME_IMAGE="${prev_runtime:-$REGISTRY/$OWNER/fujipp-runtime:latest}"
+          fi
 
-          # Pin every service (compose needs all three defined) for clean rollback by SHA.
+          # Pin every service (compose needs all four defined) for clean rollback by SHA.
           {
             echo "BACKEND_IMAGE=$BACKEND_IMAGE"
             echo "BILLING_IMAGE=$BILLING_IMAGE"
             echo "VOUCHER_IMAGE=$VOUCHER_IMAGE"
+            echo "RUNTIME_IMAGE=$RUNTIME_IMAGE"
           } >> .env
 
           # Export so `docker compose` sees them for ${...} interpolation (the .env
           # file alone is not relied on — shell env takes precedence and is robust).
-          export BACKEND_IMAGE BILLING_IMAGE VOUCHER_IMAGE
+          export BACKEND_IMAGE BILLING_IMAGE VOUCHER_IMAGE RUNTIME_IMAGE
 
           # Roll only the services that changed; leave the rest running untouched.
           SERVICES=""
           [ "$BACKEND_CHANGED" = "true" ] && SERVICES="$SERVICES backend"
           [ "$BILLING_CHANGED" = "true" ] && SERVICES="$SERVICES billing"
           [ "$VOUCHER_CHANGED" = "true" ] && SERVICES="$SERVICES voucher"
+          [ "$RUNTIME_CHANGED" = "true" ] && SERVICES="$SERVICES runtime"
           SERVICES=$(echo "$SERVICES" | xargs)
 
           if [ -n "$SERVICES" ]; then
