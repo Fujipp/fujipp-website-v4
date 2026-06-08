@@ -257,11 +257,20 @@ async function handleBotAction(botId: string, action: string): Promise<void> {
             method: "POST",
             headers,
         });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) {
+            let reason = "";
+            try {
+                const body = await res.json();
+                reason = String(body.message ?? body.error ?? "");
+                const m = reason.match(/"error"\s*:\s*"([^"]+)"/);
+                if (m?.[1]) reason = m[1];
+            } catch { /* non-JSON body */ }
+            throw new Error(reason || `HTTP ${res.status}`);
+        }
         notify("success", "อัปเดตสถานะบอทแล้ว");
         await loadDashboard();
-    } catch {
-        notify("error", "อัปเดตสถานะบอทไม่สำเร็จ", "กรุณาตรวจสอบ runtime service แล้วลองใหม่อีกครั้ง");
+    } catch (e) {
+        notify("error", "สั่งบอทไม่สำเร็จ", (e as Error).message || "กรุณาลองใหม่อีกครั้ง");
     }
 }
 
