@@ -3,7 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from "vue";
 import { storeToRefs } from "pinia";
 import { useRouter } from "vue-router";
 import { AppFooter } from "@/shared/layout";
-import { HeaderSection, PrimaryButton, StatusToast } from "@/shared/ui";
+import { HeaderSection, StatusToast } from "@/shared/ui";
 import { AiCard, FeaturedProjectCard, FeatureModal, ProjectTable } from "@/features/projects/components";
 import type { ProjectTableRow } from "@/config";
 import { aiModels } from "@/features/projects/config";
@@ -29,6 +29,20 @@ const featuredProjects = computed(() => projects.value
     .sort((left, right) => (left.featuredOrder ?? 999) - (right.featuredOrder ?? 999))
     .slice(0, 3));
 
+const featuredSkeletonCards = computed(() => isLoading.value && projects.value.length === 0
+    ? Array.from({ length: 3 }, (_, index) => index)
+    : []);
+
+const featuredAddCards = computed(() => isAdmin.value && featuredSkeletonCards.value.length === 0
+    ? Array.from({ length: Math.max(0, 3 - featuredProjects.value.length) }, (_, index) => index)
+    : []);
+
+const shouldShowFeaturedSection = computed(() => (
+    isAdmin.value
+    || featuredProjects.value.length > 0
+    || featuredSkeletonCards.value.length > 0
+));
+
 const projectRows = computed(() => projects.value.map((project) => ({
     id: project.id,
     projectName: project.content.en.projectName,
@@ -39,7 +53,9 @@ const projectRows = computed(() => projects.value.map((project) => ({
 })) satisfies readonly ProjectTableRow[]);
 
 onMounted(() => {
-    void projectStore.fetchProjects().catch(() => undefined);
+    if (projects.value.length === 0) {
+        void projectStore.fetchProjects().catch(() => undefined);
+    }
 });
 
 function openProject(row: ProjectTableRow): void {
@@ -106,15 +122,23 @@ onUnmounted(() => {
             />
         </div>
         <div :class="$style.projectsContainer">
-            <section :class="$style.featuredSection" aria-label="Featured projects">
-                <HeaderSection title="FEATURED" />
-                <div v-if="isAdmin" :class="$style.featuredActions">
-                    <PrimaryButton @click="openFeatureModal">Edit</PrimaryButton>
-                </div>
+            <section
+                v-if="shouldShowFeaturedSection"
+                :class="$style.featuredSection"
+                aria-label="Featured projects"
+            >
+                <HeaderSection title="Featured" />
                 <div :class="$style.featuredGrid">
+                    <FeaturedProjectCard
+                        v-for="index in featuredSkeletonCards"
+                        :key="`featured-skeleton-${index}`"
+                        mode="skeleton"
+                        project-name="Loading featured project"
+                    />
                     <FeaturedProjectCard
                         v-for="project in featuredProjects"
                         :key="project.id"
+                        :admin="isAdmin"
                         :category="project.category"
                         :description-short="project.content.en.descriptionShort"
                         :project-name="project.content.en.projectName"
@@ -122,12 +146,20 @@ onUnmounted(() => {
                         :tech-stack="project.techStack"
                         :thumbnail-src="project.gallery[0] ?? ''"
                         :to="{ name: 'project-detail', params: { projectId: project.id } }"
+                        @change="openFeatureModal"
+                    />
+                    <FeaturedProjectCard
+                        v-for="index in featuredAddCards"
+                        :key="`featured-add-${index}`"
+                        mode="add"
+                        project-name="Add featured project"
+                        @change="openFeatureModal"
                     />
                 </div>
             </section>
 
             <section :class="$style.tableSection" aria-label="All projects">
-                <HeaderSection title="PROJECTS" />
+                <HeaderSection title="Projects" />
                 <ProjectTable
                     empty-message="No projects found."
                     :error-message="error ? `Unable to load projects: ${error}` : null"
@@ -140,7 +172,7 @@ onUnmounted(() => {
             </section>
 
             <section :class="$style.aiSection" aria-label="AI skills">
-                <HeaderSection title="AI SKILLS" />
+                <HeaderSection title="Ai Skills" />
                 <div :class="$style.aiFullBleed">
                     <AiCard :items="aiModels" />
                 </div>
@@ -166,7 +198,7 @@ onUnmounted(() => {
     flex-direction: column;
     height: 100dvh;
     min-height: 100dvh;
-    gap: var(--spacing-space-16);
+    gap: var(--spacing-space-8);
     overflow-y: auto;
     scrollbar-width: none;
 }
@@ -179,32 +211,35 @@ onUnmounted(() => {
     display: flex;
     flex: 1;
     flex-direction: column;
-    padding-inline: var(--spacing-space-16);
-    gap: var(--spacing-space-16);
+    width: min(100%, 1280px);
+    box-sizing: border-box;
+    margin: 0 auto;
+    padding-inline: var(--spacing-space-6);
+    gap: var(--spacing-space-8);
 }
 
 .featuredSection {
     display: flex;
     flex-direction: column;
-    width: min(100%, 1133px);
+    width: min(100%, 1180px);
     margin: 0 auto;
-    gap: var(--spacing-space-6);
+    gap: var(--spacing-space-5);
 }
 
 .tableSection {
     display: flex;
     flex-direction: column;
-    width: min(100%, 1133px);
+    width: min(100%, 1060px);
     margin: 0 auto;
-    gap: var(--spacing-space-6);
+    gap: 17px;
 }
 
 .aiSection {
     display: flex;
     flex-direction: column;
-    width: min(100%, 1133px);
+    width: min(100%, 1280px);
     margin: 0 auto;
-    gap: var(--spacing-space-6);
+    gap: var(--spacing-space-5);
 }
 
 .aiFullBleed {
@@ -215,19 +250,15 @@ onUnmounted(() => {
 }
 
 .featuredGrid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: var(--spacing-space-4);
-}
-
-.featuredActions {
     display: flex;
+    flex-wrap: wrap;
     justify-content: center;
+    gap: var(--spacing-space-5);
 }
 
 .toastViewport {
     position: fixed;
-    bottom: 25dvh;
+    bottom: var(--spacing-space-5);
     right: var(--spacing-space-4);
     z-index: 80;
     width: min(calc(100% - (var(--spacing-space-4) * 2)), 420px);
@@ -235,21 +266,22 @@ onUnmounted(() => {
 
 @media (max-width: 767px) {
     .projects {
-        gap: var(--spacing-space-8);
+        gap: var(--spacing-space-5);
     }
 
     .projectsContainer {
-        padding-inline: var(--spacing-space-4);
+        padding-inline: var(--spacing-space-5);
+        gap: var(--spacing-space-5);
     }
 
     .featuredGrid {
-        grid-template-columns: 1fr;
+        gap: var(--spacing-space-5);
     }
 }
 
 @media (min-width: 768px) and (max-width: 1023px) {
-    .featuredGrid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+    .projectsContainer {
+        padding-inline: var(--spacing-space-5);
     }
 }
 </style>

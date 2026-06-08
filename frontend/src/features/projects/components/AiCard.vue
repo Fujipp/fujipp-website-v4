@@ -11,7 +11,7 @@ const props = withDefaults(defineProps<Props>(), {
     fadeEdges: false,
 });
 
-const marqueeItems = computed(() => [...props.items, ...props.items]);
+const marqueeItems = computed(() => Array.from({ length: 8 }, () => props.items).flat());
 const secondaryIconNames = new Set(["Copilot", "Gpt"]);
 
 function usesSecondaryIcon(name: string): boolean {
@@ -101,7 +101,7 @@ function usesSecondaryIcon(name: string): boolean {
     align-items: center;
     width: max-content;
     gap: var(--ai-gap);
-    animation: ai-marquee 32s linear infinite;
+    animation: ai-marquee 72s linear infinite;
 }
 
 .aiViewport:hover .aiTrack {
@@ -113,7 +113,7 @@ function usesSecondaryIcon(name: string): boolean {
     align-items: center;
     justify-content: center;
     box-sizing: border-box;
-    width: 499px;
+    width: 400px;
     height: 219px;
     padding: 10px;
     gap: 10px;
@@ -179,25 +179,12 @@ function usesSecondaryIcon(name: string): boolean {
     }
 
     .aiTrack {
-        animation-duration: 26s;
+        animation-duration: 64s;
     }
 
     .ai {
-        width: min(100vw - 32px, 390px);
-        height: 153px;
-    }
-
-    .icon {
-        width: 75px;
-        height: 75px;
-    }
-
-    .title {
-        font-size: 1.25rem;
-    }
-
-    .description {
-        font-size: 1rem;
+        width: 400px;
+        height: 219px;
     }
 }
 </style>

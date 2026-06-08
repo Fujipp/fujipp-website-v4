@@ -18,7 +18,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
     emptyMessage: "No projects found.",
     errorMessage: null,
-    itemsPerPage: 5,
+    itemsPerPage: 10,
     loading: false,
     searchPlaceholder: "Search",
     showAdminActions: false,
@@ -329,6 +329,7 @@ onUnmounted(() => {
     display: flex;
     flex-direction: column;
     width: 100%;
+    max-width: 1060px;
     gap: 10px;
     color: var(--color-text-secondary);
     font-family: var(--font-sans);
@@ -340,7 +341,7 @@ onUnmounted(() => {
     align-items: center;
     justify-content: space-between;
     box-sizing: border-box;
-    min-height: 71px;
+    min-height: 56px;
     padding: 10px;
     gap: 20px;
 }
@@ -438,10 +439,11 @@ onUnmounted(() => {
 }
 
 .tablePanel {
+    position: relative;
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
-    min-height: 528px;
+    height: 528px;
     padding: 10px;
     gap: 10px;
     overflow: hidden;
@@ -452,15 +454,20 @@ onUnmounted(() => {
 .tableHeader,
 .tableRow {
     display: grid;
-    grid-template-columns: 40px minmax(190px, 1.25fr) minmax(250px, 1.5fr) minmax(140px, 0.75fr) minmax(140px, 0.75fr) 143px;
+    grid-template-columns: 80px minmax(150px, 250px) minmax(170px, 250px) minmax(120px, 150px) minmax(125px, 160px) minmax(143px, 150px);
     align-items: start;
     width: 100%;
-    gap: 20px;
+    gap: 0;
+}
+
+.tableHeader {
+    min-height: 32px;
+    font-size: 1.25rem;
 }
 
 .tableRow {
     height: 135px;
-    padding: 8px;
+    padding: 0;
     overflow: hidden;
     border: 0;
     border-radius: var(--radius-lg);
@@ -493,6 +500,18 @@ onUnmounted(() => {
 
 .noCell {
     text-align: center;
+}
+
+.projectCell,
+.categoryCell {
+    font-size: 1.25rem;
+    font-weight: 300;
+}
+
+.descriptionCell,
+.stackCell {
+    font-size: 1.125rem;
+    font-weight: 300;
 }
 
 .projectCell,
@@ -541,8 +560,14 @@ onUnmounted(() => {
 }
 
 .emptyState {
-    margin: auto;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    margin: 0;
     color: var(--color-text-disabled);
+    font-size: 1.25rem;
+    font-weight: 300;
+    transform: translate(-50%, -50%);
 }
 
 .errorState {
@@ -580,8 +605,7 @@ onUnmounted(() => {
 @media (min-width: 768px) and (max-width: 1023px) {
     .tableHeader,
     .tableRow {
-        grid-template-columns: 40px minmax(140px, 0.9fr) minmax(170px, 1fr) minmax(140px, 0.8fr) minmax(95px, 0.65fr) 143px;
-        gap: 18px;
+        grid-template-columns: 64px minmax(135px, 1fr) minmax(150px, 1.15fr) minmax(120px, 0.8fr) minmax(120px, 0.8fr) 143px;
     }
 
     .tableRow {
@@ -600,14 +624,14 @@ onUnmounted(() => {
     }
 
     .tablePanel {
-        min-height: 310px;
+        height: 528px;
         gap: 10px;
         font-size: 0.875rem;
     }
 
     .tableHeader,
     .tableRow {
-        grid-template-columns: 21px minmax(0, 1fr) 95px 36px;
+        grid-template-columns: 32px minmax(0, 1fr) 95px 36px;
         height: 42px;
         gap: 20px;
     }
@@ -615,6 +639,10 @@ onUnmounted(() => {
     .tableHeader {
         min-height: 30px;
         font-size: 1rem;
+    }
+
+    .tableRow {
+        min-height: 42px;
     }
 
     .desktopCell {
@@ -626,6 +654,7 @@ onUnmounted(() => {
         display: -webkit-box;
         -webkit-box-orient: vertical;
         -webkit-line-clamp: 2;
+        font-size: 1rem;
     }
 
     .mobileAction {

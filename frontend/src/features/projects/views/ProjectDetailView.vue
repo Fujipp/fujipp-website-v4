@@ -4,7 +4,7 @@ import { storeToRefs } from "pinia";
 import { useRoute, useRouter } from "vue-router";
 import { AppFooter } from "@/shared/layout";
 import { ActionButton, HeaderSection, LanguageButton, PrimaryButton } from "@/shared/ui";
-import { DeleteModal, ImageModal, ProjectImage } from "@/features/projects/components";
+import { DeleteModal, ImageModal, ProjectImage, ProjectOverviewCard } from "@/features/projects/components";
 import { backend, database, devops, frontend, language, externalService } from "@/config";
 import type { ProjectLinkType, ProjectLocale } from "@/config";
 import { useUserStore } from "@/stores";
@@ -67,29 +67,30 @@ const stackCatalog = {
 const projectLinkMeta: Record<ProjectLinkType, { icon: string; label: string }> = {
     github: {
         icon: "/images/icons/stacks/tools/github.svg",
-        label: "GITHUB",
+        label: "GitHub",
     },
     youtube: {
         icon: "/images/icons/common/youtube.svg",
-        label: "YOUTUBE",
+        label: "YouTube",
     },
     certificate: {
         icon: "/images/icons/common/certificate.svg",
-        label: "CERTIFICATE",
+        label: "Certificate",
     },
     figma: {
         icon: "/images/icons/stacks/ux-ui/figma.svg",
-        label: "FIGMA",
+        label: "Figma",
     },
     live: {
         icon: "/images/icons/common/live-demo.svg",
-        label: "LIVE DEMO",
+        label: "Live Demo",
     },
     website: {
         icon: "/images/icons/common/website.svg",
-        label: "WEBSITE",
+        label: "Website",
     },
 };
+const secondaryLinkIconTypes = new Set<ProjectLinkType>(["certificate", "live", "website"]);
 
 watch(
     () => route.params.projectId,
@@ -189,7 +190,7 @@ async function deleteProject(): Promise<void> {
 <template>
     <main :class="$style.projectDetail" class="pt-22">
         <div v-if="project && content" :class="$style.pageContainer">
-            <HeaderSection :title="`PROJECT #${projectNumber}`" />
+            <HeaderSection :title="`Project #${projectNumber}`" />
 
             <nav :class="$style.detailNav" aria-label="Project detail navigation">
                 <div :class="$style.breadcrumb" class="type-button-r">
@@ -199,7 +200,10 @@ async function deleteProject(): Promise<void> {
                     <span :class="$style.breadcrumbSeparator" aria-hidden="true">&gt;</span>
                     <span>{{ project.category }}</span>
                     <span :class="$style.breadcrumbSeparator" aria-hidden="true">&gt;</span>
-                    <span :class="$style.currentBreadcrumb">{{ content.projectName }}</span>
+                    <span :class="[$style.currentBreadcrumb, $style.desktopProjectName]">{{ content.projectName }}</span>
+                </div>
+                <div :class="$style.mobileProjectPill" class="type-button-r">
+                    {{ content.projectName }}
                 </div>
                 <div :class="$style.navActions">
                     <div v-if="isAdmin" :class="$style.adminActions" aria-label="Project admin actions">
@@ -229,18 +233,20 @@ async function deleteProject(): Promise<void> {
 
             <section :class="$style.desktopOverviewFeatures" aria-label="Project overview and features">
                 <div :class="$style.combinedTabs">
-                    <h2 :class="$style.panelTab" class="type-button-sb">OVERVIEW</h2>
-                    <h2 :class="[$style.panelTab, $style.rightTab]" class="type-button-sb">FEATURES</h2>
+                    <h2 :class="$style.panelTab" class="type-button-sb">Overview</h2>
+                    <h2 :class="[$style.panelTab, $style.rightTab]" class="type-button-sb">Features</h2>
                 </div>
                 <div :class="$style.overviewFeaturesBody">
                     <hr :class="$style.panelDivider">
                     <div :class="$style.overviewFeaturesColumns">
                         <div :class="$style.overviewColumn">
                             <div :class="$style.metricGrid">
-                                <div v-for="metric in overviewMetrics" :key="metric.label" :class="$style.metricCard">
-                                    <strong :class="$style.metricValue">{{ metric.value }}</strong>
-                                    <span :class="$style.metricLabel" class="type-overline-sb">{{ metric.label }}</span>
-                                </div>
+                                <ProjectOverviewCard
+                                    v-for="metric in overviewMetrics"
+                                    :key="metric.label"
+                                    :label="metric.label"
+                                    :value="metric.value"
+                                />
                             </div>
                             <div v-if="project.roles.length" :class="$style.roleList">
                                 <span v-for="role in project.roles" :key="role" :class="$style.roleChip" class="type-overline-r">
@@ -295,14 +301,16 @@ async function deleteProject(): Promise<void> {
 
             <section :class="$style.mobileOverviewFeatures" aria-label="Project overview and features">
                 <article :class="$style.tabPanel">
-                    <h2 :class="$style.panelTab" class="type-button-sb">OVERVIEW</h2>
+                    <h2 :class="$style.panelTab" class="type-button-sb">Overview</h2>
                     <div :class="$style.panelBody">
                         <hr :class="$style.panelDivider">
                         <div :class="$style.metricGrid">
-                            <div v-for="metric in overviewMetrics" :key="metric.label" :class="$style.metricCard">
-                                <strong :class="$style.metricValue">{{ metric.value }}</strong>
-                                <span :class="$style.metricLabel" class="type-overline-sb">{{ metric.label }}</span>
-                            </div>
+                            <ProjectOverviewCard
+                                v-for="metric in overviewMetrics"
+                                :key="metric.label"
+                                :label="metric.label"
+                                :value="metric.value"
+                            />
                         </div>
                         <div v-if="project.roles.length" :class="$style.roleList">
                             <span v-for="role in project.roles" :key="role" :class="$style.roleChip" class="type-overline-r">
@@ -349,7 +357,7 @@ async function deleteProject(): Promise<void> {
                 </article>
 
                 <article :class="[$style.tabPanel, $style.featuresPanel]">
-                    <h2 :class="[$style.panelTab, $style.rightTab]" class="type-button-sb">FEATURES</h2>
+                    <h2 :class="[$style.panelTab, $style.rightTab]" class="type-button-sb">Features</h2>
                     <div :class="$style.panelBody">
                         <hr :class="$style.panelDivider">
                         <ul :class="$style.featureGrid">
@@ -363,8 +371,8 @@ async function deleteProject(): Promise<void> {
 
             <section :class="$style.desktopArchitectureStack" aria-label="System architecture and tech stack">
                 <div :class="$style.architectureTabs">
-                    <h2 :class="$style.panelTab" class="type-button-sb">SYSTEM ARCHITECTURE</h2>
-                    <h2 :class="[$style.panelTab, $style.rightTab]" class="type-button-sb">TECH STACK</h2>
+                    <h2 :class="$style.panelTab" class="type-button-sb">System Architecture</h2>
+                    <h2 :class="[$style.panelTab, $style.rightTab]" class="type-button-sb">Tech Stack</h2>
                 </div>
                 <div :class="$style.architectureStackBody">
                     <hr :class="$style.panelDivider">
@@ -412,7 +420,7 @@ async function deleteProject(): Promise<void> {
 
             <section :class="$style.mobileArchitectureStack" aria-label="System architecture and tech stack">
                 <article :class="$style.tabPanel">
-                    <h2 :class="$style.panelTab" class="type-button-sb">SYSTEM ARCHITECTURE</h2>
+                    <h2 :class="$style.panelTab" class="type-button-sb">System Architecture</h2>
                     <div :class="[$style.panelBody, $style.mobileArchitectureBody]">
                         <hr :class="$style.panelDivider">
                         <button
@@ -440,7 +448,7 @@ async function deleteProject(): Promise<void> {
                 </article>
 
                 <article :class="[$style.tabPanel, $style.techStackPanel]">
-                    <h2 :class="[$style.panelTab, $style.rightTab]" class="type-button-sb">TECH STACK</h2>
+                    <h2 :class="[$style.panelTab, $style.rightTab]" class="type-button-sb">Tech Stack</h2>
                     <div :class="[$style.panelBody, $style.mobileTechStackBody]">
                         <hr :class="$style.panelDivider">
                         <div :class="$style.techStackGroups">
@@ -465,18 +473,17 @@ async function deleteProject(): Promise<void> {
 
             <section :class="$style.desktopChallengesLearned" aria-label="Project challenges and lessons learned">
                 <div :class="$style.combinedTabs">
-                    <h2 :class="$style.panelTab" class="type-button-sb">CHALLENGES</h2>
-                    <h2 :class="[$style.panelTab, $style.rightTab]" class="type-button-sb">WHAT I LEARNED</h2>
+                    <h2 :class="$style.panelTab" class="type-button-sb">Challenges</h2>
+                    <h2 :class="[$style.panelTab, $style.rightTab]" class="type-button-sb">What I Learn</h2>
                 </div>
                 <div :class="$style.challengesLearnedBody">
                     <hr :class="$style.panelDivider">
                     <div :class="$style.challengesLearnedColumns">
-                        <div :class="$style.structuredList">
-                            <article v-for="challenge in content.challenges" :key="`${challenge.title}-${challenge.content}`">
-                                <h3 v-if="challenge.title" class="type-caption-sb">{{ challenge.title }}</h3>
-                                <p class="type-body-main-r">{{ challenge.content }}</p>
-                            </article>
-                        </div>
+                        <ul :class="$style.learnedList" class="type-body-main-r">
+                            <li v-for="challenge in content.challenges" :key="`${challenge.title}-${challenge.content}`">
+                                <strong v-if="challenge.title">{{ challenge.title }}: </strong>{{ challenge.content }}
+                            </li>
+                        </ul>
                         <ul :class="$style.learnedList" class="type-body-main-r">
                             <li v-for="lesson in content.whatILearned.slice(0, 8)" :key="`${lesson.title}-${lesson.content}`">
                                 <strong v-if="lesson.title">{{ lesson.title }}: </strong>{{ lesson.content }}
@@ -488,20 +495,19 @@ async function deleteProject(): Promise<void> {
 
             <section :class="$style.mobileChallengesLearned" aria-label="Project challenges and lessons learned">
                 <article :class="$style.tabPanel">
-                    <h2 :class="$style.panelTab" class="type-button-sb">CHALLENGES</h2>
+                    <h2 :class="$style.panelTab" class="type-button-sb">Challenges</h2>
                     <div :class="$style.panelBody">
                         <hr :class="$style.panelDivider">
-                        <div :class="$style.structuredList">
-                            <article v-for="challenge in content.challenges" :key="`${challenge.title}-${challenge.content}`">
-                                <h3 v-if="challenge.title" class="type-caption-sb">{{ challenge.title }}</h3>
-                                <p class="type-body-main-r">{{ challenge.content }}</p>
-                            </article>
-                        </div>
+                        <ul :class="$style.learnedList" class="type-body-main-r">
+                            <li v-for="challenge in content.challenges" :key="`${challenge.title}-${challenge.content}`">
+                                <strong v-if="challenge.title">{{ challenge.title }}: </strong>{{ challenge.content }}
+                            </li>
+                        </ul>
                     </div>
                 </article>
 
                 <article :class="$style.tabPanel">
-                    <h2 :class="[$style.panelTab, $style.rightTab]" class="type-button-sb">WHAT I LEARNED</h2>
+                    <h2 :class="[$style.panelTab, $style.rightTab]" class="type-button-sb">What I Learn</h2>
                     <div :class="[$style.panelBody, $style.mobileLearnedBody]">
                         <hr :class="$style.panelDivider">
                         <ul :class="$style.learnedList" class="type-body-main-r">
@@ -521,6 +527,7 @@ async function deleteProject(): Promise<void> {
                         <PrimaryButton
                             v-for="link in project.links"
                             :key="link.type"
+                            :class="{ [$style.secondaryLinkIconButton]: secondaryLinkIconTypes.has(link.type) }"
                             :href="link.url"
                             :icon="projectLinkMeta[link.type].icon"
                         >
@@ -612,7 +619,7 @@ async function deleteProject(): Promise<void> {
     flex-direction: column;
     height: 100dvh;
     min-height: 100dvh;
-    gap: var(--spacing-space-16);
+    gap: var(--spacing-space-8);
     overflow-y: auto;
     scrollbar-width: none;
 }
@@ -626,9 +633,11 @@ async function deleteProject(): Promise<void> {
     display: flex;
     flex: 1;
     flex-direction: column;
-    width: min(calc(100% - (var(--spacing-space-16) * 2)), 1133px);
+    width: min(100%, 1280px);
+    box-sizing: border-box;
     margin: 0 auto;
-    gap: var(--spacing-space-6);
+    padding: var(--spacing-space-5);
+    gap: var(--spacing-space-5);
 }
 
 .skeletonPage {
@@ -737,6 +746,7 @@ async function deleteProject(): Promise<void> {
 
 .skeletonMetric {
     height: 106px;
+    background: linear-gradient(257deg, rgb(255 255 255 / 90%) 0%, rgb(21 21 21 / 100%) 100%);
     border-radius: var(--radius-xl);
 }
 
@@ -783,7 +793,6 @@ async function deleteProject(): Promise<void> {
 
 .breadcrumb {
     display: flex;
-    flex: 1;
     align-items: center;
     max-width: max-content;
     min-width: 0;
@@ -791,10 +800,24 @@ async function deleteProject(): Promise<void> {
     padding: 8px 10px;
     gap: 10px;
     overflow: hidden;
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-3xl);
     background-color: var(--color-main-secondary);
     color: var(--color-button-secondary-btn-text);
     white-space: nowrap;
+}
+
+.mobileProjectPill {
+    display: none;
+    max-width: 100%;
+    box-sizing: border-box;
+    min-height: 39px;
+    padding: 10px;
+    overflow: hidden;
+    border-radius: var(--radius-3xl);
+    background-color: var(--color-button-secondary-btn-bg);
+    color: var(--color-button-secondary-btn-text);
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 
 .navActions,
@@ -865,6 +888,15 @@ async function deleteProject(): Promise<void> {
     margin: 0;
 }
 
+.projectName {
+    font-size: 1.375rem;
+}
+
+.description {
+    font-size: 1.25rem;
+    line-height: 1.2;
+}
+
 .panelDivider {
     width: 100%;
     height: 1px;
@@ -892,7 +924,7 @@ async function deleteProject(): Promise<void> {
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
-    min-height: 395px;
+    min-height: 339px;
     padding: var(--spacing-space-4);
     gap: 10px;
     border-radius: 0 0 var(--radius-2xl) var(--radius-2xl);
@@ -901,11 +933,23 @@ async function deleteProject(): Promise<void> {
 }
 
 .overviewFeaturesColumns {
+    position: relative;
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     flex: 1;
     min-height: 0;
     gap: var(--spacing-space-8);
+}
+
+.overviewFeaturesColumns::before {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 1px;
+    background-color: var(--color-main-divider);
+    content: "";
+    transform: translateX(-50%);
 }
 
 .overviewColumn {
@@ -1040,6 +1084,10 @@ async function deleteProject(): Promise<void> {
     gap: 10px;
 }
 
+.secondaryLinkIconButton img {
+    filter: brightness(0) saturate(100%) invert(92%) sepia(0%) saturate(70%) hue-rotate(154deg) brightness(97%) contrast(92%);
+}
+
 .architectureTabs {
     display: flex;
     align-items: flex-end;
@@ -1059,11 +1107,23 @@ async function deleteProject(): Promise<void> {
 }
 
 .architectureColumns {
+    position: relative;
     display: grid;
-    grid-template-columns: minmax(0, 1.85fr) minmax(300px, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     flex: 1;
     min-height: 0;
     gap: var(--spacing-space-8);
+}
+
+.architectureColumns::before {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 1px;
+    background-color: var(--color-main-divider);
+    content: "";
+    transform: translateX(-50%);
 }
 
 .challengesLearnedBody {
@@ -1079,26 +1139,27 @@ async function deleteProject(): Promise<void> {
 }
 
 .challengesLearnedColumns {
+    position: relative;
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     flex: 1;
+    min-height: 0;
     gap: var(--spacing-space-8);
+}
+
+.challengesLearnedColumns::before {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 1px;
+    background-color: var(--color-main-divider);
+    content: "";
+    transform: translateX(-50%);
 }
 
 .challengesLearnedColumns p,
 .mobileChallengesLearned p {
-    margin: 0;
-}
-
-.structuredList {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.structuredList article,
-.structuredList h3,
-.structuredList p {
     margin: 0;
 }
 
@@ -1108,8 +1169,16 @@ async function deleteProject(): Promise<void> {
     margin: 0;
     padding-left: 27px;
     gap: 4px;
+    font-size: 1.25rem;
+    font-weight: 300;
+    line-height: normal;
     list-style-position: outside;
     list-style-type: disc;
+}
+
+.learnedList strong {
+    font-size: 1.25rem;
+    font-weight: 600;
 }
 
 .learnedList li {
@@ -1128,10 +1197,13 @@ async function deleteProject(): Promise<void> {
 .panelTab {
     align-self: flex-start;
     margin: 0;
-    padding: 8px 10px;
-    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    height: 35px;
+    box-sizing: border-box;
+    padding: 7px 10px;
+    border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
     background-color: var(--color-main-surface);
     color: var(--color-text-secondary);
+    white-space: nowrap;
 }
 
 .rightTab {
@@ -1212,7 +1284,7 @@ button.architectureImageFrame:focus-visible,
     flex: 1;
     flex-direction: column;
     justify-content: center;
-    gap: var(--spacing-space-5);
+    gap: 10px;
 }
 
 .techStackGroup {
@@ -1223,6 +1295,8 @@ button.architectureImageFrame:focus-visible,
 
 .techStackGroup h3 {
     margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
 }
 
 .techStackIcons {
@@ -1310,21 +1384,23 @@ button.architectureImageFrame:focus-visible,
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-height: 106px;
+    min-height: 160px;
     padding: 8px;
-    border: 1px solid var(--color-main-secondary);
+    border: 1px solid var(--color-main-border);
     border-radius: var(--radius-xl);
     background: var(--gradient-card-highlight);
     text-align: center;
 }
 
 .metricValue {
-    font-size: 2.25rem;
-    line-height: 1.2;
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1;
 }
 
 .metricLabel {
     color: var(--color-text-secondary);
+    font-weight: 800;
 }
 
 .overviewNote {
@@ -1371,22 +1447,46 @@ button.architectureImageFrame:focus-visible,
     text-overflow: ellipsis;
 }
 
+@media (min-width: 768px) and (max-width: 1023px) {
+    .metricCard {
+        min-height: 78px;
+    }
+}
+
 @media (max-width: 767px) {
     .projectDetail {
-        gap: var(--spacing-space-8);
+        gap: var(--spacing-space-5);
     }
 
     .pageContainer,
     .notFound {
-        width: min(calc(100% - (var(--spacing-space-4) * 2)), 408px);
+        width: min(100%, 390px);
+        padding: var(--spacing-space-5);
     }
 
     .detailNav {
+        align-items: flex-start;
         flex-direction: column;
         justify-content: center;
         min-height: auto;
-        padding-inline: 0;
+        padding: 10px;
         gap: 10px;
+    }
+
+    .desktopProjectName {
+        display: none;
+    }
+
+    .mobileProjectPill {
+        display: block;
+    }
+
+    .navActions {
+        flex-direction: row;
+    }
+
+    .adminActions {
+        order: 2;
     }
 
     .skeletonNav {
@@ -1409,7 +1509,7 @@ button.architectureImageFrame:focus-visible,
 
     .breadcrumb {
         max-width: 100%;
-        font-size: 0.875rem;
+        font-size: 1rem;
     }
 
     .desktopOverviewFeatures {
@@ -1458,7 +1558,7 @@ button.architectureImageFrame:focus-visible,
     }
 
     .metricCard {
-        min-height: 104px;
+        min-height: 78px;
     }
 
     .featureGrid {
