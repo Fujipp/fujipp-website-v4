@@ -1,9 +1,10 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.9`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.9.1`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.9.1` | 2026-06-08 | billing SecretCipher boot-safe; orchestrator passes bot public key + client secret to bot env |
 | `0.0.9` | 2026-06-08 | central-bot wallet-topup feature (shop wallet store) + Roblox `/robux-redeem` debits it |
 | `0.0.8.1` | 2026-06-08 | billing: expose `priceId` in FeaturePriceResponse so the shop can purchase a SKU |
 | `0.0.8` | 2026-06-08 | billing: per-bot feature config endpoints (`/api/billing/bots/{id}/config` GET/PUT, AES-GCM secrets) |

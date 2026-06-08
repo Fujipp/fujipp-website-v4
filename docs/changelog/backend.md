@@ -1,9 +1,10 @@
 # Changelog — Backend
 
-**Current version: `0.0.9`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.9.1`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.9.1` | 2026-06-08 | store bot public key + client secret; make SecretCipher boot-safe (lazy key) |
 | `0.0.9` | 2026-06-08 | proxy bot start/stop/restart/status to the orchestrator (`/api/bots/{id}/start` …) |
 | `0.0.8` | 2026-06-08 | proxy bot config (`/api/bots/{id}/config` GET/PUT) to billing with ownership check |
 | `0.0.7` | 2026-06-08 | add bot registry API (`/api/bots` list/create) with AES-GCM token encryption |
