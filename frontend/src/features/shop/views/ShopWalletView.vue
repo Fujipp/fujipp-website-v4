@@ -59,6 +59,7 @@ const dragActive = ref(false);
 const isLoadingWallet = ref(false);
 const isGeneratingQr = ref(false);
 const isVerifyingSlip = ref(false);
+const walletError = ref("");
 const toast = ref<WalletToast | null>(null);
 let toastTimeout: ReturnType<typeof setTimeout> | undefined;
 
@@ -236,14 +237,20 @@ async function loadWallet(): Promise<void> {
     if (!headers) return;
 
     isLoadingWallet.value = true;
+    walletError.value = "";
     try {
         const response = await fetch(`${API_BASE_URL}/api/wallet`, { headers });
-        if (!response.ok) return;
+        if (!response.ok) {
+            throw new Error(await readResponseError(response, "โหลด Wallet ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"));
+        }
 
         const wallet = await response.json() as WalletResponse;
         balanceSatang.value = wallet.balanceSatang;
-    } catch {
-        // The main backend may not expose the billing wallet proxy yet.
+    } catch (error) {
+        walletError.value = error instanceof Error && error.message
+            ? error.message
+            : "โหลด Wallet ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+        showToast("error", "โหลด Wallet ไม่สำเร็จ", walletError.value);
     } finally {
         isLoadingWallet.value = false;
     }
@@ -411,6 +418,12 @@ onUnmounted(() => {
                 <div :class="$style.divider" aria-hidden="true" />
             </section>
 
+            <section v-if="walletError" :class="$style.statePanel" aria-live="polite">
+                <h2 :class="$style.stateTitle">โหลด Wallet ไม่สำเร็จ</h2>
+                <p :class="$style.stateText">{{ walletError }}</p>
+                <button type="button" :class="$style.retryButton" @click="loadWallet">ลองใหม่</button>
+            </section>
+
             <section :class="$style.walletGrid" aria-label="Wallet top up">
                 <WalletBalanceCard
                     :avatar-url="walletAvatarUrl"
@@ -468,8 +481,8 @@ onUnmounted(() => {
     flex: 1;
     flex-direction: column;
     box-sizing: border-box;
-    padding: 20px;
-    gap: 20px;
+    padding: var(--spacing-space-6);
+    gap: var(--spacing-space-6);
     transition: margin-left 180ms ease;
 }
 
@@ -507,7 +520,62 @@ onUnmounted(() => {
     align-items: flex-start;
     flex-wrap: wrap;
     align-content: flex-start;
-    gap: 20px;
+    gap: var(--spacing-space-5);
+}
+
+.statePanel {
+    display: flex;
+    max-width: 680px;
+    flex-direction: column;
+    padding: var(--spacing-space-6);
+    gap: var(--spacing-space-4);
+    border: 1px solid var(--color-main-border);
+    border-radius: var(--radius-xl);
+    background-color: var(--color-main-surface);
+    color: var(--color-text-primary);
+}
+
+.stateTitle,
+.stateText {
+    margin: 0;
+}
+
+.stateTitle {
+    font-size: 24px;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.stateText {
+    color: var(--color-text-secondary);
+    font-size: 18px;
+    line-height: 1.4;
+}
+
+.retryButton {
+    align-self: flex-start;
+    min-height: 42px;
+    padding: 0 var(--spacing-space-5);
+    border: 0;
+    border-radius: var(--radius-md);
+    background-color: var(--color-button-primary-btn-bg);
+    color: var(--color-button-primary-btn-text-active);
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.retryButton:hover {
+    background-color: var(--color-button-primary-btn-hover);
+}
+
+.retryButton:active {
+    background-color: var(--color-button-primary-btn-active);
+}
+
+.retryButton:focus-visible {
+    outline: 2px solid var(--color-main-primary);
+    outline-offset: 2px;
 }
 
 .toastRegion {
@@ -520,7 +588,12 @@ onUnmounted(() => {
 
 @media (max-width: 760px) {
     .content {
-        padding: 20px 12px 40px;
+        padding: var(--spacing-space-5) var(--spacing-space-3) var(--spacing-space-10);
+    }
+
+    .sidebarOpen,
+    .sidebarClosed {
+        margin-left: 44px;
     }
 
     .walletGrid {

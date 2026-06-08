@@ -6,8 +6,6 @@ import { StatusToast } from "@/shared/ui";
 import { useUserStore } from "@/stores";
 import { API_BASE_URL } from "@/config";
 import {
-    SAMPLE_FEATURES,
-    SAMPLE_RUNTIME_PLANS,
     priceKindLabel,
     priceNeedsSubject,
     type BotOption,
@@ -16,11 +14,6 @@ import {
 } from "@/features/shop/config/catalog";
 
 type ToastStatus = "info" | "success" | "warning" | "error";
-
-const SAMPLE_BOTS: BotOption[] = [
-    { id: "sample-bot-1", name: "บอทเทส #1" },
-    { id: "sample-bot-2", name: "บอทเทส #2" },
-];
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -32,7 +25,7 @@ const bots = ref<BotOption[]>([]);
 const balanceSatang = ref(0);
 const isLoading = ref(false);
 const isSubmitting = ref(false);
-const usingSample = ref(false);
+const catalogError = ref("");
 const toast = ref<{ status: ToastStatus; title: string; description?: string } | null>(null);
 let toastTimeout: ReturnType<typeof setTimeout> | undefined;
 
@@ -111,21 +104,13 @@ const runtimeCards = computed(() =>
     })),
 );
 
-function applySample(): void {
-    usingSample.value = true;
-    features.value = SAMPLE_FEATURES;
-    runtimePlans.value = SAMPLE_RUNTIME_PLANS;
-    bots.value = SAMPLE_BOTS;
-    balanceSatang.value = 50000; // ฿500 demo credit
-    notify("info", "กำลังแสดงแคตตาล็อกตัวอย่าง", "ยังไม่ได้ต่อ backend — ราคา/ฟีเจอร์ตรงกับที่ seed ไว้ ใช้ลองหน้าตา/flow ซื้อ");
-}
-
 async function loadCatalog(): Promise<void> {
     isLoading.value = true;
+    catalogError.value = "";
     try {
         const headers = await authHeaders();
         if (!headers) {
-            applySample();
+            catalogError.value = "กรุณาเข้าสู่ระบบก่อนดูแพ็กเกจ";
             return;
         }
         const [fRes, rRes, wRes, bRes] = await Promise.all([
@@ -134,15 +119,18 @@ async function loadCatalog(): Promise<void> {
             fetch(`${API_BASE_URL}/api/wallet`, { headers }),
             fetch(`${API_BASE_URL}/api/bots`, { headers }),
         ]);
-        if (!fRes.ok || !rRes.ok) throw new Error("catalog unavailable");
-        usingSample.value = false;
+        if (!fRes.ok || !rRes.ok || !wRes.ok || !bRes.ok) throw new Error("catalog unavailable");
         features.value = (await fRes.json()) as CatalogFeature[];
         runtimePlans.value = (await rRes.json()) as RuntimePlan[];
         balanceSatang.value = wRes.ok ? ((await wRes.json()).balanceSatang ?? 0) : 0;
         bots.value = bRes.ok ? ((await bRes.json()) as BotOption[]) : [];
     } catch {
-        // Catalog proxy not live yet — demo from the seeded sample.
-        applySample();
+        features.value = [];
+        runtimePlans.value = [];
+        bots.value = [];
+        balanceSatang.value = 0;
+        catalogError.value = "โหลดแพ็กเกจไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+        notify("error", "โหลดแพ็กเกจไม่สำเร็จ", "ระบบไม่สามารถเชื่อมต่อ catalog หรือ wallet ได้");
     } finally {
         isLoading.value = false;
     }
@@ -155,11 +143,6 @@ function openBuy(title: string, option: PackageOption): void {
 async function confirmPurchase(botId: string | null): Promise<void> {
     const option = dialog.value.option;
     if (!option) return;
-    if (usingSample.value) {
-        notify("warning", "ยังไม่ได้ต่อ backend", "สั่งซื้อจริงไม่ได้ในโหมดตัวอย่าง — ต้องมี POST /api/orders ก่อน");
-        dialog.value.open = false;
-        return;
-    }
     isSubmitting.value = true;
     try {
         const headers = await authHeaders();
@@ -239,6 +222,12 @@ onUnmounted(clearToast);
                 </section>
             </template>
 
+            <section v-else-if="catalogError" :class="$style.statePanel" aria-live="polite">
+                <h2 :class="$style.stateTitle">โหลดข้อมูลร้านไม่สำเร็จ</h2>
+                <p :class="$style.stateText">{{ catalogError }}</p>
+                <button type="button" :class="$style.retryButton" @click="loadCatalog">ลองใหม่</button>
+            </section>
+
             <template v-else>
                 <section :class="$style.sectionGroup" aria-labelledby="shop-package-features-title">
                     <h2 id="shop-package-features-title" :class="$style.sectionTitle">Features</h2>
@@ -252,6 +241,10 @@ onUnmounted(clearToast);
                             @select="(option) => openBuy(card.title, option)"
                         />
                     </div>
+                    <section v-if="featureCards.length === 0" :class="$style.statePanel">
+                        <h3 :class="$style.stateTitle">ยังไม่มีฟีเจอร์ที่เปิดขาย</h3>
+                        <p :class="$style.stateText">เมื่อ backend catalog เปิดฟีเจอร์ active แล้ว รายการจะแสดงที่นี่</p>
+                    </section>
                 </section>
 
                 <section :class="$style.sectionGroup" aria-labelledby="shop-package-runtime-title">
@@ -265,6 +258,10 @@ onUnmounted(clearToast);
                             @select="(option) => openBuy(card.name, option)"
                         />
                     </div>
+                    <section v-if="runtimeCards.length === 0" :class="$style.statePanel">
+                        <h3 :class="$style.stateTitle">ยังไม่มี runtime plan</h3>
+                        <p :class="$style.stateText">เพิ่ม runtime plan ที่ billing-service แล้วรายการจะแสดงที่นี่</p>
+                    </section>
                 </section>
             </template>
 
@@ -308,8 +305,8 @@ onUnmounted(clearToast);
     flex: 1;
     flex-direction: column;
     box-sizing: border-box;
-    padding: 20px;
-    gap: 20px;
+    padding: var(--spacing-space-6);
+    gap: var(--spacing-space-6);
     transition: margin-left 180ms ease;
 }
 
@@ -325,18 +322,71 @@ onUnmounted(clearToast);
 .sectionGroup {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: var(--spacing-space-4);
 }
 
 .packageSection {
     justify-content: center;
 }
 
+.statePanel {
+    display: flex;
+    max-width: 680px;
+    flex-direction: column;
+    padding: var(--spacing-space-6);
+    gap: var(--spacing-space-4);
+    border: 1px solid var(--color-main-border);
+    border-radius: var(--radius-xl);
+    background-color: var(--color-main-surface);
+    color: var(--color-text-primary);
+}
+
+.stateTitle,
+.stateText {
+    margin: 0;
+}
+
+.stateTitle {
+    font-size: 24px;
+    font-weight: 600;
+}
+
+.stateText {
+    color: var(--color-text-secondary);
+    font-size: 18px;
+}
+
+.retryButton {
+    align-self: flex-start;
+    min-height: 42px;
+    padding: 0 var(--spacing-space-5);
+    border: 0;
+    border-radius: var(--radius-md);
+    background-color: var(--color-button-primary-btn-bg);
+    color: var(--color-button-primary-btn-text-active);
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.retryButton:hover {
+    background-color: var(--color-button-primary-btn-hover);
+}
+
+.retryButton:active {
+    background-color: var(--color-button-primary-btn-active);
+}
+
+.retryButton:focus-visible {
+    outline: 2px solid var(--color-main-primary);
+    outline-offset: 2px;
+}
+
 .titleRow {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 20px;
+    gap: var(--spacing-space-5);
 }
 
 .pageTitle {
@@ -353,8 +403,8 @@ onUnmounted(clearToast);
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    padding: 10px;
-    gap: 10px;
+    padding: var(--spacing-space-3);
+    gap: var(--spacing-space-3);
     overflow: hidden;
     border-radius: var(--radius-3xl);
     background-color: var(--color-button-secondary-btn-bg);
@@ -399,8 +449,8 @@ onUnmounted(clearToast);
     align-items: flex-start;
     flex-wrap: wrap;
     align-content: flex-start;
-    gap: 20px;
-    padding-inline: 20px;
+    gap: var(--spacing-space-5);
+    padding-inline: var(--spacing-space-5);
 }
 
 .toastRegion {
@@ -419,12 +469,17 @@ onUnmounted(clearToast);
 
 @media (max-width: 760px) {
     .content {
-        padding: 20px 12px 40px;
+        padding: var(--spacing-space-5) var(--spacing-space-3) var(--spacing-space-10);
+    }
+
+    .sidebarOpen,
+    .sidebarClosed {
+        margin-left: 44px;
     }
 
     .titleRow {
         flex-direction: column;
-        gap: 12px;
+        gap: var(--spacing-space-3);
     }
 
     .balancePill {
