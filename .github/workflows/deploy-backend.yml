@@ -157,6 +157,9 @@ jobs:
     needs: [changes, build]
     runs-on: ubuntu-latest
     environment: production
+    permissions:
+      contents: read
+      packages: read
     steps:
       - uses: actions/checkout@v4
 
@@ -194,6 +197,8 @@ jobs:
           VOUCHER_SERVICE_TOKEN: ${{ secrets.VOUCHER_SERVICE_TOKEN }}
           BOT_SECRET_KEY: ${{ secrets.BOT_SECRET_KEY }}
           RUNTIME_SERVICE_TOKEN: ${{ secrets.RUNTIME_SERVICE_TOKEN }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
           BACKEND_CHANGED: ${{ needs.changes.outputs.backend }}
           BILLING_CHANGED: ${{ needs.changes.outputs.billing }}
           VOUCHER_CHANGED: ${{ needs.changes.outputs.voucher }}
@@ -204,7 +209,7 @@ jobs:
           # base64-encode the secret so newlines/quotes survive the SSH hop intact
           ENV_B64=$(printf '%s' "$BACKEND_ENV_FILE" | base64 -w0)
           ssh -p "${SSH_PORT:-22}" -i ~/.ssh/id_deploy "$SSH_USER@$SSH_HOST" \
-            "ENV_B64='$ENV_B64' VOUCHER_SERVICE_TOKEN='$VOUCHER_SERVICE_TOKEN' REGISTRY='${{ env.REGISTRY }}' OWNER='$OWNER' SHA='$SHA' BOT_SECRET_KEY='$BOT_SECRET_KEY' RUNTIME_SERVICE_TOKEN='$RUNTIME_SERVICE_TOKEN' BACKEND_CHANGED='$BACKEND_CHANGED' BILLING_CHANGED='$BILLING_CHANGED' VOUCHER_CHANGED='$VOUCHER_CHANGED' RUNTIME_CHANGED='$RUNTIME_CHANGED' bash -se" <<'REMOTE'
+            "ENV_B64='$ENV_B64' VOUCHER_SERVICE_TOKEN='$VOUCHER_SERVICE_TOKEN' REGISTRY='${{ env.REGISTRY }}' OWNER='$OWNER' SHA='$SHA' BOT_SECRET_KEY='$BOT_SECRET_KEY' RUNTIME_SERVICE_TOKEN='$RUNTIME_SERVICE_TOKEN' GHCR_TOKEN='$GHCR_TOKEN' GHCR_USER='$GHCR_USER' BACKEND_CHANGED='$BACKEND_CHANGED' BILLING_CHANGED='$BILLING_CHANGED' VOUCHER_CHANGED='$VOUCHER_CHANGED' RUNTIME_CHANGED='$RUNTIME_CHANGED' bash -se" <<'REMOTE'
           set -euo pipefail
           cd /opt/fujipp
           umask 077
@@ -281,6 +286,10 @@ jobs:
           SERVICES=$(echo "$SERVICES" | xargs)
 
           if [ -n "$SERVICES" ]; then
+            # Log in to GHCR so private images (e.g. a newly-created package) pull too.
+            if [ -n "${GHCR_TOKEN:-}" ]; then
+              echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+            fi
             docker compose pull $SERVICES
             # --remove-orphans clears containers no longer in the compose file (e.g. the
             # retired true-wallet-voucher holding port 3611); it never touches services
