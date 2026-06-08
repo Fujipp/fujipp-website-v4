@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
-import { useRouter, type RouteLocationRaw } from "vue-router";
-import { ShopSidebar } from "@/features/shop/components";
+import { useRouter } from "vue-router";
+import {
+    ShopSidebar,
+    WalletBalanceCard,
+    WalletTopupCard,
+} from "@/features/shop/components";
 import { StatusToast } from "@/shared/ui";
 import { useUserStore } from "@/stores";
 import { API_BASE_URL } from "@/config";
@@ -58,13 +62,6 @@ const isVerifyingSlip = ref(false);
 const toast = ref<WalletToast | null>(null);
 let toastTimeout: ReturnType<typeof setTimeout> | undefined;
 
-const shopNavItems: readonly { label: string; icon: string; to?: RouteLocationRaw }[] = [
-    { label: "Dashboard", icon: "/images/icons/sidebar/home.svg", to: { name: "shop-dashboard" } },
-    { label: "Package", icon: "/images/icons/sidebar/package.svg" },
-    { label: "WALLET", icon: "/images/icons/sidebar/wallet.svg", to: { name: "shop-wallet" } },
-    { label: "History", icon: "/images/icons/sidebar/history.svg" },
-];
-
 const amountThb = computed(() => {
     const value = Number(customAmount.value);
     return Number.isFinite(value) ? Math.floor(value) : 0;
@@ -83,6 +80,16 @@ const canVerifySlip = computed(() => (
 ));
 const walletBalance = computed(() => formatMoney(balanceSatang.value));
 const topupAmount = computed(() => formatMoney(topup.value?.amountSatang ?? amountThb.value * 100));
+const walletUsername = computed(() => (
+    userStore.profile?.username
+    ?? userStore.profile?.displayName
+    ?? userStore.user?.email?.split("@")[0]
+    ?? "Username"
+));
+const walletAvatarUrl = computed(() => (
+    userStore.profile?.avatarUrl
+    ?? "/images/users/fujipp/profile-fujipp.png"
+));
 const qrImageUrl = computed(() => {
     if (!topup.value?.promptPayPayload) return "";
 
@@ -396,129 +403,43 @@ onUnmounted(() => {
 
 <template>
     <div :class="$style.shopWallet">
-        <ShopSidebar
-            v-model="isSidebarOpen"
-            :items="shopNavItems"
-        />
+        <ShopSidebar v-model="isSidebarOpen" />
 
         <main :class="[$style.content, isSidebarOpen ? $style.sidebarOpen : $style.sidebarClosed]">
             <section :class="$style.titleSection">
-                <h1 :class="$style.pageTitle" class="type-h1-page-title-sb">WALLET</h1>
+                <h1 :class="$style.pageTitle" class="type-h1-page-title-sb">Wallet</h1>
                 <div :class="$style.divider" aria-hidden="true" />
             </section>
 
-            <section :class="$style.sectionGroup" aria-labelledby="wallet-amount-title">
-                <h2 id="wallet-amount-title" :class="$style.sectionTitle" class="type-h2-section-title-r">Amount</h2>
-                <article :class="$style.amountCard" aria-live="polite">
-                    <span :class="$style.balanceValue">{{ walletBalance }}</span>
-                    <span :class="$style.balanceUnit">THB</span>
-                    <span v-if="isLoadingWallet" :class="$style.helperText">Loading wallet...</span>
-                </article>
-            </section>
+            <section :class="$style.walletGrid" aria-label="Wallet top up">
+                <WalletBalanceCard
+                    :avatar-url="walletAvatarUrl"
+                    :balance="walletBalance"
+                    :loading="isLoadingWallet"
+                    :username="walletUsername"
+                />
 
-            <section :class="$style.sectionGroup" aria-labelledby="wallet-topup-title">
-                <h2 id="wallet-topup-title" :class="$style.sectionTitle" class="type-h2-section-title-r">Top up</h2>
-
-                <div :class="$style.topupLayout">
-                    <article :class="$style.instructionCard">
-                        <p :class="$style.instructionText">
-                            วิธีการชำระเงิน<br>
-                            1) เข้าแอพธนาคาร ชำระเงินด้วย QR CODE ที่สร้างขึ้น ชื่อ นาย อนวัตร กรุดธูป<br>
-                            2) เมื่อโอนเงินเสร็จแล้ว โปรดนำสลิปที่ได้จากการโอนเงินมาแนบในเว็บ
-                        </p>
-                    </article>
-
-                    <article :class="$style.qrCard">
-                        <div :class="$style.qrPreview">
-                            <img
-                                v-if="qrImageUrl"
-                                :src="qrImageUrl"
-                                :alt="`PromptPay QR Code for ${topupAmount} THB`"
-                                :class="$style.qrImage"
-                            >
-                            <span v-else :class="$style.qrPlaceholder">QR CODE</span>
-                        </div>
-
-                        <div :class="$style.topupControls">
-                            <div :class="$style.quickAmountGrid" aria-label="Quick top-up amounts">
-                                <button
-                                    v-for="amount in quickAmounts"
-                                    :key="amount"
-                                    type="button"
-                                    :class="[$style.quickAmount, selectedAmount === amount ? $style.quickAmountActive : '']"
-                                    @click="selectAmount(amount)"
-                                >
-                                    {{ amount }}
-                                </button>
-                            </div>
-
-                            <label :class="$style.fieldGroup" for="wallet-topup-amount">
-                                <span :class="$style.fieldLabel">Minimum amount is 50</span>
-                                <input
-                                    id="wallet-topup-amount"
-                                    :value="customAmount"
-                                    inputmode="numeric"
-                                    autocomplete="off"
-                                    :class="$style.input"
-                                    :aria-invalid="!!amountError"
-                                    aria-describedby="wallet-topup-error"
-                                    placeholder="50"
-                                    @input="handleCustomAmountInput"
-                                >
-                                <span id="wallet-topup-error" :class="$style.errorText">{{ amountError }}</span>
-                            </label>
-
-                            <button
-                                type="button"
-                                :class="$style.primaryButton"
-                                :disabled="!canGenerateQr"
-                                @click="userStore.isAuthenticated ? generateQr() : requireSignIn()"
-                            >
-                                {{ isGeneratingQr ? "Generating..." : "Generate QR" }}
-                            </button>
-
-                            <div v-if="topup" :class="$style.referenceBox">
-                                <span>Reference</span>
-                                <strong>{{ topup.reference }}</strong>
-                            </div>
-                        </div>
-                    </article>
-                </div>
-            </section>
-
-            <section :class="$style.sectionGroup" aria-labelledby="wallet-slip-title">
-                <h2 id="wallet-slip-title" :class="$style.sectionTitle" class="type-h2-section-title-r">Slip Verify</h2>
-
-                <article :class="$style.slipCard">
-                    <label
-                        :class="[$style.dropZone, dragActive ? $style.dropZoneActive : '']"
-                        for="wallet-slip-file"
-                        @dragenter.prevent="dragActive = true"
-                        @dragover.prevent="dragActive = true"
-                        @dragleave.prevent="dragActive = false"
-                        @drop.prevent="handleDrop"
-                    >
-                        <span :class="$style.dropTitle">ไฟล์สลิปการโอนเงิน</span>
-                        <span :class="$style.dropAction">{{ slipFile?.name ?? "เลือกไฟล์" }}</span>
-                        <span :class="$style.dropHint">หรือ<br>ลากแล้วปล่อยไฟล์</span>
-                        <input
-                            id="wallet-slip-file"
-                            type="file"
-                            accept="image/png,image/jpeg,image/webp"
-                            :class="$style.fileInput"
-                            @change="handleFileChange"
-                        >
-                    </label>
-
-                    <button
-                        type="button"
-                        :class="$style.primaryButton"
-                        :disabled="isVerifyingSlip"
-                        @click="verifySlip"
-                    >
-                        {{ isVerifyingSlip ? "Confirming..." : "Confirm" }}
-                    </button>
-                </article>
+                <WalletTopupCard
+                    :quick-amounts="quickAmounts"
+                    :selected-amount="selectedAmount"
+                    :custom-amount="customAmount"
+                    :amount-error="amountError"
+                    :qr-image-url="qrImageUrl"
+                    :topup-amount="topupAmount"
+                    :topup-reference="topup?.reference"
+                    :can-generate="canGenerateQr"
+                    :drag-active="dragActive"
+                    :file-name="slipFile?.name"
+                    :generating="isGeneratingQr"
+                    :verifying="isVerifyingSlip"
+                    @drag-active-change="dragActive = $event"
+                    @drop-file="handleDrop"
+                    @file-change="handleFileChange"
+                    @select-amount="selectAmount"
+                    @input-amount="handleCustomAmountInput"
+                    @generate="userStore.isAuthenticated ? generateQr() : requireSignIn()"
+                    @verify="verifySlip"
+                />
             </section>
 
             <div v-if="toast" :class="$style.toastRegion" aria-live="polite">
@@ -547,8 +468,8 @@ onUnmounted(() => {
     flex: 1;
     flex-direction: column;
     box-sizing: border-box;
-    padding: var(--spacing-space-12) var(--spacing-space-6) var(--spacing-space-16);
-    gap: var(--spacing-space-5);
+    padding: 20px;
+    gap: 20px;
     transition: margin-left 180ms ease;
 }
 
@@ -560,19 +481,20 @@ onUnmounted(() => {
     margin-left: 44px;
 }
 
-.titleSection,
-.sectionGroup {
+.titleSection {
     display: flex;
     flex-direction: column;
 }
 
-.sectionGroup {
-    gap: var(--spacing-space-3);
+.pageTitle {
+    margin: 0;
 }
 
-.pageTitle,
-.sectionTitle {
-    margin: 0;
+.pageTitle {
+    color: var(--color-text-primary);
+    font-size: 32px;
+    font-weight: 600;
+    line-height: 1.15;
 }
 
 .divider {
@@ -580,308 +502,33 @@ onUnmounted(() => {
     background-color: var(--color-main-divider);
 }
 
-.amountCard,
-.instructionCard,
-.qrCard,
-.slipCard {
-    box-sizing: border-box;
-    border: 1px solid var(--color-main-divider);
-    border-radius: var(--radius-xl);
-}
-
-.amountCard {
+.walletGrid {
     display: flex;
-    min-height: 120px;
-    align-items: center;
-    justify-content: center;
-    gap: var(--spacing-space-3);
-    padding: var(--spacing-space-6);
-    background: var(--gradient-card-highlight);
-    color: var(--color-text-secondary);
-}
-
-.balanceValue {
-    font-size: 48px;
-    font-weight: 600;
-    line-height: normal;
-}
-
-.balanceUnit,
-.helperText {
-    font-size: 16px;
-    font-weight: 300;
-}
-
-.topupLayout {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(320px, 1.15fr);
-    gap: var(--spacing-space-5);
-    align-items: stretch;
-}
-
-.instructionCard {
-    display: flex;
-    align-items: center;
-    min-height: 180px;
-    padding: var(--spacing-space-6);
-    background-color: var(--color-main-background);
-}
-
-.instructionText {
-    margin: 0;
-    color: var(--color-text-primary);
-    font-size: 20px;
-    font-weight: 300;
-    line-height: 1.55;
-    text-align: left;
-}
-
-.qrCard {
-    display: grid;
-    grid-template-columns: minmax(220px, 0.8fr) minmax(240px, 1fr);
-    gap: var(--spacing-space-5);
-    padding: var(--spacing-space-6);
-    background-color: var(--color-main-background);
-}
-
-.qrPreview {
-    display: flex;
-    min-height: 280px;
-    align-items: center;
-    justify-content: center;
-    box-sizing: border-box;
-    padding: var(--spacing-space-4);
-    border: 1px dashed var(--color-main-border);
-    border-radius: var(--radius-lg);
-    background-color: var(--color-neutral-50);
-}
-
-.qrImage {
-    width: min(100%, 260px);
-    aspect-ratio: 1;
-    object-fit: contain;
-}
-
-.qrPlaceholder {
-    color: var(--color-text-disabled);
-    font-size: 28px;
-    font-weight: 600;
-}
-
-.topupControls {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-space-4);
-}
-
-.quickAmountGrid {
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: var(--spacing-space-2);
-}
-
-.quickAmount,
-.primaryButton {
-    border: 0;
-    border-radius: var(--radius-md);
-    font-family: inherit;
-    cursor: pointer;
-    transition:
-        background-color 160ms ease,
-        border-color 160ms ease,
-        color 160ms ease,
-        opacity 160ms ease;
-}
-
-.quickAmount {
-    min-height: 40px;
-    border: 1px solid var(--color-main-divider);
-    background-color: var(--color-main-background);
-    color: var(--color-text-primary);
-    font-size: 16px;
-    font-weight: 300;
-}
-
-.quickAmount:hover,
-.quickAmountActive {
-    border-color: var(--color-main-primary);
-    background-color: var(--color-main-primary);
-    color: var(--color-button-primary-btn-text-active);
-}
-
-.fieldGroup {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-space-2);
-    text-align: left;
-}
-
-.fieldLabel,
-.errorText,
-.referenceBox {
-    font-size: 14px;
-    font-weight: 300;
-}
-
-.input {
-    box-sizing: border-box;
-    width: 100%;
-    min-height: 44px;
-    padding: var(--spacing-space-3) var(--spacing-space-4);
-    border: 1px solid var(--color-input-border);
-    border-radius: var(--radius-md);
-    background-color: var(--color-input-bg);
-    color: var(--color-text-input);
-    font: inherit;
-}
-
-.input:hover {
-    border-color: var(--color-input-border-hover);
-}
-
-.input:focus {
-    border-color: var(--color-input-border-focus);
-    outline: 2px solid var(--color-main-primary);
-    outline-offset: 2px;
-}
-
-.errorText {
-    color: var(--color-status-error);
-}
-
-.primaryButton {
-    display: inline-flex;
-    min-height: 44px;
-    align-items: center;
-    justify-content: center;
-    padding: var(--spacing-space-3) var(--spacing-space-6);
-    background-color: var(--color-button-primary-btn-bg);
-    color: var(--color-button-primary-btn-text-active);
-    font-size: 16px;
-    font-weight: 300;
-}
-
-.primaryButton:hover:not(:disabled) {
-    background-color: var(--color-button-primary-btn-hover);
-}
-
-.primaryButton:active:not(:disabled) {
-    background-color: var(--color-button-primary-btn-active);
-}
-
-.primaryButton:disabled {
-    background-color: var(--color-button-primary-btn-disabled);
-    cursor: not-allowed;
-    opacity: 0.75;
-}
-
-.primaryButton:focus-visible,
-.quickAmount:focus-visible {
-    outline: 2px solid var(--color-main-primary);
-    outline-offset: 2px;
-}
-
-.referenceBox {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-space-1);
-    padding: var(--spacing-space-3);
-    border-radius: var(--radius-md);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
-    overflow-wrap: anywhere;
-}
-
-.referenceBox strong {
-    font-weight: 600;
-}
-
-.slipCard {
-    display: flex;
-    align-items: stretch;
-    gap: var(--spacing-space-5);
-    padding: var(--spacing-space-6);
-    background-color: var(--color-main-background);
-}
-
-.dropZone {
-    position: relative;
-    display: flex;
-    min-height: 180px;
-    flex: 1;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    box-sizing: border-box;
-    gap: var(--spacing-space-2);
-    padding: var(--spacing-space-6);
-    border: 1px dashed var(--color-main-border);
-    border-radius: var(--radius-lg);
-    color: var(--color-text-primary);
-    text-align: center;
-    cursor: pointer;
-}
-
-.dropZoneActive {
-    border-color: var(--color-main-primary);
-    background-color: var(--color-neutral-50);
-}
-
-.dropTitle,
-.dropAction,
-.dropHint {
-    font-size: 20px;
-    font-weight: 300;
-}
-
-.dropAction {
-    font-weight: 600;
-    overflow-wrap: anywhere;
-}
-
-.fileInput {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    white-space: nowrap;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 20px;
 }
 
 .toastRegion {
     position: fixed;
-    top: var(--spacing-space-5);
+    bottom: var(--spacing-space-5);
     right: var(--spacing-space-5);
     z-index: 60;
     width: min(360px, calc(100vw - var(--spacing-space-10)));
 }
 
-@media (max-width: 980px) {
-    .topupLayout,
-    .qrCard {
-        grid-template-columns: 1fr;
-    }
-}
-
 @media (max-width: 760px) {
     .content {
-        padding: var(--spacing-space-12) var(--spacing-space-3) var(--spacing-space-16);
+        padding: 20px 12px 40px;
     }
 
-    .balanceValue {
-        font-size: 40px;
-    }
-
-    .quickAmountGrid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-
-    .slipCard {
-        flex-direction: column;
+    .walletGrid {
+        justify-content: center;
     }
 
     .toastRegion {
-        top: var(--spacing-space-3);
+        bottom: var(--spacing-space-3);
         right: var(--spacing-space-3);
         width: calc(100vw - var(--spacing-space-6));
     }

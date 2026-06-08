@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, onMounted, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useRoute, useRouter, type RouteLocationRaw } from "vue-router";
 import PrimaryButton from "@/shared/ui/buttons/PrimaryButton.vue";
 import ThemeButton from "@/shared/ui/buttons/ThemeButton.vue";
 import { useUserStore } from "@/stores";
+
+const SHOP_SIDEBAR_STORAGE_KEY = "fujipp:shop-sidebar-open";
 
 export interface ShopSidebarItem {
     label: string;
@@ -21,8 +23,8 @@ const props = withDefaults(defineProps<Props>(), {
     modelValue: true,
     items: () => [
         { label: "Dashboard", icon: "/images/icons/sidebar/home.svg", to: { name: "shop-dashboard" } },
-        { label: "Package", icon: "/images/icons/sidebar/package.svg" },
-        { label: "WALLET", icon: "/images/icons/sidebar/wallet.svg", to: { name: "shop-wallet" } },
+        { label: "Package", icon: "/images/icons/sidebar/package.svg", to: { name: "shop-package" } },
+        { label: "Wallet", icon: "/images/icons/sidebar/wallet.svg", to: { name: "shop-wallet" } },
         { label: "History", icon: "/images/icons/sidebar/history.svg" },
     ],
 });
@@ -50,6 +52,21 @@ const username = computed(() => (
 ));
 const uid = computed(() => `#${user.value?.id.slice(0, 8) ?? "uid"}`);
 
+function readStoredSidebarState(): boolean | null {
+    if (typeof window === "undefined") return null;
+
+    const storedState = window.localStorage.getItem(SHOP_SIDEBAR_STORAGE_KEY);
+    if (storedState === "true") return true;
+    if (storedState === "false") return false;
+
+    return null;
+}
+
+function saveSidebarState(value: boolean): void {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(SHOP_SIDEBAR_STORAGE_KEY, String(value));
+}
+
 function toggleSidebar(): void {
     emit("update:modelValue", !isOpen.value);
 }
@@ -69,6 +86,17 @@ async function handleLogOut(): Promise<void> {
     await userStore.signOut();
     await router.push({ name: "home" });
 }
+
+onMounted(() => {
+    const storedState = readStoredSidebarState();
+    if (storedState !== null && storedState !== isOpen.value) {
+        emit("update:modelValue", storedState);
+    }
+});
+
+watch(isOpen, (value) => {
+    saveSidebarState(value);
+});
 </script>
 
 <template>
@@ -80,7 +108,15 @@ async function handleLogOut(): Promise<void> {
             <div :class="$style.mainGroup">
                 <div :class="$style.brandGroup">
                     <div :class="$style.brandRow">
-                        <RouterLink to="/" :class="$style.brand">FUJIPP</RouterLink>
+                        <RouterLink to="/" :class="$style.brand" aria-label="Fujipp home">
+                            <img
+                                src="/images/icons/navbar/fujipp.svg"
+                                alt=""
+                                aria-hidden="true"
+                                :class="$style.brandIcon"
+                                draggable="false"
+                            >
+                        </RouterLink>
                         <button
                             type="button"
                             :class="$style.toggleButton"
@@ -97,6 +133,8 @@ async function handleLogOut(): Promise<void> {
                     </div>
                     <div :class="$style.divider" aria-hidden="true" />
                 </div>
+
+                <ThemeButton />
 
                 <nav :class="$style.navigation" aria-label="Shop navigation">
                     <component
@@ -115,8 +153,6 @@ async function handleLogOut(): Promise<void> {
                         </span>
                     </component>
                 </nav>
-
-                <ThemeButton />
             </div>
 
             <div :class="[$style.userPanel, !isAuthenticated ? $style.guestPanel : '']">
@@ -152,13 +188,6 @@ async function handleLogOut(): Promise<void> {
                 </template>
 
                 <template v-else>
-                    <div :class="$style.userInfo">
-                        <span :class="$style.avatarFallback" aria-hidden="true" />
-                        <div :class="$style.userText">
-                            <div :class="$style.username">Guest</div>
-                            <div :class="$style.uid">Not signed in</div>
-                        </div>
-                    </div>
                     <PrimaryButton :to="signInRoute">Sign in</PrimaryButton>
                 </template>
             </div>
@@ -236,12 +265,20 @@ async function handleLogOut(): Promise<void> {
 }
 
 .brand {
+    display: inline-flex;
+    align-items: center;
+    min-width: 0;
     color: var(--color-text-secondary);
-    font-size: 32px;
-    font-weight: 600;
-    line-height: normal;
-    letter-spacing: 0;
     text-decoration: none;
+}
+
+.brandIcon {
+    display: block;
+    width: auto;
+    max-width: 100%;
+    height: 32px;
+    user-select: none;
+    -webkit-user-drag: none;
 }
 
 .divider {
@@ -272,7 +309,7 @@ async function handleLogOut(): Promise<void> {
 .collapsedToggle {
     align-self: stretch;
     height: 38px;
-    justify-content: flex-end;
+    justify-content: center;
 }
 
 .toggleButton:focus-visible,
@@ -356,12 +393,19 @@ async function handleLogOut(): Promise<void> {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    box-sizing: border-box;
+    min-height: 75px;
+    padding: 10px 5px;
     gap: 10px;
+    border: 1px solid var(--color-main-divider);
+    border-radius: var(--radius-xl);
 }
 
 .guestPanel {
-    flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
+    min-height: auto;
+    padding: 0;
+    border: 0;
 }
 
 .userInfo {

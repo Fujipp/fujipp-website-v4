@@ -142,8 +142,11 @@ public class OrderService {
 
                 String subject;
                 switch (price.getKind()) {
-                    case "RENT_MONTHLY" -> subject = requireSubject(item.externalSubjectId(), "RENT_MONTHLY");
-                    case "RENT_PERMANENT", "SOURCE_CODE" -> subject = null; // account-scoped / user-owned
+                    // Features are per-bot: both the (legacy) monthly rental and the
+                    // permanent purchase are tied to one subject (bot).
+                    case "RENT_MONTHLY", "RENT_PERMANENT" ->
+                        subject = requireSubject(item.externalSubjectId(), price.getKind());
+                    case "SOURCE_CODE" -> subject = null; // user-owned, not tied to a bot
                     default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "Unsupported price kind: " + price.getKind());
                 }
@@ -164,9 +167,9 @@ public class OrderService {
                         .ifPresent(s -> { throw conflict("Feature already rented for this subject"); });
                 }
                 case "RENT_PERMANENT" -> featureSubscriptionRepository
-                    .findByUserIdAndFeatureIdAndScope(userId, line.featureId(), "ACCOUNT")
+                    .findByFeatureIdAndExternalSubjectId(line.featureId(), line.subject())
                     .filter(s -> isLive(s.getStatus()))
-                    .ifPresent(s -> { throw conflict("Feature already owned permanently"); });
+                    .ifPresent(s -> { throw conflict("Feature already owned for this bot"); });
                 case "SOURCE_CODE" -> sourceCodeEntitlementRepository
                     .findByUserIdAndFeatureId(userId, line.featureId())
                     .ifPresent(s -> { throw conflict("Source code already owned"); });
@@ -256,13 +259,14 @@ public class OrderService {
         featureSubscriptionRepository.save(sub);
     }
 
+    /** Permanent ownership of a feature for ONE bot (scope=BOT, never expires). */
     private void createPermanentRental(UUID userId, ResolvedLine line) {
         FeatureSubscription sub = new FeatureSubscription();
         sub.setUserId(userId);
         sub.setFeatureId(line.featureId());
         sub.setPriceId(line.priceId());
-        sub.setScope("ACCOUNT");
-        sub.setExternalSubjectId(null);
+        sub.setScope("BOT");
+        sub.setExternalSubjectId(line.subject());
         sub.setBillingType("RENT_PERMANENT");
         sub.setStatus("ACTIVE");
         sub.setCurrentPeriodStart(LocalDate.now());

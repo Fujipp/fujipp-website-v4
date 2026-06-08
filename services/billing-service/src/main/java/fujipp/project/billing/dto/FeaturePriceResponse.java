@@ -2,7 +2,10 @@ package fujipp.project.billing.dto;
 
 import fujipp.project.billing.model.FeaturePrice;
 
+import java.util.UUID;
+
 public record FeaturePriceResponse(
+    UUID id,
     String kind,
     long priceSatang,
     long effectivePriceSatang,
@@ -12,6 +15,7 @@ public record FeaturePriceResponse(
 ) {
     public static FeaturePriceResponse from(FeaturePrice price, long effectiveSatang, boolean onPromotion) {
         return new FeaturePriceResponse(
+            price.getId(),
             price.getKind(),
             price.getPriceSatang(),
             effectiveSatang,

@@ -76,6 +76,72 @@ public class BillingClient {
             .toBodilessEntity();
     }
 
+    // ── catalog (listing; service token only) ───────────────────────────────────
+
+    /** Raw JSON list of purchasable features (with their price SKUs). */
+    public String listFeatures() {
+        return http.get().uri("/api/billing/catalog/features")
+            .header("X-Service-Token", serviceToken)
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raise(res.getStatusCode()))
+            .body(String.class);
+    }
+
+    /** Raw JSON list of runtime hosting plans. */
+    public String listRuntimePlans() {
+        return http.get().uri("/api/billing/catalog/runtime-plans")
+            .header("X-Service-Token", serviceToken)
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raise(res.getStatusCode()))
+            .body(String.class);
+    }
+
+    // ── orders (user-scoped) ────────────────────────────────────────────────────
+
+    /** Buy features/runtime from wallet credit. {@code body} is the PurchaseRequest JSON. */
+    public String purchase(UUID userId, String body) {
+        return http.post().uri("/api/billing/orders")
+            .header("X-Service-Token", serviceToken)
+            .header("X-User-Id", userId.toString())
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(body)
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raise(res.getStatusCode()))
+            .body(String.class);
+    }
+
+    /** Raw JSON list of the user's past orders. */
+    public String listOrders(UUID userId) {
+        return http.get().uri("/api/billing/orders")
+            .header("X-Service-Token", serviceToken)
+            .header("X-User-Id", userId.toString())
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raise(res.getStatusCode()))
+            .body(String.class);
+    }
+
+    // ── per-bot feature config (subject-scoped) ─────────────────────────────────
+
+    /** Raw JSON config form (features + non-secret values) for a bot. */
+    public String getBotConfig(String subjectId) {
+        return http.get().uri("/api/billing/bots/{id}/config", subjectId)
+            .header("X-Service-Token", serviceToken)
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raise(res.getStatusCode()))
+            .body(String.class);
+    }
+
+    /** Upsert config values for a bot. {@code body} is the UpdateConfigRequest JSON. */
+    public String updateBotConfig(String subjectId, String body) {
+        return http.put().uri("/api/billing/bots/{id}/config", subjectId)
+            .header("X-Service-Token", serviceToken)
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(body)
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raise(res.getStatusCode()))
+            .body(String.class);
+    }
+
     private void raise(HttpStatusCode status) {
         // Surface billing-service's status to the caller (e.g. 409 slip already used).
         throw new ResponseStatusException(status, "Billing service rejected the request");
