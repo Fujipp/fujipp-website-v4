@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { ShopSidebar, FeatureConfigForm } from "@/features/shop/components";
+import { ShopSidebar, FeatureConfigForm, CreateBotDialog, type CreateBotPayload } from "@/features/shop/components";
 import { StatusToast, type SelectFieldOption } from "@/shared/ui";
 import { useUserStore } from "@/stores";
 import { API_BASE_URL } from "@/config";
@@ -28,6 +28,11 @@ const isSaving = ref(false);
 const configError = ref("");
 const toast = ref<{ status: ToastStatus; title: string; description?: string } | null>(null);
 
+const botName = ref("");
+const botInitial = ref<Partial<CreateBotPayload>>({});
+const showEditBot = ref(false);
+const isSavingBot = ref(false);
+
 const channelOptions = computed<SelectFieldOption[]>(() => channels.value.map((c) => ({ label: `#${c.name}`, value: c.id })));
 const roleOptions = computed<SelectFieldOption[]>(() => roles.value.map((r) => ({ label: `@${r.name}`, value: r.id })));
 
@@ -39,6 +44,43 @@ async function authHeaders(): Promise<Record<string, string> | null> {
     await userStore.initAuth();
     if (!userStore.accessToken) return null;
     return { Authorization: `Bearer ${userStore.accessToken}` };
+}
+
+async function loadBot(): Promise<void> {
+    const headers = await authHeaders();
+    if (!headers) return;
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/bots/${botId.value}`, { headers });
+        if (!res.ok) return;
+        const b = await res.json();
+        botName.value = b.name ?? "";
+        botInitial.value = {
+            name: b.name ?? "",
+            discordApplicationId: b.discordApplicationId ?? "",
+            discordGuildId: b.discordGuildId ?? "",
+        };
+    } catch { /* non-blocking */ }
+}
+
+async function saveBotSettings(payload: CreateBotPayload): Promise<void> {
+    const headers = await authHeaders();
+    if (!headers) return;
+    isSavingBot.value = true;
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/bots/${botId.value}`, {
+            method: "PUT",
+            headers: { ...headers, "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        showEditBot.value = false;
+        notify("success", "บันทึกการตั้งค่าบอทแล้ว", "ถ้าบอทกำลังรันอยู่ ให้ restart เพื่อใช้ค่าใหม่");
+        await loadBot();
+    } catch {
+        notify("error", "บันทึกไม่สำเร็จ", "ชื่อบอทอาจซ้ำ — ลองใหม่อีกครั้ง");
+    } finally {
+        isSavingBot.value = false;
+    }
 }
 
 async function loadConfig(): Promise<void> {
@@ -98,7 +140,7 @@ onMounted(async () => {
         await router.push({ name: "login", query: { redirect: `/shop/bots/${botId.value}/config` } });
         return;
     }
-    await loadConfig();
+    await Promise.all([loadConfig(), loadBot()]);
 });
 </script>
 
@@ -108,8 +150,13 @@ onMounted(async () => {
 
         <main :class="[$style.content, isSidebarOpen ? $style.sidebarOpen : $style.sidebarClosed]">
             <section :class="$style.titleSection">
-                <h1 :class="$style.pageTitle" class="type-h1-page-title-sb">BOT CONFIG</h1>
-                <p :class="$style.subtitle" class="type-body-small-r">ตั้งค่าฟีเจอร์ของบอท · {{ botId || "—" }}</p>
+                <div :class="$style.titleRow">
+                    <div>
+                        <h1 :class="$style.pageTitle" class="type-h1-page-title-sb">BOT CONFIG</h1>
+                        <p :class="$style.subtitle" class="type-body-small-r">ตั้งค่าฟีเจอร์ของบอท · {{ botName || botId || "—" }}</p>
+                    </div>
+                    <button type="button" :class="$style.settingsButton" @click="showEditBot = true">⚙️ ตั้งค่าบอท (Token)</button>
+                </div>
             </section>
 
             <p v-if="isLoading" :class="$style.state" class="type-body-small-r">กำลังโหลด…</p>
@@ -144,6 +191,15 @@ onMounted(async () => {
                 @close="toast = null"
             />
         </div>
+
+        <CreateBotDialog
+            :open="showEditBot"
+            mode="edit"
+            :initial="botInitial"
+            :submitting="isSavingBot"
+            @submit="saveBotSettings"
+            @cancel="showEditBot = false"
+        />
     </div>
 </template>
 
@@ -179,6 +235,33 @@ onMounted(async () => {
     flex-direction: column;
     gap: var(--spacing-space-1);
     color: var(--color-text-primary);
+}
+
+.titleRow {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-space-4);
+    flex-wrap: wrap;
+}
+
+.settingsButton {
+    flex-shrink: 0;
+    height: 42px;
+    padding: 0 var(--spacing-space-4);
+    border: 1px solid var(--color-main-border);
+    border-radius: var(--radius-xl);
+    background-color: var(--color-main-surface);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.settingsButton:hover {
+    background-color: var(--color-button-secondary-btn-bg);
 }
 
 .pageTitle {
