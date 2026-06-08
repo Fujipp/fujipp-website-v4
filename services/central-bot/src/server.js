@@ -23,12 +23,15 @@ app.get('/readyz', (_req, res) =>
   }),
 );
 
+let botClient = null;
+
 const PORT = Number(process.env.PORT) || 8080;
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`[central-bot] HTTP server on 0.0.0.0:${PORT}`);
   bot
     .start()
-    .then(() => {
+    .then((client) => {
+      botClient = client;
       botStatus = 'running';
     })
     .catch((err) => {
@@ -37,10 +40,20 @@ const server = app.listen(PORT, '0.0.0.0', () => {
     });
 });
 
-const graceful = (signal) => {
+let shuttingDown = false;
+const graceful = async (signal) => {
+  if (shuttingDown) return;
+  shuttingDown = true;
   console.log(`[central-bot] ${signal} received, shutting down...`);
+  // Log out of Discord cleanly so the bot goes offline immediately (instead of
+  // lingering until the gateway session times out).
+  try {
+    if (botClient) await botClient.destroy();
+  } catch (err) {
+    console.error('[central-bot] error destroying Discord client:', err.message);
+  }
   server.close(() => process.exit(0));
-  setTimeout(() => process.exit(1), 10000).unref();
+  setTimeout(() => process.exit(0), 5000).unref();
 };
 process.on('SIGTERM', () => graceful('SIGTERM'));
 process.on('SIGINT', () => graceful('SIGINT'));
