@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { ShopSidebar, BotCard, FeatureTable, RuntimeCard } from "@/features/shop/components";
-import type { BotStatus, FeatureTableRow, RuntimeStatus } from "@/features/shop/components";
+import type { BotStatus, FeatureCategory, FeatureTableRow, RuntimeStatus } from "@/features/shop/components";
 import { StatusToast } from "@/shared/ui";
 import { API_BASE_URL } from "@/config";
 import { useUserStore } from "@/stores";
@@ -101,15 +101,11 @@ const bots = computed<BotDashboardItem[]>(() => botRecords.value.map((bot) => {
 
 const features = computed<FeatureTableRow[]>(() => featureSubscriptions.value.map((subscription) => {
     const feature = featureById.value.get(subscription.featureId);
-    const bot = subscription.externalSubjectId ? botById.value.get(subscription.externalSubjectId) : null;
 
     return {
         id: subscription.id,
         feature: feature?.name ?? subscription.featureId,
-        category: [
-            formatBillingType(subscription.billingType),
-            subscription.scope === "BOT" && bot ? bot.name : formatScope(subscription.scope),
-        ].filter(Boolean).join(" · "),
+        category: formatBillingType(subscription.billingType),
         expire: formatPeriod(subscription.currentPeriodEnd),
     };
 }));
@@ -181,27 +177,13 @@ function formatPeriod(date: string | null | undefined): string {
     return `${days.toLocaleString("th-TH")} days left`;
 }
 
-function formatBillingType(value: string): string {
+function formatBillingType(value: string): FeatureCategory {
     switch (value) {
-        case "RENT_MONTHLY":
-            return "Monthly Feature";
         case "RENT_PERMANENT":
             return "Permanent Feature";
-        case "SOURCE_CODE":
-            return "Source Code";
+        case "RENT_MONTHLY":
         default:
-            return value || "Feature";
-    }
-}
-
-function formatScope(value: string): string {
-    switch (value) {
-        case "BOT":
-            return "Bot";
-        case "ACCOUNT":
-            return "Account";
-        default:
-            return value;
+            return "Rental Feature";
     }
 }
 

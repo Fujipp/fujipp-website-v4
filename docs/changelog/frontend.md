@@ -1,9 +1,10 @@
 # Changelog — Frontend
 
-**Current version: `0.3.4`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.3.4.1`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.3.4.1` | 2026-06-09 | fix Shop dashboard feature table category typing for CI builds |
 | `0.3.4` | 2026-06-08 | refine Projects cards, detail layouts, and editor panels |
 | `0.3.3` | 2026-06-08 | refine Portfolio section layouts, gallery framing, and contact page presentation |
 | `0.3.2` | 2026-06-08 | stabilize Supabase PKCE auth callbacks and shared app chrome |
