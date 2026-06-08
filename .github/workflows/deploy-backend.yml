@@ -192,6 +192,8 @@ jobs:
           SSH_USER: ${{ secrets.VPS_SSH_USER }}
           BACKEND_ENV_FILE: ${{ secrets.BACKEND_ENV_FILE }}
           VOUCHER_SERVICE_TOKEN: ${{ secrets.VOUCHER_SERVICE_TOKEN }}
+          BOT_SECRET_KEY: ${{ secrets.BOT_SECRET_KEY }}
+          RUNTIME_SERVICE_TOKEN: ${{ secrets.RUNTIME_SERVICE_TOKEN }}
           BACKEND_CHANGED: ${{ needs.changes.outputs.backend }}
           BILLING_CHANGED: ${{ needs.changes.outputs.billing }}
           VOUCHER_CHANGED: ${{ needs.changes.outputs.voucher }}
@@ -202,7 +204,7 @@ jobs:
           # base64-encode the secret so newlines/quotes survive the SSH hop intact
           ENV_B64=$(printf '%s' "$BACKEND_ENV_FILE" | base64 -w0)
           ssh -p "${SSH_PORT:-22}" -i ~/.ssh/id_deploy "$SSH_USER@$SSH_HOST" \
-            "ENV_B64='$ENV_B64' VOUCHER_SERVICE_TOKEN='$VOUCHER_SERVICE_TOKEN' REGISTRY='${{ env.REGISTRY }}' OWNER='$OWNER' SHA='$SHA' BACKEND_CHANGED='$BACKEND_CHANGED' BILLING_CHANGED='$BILLING_CHANGED' VOUCHER_CHANGED='$VOUCHER_CHANGED' RUNTIME_CHANGED='$RUNTIME_CHANGED' bash -se" <<'REMOTE'
+            "ENV_B64='$ENV_B64' VOUCHER_SERVICE_TOKEN='$VOUCHER_SERVICE_TOKEN' REGISTRY='${{ env.REGISTRY }}' OWNER='$OWNER' SHA='$SHA' BOT_SECRET_KEY='$BOT_SECRET_KEY' RUNTIME_SERVICE_TOKEN='$RUNTIME_SERVICE_TOKEN' BACKEND_CHANGED='$BACKEND_CHANGED' BILLING_CHANGED='$BILLING_CHANGED' VOUCHER_CHANGED='$VOUCHER_CHANGED' RUNTIME_CHANGED='$RUNTIME_CHANGED' bash -se" <<'REMOTE'
           set -euo pipefail
           cd /opt/fujipp
           umask 077
@@ -224,6 +226,15 @@ jobs:
           # the BACKEND_ENV_FILE blob). Appended last so it wins; harmless to others.
           if [ -n "${VOUCHER_SERVICE_TOKEN:-}" ]; then
             echo "VOUCHER_SERVICE_TOKEN=$VOUCHER_SERVICE_TOKEN" >> .env
+          fi
+
+          # Bot platform secrets (standalone GitHub secrets, appended like the voucher
+          # token). Shared by backend + billing + runtime via the single .env.
+          if [ -n "${BOT_SECRET_KEY:-}" ]; then
+            echo "BOT_SECRET_KEY=$BOT_SECRET_KEY" >> .env
+          fi
+          if [ -n "${RUNTIME_SERVICE_TOKEN:-}" ]; then
+            echo "RUNTIME_SERVICE_TOKEN=$RUNTIME_SERVICE_TOKEN" >> .env
           fi
 
           # Final image pins: changed services move to this commit's SHA; unchanged

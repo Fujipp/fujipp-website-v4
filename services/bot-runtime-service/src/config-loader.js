@@ -7,6 +7,7 @@
 
 const db = require('./db');
 const { decrypt } = require('./crypto');
+const { resolveDatabaseUrl } = require('./pg-url');
 
 const LIVE = ['ACTIVE', 'PAST_DUE']; // still entitled (PAST_DUE is within grace)
 
@@ -83,8 +84,8 @@ async function buildEnv(subjectId) {
     DISCORD_PUBLIC_KEY: bot.discord_public_key || '',
     DISCORD_CLIENT_SECRET: bot.discord_client_secret_cipher ? decrypt(bot.discord_client_secret_cipher) : '',
     ENABLED_FEATURES: codes.join(','),
-    // Shop wallet (layer B) lives in the same Postgres; pass the connection through.
-    DATABASE_URL: process.env.SHOP_DATABASE_URL || process.env.DATABASE_URL || '',
+    // Shop wallet (layer B) lives in the same Postgres; pass the resolved connection through.
+    DATABASE_URL: process.env.SHOP_DATABASE_URL || resolveDatabaseUrl(),
     DB_SSL_NO_VERIFY: process.env.DB_SSL_NO_VERIFY || 'true',
   };
 
