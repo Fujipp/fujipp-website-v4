@@ -102,11 +102,20 @@ SLIPOK_API_KEY=<your-api-key>
 
 # PromptPay receiver id of the shop
 PROMPTPAY_ID=<shop-promptpay-id>
+
+# TrueMoney voucher service (local-only container; used by legacy PM2 bots)
+# Generate with: openssl rand -base64 32
+MASTER_KEY=<32-byte-base64-or-64-char-hex>
+TW_USER_AGENT=tmn-redeemer/1.0
+TW_TIMEOUT_MS=12000
+BOOTSTRAP_CLIENT_ID=kanom-001
+BOOTSTRAP_CLIENT_NAME=Kanom 001
 ```
 
 > GHCR uses the built-in `GITHUB_TOKEN` — no secret needed. After the first push,
-> set both packages (`fujipp-backend`, `fujipp-billing`) to **Public** under the
-> repo's *Packages* settings so the VPS can pull without logging in.
+> set the packages (`fujipp-backend`, `fujipp-billing`, `fujipp-truemoney-voucher`)
+> to **Public** under the repo's *Packages* settings so the VPS can pull without
+> logging in.
 
 ### 4. Bootstrap the VPS (once)
 
@@ -133,6 +142,13 @@ cd /opt/fujipp
 sed -i 's#:[0-9a-f]\{40\}$#:<good-sha>#' .env   # repoint BACKEND_IMAGE/BILLING_IMAGE
 docker compose pull && docker compose up -d
 ```
+
+**TrueMoney voucher service:** deployed in the same compose stack as
+`true-wallet-voucher`, published only to `127.0.0.1:3611`. The deploy workflow
+bootstraps the `kanom-001` client and writes the reusable full key to
+`/opt/fujipp/truemoney-voucher-data/kanom-001.full-key`, then points the legacy
+PM2 process `bot-kanom-roblox` at `http://127.0.0.1:3611` when that bot directory
+exists on the VPS.
 
 **Logs:** `docker compose -p fujipp logs -f backend` (or `billing`).
 
