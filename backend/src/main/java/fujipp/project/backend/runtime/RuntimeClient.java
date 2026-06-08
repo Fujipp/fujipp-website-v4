@@ -2,13 +2,18 @@ package fujipp.project.backend.runtime;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
+import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+
 /**
  * Calls the internal bot-runtime-service (orchestrator). Every request carries the
- * shared X-Service-Token. Responses are forwarded as raw JSON.
+ * shared X-Service-Token. On error the orchestrator's reason is forwarded so the
+ * customer sees why a bot did not start (e.g. "runtime is not active").
  */
 @Component
 public class RuntimeClient {
@@ -39,7 +44,7 @@ public class RuntimeClient {
         return http.get().uri("/bots/{id}/status", subjectId)
             .header("X-Service-Token", serviceToken)
             .retrieve()
-            .onStatus(HttpStatusCode::isError, (req, res) -> raise(res.getStatusCode()))
+            .onStatus(HttpStatusCode::isError, this::raise)
             .body(String.class);
     }
 
@@ -47,11 +52,14 @@ public class RuntimeClient {
         return http.post().uri("/bots/{id}/{action}", subjectId, action)
             .header("X-Service-Token", serviceToken)
             .retrieve()
-            .onStatus(HttpStatusCode::isError, (req, res) -> raise(res.getStatusCode()))
+            .onStatus(HttpStatusCode::isError, this::raise)
             .body(String.class);
     }
 
-    private void raise(HttpStatusCode status) {
-        throw new ResponseStatusException(status, "Runtime service rejected the request");
+    /** Surface the orchestrator's status + reason to the caller. */
+    private void raise(org.springframework.http.HttpRequest request, ClientHttpResponse response) throws IOException {
+        String body = new String(response.getBody().readAllBytes(), StandardCharsets.UTF_8).trim();
+        String reason = body.isEmpty() ? "runtime service rejected the request" : body;
+        throw new ResponseStatusException(response.getStatusCode(), reason);
     }
 }
