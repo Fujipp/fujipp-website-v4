@@ -4,6 +4,7 @@ import fujipp.project.billing.model.FeatureSubscription;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -18,6 +19,10 @@ public interface FeatureSubscriptionRepository extends JpaRepository<FeatureSubs
 
     /** BOT-scoped rentals for a subject (used to suspend when its runtime expires). */
     List<FeatureSubscription> findByExternalSubjectIdAndStatus(String externalSubjectId, String status);
+
+    /** Live (ACTIVE/PAST_DUE) features for a subject — drives its config form. */
+    List<FeatureSubscription> findByExternalSubjectIdAndStatusIn(
+        String externalSubjectId, Collection<String> statuses);
 
     /** BOT-scoped rental for a specific subject. */
     Optional<FeatureSubscription> findByFeatureIdAndExternalSubjectId(UUID featureId, String externalSubjectId);
