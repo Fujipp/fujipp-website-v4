@@ -120,6 +120,28 @@ public class BillingClient {
             .body(String.class);
     }
 
+    // ── subscriptions (user-scoped) ───────────────────────────────────────────────
+
+    /** Raw JSON list of the user's feature subscriptions. */
+    public String listFeatureSubscriptions(UUID userId) {
+        return http.get().uri("/api/billing/subscriptions/features")
+            .header("X-Service-Token", serviceToken)
+            .header("X-User-Id", userId.toString())
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raise(res.getStatusCode()))
+            .body(String.class);
+    }
+
+    /** Raw JSON list of the user's runtime subscriptions. */
+    public String listRuntimeSubscriptions(UUID userId) {
+        return http.get().uri("/api/billing/subscriptions/runtime")
+            .header("X-Service-Token", serviceToken)
+            .header("X-User-Id", userId.toString())
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raise(res.getStatusCode()))
+            .body(String.class);
+    }
+
     // ── per-bot feature config (subject-scoped) ─────────────────────────────────
 
     /** Raw JSON config form (features + non-secret values) for a bot. */
