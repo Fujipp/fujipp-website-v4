@@ -48,7 +48,7 @@ Token files live in `frontend/src/styles/tokens/`. The only global entrypoint is
 | Radius | `tokens/radius.css` | `rounded-md`, `rounded-xl`, `rounded-full` |
 | Icons | `tokens/icons.css` | `size-icon-sm`, `size-icon-md`, `size-icon-lg` |
 
-**Font:** Kanit — bundled locally in `public/fonts/kanit/`. Never use a CDN or runtime import.
+**Font:** Inter for English, Sora available for alternate display use, and SF Pro/system fallback for Thai. Inter and Sora are bundled locally in `public/fonts/`. Never use a CDN or runtime import.
 
 **Dark theme:** via `.dark` or `[data-theme="dark"]` on a containing element. Semantic tokens handle it automatically — do not duplicate theme colors inside components.
 
