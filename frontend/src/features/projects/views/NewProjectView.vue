@@ -14,6 +14,7 @@ import {
 } from "@/shared/ui";
 import { backend, database, devops, frontend, language, externalService } from "@/config";
 import type { ProjectLocale, ProjectLocalizedContent, ProjectRecord } from "@/config";
+import { ProjectBlogEditorCard, ProjectOverviewCard, ProjectTimelineEditorCard } from "@/features/projects/components";
 import { useProjectStore } from "@/features/projects/stores";
 import type { ProjectPayload } from "@/features/projects/stores";
 
@@ -80,7 +81,6 @@ const categories = [
 ].map((value) => ({ label: value, value }));
 
 const statuses = ["Active", "Completed", "In Progress", "Archived"].map((value) => ({ label: value, value }));
-const timelineStatuses = ["Completed", "In Progress", "On Hold"].map((value) => ({ label: value, value }));
 const roleOptions = ["User", "Admin", "Guest", "Moderator", "Developer", "Owner"]
     .map((value) => ({ label: value, value }));
 
@@ -219,6 +219,14 @@ function removeTimelineMilestone(index: number): void {
     }
 
     form.timeline.milestones.splice(index, 1);
+}
+
+function updateTimelineMilestone(index: number, key: keyof TimelineMilestone, value: string): void {
+    const milestone = form.timeline.milestones[index];
+
+    if (milestone) {
+        milestone[key] = value;
+    }
 }
 
 function countStructuredItems(items: StructuredItem[]): number {
@@ -587,18 +595,18 @@ onUnmounted(() => {
             />
         </div>
         <form :class="$style.pageContainer" @submit.prevent="handleSubmit">
-            <HeaderSection :title="isEditing ? 'EDIT PROJECT' : 'NEW PROJECTS'" />
+            <HeaderSection :title="isEditing ? 'Edit Project' : 'New Project'" />
 
             <nav :class="$style.detailNav" aria-label="New project navigation">
                 <RouterLink to="/projects" :class="$style.projectsLink" class="type-button-r">
-                    PROJECTS
+                    Projects
                 </RouterLink>
                 <LanguageButton v-model="locale" />
             </nav>
 
             <section :class="$style.basicSelectors" aria-label="Project classification">
-                <SelectField v-model="form.category" label="Category" :options="categories" />
-                <SelectField v-model="form.status" label="Status" :options="statuses" />
+                <SelectField v-model="form.category" label="Category" :options="categories" tone="dark" />
+                <SelectField v-model="form.status" label="Status" :options="statuses" tone="dark" />
             </section>
 
             <section :class="$style.gallery" aria-label="Project gallery">
@@ -659,18 +667,21 @@ onUnmounted(() => {
 
             <section :class="$style.desktopOverviewFeatures" aria-label="Project overview and features">
                 <div :class="$style.combinedTabs">
-                    <h2 :class="$style.panelTab" class="type-button-sb">OVERVIEW</h2>
-                    <h2 :class="[$style.panelTab, $style.rightTab]" class="type-button-sb">FEATURES</h2>
+                    <h2 :class="$style.panelTab" class="type-button-sb">Overview</h2>
+                    <h2 :class="[$style.panelTab, $style.rightTab]" class="type-button-sb">Features</h2>
                 </div>
                 <div :class="$style.overviewFeaturesBody">
                     <hr :class="$style.panelDivider">
                     <div :class="$style.overviewFeaturesColumns">
                         <div :class="$style.overviewColumn">
                             <div :class="$style.metricGrid">
-                                <div v-for="metric in overviewMetrics" :key="metric.label" :class="$style.metricCard">
-                                    <strong :class="$style.metricValue">{{ metric.value }}</strong>
-                                    <span :class="$style.metricLabel" class="type-overline-sb">{{ metric.label }}</span>
-                                </div>
+                                <ProjectOverviewCard
+                                    v-for="metric in overviewMetrics"
+                                    :key="metric.label"
+                                    :class="$style.overviewMetricCard"
+                                    :label="metric.label"
+                                    :value="metric.value"
+                                />
                             </div>
                             <div :class="$style.roleSelector">
                                 <SelectField
@@ -693,44 +704,17 @@ onUnmounted(() => {
                                     </button>
                                 </div>
                             </div>
-                            <div :class="$style.timelineEditor">
-                                <span class="type-caption-sb">PROJECT TIMELINE</span>
-                                <div :class="$style.timelineSummaryFields">
-                                    <TextField v-model="form.timeline.startDate" label="Start Month" type="month" />
-                                    <TextField v-model="form.timeline.endDate" label="End Month" type="month" />
-                                    <SelectField
-                                        v-model="form.timeline.status"
-                                        label="Timeline Status"
-                                        :options="timelineStatuses"
-                                        tone="dark"
-                                    />
-                                </div>
-                                <div :class="$style.timelineMilestones">
-                                    <div
-                                        v-for="(milestone, index) in form.timeline.milestones"
-                                        :key="index"
-                                        :class="$style.timelineMilestone"
-                                    >
-                                        <div :class="$style.structuredItemHeader">
-                                            <span class="type-overline-sb">Milestone {{ index + 1 }}</span>
-                                            <ActionButton
-                                                variant="delete"
-                                                :aria-label="`Remove milestone ${index + 1}`"
-                                                @click="removeTimelineMilestone(index)"
-                                            />
-                                        </div>
-                                        <TextField v-model="milestone.date" label="Month" type="month" />
-                                        <TextField v-model="milestone.title" label="Title" />
-                                        <TextareaField v-model="milestone.description" label="Description" :rows="3" />
-                                    </div>
-                                    <ActionButton
-                                        v-if="form.timeline.milestones.length < 6"
-                                        variant="add"
-                                        aria-label="Add milestone"
-                                        @click="addTimelineMilestone"
-                                    />
-                                </div>
-                            </div>
+                            <ProjectTimelineEditorCard
+                                v-model:start-month="form.timeline.startDate"
+                                v-model:end-month="form.timeline.endDate"
+                                v-model:status="form.timeline.status"
+                                :milestones="form.timeline.milestones"
+                                @update:milestone-date="(index, value) => updateTimelineMilestone(index, 'date', value)"
+                                @update:milestone-title="(index, value) => updateTimelineMilestone(index, 'title', value)"
+                                @update:milestone-description="(index, value) => updateTimelineMilestone(index, 'description', value)"
+                                @add-milestone="addTimelineMilestone"
+                                @delete-milestone="removeTimelineMilestone"
+                            />
                             <TextareaField v-model="activeContent.targetUsers" label="Target Users" :rows="4" />
                             <TextareaField v-model="activeContent.feasibility" label="Feasibility" :rows="4" />
                         </div>
@@ -748,14 +732,17 @@ onUnmounted(() => {
 
             <section :class="$style.mobileOverviewFeatures" aria-label="Project overview and features">
                 <article :class="$style.tabPanel">
-                    <h2 :class="$style.panelTab" class="type-button-sb">OVERVIEW</h2>
+                    <h2 :class="$style.panelTab" class="type-button-sb">Overview</h2>
                     <div :class="$style.panelBody">
                         <hr :class="$style.panelDivider">
                         <div :class="$style.metricGrid">
-                            <div v-for="metric in overviewMetrics" :key="metric.label" :class="$style.metricCard">
-                                <strong :class="$style.metricValue">{{ metric.value }}</strong>
-                                <span :class="$style.metricLabel" class="type-overline-sb">{{ metric.label }}</span>
-                            </div>
+                            <ProjectOverviewCard
+                                v-for="metric in overviewMetrics"
+                                :key="metric.label"
+                                :class="$style.overviewMetricCard"
+                                :label="metric.label"
+                                :value="metric.value"
+                            />
                         </div>
                         <div :class="$style.roleSelector">
                             <SelectField
@@ -778,50 +765,23 @@ onUnmounted(() => {
                                 </button>
                             </div>
                         </div>
-                        <div :class="$style.timelineEditor">
-                            <span class="type-caption-sb">PROJECT TIMELINE</span>
-                            <div :class="$style.timelineSummaryFields">
-                                <TextField v-model="form.timeline.startDate" label="Start Month" type="month" />
-                                <TextField v-model="form.timeline.endDate" label="End Month" type="month" />
-                                <SelectField
-                                    v-model="form.timeline.status"
-                                    label="Timeline Status"
-                                    :options="timelineStatuses"
-                                    tone="dark"
-                                />
-                            </div>
-                            <div :class="$style.timelineMilestones">
-                                <div
-                                    v-for="(milestone, index) in form.timeline.milestones"
-                                    :key="index"
-                                    :class="$style.timelineMilestone"
-                                >
-                                    <div :class="$style.structuredItemHeader">
-                                        <span class="type-overline-sb">Milestone {{ index + 1 }}</span>
-                                        <ActionButton
-                                            variant="delete"
-                                            :aria-label="`Remove milestone ${index + 1}`"
-                                            @click="removeTimelineMilestone(index)"
-                                        />
-                                    </div>
-                                    <TextField v-model="milestone.date" label="Month" type="month" />
-                                    <TextField v-model="milestone.title" label="Title" />
-                                    <TextareaField v-model="milestone.description" label="Description" :rows="3" />
-                                </div>
-                                <ActionButton
-                                    v-if="form.timeline.milestones.length < 6"
-                                    variant="add"
-                                    aria-label="Add milestone"
-                                    @click="addTimelineMilestone"
-                                />
-                            </div>
-                        </div>
+                        <ProjectTimelineEditorCard
+                            v-model:start-month="form.timeline.startDate"
+                            v-model:end-month="form.timeline.endDate"
+                            v-model:status="form.timeline.status"
+                            :milestones="form.timeline.milestones"
+                            @update:milestone-date="(index, value) => updateTimelineMilestone(index, 'date', value)"
+                            @update:milestone-title="(index, value) => updateTimelineMilestone(index, 'title', value)"
+                            @update:milestone-description="(index, value) => updateTimelineMilestone(index, 'description', value)"
+                            @add-milestone="addTimelineMilestone"
+                            @delete-milestone="removeTimelineMilestone"
+                        />
                         <TextareaField v-model="activeContent.targetUsers" label="Target Users" :rows="4" />
                         <TextareaField v-model="activeContent.feasibility" label="Feasibility" :rows="4" />
                     </div>
                 </article>
                 <article :class="[$style.tabPanel, $style.rightPanel]">
-                    <h2 :class="[$style.panelTab, $style.rightTab]" class="type-button-sb">FEATURES</h2>
+                    <h2 :class="[$style.panelTab, $style.rightTab]" class="type-button-sb">Features</h2>
                     <div :class="[$style.panelBody, $style.rightPanelBody]">
                         <hr :class="$style.panelDivider">
                         <div :class="$style.featureFields">
@@ -838,8 +798,8 @@ onUnmounted(() => {
 
             <section :class="$style.desktopArchitectureStack" aria-label="Project architecture and tech stack">
                 <div :class="$style.combinedTabs">
-                    <h2 :class="$style.panelTab" class="type-button-sb">SYSTEM ARCHITECTURE</h2>
-                    <h2 :class="[$style.panelTab, $style.rightTab]" class="type-button-sb">TECH STACK</h2>
+                    <h2 :class="$style.panelTab" class="type-button-sb">System Architecture</h2>
+                    <h2 :class="[$style.panelTab, $style.rightTab]" class="type-button-sb">Tech Stack</h2>
                 </div>
                 <div :class="$style.architectureStackBody">
                     <hr :class="$style.panelDivider">
@@ -896,7 +856,7 @@ onUnmounted(() => {
 
             <section :class="$style.mobileArchitectureStack" aria-label="Project architecture and tech stack">
                 <article :class="$style.tabPanel">
-                    <h2 :class="$style.panelTab" class="type-button-sb">SYSTEM ARCHITECTURE</h2>
+                    <h2 :class="$style.panelTab" class="type-button-sb">System Architecture</h2>
                     <div :class="$style.panelBody">
                         <hr :class="$style.panelDivider">
                         <div
@@ -923,7 +883,7 @@ onUnmounted(() => {
                     </div>
                 </article>
                 <article :class="[$style.tabPanel, $style.rightPanel]">
-                    <h2 :class="[$style.panelTab, $style.rightTab]" class="type-button-sb">TECH STACK</h2>
+                    <h2 :class="[$style.panelTab, $style.rightTab]" class="type-button-sb">Tech Stack</h2>
                     <div :class="[$style.panelBody, $style.rightPanelBody]">
                         <hr :class="$style.panelDivider">
                         <div :class="$style.techStackGroups">
@@ -956,32 +916,36 @@ onUnmounted(() => {
 
             <section :class="$style.desktopChallengesLearned" aria-label="Project challenges and lessons learned">
                 <div :class="$style.combinedTabs">
-                    <h2 :class="$style.panelTab" class="type-button-sb">CHALLENGES</h2>
-                    <h2 :class="[$style.panelTab, $style.rightTab]" class="type-button-sb">WHAT I LEARNED</h2>
+                    <h2 :class="$style.panelTab" class="type-button-sb">Challenges</h2>
+                    <h2 :class="[$style.panelTab, $style.rightTab]" class="type-button-sb">What i learn</h2>
                 </div>
                 <div :class="$style.challengesLearnedBody">
                     <hr :class="$style.panelDivider">
                     <div :class="$style.challengesLearnedColumns">
                         <div :class="$style.structuredFields">
-                            <div v-for="(challenge, index) in activeContent.challenges" :key="index" :class="$style.structuredItem">
-                                <div :class="$style.structuredItemHeader">
-                                    <span class="type-overline-sb">Challenge {{ index + 1 }}</span>
-                                    <ActionButton variant="delete" :aria-label="`Remove challenge ${index + 1}`" @click="removeStructuredItem(activeContent.challenges, index)" />
-                                </div>
-                                <TextField v-model="challenge.title" label="Title" />
-                                <TextareaField v-model="challenge.content" label="Content" :rows="4" />
-                            </div>
+                            <ProjectBlogEditorCard
+                                v-for="(challenge, index) in activeContent.challenges"
+                                :key="index"
+                                :heading="`Challenge ${index + 1}`"
+                                :title="challenge.title"
+                                :content="challenge.content"
+                                @update:title="challenge.title = $event"
+                                @update:content="challenge.content = $event"
+                                @delete="removeStructuredItem(activeContent.challenges, index)"
+                            />
                             <ActionButton variant="add" aria-label="Add challenge" @click="addStructuredItem(activeContent.challenges)" />
                         </div>
                         <div :class="$style.structuredFields">
-                            <div v-for="(lesson, index) in activeContent.whatILearned" :key="index" :class="$style.structuredItem">
-                                <div :class="$style.structuredItemHeader">
-                                    <span class="type-overline-sb">Lesson {{ index + 1 }}</span>
-                                    <ActionButton variant="delete" :aria-label="`Remove lesson ${index + 1}`" @click="removeStructuredItem(activeContent.whatILearned, index)" />
-                                </div>
-                                <TextField v-model="lesson.title" label="Title" />
-                                <TextareaField v-model="lesson.content" label="Content" :rows="4" />
-                            </div>
+                            <ProjectBlogEditorCard
+                                v-for="(lesson, index) in activeContent.whatILearned"
+                                :key="index"
+                                :heading="`Lesson ${index + 1}`"
+                                :title="lesson.title"
+                                :content="lesson.content"
+                                @update:title="lesson.title = $event"
+                                @update:content="lesson.content = $event"
+                                @delete="removeStructuredItem(activeContent.whatILearned, index)"
+                            />
                             <ActionButton v-if="activeContent.whatILearned.length < 8" variant="add" aria-label="Add lesson" @click="addStructuredItem(activeContent.whatILearned)" />
                         </div>
                     </div>
@@ -990,35 +954,39 @@ onUnmounted(() => {
 
             <section :class="$style.mobileChallengesLearned" aria-label="Project challenges and lessons learned">
                 <article :class="$style.tabPanel">
-                    <h2 :class="$style.panelTab" class="type-button-sb">CHALLENGES</h2>
+                    <h2 :class="$style.panelTab" class="type-button-sb">Challenges</h2>
                     <div :class="$style.panelBody">
                         <hr :class="$style.panelDivider">
                         <div :class="$style.structuredFields">
-                            <div v-for="(challenge, index) in activeContent.challenges" :key="index" :class="$style.structuredItem">
-                                <div :class="$style.structuredItemHeader">
-                                    <span class="type-overline-sb">Challenge {{ index + 1 }}</span>
-                                    <ActionButton variant="delete" :aria-label="`Remove challenge ${index + 1}`" @click="removeStructuredItem(activeContent.challenges, index)" />
-                                </div>
-                                <TextField v-model="challenge.title" label="Title" />
-                                <TextareaField v-model="challenge.content" label="Content" :rows="4" />
-                            </div>
+                            <ProjectBlogEditorCard
+                                v-for="(challenge, index) in activeContent.challenges"
+                                :key="index"
+                                :heading="`Challenge ${index + 1}`"
+                                :title="challenge.title"
+                                :content="challenge.content"
+                                @update:title="challenge.title = $event"
+                                @update:content="challenge.content = $event"
+                                @delete="removeStructuredItem(activeContent.challenges, index)"
+                            />
                             <ActionButton variant="add" aria-label="Add challenge" @click="addStructuredItem(activeContent.challenges)" />
                         </div>
                     </div>
                 </article>
                 <article :class="[$style.tabPanel, $style.rightPanel]">
-                    <h2 :class="[$style.panelTab, $style.rightTab]" class="type-button-sb">WHAT I LEARNED</h2>
+                    <h2 :class="[$style.panelTab, $style.rightTab]" class="type-button-sb">What i learn</h2>
                     <div :class="[$style.panelBody, $style.rightPanelBody]">
                         <hr :class="$style.panelDivider">
                         <div :class="$style.structuredFields">
-                            <div v-for="(lesson, index) in activeContent.whatILearned" :key="index" :class="$style.structuredItem">
-                                <div :class="$style.structuredItemHeader">
-                                    <span class="type-overline-sb">Lesson {{ index + 1 }}</span>
-                                    <ActionButton variant="delete" :aria-label="`Remove lesson ${index + 1}`" @click="removeStructuredItem(activeContent.whatILearned, index)" />
-                                </div>
-                                <TextField v-model="lesson.title" label="Title" />
-                                <TextareaField v-model="lesson.content" label="Content" :rows="4" />
-                            </div>
+                            <ProjectBlogEditorCard
+                                v-for="(lesson, index) in activeContent.whatILearned"
+                                :key="index"
+                                :heading="`Lesson ${index + 1}`"
+                                :title="lesson.title"
+                                :content="lesson.content"
+                                @update:title="lesson.title = $event"
+                                @update:content="lesson.content = $event"
+                                @delete="removeStructuredItem(activeContent.whatILearned, index)"
+                            />
                             <ActionButton v-if="activeContent.whatILearned.length < 8" variant="add" aria-label="Add lesson" @click="addStructuredItem(activeContent.whatILearned)" />
                         </div>
                     </div>
@@ -1026,7 +994,7 @@ onUnmounted(() => {
             </section>
 
             <section :class="$style.linkPanel" aria-label="Project links">
-                <h2 :class="$style.panelTab" class="type-button-sb">LINK</h2>
+                <h2 :class="$style.panelTab" class="type-button-sb">Link</h2>
                 <div :class="$style.linkBody">
                     <hr :class="$style.panelDivider">
                     <div :class="$style.linkFields">
@@ -1098,7 +1066,7 @@ onUnmounted(() => {
     display: flex;
     flex: 1;
     flex-direction: column;
-    width: min(calc(100% - (var(--spacing-space-16) * 2)), 1133px);
+    width: min(calc(100% - (var(--spacing-space-16) * 2)), 1280px);
     margin: 0 auto;
     gap: var(--spacing-space-6);
 }
@@ -1121,11 +1089,13 @@ onUnmounted(() => {
 }
 
 .basicSelectors {
-    justify-content: flex-start;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-content: stretch;
 }
 
 .basicSelectors > * {
-    width: 295px;
+    width: 100%;
 }
 
 .gallery {
@@ -1276,14 +1246,28 @@ onUnmounted(() => {
 
 .overviewFeaturesColumns,
 .challengesLearnedColumns {
+    position: relative;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    min-height: 0;
     gap: var(--spacing-space-8);
+}
+
+.overviewFeaturesColumns::before,
+.challengesLearnedColumns::before,
+.architectureColumns::before {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 1px;
+    background-color: var(--color-main-divider);
+    content: "";
+    transform: translateX(-50%);
 }
 
 .overviewColumn,
 .featureFields,
-.lessonFields,
 .structuredFields,
 .techStackGroups {
     display: flex;
@@ -1291,36 +1275,10 @@ onUnmounted(() => {
     gap: 10px;
 }
 
-.roleSelector,
-.structuredItem,
-.timelineEditor,
-.timelineMilestones,
-.timelineMilestone {
+.roleSelector {
     display: flex;
     flex-direction: column;
     gap: 8px;
-}
-
-.timelineEditor {
-    padding: 10px;
-    border: 1px solid var(--color-main-border);
-    border-radius: var(--radius-xl);
-}
-
-.timelineSummaryFields {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-}
-
-.timelineSummaryFields > :last-child {
-    grid-column: 1 / -1;
-}
-
-.timelineMilestone {
-    padding: 10px;
-    border: 1px solid var(--color-main-border);
-    border-radius: var(--radius-xl);
 }
 
 .roleChips {
@@ -1343,22 +1301,7 @@ onUnmounted(() => {
 }
 
 .structuredFields {
-    align-items: flex-start;
-}
-
-.structuredItem {
-    box-sizing: border-box;
-    width: 100%;
-    padding: 10px;
-    border: 1px solid var(--color-main-border);
-    border-radius: var(--radius-xl);
-}
-
-.structuredItemHeader {
-    display: flex;
     align-items: center;
-    justify-content: space-between;
-    width: 100%;
 }
 
 .featureFields {
@@ -1374,23 +1317,10 @@ onUnmounted(() => {
     gap: 10px;
 }
 
-.metricCard {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 106px;
-    padding: 8px;
-    border: 1px solid var(--color-main-secondary);
-    border-radius: var(--radius-xl);
-    background: var(--gradient-card-highlight);
-    color: var(--color-text-secondary);
-    text-align: center;
-}
-
-.metricValue {
-    font-size: 2.25rem;
-    line-height: 1.2;
+.overviewMetricCard {
+    width: 100%;
+    max-width: none;
+    height: 106px;
 }
 
 .architectureStackBody {
@@ -1398,8 +1328,9 @@ onUnmounted(() => {
 }
 
 .architectureColumns {
+    position: relative;
     display: grid;
-    grid-template-columns: minmax(0, 1.85fr) minmax(300px, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     flex: 1;
     min-height: 0;
     gap: var(--spacing-space-8);
@@ -1459,7 +1390,7 @@ onUnmounted(() => {
 
 .linkFields {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 10px;
 }
 
@@ -1467,7 +1398,7 @@ onUnmounted(() => {
     display: flex;
     flex-direction: column;
     gap: 6px;
-    color: var(--color-text-input);
+    color: var(--color-text-secondary);
 }
 
 .certificateControl {
@@ -1528,10 +1459,24 @@ onUnmounted(() => {
 
 .toastViewport {
     position: fixed;
-    bottom: 25dvh;
+    bottom: var(--spacing-space-5);
     right: var(--spacing-space-4);
     z-index: 30;
     width: min(calc(100% - (var(--spacing-space-4) * 2)), 420px);
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+    .pageContainer {
+        width: min(calc(100% - (var(--spacing-space-8) * 2)), 768px);
+    }
+
+    .linkFields {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .overviewMetricCard {
+        height: 78px;
+    }
 }
 
 @media (max-width: 767px) {
@@ -1604,6 +1549,10 @@ onUnmounted(() => {
     .featureFields,
     .linkFields {
         grid-template-columns: 1fr;
+    }
+
+    .overviewMetricCard {
+        height: 78px;
     }
 
     .mobileArchitectureUpload {

@@ -78,22 +78,23 @@ watch(visibleImages, (images) => {
 <style module>
 .gallery {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 189px;
+    grid-template-columns: minmax(0, 992px) 191px;
     align-items: stretch;
+    justify-content: center;
     width: 100%;
-    gap: var(--spacing-space-6);
+    gap: var(--spacing-space-5);
 }
 
 .mainImage,
 .mainImageButton {
     width: 100%;
-    height: auto;
-    aspect-ratio: 16 / 9;
+    height: 542px;
     border-radius: var(--radius-2xl);
 }
 
 .mainImage {
-    object-fit: cover;
+    background-color: var(--color-main-surface);
+    object-fit: contain;
     user-select: none;
     -webkit-user-drag: none;
 }
@@ -131,15 +132,14 @@ watch(visibleImages, (images) => {
 .thumbnailList {
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    gap: var(--spacing-space-4);
+    justify-content: space-between;
+    gap: var(--spacing-space-5);
 }
 
 .thumbnailButton {
     display: block;
     width: 100%;
-    height: auto;
-    aspect-ratio: 16 / 9;
+    height: 104px;
     min-width: 0;
     flex-shrink: 0;
     padding: 0;
@@ -171,23 +171,47 @@ watch(visibleImages, (images) => {
     -webkit-user-drag: none;
 }
 
+@media (min-width: 768px) and (max-width: 1023px) {
+    .gallery {
+        grid-template-columns: minmax(0, 565px) 124px;
+    }
+
+    .mainImage,
+    .mainImageButton {
+        height: 308px;
+    }
+
+    .thumbnailButton {
+        height: 68px;
+    }
+}
+
 @media (max-width: 767px) {
     .gallery {
         display: flex;
         flex-direction: column;
-        gap: var(--spacing-space-6);
+        align-items: center;
+        gap: var(--spacing-space-5);
+    }
+
+    .mainImage,
+    .mainImageButton {
+        width: min(100%, 341px);
+        height: 186px;
     }
 
     .thumbnailList {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        grid-template-rows: auto;
-        gap: var(--spacing-space-3);
+        display: flex;
+        flex-direction: row;
+        justify-content: center;
+        width: min(100%, 341px);
+        gap: 24px;
     }
 
     .thumbnailButton {
-        width: auto;
-        height: auto;
+        width: 67px;
+        height: 37px;
+        border-radius: var(--radius-md);
     }
 }
 </style>
