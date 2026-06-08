@@ -11,6 +11,8 @@ export { default as PackageCard } from "./PackageCard.vue";
 export type { PackageCardMode, PackageOption } from "./PackageCard.vue";
 export { default as PackageRuntimeCard } from "./PackageRuntimeCard.vue";
 export { default as PurchaseDialog } from "./PurchaseDialog.vue";
+export { default as CreateBotDialog } from "./CreateBotDialog.vue";
+export type { CreateBotPayload } from "./CreateBotDialog.vue";
 export { default as WalletBalanceCard } from "./WalletBalanceCard.vue";
 export { default as WalletSlipVerifyCard } from "./WalletSlipVerifyCard.vue";
 export { default as WalletTopupCard } from "./WalletTopupCard.vue";

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { ShopSidebar, BotCard, FeatureTable, RuntimeCard } from "@/features/shop/components";
-import type { BotStatus, FeatureCategory, FeatureTableRow, RuntimeStatus } from "@/features/shop/components";
+import { ShopSidebar, BotCard, FeatureTable, RuntimeCard, CreateBotDialog } from "@/features/shop/components";
+import type { BotStatus, CreateBotPayload, FeatureCategory, FeatureTableRow, RuntimeStatus } from "@/features/shop/components";
 import { StatusToast } from "@/shared/ui";
 import { API_BASE_URL } from "@/config";
 import { useUserStore } from "@/stores";
@@ -17,6 +17,8 @@ const userStore = useUserStore();
 const isSidebarOpen = ref(typeof window === "undefined" ? true : window.innerWidth > 760);
 const isLoading = ref(false);
 const loadError = ref("");
+const showAddBot = ref(false);
+const isCreatingBot = ref(false);
 const toast = ref<{ status: ToastStatus; title: string; description?: string } | null>(null);
 let toastTimeout: ReturnType<typeof setTimeout> | undefined;
 
@@ -264,7 +266,31 @@ async function handleBotAction(botId: string, action: string): Promise<void> {
 }
 
 function handleAddBot(): void {
-    notify("info", "ยังไม่มีฟอร์มเพิ่มบอทในหน้านี้", "ใช้ API /api/bots เพื่อสร้างบอท หรือเพิ่มฟอร์มในขั้นถัดไป");
+    showAddBot.value = true;
+}
+
+async function createBot(payload: CreateBotPayload): Promise<void> {
+    const headers = await authHeaders();
+    if (!headers) {
+        await router.push({ name: "login", query: { redirect: "/shop" } });
+        return;
+    }
+    isCreatingBot.value = true;
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/bots`, {
+            method: "POST",
+            headers: { ...headers, "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        showAddBot.value = false;
+        notify("success", "สร้างบอทแล้ว", "อย่าลืมซื้อ Runtime + Feature แล้วตั้งค่าบอท");
+        await loadDashboard();
+    } catch {
+        notify("error", "สร้างบอทไม่สำเร็จ", "ชื่อบอทอาจซ้ำ หรือ token ไม่ถูกต้อง — ลองใหม่อีกครั้ง");
+    } finally {
+        isCreatingBot.value = false;
+    }
 }
 
 onMounted(loadDashboard);
@@ -374,6 +400,13 @@ onUnmounted(clearToast);
                 />
             </div>
         </main>
+
+        <CreateBotDialog
+            :open="showAddBot"
+            :submitting="isCreatingBot"
+            @submit="createBot"
+            @cancel="showAddBot = false"
+        />
     </div>
 </template>
 
