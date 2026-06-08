@@ -1,9 +1,13 @@
 # Changelog — Frontend
 
-**Current version: `0.3.0`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.3.4`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.3.4` | 2026-06-08 | refine Projects cards, detail layouts, and editor panels |
+| `0.3.3` | 2026-06-08 | refine Portfolio section layouts, gallery framing, and contact page presentation |
+| `0.3.2` | 2026-06-08 | stabilize Supabase PKCE auth callbacks and shared app chrome |
+| `0.3.1` | 2026-06-08 | adopt local Inter/Sora typography assets and token docs |
 | `0.3.0` | 2026-06-08 | connect Shop views to live backend data and remove sample fallbacks |
 | `0.2.9.5` | 2026-06-08 | reuse the default Shop sidebar on the Wallet page |
 | `0.2.9.4` | 2026-06-08 | fix Wallet sidebar Package link and title-case Wallet label |
