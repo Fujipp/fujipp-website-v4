@@ -33,15 +33,25 @@ const emit = defineEmits<{
 const currentPage = ref(1);
 const filterWrap = ref<HTMLElement | null>(null);
 const isFilterOpen = ref(false);
+const searchQuery = ref("");
 const selectedCategories = ref<FeatureCategory[]>([]);
 
 const categoryOptions = computed(() => [...new Set(props.rows.map((row) => row.category))]);
 const activeFilterCount = computed(() => selectedCategories.value.length);
 
 const filteredRows = computed(() => {
-    if (selectedCategories.value.length === 0) return props.rows;
+    const normalizedSearch = searchQuery.value.trim().toLowerCase();
+    const categoryRows = selectedCategories.value.length === 0
+        ? props.rows
+        : props.rows.filter((row) => selectedCategories.value.includes(row.category));
 
-    return props.rows.filter((row) => selectedCategories.value.includes(row.category));
+    if (!normalizedSearch) return categoryRows;
+
+    return categoryRows.filter((row) => (
+        row.feature.toLowerCase().includes(normalizedSearch)
+        || row.category.toLowerCase().includes(normalizedSearch)
+        || row.expire.toLowerCase().includes(normalizedSearch)
+    ));
 });
 
 const pageSize = computed(() => Math.max(1, props.itemsPerPage));
@@ -101,6 +111,10 @@ watch(selectedCategories, () => {
     goToPage(1);
 });
 
+watch(searchQuery, () => {
+    goToPage(1);
+});
+
 watch(pageCount, (count) => {
     if (currentPage.value > count) {
         currentPage.value = count;
@@ -156,6 +170,23 @@ onUnmounted(() => {
                     </button>
                 </div>
             </div>
+
+            <label :class="$style.searchField">
+                <img
+                    src="/images/icons/common/search.svg"
+                    alt=""
+                    aria-hidden="true"
+                    :class="$style.searchIcon"
+                    draggable="false"
+                >
+                <input
+                    v-model="searchQuery"
+                    :class="$style.searchInput"
+                    type="search"
+                    placeholder="Search"
+                    autocomplete="off"
+                >
+            </label>
         </nav>
 
         <div :class="$style.tablePanel">
@@ -191,7 +222,6 @@ onUnmounted(() => {
         </div>
 
         <footer
-            v-if="filteredRows.length > 0"
             :class="$style.tableFoot"
             aria-label="Feature table pagination"
         >
@@ -244,14 +274,16 @@ onUnmounted(() => {
     display: flex;
     flex-direction: column;
     width: 100%;
-    gap: var(--spacing-space-3);
+    gap: 17px;
 }
 
 .tableNav {
     display: flex;
     align-items: center;
-    justify-content: flex-start;
+    justify-content: space-between;
     gap: var(--spacing-space-4);
+    padding-block: 10px;
+    overflow: hidden;
 }
 
 .filterWrap {
@@ -340,10 +372,51 @@ onUnmounted(() => {
     cursor: pointer;
 }
 
+.searchField {
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
+    width: min(100%, 311px);
+    height: 42px;
+    padding: 12px 16px;
+    gap: 16px;
+    border: 1px solid var(--color-input-border);
+    border-radius: var(--radius-full);
+    background-color: var(--color-input-bg);
+}
+
+.searchIcon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    opacity: 0.72;
+}
+
+.searchInput {
+    min-width: 0;
+    flex: 1;
+    padding: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--color-text-input);
+    font: inherit;
+    font-size: 18px;
+    font-weight: 300;
+    line-height: 1;
+}
+
+.searchInput::placeholder {
+    color: var(--color-input-placeholder);
+}
+
 .tablePanel {
     display: flex;
     flex-direction: column;
     width: 100%;
+    height: 528px;
+    box-sizing: border-box;
+    padding: 10px;
     overflow: hidden;
     border-radius: var(--radius-xl);
     background-color: var(--color-main-surface);
@@ -356,8 +429,7 @@ onUnmounted(() => {
     grid-template-columns: 72px minmax(180px, 1.4fr) minmax(160px, 1fr) minmax(160px, 1fr);
     align-items: center;
     box-sizing: border-box;
-    min-height: 56px;
-    padding: 0 var(--spacing-space-5);
+    min-height: 32px;
     gap: var(--spacing-space-4);
     text-align: left;
 }
@@ -393,7 +465,7 @@ onUnmounted(() => {
 }
 
 .emptyState {
-    margin: 0;
+    margin: auto 0;
     padding: var(--spacing-space-8);
     text-align: center;
 }
@@ -431,14 +503,20 @@ onUnmounted(() => {
 
 @media (max-width: 760px) {
     .tableNav {
-        align-items: stretch;
-        flex-direction: column;
+        align-items: flex-start;
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+
+    .searchField {
+        width: min(100%, 311px);
     }
 
     .tableHeader,
     .tableRow {
-        grid-template-columns: 48px minmax(150px, 1fr) minmax(120px, 0.8fr);
-        padding: 0 var(--spacing-space-3);
+        grid-template-columns: 48px minmax(92px, 1fr) minmax(104px, 0.9fr);
+        gap: 8px;
+        font-size: 14px;
     }
 
     .desktopCell {

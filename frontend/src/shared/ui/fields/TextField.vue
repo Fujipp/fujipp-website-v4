@@ -7,7 +7,7 @@ interface Props {
     modelValue?: string;
     name?: string;
     placeholder?: string;
-    type?: "month" | "text" | "url";
+    type?: "month" | "number" | "password" | "text" | "url";
 }
 
 withDefaults(defineProps<Props>(), {
