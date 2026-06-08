@@ -26,11 +26,24 @@ public class SecretCipher {
     private static final int TAG_BITS = 128;
     private static final int TAG_BYTES = TAG_BITS / 8;
 
-    private final SecretKeySpec key;
+    private final String rawKey;
+    private volatile SecretKeySpec cachedKey;
     private final SecureRandom random = new SecureRandom();
 
-    public SecretCipher(@Value("${bot.secret-key}") String rawKey) {
-        this.key = new SecretKeySpec(decodeKey(rawKey), "AES");
+    public SecretCipher(@Value("${bot.secret-key:}") String rawKey) {
+        this.rawKey = rawKey;
+    }
+
+    /** Lazily decode the key so a missing BOT_SECRET_KEY doesn't crash app startup. */
+    private SecretKeySpec key() {
+        SecretKeySpec k = cachedKey;
+        if (k == null) {
+            synchronized (this) {
+                k = cachedKey;
+                if (k == null) cachedKey = k = new SecretKeySpec(decodeKey(rawKey), "AES");
+            }
+        }
+        return k;
     }
 
     public String encrypt(String plaintext) {
@@ -39,7 +52,7 @@ public class SecretCipher {
             random.nextBytes(iv);
 
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-            cipher.init(Cipher.ENCRYPT_MODE, key, new GCMParameterSpec(TAG_BITS, iv));
+            cipher.init(Cipher.ENCRYPT_MODE, key(), new GCMParameterSpec(TAG_BITS, iv));
             byte[] out = cipher.doFinal(plaintext.getBytes(StandardCharsets.UTF_8));
 
             byte[] ciphertext = Arrays.copyOfRange(out, 0, out.length - TAG_BYTES);
