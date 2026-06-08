@@ -44,6 +44,10 @@ public class BotService {
         bot.setDiscordApplicationId(request.discordApplicationId());
         bot.setDiscordGuildId(request.discordGuildId());
         bot.setDiscordTokenCipher(cipher.encrypt(request.discordToken()));
+        bot.setDiscordPublicKey(request.discordPublicKey());
+        if (request.discordClientSecret() != null && !request.discordClientSecret().isBlank()) {
+            bot.setDiscordClientSecretCipher(cipher.encrypt(request.discordClientSecret()));
+        }
         bot.setStatus("CREATED");
         return BotResponse.from(bots.save(bot));
     }

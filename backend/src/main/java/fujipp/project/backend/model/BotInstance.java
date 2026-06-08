@@ -43,6 +43,12 @@ public class BotInstance {
     @Column(name = "discord_token_cipher")
     private String discordTokenCipher;
 
+    @Column(name = "discord_public_key")
+    private String discordPublicKey;
+
+    @Column(name = "discord_client_secret_cipher")
+    private String discordClientSecretCipher;
+
     @Column(name = "status", nullable = false)
     private String status = "CREATED";
 

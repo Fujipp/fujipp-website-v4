@@ -16,5 +16,10 @@ public record CreateBotRequest(
 
     String discordApplicationId,
 
-    String discordGuildId
+    String discordGuildId,
+
+    // Optional extra Discord credentials (application id doubles as the client id).
+    String discordPublicKey,
+
+    String discordClientSecret
 ) {}
