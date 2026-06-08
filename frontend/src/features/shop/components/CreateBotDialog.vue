@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref, watch } from "vue";
+import { computed, reactive, ref, watch } from "vue";
 import { TextField } from "@/shared/ui";
 
 export interface CreateBotPayload {
@@ -14,14 +14,20 @@ export interface CreateBotPayload {
 interface Props {
     open?: boolean;
     submitting?: boolean;
+    mode?: "create" | "edit";
+    initial?: Partial<CreateBotPayload>;
 }
 
 const props = withDefaults(defineProps<Props>(), {
     open: false,
     submitting: false,
+    mode: "create",
+    initial: () => ({}),
 });
 
 const emit = defineEmits<{ submit: [payload: CreateBotPayload]; cancel: [] }>();
+
+const isEdit = computed(() => props.mode === "edit");
 
 const form = reactive<CreateBotPayload>({
     name: "",
@@ -34,11 +40,11 @@ const form = reactive<CreateBotPayload>({
 const error = ref("");
 
 function reset(): void {
-    form.name = "";
+    form.name = props.initial.name ?? "";
     form.discordToken = "";
-    form.discordApplicationId = "";
-    form.discordGuildId = "";
-    form.discordPublicKey = "";
+    form.discordApplicationId = props.initial.discordApplicationId ?? "";
+    form.discordGuildId = props.initial.discordGuildId ?? "";
+    form.discordPublicKey = props.initial.discordPublicKey ?? "";
     form.discordClientSecret = "";
     error.value = "";
 }
@@ -47,7 +53,7 @@ watch(() => props.open, (open) => { if (open) reset(); });
 
 function submit(): void {
     if (!form.name.trim()) { error.value = "กรุณาตั้งชื่อบอท"; return; }
-    if (!form.discordToken.trim()) { error.value = "กรุณากรอก Discord Bot Token"; return; }
+    if (!isEdit.value && !form.discordToken.trim()) { error.value = "กรุณากรอก Discord Bot Token"; return; }
     error.value = "";
     emit("submit", { ...form });
 }
@@ -59,27 +65,39 @@ function submit(): void {
             <div v-if="open" :class="$style.backdrop" @click.self="emit('cancel')">
                 <section :class="$style.modal" role="dialog" aria-modal="true" aria-labelledby="create-bot-title">
                     <header :class="$style.header">
-                        <h2 id="create-bot-title" :class="$style.title">เพิ่มบอท</h2>
+                        <h2 id="create-bot-title" :class="$style.title">{{ isEdit ? "แก้ไขบอท" : "เพิ่มบอท" }}</h2>
                         <p :class="$style.subtitle">กรอกข้อมูลบอทจาก Discord Developer Portal — token จะถูกเข้ารหัสก่อนเก็บ</p>
                     </header>
                     <div :class="$style.divider" />
 
                     <form :class="$style.fields" @submit.prevent="submit">
                         <TextField v-model="form.name" label="ชื่อบอท *" placeholder="เช่น Kanom Shop" :disabled="submitting" />
-                        <TextField v-model="form.discordToken" label="Bot Token *" type="password" placeholder="••••••••" :disabled="submitting" />
+                        <TextField
+                            v-model="form.discordToken"
+                            :label="isEdit ? 'Bot Token (เว้นว่าง = คงเดิม)' : 'Bot Token *'"
+                            type="password"
+                            placeholder="••••••••"
+                            :disabled="submitting"
+                        />
                         <div :class="$style.grid2">
                             <TextField v-model="form.discordApplicationId" label="Application ID (Client ID)" placeholder="ตัวเลข" :disabled="submitting" />
                             <TextField v-model="form.discordGuildId" label="Server ID (Guild)" placeholder="ตัวเลข" :disabled="submitting" />
                         </div>
                         <TextField v-model="form.discordPublicKey" label="Public Key" placeholder="(ไม่บังคับ)" :disabled="submitting" />
-                        <TextField v-model="form.discordClientSecret" label="Client Secret" type="password" placeholder="(ไม่บังคับ)" :disabled="submitting" />
+                        <TextField
+                            v-model="form.discordClientSecret"
+                            :label="isEdit ? 'Client Secret (เว้นว่าง = คงเดิม)' : 'Client Secret'"
+                            type="password"
+                            placeholder="(ไม่บังคับ)"
+                            :disabled="submitting"
+                        />
                         <p v-if="error" :class="$style.error">{{ error }}</p>
                     </form>
 
                     <div :class="$style.actions">
                         <button type="button" :class="[$style.button, $style.cancel]" @click="emit('cancel')">ยกเลิก</button>
                         <button type="button" :class="[$style.button, $style.confirm]" :disabled="submitting" @click="submit">
-                            {{ submitting ? "กำลังสร้าง…" : "สร้างบอท" }}
+                            {{ submitting ? "กำลังบันทึก…" : (isEdit ? "บันทึก" : "สร้างบอท") }}
                         </button>
                     </div>
                 </section>
