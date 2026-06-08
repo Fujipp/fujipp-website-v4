@@ -31,7 +31,7 @@ watch(
     () => props.open,
     (open) => {
         if (open) {
-            selectedBotId.value = props.bots.length === 1 ? props.bots[0].id : "";
+            selectedBotId.value = props.bots.length === 1 ? (props.bots[0]?.id ?? "") : "";
             error.value = "";
         }
     },
