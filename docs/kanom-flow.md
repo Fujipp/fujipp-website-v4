@@ -15,7 +15,7 @@
 | **F1** | routing component ใน bot.js + `/panel` (group select + 4 ปุ่ม) + เช็คยอด (จริง) + ลิงก์กลุ่ม | ✅ |
 | **F2** | เติมเงิน PromptPay: topup_method→QR→นับถอยหลัง→อัปสลิป→SlipOK verify→credit→topup_success | ⬜ |
 | **F3** | เติมเงิน TrueMoney voucher (ผ่าน service ของเรา) | ⬜ |
-| **F4** | ซื้อ: group select→กรอกจำนวน→payout (roblox module)→debit→redeem_success | ⬜ |
+| **F4** | ซื้อ: group select→modal→debit→payout→redeem_success (flat rate) | ✅ |
 | **F5** | frontend: editor ปุ่ม/เมนู (label/emoji/style) + fields[] + seed default templates ของลูกค้า | ⬜ |
 
 ## หมายเหตุ F1

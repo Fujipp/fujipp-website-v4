@@ -1,9 +1,10 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.9.6`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.9.7`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.9.7` | 2026-06-10 | central-bot: panel buy flow (F4) — group select → modal (username + Robux) → shared redeem (debit→payout→refund) → redeem_success |
 | `0.0.9.6` | 2026-06-10 | central-bot: component interaction routing (buttons/selects/modals) + `/panel` shop panel (group select + topup/buy/balance/link); balance wired, payment/payout stubbed (F1) |
 | `0.0.9.5` | 2026-06-09 | central-bot: configurable embed renderer (loads slot template, substitutes {{vars}}); wallet `/wallet` + `/wallet-add` render from config |
 | `0.0.9.4` | 2026-06-09 | add Embed Designer plan (configurable bot embeds: slots, JSON templates, live preview, custom-emoji render) |
