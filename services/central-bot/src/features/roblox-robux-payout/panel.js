@@ -7,8 +7,10 @@
 const {
   SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle,
   StringSelectMenuBuilder, StringSelectMenuOptionBuilder,
+  ModalBuilder, TextInputBuilder, TextInputStyle,
 } = require('discord.js');
 const roblox = require('./roblox');
+const { redeemRobux } = require('./redeem');
 
 // Fixed component ids (routed by prefix in bot.js).
 const ID = {
@@ -17,6 +19,7 @@ const ID = {
   buy: 'kanom:panel:buy',
   balance: 'kanom:panel:balance',
   topupMethod: 'kanom:topup:method',
+  buyModal: 'kanom:buy:modal', // + ":<groupKey>"
 };
 
 const thb = (satang) => `฿${(satang / 100).toLocaleString('th-TH')}`;
@@ -103,18 +106,50 @@ async function onTopupMethod(interaction, ctx) {
   });
 }
 
+// Choosing a group opens a modal to enter the Roblox username + Robux amount.
 async function onGroupSelect(interaction, ctx) {
   const key = interaction.values?.[0];
   const group = roblox.getGroupConfigs().list.find((g) => String(g.key) === String(key));
-  // Purchase + payout flow lands in a later stage; for now confirm the selection.
-  await interaction.reply({
-    content: `เลือกกลุ่ม **${group?.name || key}** แล้ว — ระบบซื้อกำลังพัฒนา`,
-    ephemeral: true,
+  const rate = ctx.config.number('ROBUX_RATE', 0);
+
+  const modal = new ModalBuilder()
+    .setCustomId(`${ID.buyModal}:${key}`)
+    .setTitle(`ซื้อ Robux${group?.name ? ` · ${group.name}` : ''}`.slice(0, 45));
+  const username = new TextInputBuilder()
+    .setCustomId('username').setLabel('Roblox username').setStyle(TextInputStyle.Short).setRequired(true);
+  const amount = new TextInputBuilder()
+    .setCustomId('robux')
+    .setLabel(rate > 0 ? `จำนวน Robux (เรท 1 บาท = ${rate})` : 'จำนวน Robux')
+    .setStyle(TextInputStyle.Short).setRequired(true);
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(username),
+    new ActionRowBuilder().addComponents(amount),
+  );
+  await interaction.showModal(modal);
+}
+
+async function onBuyModal(interaction, ctx) {
+  const groupKey = interaction.customId.split(':')[3] || null;
+  const username = interaction.fields.getTextInputValue('username').trim();
+  const robux = Number.parseInt(interaction.fields.getTextInputValue('robux').trim(), 10);
+  await interaction.deferReply({ ephemeral: true });
+
+  const result = await redeemRobux(ctx, { discordUserId: interaction.user.id, username, robux, groupKey });
+  if (!result.ok) {
+    await interaction.editReply({ content: result.message });
+    return;
+  }
+  const embed = await ctx.services.embeds.renderEmbed('redeem_success', {
+    member: interaction.user.id,
+    robux: result.robux.toLocaleString(),
+    group_name: result.groupName,
+    balance: thb(result.balanceAfter),
   });
+  await interaction.editReply({ embeds: [embed] });
 }
 
 async function onBuy(interaction) {
-  await interaction.reply({ content: 'เลือกกลุ่มจากเมนูด้านบนก่อนเพื่อซื้อสินค้า', ephemeral: true });
+  await interaction.reply({ content: 'เลือกกลุ่มที่ต้องการจากเมนูด้านบนเพื่อซื้อ Robux', ephemeral: true });
 }
 
 module.exports = {
@@ -123,9 +158,10 @@ module.exports = {
   handlePanel,
   components: {
     [ID.balance]: onBalance,
-    [ID.topupMethod]: onTopupMethod, // before :topup prefix so longest-match wins
+    [ID.topupMethod]: onTopupMethod, // longest-match wins over :topup
     [ID.topup]: onTopup,
     [ID.buy]: onBuy,
+    [ID.buyModal]: onBuyModal,
     [ID.group]: onGroupSelect,
   },
 };
