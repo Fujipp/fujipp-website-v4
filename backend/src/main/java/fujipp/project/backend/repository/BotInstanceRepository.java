@@ -14,4 +14,7 @@ public interface BotInstanceRepository extends JpaRepository<BotInstance, UUID> 
     Optional<BotInstance> findByIdAndUserId(UUID id, UUID userId);
 
     boolean existsByUserIdAndName(UUID userId, String name);
+
+    /** Slots consumed on a node = bots currently placed on it. */
+    long countByVpsNodeId(UUID vpsNodeId);
 }

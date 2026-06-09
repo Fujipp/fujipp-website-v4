@@ -1,5 +1,6 @@
 package fujipp.project.backend.service;
 
+import fujipp.project.backend.billing.BillingClient;
 import fujipp.project.backend.dto.BotResponse;
 import fujipp.project.backend.dto.CreateBotRequest;
 import fujipp.project.backend.dto.UpdateBotRequest;
@@ -7,6 +8,8 @@ import fujipp.project.backend.model.BotInstance;
 import fujipp.project.backend.repository.BotInstanceRepository;
 import fujipp.project.backend.security.SecretCipher;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,8 +22,12 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class BotService {
 
+    private static final Logger log = LoggerFactory.getLogger(BotService.class);
+
     private final BotInstanceRepository bots;
     private final SecretCipher cipher;
+    private final PlacementService placement;
+    private final BillingClient billing;
 
     @Transactional(readOnly = true)
     public List<BotResponse> listBots(UUID userId) {
@@ -68,11 +75,39 @@ public class BotService {
         return s == null || s.isBlank() ? null : s;
     }
 
-    @Transactional
+    /**
+     * Create a bot. With no runtime plan it is just registered (no charge). With a
+     * plan it also buys runtime: a VPS slot is reserved, then the wallet is charged.
+     * If the charge fails the reserved slot is released (the bot row is deleted) so a
+     * failed purchase never leaks a slot or leaves an unpaid bot.
+     */
     public BotResponse createBot(UUID userId, CreateBotRequest request) {
         if (bots.existsByUserIdAndName(userId, request.name())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "You already have a bot with this name");
         }
+        BotInstance bot = buildBot(userId, request);
+
+        if (request.runtimePlanId() == null) {
+            return BotResponse.from(bots.save(bot));
+        }
+
+        // Reserve a slot + persist (own transaction commits → slot is held), then charge.
+        BotInstance placed = placement.placeAndPersist(bot);
+        try {
+            billing.purchaseRuntime(userId, request.runtimePlanId(), placed.getId().toString(),
+                UUID.randomUUID().toString());
+        } catch (RuntimeException e) {
+            try {
+                bots.deleteById(placed.getId());
+            } catch (RuntimeException cleanup) {
+                log.error("Failed to release slot for bot {} after charge failure", placed.getId(), cleanup);
+            }
+            throw e;
+        }
+        return BotResponse.from(placed);
+    }
+
+    private BotInstance buildBot(UUID userId, CreateBotRequest request) {
         BotInstance bot = new BotInstance();
         bot.setUserId(userId);
         bot.setName(request.name());
@@ -84,6 +119,6 @@ public class BotService {
             bot.setDiscordClientSecretCipher(cipher.encrypt(request.discordClientSecret()));
         }
         bot.setStatus("CREATED");
-        return BotResponse.from(bots.save(bot));
+        return bot;
     }
 }
