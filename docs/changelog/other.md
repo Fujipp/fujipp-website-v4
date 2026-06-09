@@ -1,9 +1,12 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.9.2`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.9.5`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.9.5` | 2026-06-09 | central-bot: configurable embed renderer (loads slot template, substitutes {{vars}}); wallet `/wallet` + `/wallet-add` render from config |
+| `0.0.9.4` | 2026-06-09 | add Embed Designer plan (configurable bot embeds: slots, JSON templates, live preview, custom-emoji render) |
+| `0.0.9.3` | 2026-06-09 | add Kanom onboarding/migration plan (NEON → shop ETL, multi-group config, cutover) |
 | `0.0.9.2` | 2026-06-08 | document legacy TrueMoney voucher deployment variables and local service endpoint |
 | `0.0.9.1` | 2026-06-08 | billing SecretCipher boot-safe; orchestrator passes bot public key + client secret to bot env |
 | `0.0.9` | 2026-06-08 | central-bot wallet-topup feature (shop wallet store) + Roblox `/robux-redeem` debits it |
