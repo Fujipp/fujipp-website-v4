@@ -67,9 +67,13 @@ const colorHex = computed<string>({
     set: (hex) => { if (draft.value) draft.value.color = Number.parseInt(hex.slice(1), 16) || 0; },
 });
 
+function varToken(name: string): string {
+    return `{{${name}}}`;
+}
+
 function insertVar(name: string): void {
     if (!draft.value) return;
-    draft.value.description = `${draft.value.description ?? ""}{{${name}}}`;
+    draft.value.description = `${draft.value.description ?? ""}${varToken(name)}`;
 }
 
 // Strip the editor's helper-empty nested objects so we don't persist blank fields.
@@ -174,7 +178,7 @@ onMounted(loadSlots);
                         <TextField v-model="draft.title" label="หัวข้อ (title)" placeholder="ใส่ข้อความ + emoji ได้" />
 
                         <label :class="$style.fieldLabel">รายละเอียด (description)</label>
-                        <textarea v-model="draft.description" :class="$style.textarea" rows="5" placeholder="รองรับ markdown + {{var}} + custom emoji" />
+                        <textarea v-model="draft.description" :class="$style.textarea" rows="5" placeholder="รองรับ markdown + ตัวแปร + custom emoji" />
 
                         <div v-if="selected.availableVars.length" :class="$style.vars">
                             <span :class="$style.varsLabel">ตัวแปร:</span>
@@ -184,7 +188,7 @@ onMounted(loadSlots);
                                 type="button"
                                 :class="$style.varChip"
                                 @click="insertVar(v)"
-                            >{{ `{{${v}}}` }}</button>
+                            >{{ varToken(v) }}</button>
                         </div>
 
                         <div :class="$style.grid2">
