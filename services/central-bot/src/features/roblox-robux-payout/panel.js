@@ -96,15 +96,7 @@ async function onTopup(interaction, ctx) {
   });
 }
 
-async function onTopupMethod(interaction, ctx) {
-  // Payment integration (PromptPay QR + SlipOK, TrueMoney voucher) lands in the next stage.
-  const embed = await ctx.services.embeds.renderEmbed('processing');
-  await interaction.reply({
-    content: 'ระบบชำระเงินจริงกำลังพัฒนา จะเปิดให้ใช้เร็วๆ นี้',
-    embeds: [embed],
-    ephemeral: true,
-  });
-}
+// topup_method select + voucher redeem are handled by the wallet-topup feature.
 
 // Choosing a group opens a modal to enter the Roblox username + Robux amount.
 async function onGroupSelect(interaction, ctx) {
@@ -158,7 +150,6 @@ module.exports = {
   handlePanel,
   components: {
     [ID.balance]: onBalance,
-    [ID.topupMethod]: onTopupMethod, // longest-match wins over :topup
     [ID.topup]: onTopup,
     [ID.buy]: onBuy,
     [ID.buyModal]: onBuyModal,

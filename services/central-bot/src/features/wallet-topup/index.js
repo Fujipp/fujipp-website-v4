@@ -10,6 +10,7 @@
 
 const { SlashCommandBuilder } = require('discord.js');
 const { makeWallet } = require('../../lib/wallet');
+const topup = require('./topup');
 
 const thb = (satang) => `฿${(satang / 100).toLocaleString('th-TH')}`;
 
@@ -74,4 +75,7 @@ module.exports = {
     wallet: handleWallet,
     'wallet-add': handleWalletAdd,
   },
+
+  // Top-up flow components (TrueMoney voucher; PromptPay later).
+  components: topup.components,
 };
