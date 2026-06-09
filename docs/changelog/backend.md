@@ -1,9 +1,11 @@
 # Changelog — Backend
 
-**Current version: `0.1.1`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.1.3`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.1.3` | 2026-06-09 | runtime automation (gated off): [billing] daily renewal/expiry sweep (charge → extend / grace → PAST_DUE → SUSPENDED, notifications + run log) via `POST /api/billing/automation/run`; backend `@Scheduled` 03:00 Asia/Bangkok stops suspended bots |
+| `0.1.2` | 2026-06-09 | proxy subscription lifecycle: auto-renew toggle + renew-now for runtime & feature (`PATCH/POST /api/subscriptions/{runtime,features}/{id}/...`) |
 | `0.1.1` | 2026-06-09 | VPS slots: VpsNode entity/repo, PlacementService (locked capacity check), node-aware runtime routing, `GET /api/bots/capacity`, create-bot with a plan reserves a slot + charges runtime (rollback on failure) |
 | `0.1.0` | 2026-06-08 | proxy feature and runtime subscription lists for Shop dashboard data |
 | `0.0.9.1` | 2026-06-08 | store bot public key + client secret; make SecretCipher boot-safe (lazy key) |
