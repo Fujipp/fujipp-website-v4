@@ -10,6 +10,7 @@
 
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const roblox = require('./roblox');
+const panel = require('./panel');
 
 const BRAND = 0x37373d;
 
@@ -180,6 +181,7 @@ module.exports = {
         .addStringOption((o) => o.setName('username').setDescription('Roblox username ของคุณ').setRequired(true))
         .addIntegerOption((o) => o.setName('amount').setDescription('จำนวน Robux').setRequired(true).setMinValue(1))
         .toJSON(),
+      panel.panelCommand(),
     ];
   },
   handlers: {
@@ -187,5 +189,7 @@ module.exports = {
     'robux-balance': handleBalance,
     'robux-payout': handlePayout,
     'robux-redeem': handleRedeem,
+    panel: panel.handlePanel,
   },
+  components: panel.components,
 };

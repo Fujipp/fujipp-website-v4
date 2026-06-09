@@ -43,6 +43,9 @@ async function start() {
 
   // command name → handler, built from every enabled feature
   const handlers = new Map();
+  // Component (button / select / modal) routing: each entry maps a custom_id prefix
+  // to a handler; an interaction is routed to the longest matching prefix.
+  const components = [];
   const commandData = [];
   for (const feature of features) {
     if (typeof feature.commands === 'function') {
@@ -51,7 +54,13 @@ async function start() {
     for (const [name, fn] of Object.entries(feature.handlers || {})) {
       handlers.set(name, fn);
     }
+    for (const [prefix, fn] of Object.entries(feature.components || {})) {
+      components.push({ prefix, fn });
+    }
   }
+  components.sort((a, b) => b.prefix.length - a.prefix.length);
+
+  const routeComponent = (customId) => components.find((c) => customId.startsWith(c.prefix))?.fn ?? null;
 
   client.once(Events.ClientReady, async (c) => {
     log(`logged in as ${c.user.tag}`);
@@ -78,14 +87,22 @@ async function start() {
   });
 
   client.on(Events.InteractionCreate, async (interaction) => {
-    if (!interaction.isChatInputCommand()) return;
-    const handler = handlers.get(interaction.commandName);
+    // Slash commands → command handlers; buttons/selects/modals → component handlers.
+    let handler = null;
+    let label = '';
+    if (interaction.isChatInputCommand()) {
+      handler = handlers.get(interaction.commandName);
+      label = `/${interaction.commandName}`;
+    } else if (interaction.isButton() || interaction.isAnySelectMenu() || interaction.isModalSubmit()) {
+      handler = routeComponent(interaction.customId);
+      label = interaction.customId;
+    }
     if (!handler) return;
     try {
       await handler(interaction, ctx);
     } catch (err) {
-      console.error(`[central-bot] handler ${interaction.commandName} error:`, err.message);
-      const msg = { content: 'เกิดข้อผิดพลาดในการประมวลผลคำสั่ง', ephemeral: true };
+      console.error(`[central-bot] handler ${label} error:`, err.message);
+      const msg = { content: 'เกิดข้อผิดพลาดในการประมวลผล', ephemeral: true };
       if (interaction.deferred || interaction.replied) {
         interaction.editReply(msg).catch(() => {});
       } else {
