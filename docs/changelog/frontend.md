@@ -1,9 +1,10 @@
 # Changelog — Frontend
 
-**Current version: `0.3.7.3`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.3.7.4`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.3.7.4` | 2026-06-10 | Embed Designer: clone embeds via JSON (structuredClone failed on Vue reactive proxy → load error) |
 | `0.3.7.3` | 2026-06-10 | Embed Designer: surface the HTTP status + body in the load error (diagnostics) |
 | `0.3.7.2` | 2026-06-10 | Embed Designer: redirect to login when a 401 can't be recovered by refresh (expired session) |
 | `0.3.7.1` | 2026-06-09 | Embed Designer: refresh the session + retry once on 401 (fixes stale-token load failure) |

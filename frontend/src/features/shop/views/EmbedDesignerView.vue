@@ -70,9 +70,15 @@ async function authedFetch(url: string, init: RequestInit = {}): Promise<Respons
     return res;
 }
 
+// Deep clone via JSON — embeds are pure JSON, and JSON.parse(stringify) also strips
+// Vue's reactive Proxy wrapper (which structuredClone refuses to clone).
+function cloneEmbed(embed: EmbedObject): EmbedObject {
+    return JSON.parse(JSON.stringify(embed ?? {}));
+}
+
 // Ensure the nested objects the editor binds to exist.
 function normalize(embed: EmbedObject): EmbedObject {
-    const e: EmbedObject = structuredClone(embed ?? {});
+    const e: EmbedObject = cloneEmbed(embed);
     e.image = e.image ?? {};
     e.thumbnail = e.thumbnail ?? {};
     e.footer = e.footer ?? {};
@@ -102,7 +108,7 @@ function insertVar(name: string): void {
 
 // Strip the editor's helper-empty nested objects so we don't persist blank fields.
 function clean(embed: EmbedObject): EmbedObject {
-    const e: EmbedObject = structuredClone(embed);
+    const e: EmbedObject = cloneEmbed(embed);
     if (!e.image?.url) delete e.image;
     if (!e.thumbnail?.url) delete e.thumbnail;
     if (!e.footer?.text) delete e.footer;
