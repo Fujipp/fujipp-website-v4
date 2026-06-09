@@ -162,6 +162,50 @@ public class BillingClient {
             .body(String.class);
     }
 
+    /** Toggle auto-renew on a runtime subscription. Returns the updated subscription JSON. */
+    public String setRuntimeAutoRenew(UUID userId, UUID id, boolean autoRenew) {
+        return http.patch().uri("/api/billing/subscriptions/runtime/{id}/auto-renew", id)
+            .header("X-Service-Token", serviceToken)
+            .header("X-User-Id", userId.toString())
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(Map.of("autoRenew", autoRenew))
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raise(res.getStatusCode()))
+            .body(String.class);
+    }
+
+    /** Renew a runtime subscription now (charges the wallet). Surfaces billing's reason on failure. */
+    public String renewRuntimeSubscription(UUID userId, UUID id) {
+        return http.post().uri("/api/billing/subscriptions/runtime/{id}/renew", id)
+            .header("X-Service-Token", serviceToken)
+            .header("X-User-Id", userId.toString())
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raiseWithReason(res))
+            .body(String.class);
+    }
+
+    /** Toggle auto-renew on a feature subscription. Returns the updated subscription JSON. */
+    public String setFeatureAutoRenew(UUID userId, UUID id, boolean autoRenew) {
+        return http.patch().uri("/api/billing/subscriptions/features/{id}/auto-renew", id)
+            .header("X-Service-Token", serviceToken)
+            .header("X-User-Id", userId.toString())
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(Map.of("autoRenew", autoRenew))
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raise(res.getStatusCode()))
+            .body(String.class);
+    }
+
+    /** Renew a feature subscription now (charges the wallet). Surfaces billing's reason on failure. */
+    public String renewFeatureSubscription(UUID userId, UUID id) {
+        return http.post().uri("/api/billing/subscriptions/features/{id}/renew", id)
+            .header("X-Service-Token", serviceToken)
+            .header("X-User-Id", userId.toString())
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raiseWithReason(res))
+            .body(String.class);
+    }
+
     // ── per-bot feature config (subject-scoped) ─────────────────────────────────
 
     /** Raw JSON config form (features + non-secret values) for a bot. */
@@ -182,6 +226,15 @@ public class BillingClient {
             .retrieve()
             .onStatus(HttpStatusCode::isError, (req, res) -> raise(res.getStatusCode()))
             .body(String.class);
+    }
+
+    /** Trigger the daily renewal/expiry sweep. Returns which subjects were suspended. */
+    public SweepResult runAutomation() {
+        return http.post().uri("/api/billing/automation/run")
+            .header("X-Service-Token", serviceToken)
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raise(res.getStatusCode()))
+            .body(SweepResult.class);
     }
 
     private void raise(HttpStatusCode status) {

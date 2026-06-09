@@ -62,6 +62,15 @@ public class SubscriptionService {
         return RuntimeSubscriptionResponse.from(runtimeSubscriptionRepository.save(sub));
     }
 
+    /** Set a runtime subscription's status (used by the automation sweep). Own transaction. */
+    @Transactional
+    public void setRuntimeStatus(UUID id, String status) {
+        RuntimeSubscription sub = runtimeSubscriptionRepository.findById(id)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Subscription not found"));
+        sub.setStatus(status);
+        runtimeSubscriptionRepository.save(sub);
+    }
+
     // ── manual renew (by id, ownership-checked) ─────────────────────────────────
 
     @Transactional
