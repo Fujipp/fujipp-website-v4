@@ -52,6 +52,10 @@ public class BotInstance {
     @Column(name = "status", nullable = false)
     private String status = "CREATED";
 
+    // Which VPS host this bot is placed on (a consumed slot). NULL until placed.
+    @Column(name = "vps_node_id", columnDefinition = "uuid")
+    private UUID vpsNodeId;
+
     // Orchestrator-managed lifecycle timestamps (read-only here).
     @Column(name = "last_started_at", insertable = false, updatable = false)
     private OffsetDateTime lastStartedAt;

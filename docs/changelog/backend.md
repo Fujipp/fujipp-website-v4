@@ -1,9 +1,10 @@
 # Changelog — Backend
 
-**Current version: `0.1.0`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.1.1`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.1.1` | 2026-06-09 | VPS slots: VpsNode entity/repo, PlacementService (locked capacity check), node-aware runtime routing, `GET /api/bots/capacity`, create-bot with a plan reserves a slot + charges runtime (rollback on failure) |
 | `0.1.0` | 2026-06-08 | proxy feature and runtime subscription lists for Shop dashboard data |
 | `0.0.9.1` | 2026-06-08 | store bot public key + client secret; make SecretCipher boot-safe (lazy key) |
 | `0.0.9` | 2026-06-08 | proxy bot start/stop/restart/status to the orchestrator (`/api/bots/{id}/start` …) |

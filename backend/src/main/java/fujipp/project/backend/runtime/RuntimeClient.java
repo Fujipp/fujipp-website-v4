@@ -1,6 +1,5 @@
 package fujipp.project.backend.runtime;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.stereotype.Component;
@@ -11,46 +10,39 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
 /**
- * Calls the internal bot-runtime-service (orchestrator). Every request carries the
- * shared X-Service-Token. On error the orchestrator's reason is forwarded so the
- * customer sees why a bot did not start (e.g. "runtime is not active").
+ * Calls the internal bot-runtime-service (orchestrator). The platform may run many
+ * VPS hosts, each with its own orchestrator + X-Service-Token, so every call is
+ * directed at a {@link RuntimeTarget} (the host that owns the bot). On error the
+ * orchestrator's reason is forwarded so the customer sees why a bot did not start.
  */
 @Component
 public class RuntimeClient {
 
-    private final RestClient http;
-    private final String serviceToken;
+    private final RestClient http = RestClient.create();
 
-    public RuntimeClient(
-            @Value("${runtime.base-url}") String baseUrl,
-            @Value("${runtime.service-token}") String serviceToken) {
-        this.http = RestClient.builder().baseUrl(baseUrl).build();
-        this.serviceToken = serviceToken;
+    public String start(RuntimeTarget target, String subjectId) {
+        return post(target, subjectId, "start");
     }
 
-    public String start(String subjectId) {
-        return post(subjectId, "start");
+    public String stop(RuntimeTarget target, String subjectId) {
+        return post(target, subjectId, "stop");
     }
 
-    public String stop(String subjectId) {
-        return post(subjectId, "stop");
+    public String restart(RuntimeTarget target, String subjectId) {
+        return post(target, subjectId, "restart");
     }
 
-    public String restart(String subjectId) {
-        return post(subjectId, "restart");
-    }
-
-    public String status(String subjectId) {
-        return http.get().uri("/bots/{id}/status", subjectId)
-            .header("X-Service-Token", serviceToken)
+    public String status(RuntimeTarget target, String subjectId) {
+        return http.get().uri(target.baseUrl() + "/bots/{id}/status", subjectId)
+            .header("X-Service-Token", target.serviceToken())
             .retrieve()
             .onStatus(HttpStatusCode::isError, this::raise)
             .body(String.class);
     }
 
-    private String post(String subjectId, String action) {
-        return http.post().uri("/bots/{id}/{action}", subjectId, action)
-            .header("X-Service-Token", serviceToken)
+    private String post(RuntimeTarget target, String subjectId, String action) {
+        return http.post().uri(target.baseUrl() + "/bots/{id}/{action}", subjectId, action)
+            .header("X-Service-Token", target.serviceToken())
             .retrieve()
             .onStatus(HttpStatusCode::isError, this::raise)
             .body(String.class);

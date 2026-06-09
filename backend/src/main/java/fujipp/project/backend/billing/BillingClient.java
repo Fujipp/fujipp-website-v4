@@ -98,6 +98,26 @@ public class BillingClient {
 
     // ── orders (user-scoped) ────────────────────────────────────────────────────
 
+    /**
+     * Buy runtime for one bot from wallet credit. Used when a bot is created with a
+     * plan (slot already reserved). Surfaces billing's reason on failure (e.g.
+     * insufficient credit) so the customer sees why the charge was declined.
+     */
+    public void purchaseRuntime(UUID userId, UUID runtimePlanId, String subjectId, String idempotencyKey) {
+        http.post().uri("/api/billing/orders")
+            .header("X-Service-Token", serviceToken)
+            .header("X-User-Id", userId.toString())
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(Map.of(
+                "idempotencyKey", idempotencyKey,
+                "items", java.util.List.of(Map.of(
+                    "runtimePlanId", runtimePlanId.toString(),
+                    "externalSubjectId", subjectId))))
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raiseWithReason(res))
+            .toBodilessEntity();
+    }
+
     /** Buy features/runtime from wallet credit. {@code body} is the PurchaseRequest JSON. */
     public String purchase(UUID userId, String body) {
         return http.post().uri("/api/billing/orders")
@@ -167,5 +187,12 @@ public class BillingClient {
     private void raise(HttpStatusCode status) {
         // Surface billing-service's status to the caller (e.g. 409 slip already used).
         throw new ResponseStatusException(status, "Billing service rejected the request");
+    }
+
+    /** Forward billing's status AND body so the customer sees the actual reason. */
+    private void raiseWithReason(org.springframework.http.client.ClientHttpResponse res) throws java.io.IOException {
+        String body = new String(res.getBody().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8).trim();
+        String reason = body.isEmpty() ? "Billing service rejected the request" : body;
+        throw new ResponseStatusException(res.getStatusCode(), reason);
     }
 }
