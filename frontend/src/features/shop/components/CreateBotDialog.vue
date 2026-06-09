@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from "vue";
 import { TextField } from "@/shared/ui";
+import type { RuntimePlan } from "@/features/shop/config/catalog";
 
 export interface CreateBotPayload {
     name: string;
@@ -9,6 +10,8 @@ export interface CreateBotPayload {
     discordGuildId: string;
     discordPublicKey: string;
     discordClientSecret: string;
+    // Selected runtime plan to buy on creation ("" = none). Ignored in edit mode.
+    runtimePlanId: string;
 }
 
 interface Props {
@@ -16,6 +19,9 @@ interface Props {
     submitting?: boolean;
     mode?: "create" | "edit";
     initial?: Partial<CreateBotPayload>;
+    // Runtime plans to choose from, and how many bot slots are still free.
+    runtimePlans?: RuntimePlan[];
+    availableSlots?: number | null;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -23,11 +29,14 @@ const props = withDefaults(defineProps<Props>(), {
     submitting: false,
     mode: "create",
     initial: () => ({}),
+    runtimePlans: () => [],
+    availableSlots: null,
 });
 
 const emit = defineEmits<{ submit: [payload: CreateBotPayload]; cancel: [] }>();
 
 const isEdit = computed(() => props.mode === "edit");
+const slotsFull = computed(() => props.availableSlots !== null && props.availableSlots <= 0);
 
 const form = reactive<CreateBotPayload>({
     name: "",
@@ -36,8 +45,13 @@ const form = reactive<CreateBotPayload>({
     discordGuildId: "",
     discordPublicKey: "",
     discordClientSecret: "",
+    runtimePlanId: "",
 });
 const error = ref("");
+
+function formatBaht(satang: number): string {
+    return (satang / 100).toLocaleString("th-TH", { minimumFractionDigits: 0 });
+}
 
 function reset(): void {
     form.name = props.initial.name ?? "";
@@ -46,6 +60,7 @@ function reset(): void {
     form.discordGuildId = props.initial.discordGuildId ?? "";
     form.discordPublicKey = props.initial.discordPublicKey ?? "";
     form.discordClientSecret = "";
+    form.runtimePlanId = "";
     error.value = "";
 }
 
@@ -54,6 +69,10 @@ watch(() => props.open, (open) => { if (open) reset(); });
 function submit(): void {
     if (!form.name.trim()) { error.value = "กรุณาตั้งชื่อบอท"; return; }
     if (!isEdit.value && !form.discordToken.trim()) { error.value = "กรุณากรอก Discord Bot Token"; return; }
+    if (!isEdit.value) {
+        if (slotsFull.value) { error.value = "ตอนนี้เครื่องเต็ม ไม่สามารถเพิ่มบอทได้"; return; }
+        if (!form.runtimePlanId) { error.value = "กรุณาเลือกแผน Runtime"; return; }
+    }
     error.value = "";
     emit("submit", { ...form });
 }
@@ -91,12 +110,37 @@ function submit(): void {
                             placeholder="(ไม่บังคับ)"
                             :disabled="submitting"
                         />
+
+                        <fieldset v-if="!isEdit" :class="$style.plans">
+                            <legend :class="$style.plansLegend">เลือกแผน Runtime — ตัดเครดิตทันทีเมื่อสร้างบอท</legend>
+                            <p v-if="availableSlots !== null" :class="[$style.slotNote, slotsFull && $style.slotFull]">
+                                {{ slotsFull ? "เครื่องเต็ม — ยังเพิ่มบอทไม่ได้" : `เหลือที่ว่าง ${availableSlots} slot` }}
+                            </p>
+                            <label
+                                v-for="plan in runtimePlans"
+                                :key="plan.id"
+                                :class="[$style.plan, form.runtimePlanId === plan.id && $style.planActive]"
+                            >
+                                <input
+                                    v-model="form.runtimePlanId"
+                                    type="radio"
+                                    name="runtime-plan"
+                                    :value="plan.id"
+                                    :disabled="submitting || slotsFull"
+                                    :class="$style.planRadio"
+                                />
+                                <span :class="$style.planName">{{ plan.name }} · {{ plan.durationMonths }} เดือน</span>
+                                <span :class="$style.planPrice">฿{{ formatBaht(plan.effectivePriceSatang) }}</span>
+                            </label>
+                            <p v-if="runtimePlans.length === 0" :class="$style.slotNote">ยังไม่มีแผน Runtime ให้เลือก</p>
+                        </fieldset>
+
                         <p v-if="error" :class="$style.error">{{ error }}</p>
                     </form>
 
                     <div :class="$style.actions">
                         <button type="button" :class="[$style.button, $style.cancel]" @click="emit('cancel')">ยกเลิก</button>
-                        <button type="button" :class="[$style.button, $style.confirm]" :disabled="submitting" @click="submit">
+                        <button type="button" :class="[$style.button, $style.confirm]" :disabled="submitting || (!isEdit && slotsFull)" @click="submit">
                             {{ submitting ? "กำลังบันทึก…" : (isEdit ? "บันทึก" : "สร้างบอท") }}
                         </button>
                     </div>
@@ -176,6 +220,63 @@ function submit(): void {
     margin: 0;
     color: var(--color-status-error);
     font-size: 14px;
+}
+
+.plans {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-space-2);
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.plansLegend {
+    padding: 0;
+    margin-bottom: var(--spacing-space-1);
+    color: var(--color-text-secondary);
+    font-size: 13px;
+}
+
+.slotNote {
+    margin: 0 0 var(--spacing-space-1);
+    color: var(--color-text-secondary);
+    font-size: 13px;
+}
+
+.slotFull {
+    color: var(--color-status-error);
+}
+
+.plan {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-space-3);
+    padding: var(--spacing-space-3);
+    border: 1px solid var(--color-main-border);
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.planActive {
+    border-color: var(--color-main-primary);
+    background-color: color-mix(in srgb, var(--color-main-primary) 8%, transparent);
+}
+
+.planRadio {
+    accent-color: var(--color-main-primary);
+}
+
+.planName {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.planPrice {
+    font-size: 15px;
+    font-weight: 600;
 }
 
 .actions {

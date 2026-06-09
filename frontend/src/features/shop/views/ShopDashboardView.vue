@@ -83,6 +83,7 @@ const catalogFeatures = ref<CatalogFeature[]>([]);
 const runtimePlans = ref<RuntimePlan[]>([]);
 const featureSubscriptions = ref<FeatureSubscriptionResponse[]>([]);
 const runtimeSubscriptions = ref<RuntimeSubscriptionResponse[]>([]);
+const availableSlots = ref<number | null>(null);
 
 const featureById = computed(() => new Map(catalogFeatures.value.map((feature) => [feature.id, feature])));
 const runtimePlanById = computed(() => new Map(runtimePlans.value.map((plan) => [plan.id, plan])));
@@ -207,12 +208,13 @@ async function loadDashboard(): Promise<void> {
             return;
         }
 
-        const [botsRes, featuresRes, plansRes, featureSubsRes, runtimeSubsRes] = await Promise.all([
+        const [botsRes, featuresRes, plansRes, featureSubsRes, runtimeSubsRes, capacityRes] = await Promise.all([
             fetch(`${API_BASE_URL}/api/bots`, { headers }),
             fetch(`${API_BASE_URL}/api/catalog/features`, { headers }),
             fetch(`${API_BASE_URL}/api/catalog/runtime-plans`, { headers }),
             fetch(`${API_BASE_URL}/api/subscriptions/features`, { headers }),
             fetch(`${API_BASE_URL}/api/subscriptions/runtime`, { headers }),
+            fetch(`${API_BASE_URL}/api/bots/capacity`, { headers }),
         ]);
 
         if (!botsRes.ok || !featuresRes.ok || !plansRes.ok || !featureSubsRes.ok || !runtimeSubsRes.ok) {
@@ -224,12 +226,16 @@ async function loadDashboard(): Promise<void> {
         runtimePlans.value = await plansRes.json() as RuntimePlan[];
         featureSubscriptions.value = await featureSubsRes.json() as FeatureSubscriptionResponse[];
         runtimeSubscriptions.value = await runtimeSubsRes.json() as RuntimeSubscriptionResponse[];
+        availableSlots.value = capacityRes.ok
+            ? ((await capacityRes.json()) as { availableSlots: number }).availableSlots
+            : null;
     } catch {
         botRecords.value = [];
         catalogFeatures.value = [];
         runtimePlans.value = [];
         featureSubscriptions.value = [];
         runtimeSubscriptions.value = [];
+        availableSlots.value = null;
         loadError.value = "โหลด Dashboard ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
         notify("error", "โหลด Dashboard ไม่สำเร็จ", "ระบบไม่สามารถดึงข้อมูลบอทและ subscription ได้");
     } finally {
@@ -286,17 +292,36 @@ async function createBot(payload: CreateBotPayload): Promise<void> {
     }
     isCreatingBot.value = true;
     try {
+        const body: Record<string, unknown> = {
+            name: payload.name,
+            discordToken: payload.discordToken,
+            discordApplicationId: payload.discordApplicationId,
+            discordGuildId: payload.discordGuildId,
+            discordPublicKey: payload.discordPublicKey,
+            discordClientSecret: payload.discordClientSecret,
+        };
+        if (payload.runtimePlanId) body.runtimePlanId = payload.runtimePlanId;
+
         const res = await fetch(`${API_BASE_URL}/api/bots`, {
             method: "POST",
             headers: { ...headers, "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
+            body: JSON.stringify(body),
         });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) {
+            let reason = "";
+            try {
+                const errBody = await res.json();
+                reason = String(errBody.message ?? errBody.error ?? "");
+                const m = reason.match(/"(?:error|message)"\s*:\s*"([^"]+)"/);
+                if (m?.[1]) reason = m[1];
+            } catch { /* non-JSON body */ }
+            throw new Error(reason || `HTTP ${res.status}`);
+        }
         showAddBot.value = false;
-        notify("success", "สร้างบอทแล้ว", "อย่าลืมซื้อ Runtime + Feature แล้วตั้งค่าบอท");
+        notify("success", "สร้างบอท + ซื้อ Runtime แล้ว", "ตั้งค่าบอทแล้วกดเริ่มรันได้เลย");
         await loadDashboard();
-    } catch {
-        notify("error", "สร้างบอทไม่สำเร็จ", "ชื่อบอทอาจซ้ำ หรือ token ไม่ถูกต้อง — ลองใหม่อีกครั้ง");
+    } catch (e) {
+        notify("error", "สร้างบอทไม่สำเร็จ", (e as Error).message || "ชื่อบอทอาจซ้ำ หรือ token ไม่ถูกต้อง — ลองใหม่อีกครั้ง");
     } finally {
         isCreatingBot.value = false;
     }
@@ -413,6 +438,8 @@ onUnmounted(clearToast);
         <CreateBotDialog
             :open="showAddBot"
             :submitting="isCreatingBot"
+            :runtime-plans="runtimePlans"
+            :available-slots="availableSlots"
             @submit="createBot"
             @cancel="showAddBot = false"
         />
