@@ -25,19 +25,27 @@ const ID = {
 
 const thb = (satang) => `฿${(satang / 100).toLocaleString('th-TH')}`;
 
-function buildComponents(ctx) {
+// Best-effort live Robux stock per group (read-only; tolerates missing cookies).
+async function fetchStock(groups) {
+  return Promise.all(groups.map((g) =>
+    roblox.getGroupFunds({ groupKey: g.key }).then((f) => (f && f.ok ? f.robux : null)).catch(() => null)));
+}
+
+function buildComponents(ctx, groups, stock) {
   const rows = [];
 
-  const groups = roblox.getGroupConfigs().list;
   if (groups.length) {
     const select = new StringSelectMenuBuilder()
       .setCustomId(ID.group)
       .setPlaceholder('เลือกกลุ่มที่ต้องการซื้อ')
       .addOptions(
-        groups.slice(0, 25).map((g, i) =>
-          new StringSelectMenuOptionBuilder()
+        groups.slice(0, 25).map((g, i) => {
+          const opt = new StringSelectMenuOptionBuilder()
             .setLabel(String(g.name || `กลุ่ม ${i + 1}`).slice(0, 100))
-            .setValue(String(g.key))),
+            .setValue(String(g.key));
+          if (stock && stock[i] != null) opt.setDescription(`ยอดคงเหลือ ${stock[i].toLocaleString()}`.slice(0, 100));
+          return opt;
+        }),
       );
     rows.push(new ActionRowBuilder().addComponents(select));
   }
@@ -62,8 +70,22 @@ async function handlePanel(interaction, ctx) {
     await interaction.reply({ content: 'คุณไม่มีสิทธิ์ใช้คำสั่งนี้ (เฉพาะแอดมินเซิร์ฟเวอร์)', ephemeral: true });
     return;
   }
+  await interaction.deferReply({ ephemeral: true });
+
+  const groups = roblox.getGroupConfigs().list;
+  const stock = groups.length ? await fetchStock(groups) : [];
   const embed = await ctx.services.embeds.renderEmbed('shop_panel');
-  await interaction.reply({ embeds: [embed], components: buildComponents(ctx) });
+  // Inject per-group stock fields (Robux กลุ่ม 1/2/3) to match the original design.
+  if (groups.length) {
+    embed.addFields(groups.slice(0, 25).map((g, i) => ({
+      name: `Robux ${g.name || `กลุ่ม ${i + 1}`}`.slice(0, 256),
+      value: `\`\`\`${stock[i] != null ? stock[i].toLocaleString() : '—'}\`\`\``,
+      inline: true,
+    })));
+  }
+
+  await interaction.channel.send({ embeds: [embed], components: buildComponents(ctx, groups, stock) });
+  await interaction.editReply({ content: 'โพสต์แผงร้านแล้ว ✅' });
 }
 
 async function onBalance(interaction, ctx) {
