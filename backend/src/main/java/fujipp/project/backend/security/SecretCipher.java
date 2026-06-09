@@ -66,6 +66,30 @@ public class SecretCipher {
         }
     }
 
+    /** Reverse of {@link #encrypt}; reads the v1.iv.tag.ciphertext envelope. */
+    public String decrypt(String envelope) {
+        try {
+            String[] parts = envelope.split("\\.");
+            if (parts.length != 4 || !VERSION.equals(parts[0])) {
+                throw new IllegalArgumentException("unexpected secret envelope format");
+            }
+            Base64.Decoder b64 = Base64.getDecoder();
+            byte[] iv = b64.decode(parts[1]);
+            byte[] tag = b64.decode(parts[2]);
+            byte[] ciphertext = b64.decode(parts[3]);
+
+            // Java's GCM expects the auth tag appended to the ciphertext.
+            byte[] combined = Arrays.copyOf(ciphertext, ciphertext.length + tag.length);
+            System.arraycopy(tag, 0, combined, ciphertext.length, tag.length);
+
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(Cipher.DECRYPT_MODE, key(), new GCMParameterSpec(TAG_BITS, iv));
+            return new String(cipher.doFinal(combined), StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to decrypt secret", e);
+        }
+    }
+
     private static byte[] decodeKey(String raw) {
         String trimmed = raw == null ? "" : raw.trim();
         byte[] bytes = trimmed.matches("[0-9a-fA-F]{64}")

@@ -5,7 +5,9 @@ import fujipp.project.backend.dto.BotResponse;
 import fujipp.project.backend.dto.CreateBotRequest;
 import fujipp.project.backend.dto.UpdateBotRequest;
 import fujipp.project.backend.runtime.RuntimeClient;
+import fujipp.project.backend.runtime.RuntimeRouter;
 import fujipp.project.backend.service.BotService;
+import fujipp.project.backend.service.PlacementService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -21,6 +23,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /** The authenticated user's bots (subjects). One user owns many bots. */
@@ -32,11 +35,20 @@ public class BotController {
     private final BotService botService;
     private final BillingClient billing;
     private final RuntimeClient runtime;
+    private final RuntimeRouter runtimeRouter;
+    private final PlacementService placement;
 
     @GetMapping
     public ResponseEntity<List<BotResponse>> list(@AuthenticationPrincipal Jwt jwt) {
         UUID userId = UUID.fromString(jwt.getSubject());
         return ResponseEntity.ok(botService.listBots(userId));
+    }
+
+    /** Free bot slots across all hosts — lets the UI show availability before buying. */
+    @GetMapping("/capacity")
+    public ResponseEntity<Map<String, Long>> capacity() {
+        long free = placement.availableSlots();
+        return ResponseEntity.ok(Map.of("availableSlots", free));
     }
 
     @PostMapping
@@ -86,25 +98,29 @@ public class BotController {
     @PostMapping("/{botId}/start")
     public ResponseEntity<String> start(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID botId) {
         assertOwner(jwt, botId);
-        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(runtime.start(botId.toString()));
+        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON)
+            .body(runtime.start(runtimeRouter.targetFor(botId), botId.toString()));
     }
 
     @PostMapping("/{botId}/stop")
     public ResponseEntity<String> stop(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID botId) {
         assertOwner(jwt, botId);
-        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(runtime.stop(botId.toString()));
+        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON)
+            .body(runtime.stop(runtimeRouter.targetFor(botId), botId.toString()));
     }
 
     @PostMapping("/{botId}/restart")
     public ResponseEntity<String> restart(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID botId) {
         assertOwner(jwt, botId);
-        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(runtime.restart(botId.toString()));
+        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON)
+            .body(runtime.restart(runtimeRouter.targetFor(botId), botId.toString()));
     }
 
     @GetMapping("/{botId}/status")
     public ResponseEntity<String> status(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID botId) {
         assertOwner(jwt, botId);
-        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(runtime.status(botId.toString()));
+        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON)
+            .body(runtime.status(runtimeRouter.targetFor(botId), botId.toString()));
     }
 
     private void assertOwner(Jwt jwt, UUID botId) {
