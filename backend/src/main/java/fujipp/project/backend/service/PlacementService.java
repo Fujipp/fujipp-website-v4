@@ -62,6 +62,36 @@ public class PlacementService {
         return bots.save(bot);
     }
 
+    /**
+     * Move a bot onto a specific node, capacity-checked under a lock on that node.
+     * The node must be ACTIVE (DRAINING/OFFLINE refuse new placements). Used by the
+     * admin move-bot flow; the caller handles stopping/starting the bot process.
+     */
+    @Transactional
+    public void moveTo(UUID botId, UUID targetNodeId) {
+        VpsNode target = nodes.findByIdForUpdate(targetNodeId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Target VPS not found"));
+        if (!"ACTIVE".equals(target.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Target VPS is not accepting placements");
+        }
+        BotInstance bot = bots.findById(botId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Bot not found"));
+        if (targetNodeId.equals(bot.getVpsNodeId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Bot is already on that VPS");
+        }
+        if (bots.countByVpsNodeId(targetNodeId) >= target.getMaxSlots()) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Target VPS is full");
+        }
+        bot.setVpsNodeId(targetNodeId);
+        bots.save(bot);
+    }
+
+    /** Slots in use on a node — for admin/capacity views. */
+    @Transactional(readOnly = true)
+    public long usedSlots(UUID nodeId) {
+        return bots.countByVpsNodeId(nodeId);
+    }
+
     /** Total free slots across ACTIVE nodes (for showing availability before purchase). */
     @Transactional(readOnly = true)
     public long availableSlots() {

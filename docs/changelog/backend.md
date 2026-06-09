@@ -1,9 +1,10 @@
 # Changelog — Backend
 
-**Current version: `0.1.3`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.1.4`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.1.4` | 2026-06-09 | admin VPS management (`GET/POST/PATCH /api/admin/vps-nodes`, role-gated) + move a bot across hosts (`POST /api/admin/bots/{id}/move`: stop → capacity-checked reassign → start) |
 | `0.1.3` | 2026-06-09 | runtime automation (gated off): [billing] daily renewal/expiry sweep (charge → extend / grace → PAST_DUE → SUSPENDED, notifications + run log) via `POST /api/billing/automation/run`; backend `@Scheduled` 03:00 Asia/Bangkok stops suspended bots |
 | `0.1.2` | 2026-06-09 | proxy subscription lifecycle: auto-renew toggle + renew-now for runtime & feature (`PATCH/POST /api/subscriptions/{runtime,features}/{id}/...`) |
 | `0.1.1` | 2026-06-09 | VPS slots: VpsNode entity/repo, PlacementService (locked capacity check), node-aware runtime routing, `GET /api/bots/capacity`, create-bot with a plan reserves a slot + charges runtime (rollback on failure) |
