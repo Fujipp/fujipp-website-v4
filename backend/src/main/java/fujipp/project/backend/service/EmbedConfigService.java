@@ -1,0 +1,136 @@
+package fujipp.project.backend.service;
+
+import fujipp.project.backend.repository.BotInstanceRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.ObjectNode;
+
+import java.sql.Array;
+import java.util.List;
+import java.util.UUID;
+
+/**
+ * Per-bot embed configuration (config layer 3). Reads the slot registry
+ * (bots.embed_slots) joined with the bot's overrides (bots.bot_embeds) and lets the
+ * owner save an override. Uses JdbcTemplate so the jsonb columns stay raw JSON and no
+ * JPA entity has to model them.
+ */
+@Service
+@RequiredArgsConstructor
+public class EmbedConfigService {
+
+    private final JdbcTemplate jdbc;
+    private final BotInstanceRepository bots;
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    /** Every slot with its effective embed (override if set, else the seeded default). */
+    @Transactional(readOnly = true)
+    public String listEmbeds(UUID userId, UUID botId) {
+        assertOwner(userId, botId);
+        List<ObjectNode> rows = jdbc.query(
+            """
+            SELECT s.feature_code, s.slot_key, s.label, s.description, s.available_vars, s.sort_order,
+                   COALESCE(b.embed_json::text, s.default_json::text) AS embed_text,
+                   (b.id IS NOT NULL) AS overridden
+              FROM bots.embed_slots s
+              LEFT JOIN bots.bot_embeds b
+                     ON b.slot_key = s.slot_key AND b.subject_id = ?
+             ORDER BY s.sort_order
+            """,
+            (rs, i) -> {
+                ObjectNode node = objectMapper.createObjectNode();
+                node.put("featureCode", rs.getString("feature_code"));
+                node.put("slotKey", rs.getString("slot_key"));
+                node.put("label", rs.getString("label"));
+                node.put("description", rs.getString("description"));
+                node.put("overridden", rs.getBoolean("overridden"));
+                ArrayNode vars = node.putArray("availableVars");
+                Array arr = rs.getArray("available_vars");
+                if (arr != null) {
+                    for (Object v : (Object[]) arr.getArray()) vars.add(String.valueOf(v));
+                }
+                node.set("embed", readJson(rs.getString("embed_text")));
+                return node;
+            },
+            botId.toString());
+
+        ArrayNode out = objectMapper.createArrayNode();
+        rows.forEach(out::add);
+        return out.toString();
+    }
+
+    /** The effective embed JSON for one slot. */
+    @Transactional(readOnly = true)
+    public String getEmbed(UUID userId, UUID botId, String slotKey) {
+        assertOwner(userId, botId);
+        List<String> found = jdbc.query(
+            """
+            SELECT COALESCE(b.embed_json::text, s.default_json::text) AS embed_text
+              FROM bots.embed_slots s
+              LEFT JOIN bots.bot_embeds b
+                     ON b.slot_key = s.slot_key AND b.subject_id = ?
+             WHERE s.slot_key = ?
+             LIMIT 1
+            """,
+            (rs, i) -> rs.getString("embed_text"),
+            botId.toString(), slotKey);
+        if (found.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Unknown embed slot");
+        }
+        return found.get(0);
+    }
+
+    /** Save (upsert) a bot's override for one slot. Body must be a valid JSON object. */
+    @Transactional
+    public String saveEmbed(UUID userId, UUID botId, String slotKey, String embedJson) {
+        assertOwner(userId, botId);
+
+        Integer exists = jdbc.query(
+            "SELECT 1 FROM bots.embed_slots WHERE slot_key = ? LIMIT 1",
+            rs -> rs.next() ? 1 : null, slotKey);
+        if (exists == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Unknown embed slot");
+        }
+        if (!isJsonObject(embedJson)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "embed must be a JSON object");
+        }
+
+        jdbc.update(
+            """
+            INSERT INTO bots.bot_embeds (subject_id, slot_key, embed_json)
+            VALUES (?, ?, ?::jsonb)
+            ON CONFLICT (subject_id, slot_key)
+            DO UPDATE SET embed_json = EXCLUDED.embed_json, updated_at = now()
+            """,
+            botId.toString(), slotKey, embedJson);
+        return embedJson;
+    }
+
+    private void assertOwner(UUID userId, UUID botId) {
+        bots.findByIdAndUserId(botId, userId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Bot not found"));
+    }
+
+    private JsonNode readJson(String text) {
+        try {
+            return text == null ? objectMapper.nullNode() : objectMapper.readTree(text);
+        } catch (RuntimeException e) {
+            return objectMapper.nullNode();
+        }
+    }
+
+    private boolean isJsonObject(String text) {
+        try {
+            return objectMapper.readTree(text).isObject();
+        } catch (Exception e) {
+            return false;
+        }
+    }
+}
