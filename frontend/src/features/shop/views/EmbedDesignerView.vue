@@ -6,6 +6,7 @@ import type { EmbedObject } from "@/features/shop/components";
 import { TextField, StatusToast } from "@/shared/ui";
 import { API_BASE_URL } from "@/config";
 import { useUserStore } from "@/stores";
+import { supabase } from "@/shared/lib/supabase";
 
 type ToastStatus = "info" | "success" | "warning" | "error";
 
@@ -40,10 +41,27 @@ function notify(status: ToastStatus, title: string, description?: string): void 
     toast.value = { status, title, description };
 }
 
-async function authHeaders(): Promise<Record<string, string> | null> {
+// Authenticated fetch that self-heals a stale token: if the first try is 401
+// (e.g. the access token expired while the page sat open / on a hard reload before
+// the background refresh landed), refresh the session once and retry. Returns null
+// only when there is no session at all (then we send the user to login).
+async function authedFetch(url: string, init: RequestInit = {}): Promise<Response | null> {
     await userStore.initAuth();
-    if (!userStore.accessToken) return null;
-    return { Authorization: `Bearer ${userStore.accessToken}` };
+    let token = userStore.accessToken;
+    if (!token) {
+        await router.push({ name: "login", query: { redirect: route.fullPath } });
+        return null;
+    }
+    const base = (init.headers as Record<string, string> | undefined) ?? {};
+    const send = (t: string) => fetch(url, { ...init, headers: { ...base, Authorization: `Bearer ${t}` } });
+
+    let res = await send(token);
+    if (res.status === 401) {
+        const { data } = await supabase.auth.refreshSession();
+        token = data.session?.access_token ?? null;
+        if (token) res = await send(token);
+    }
+    return res;
 }
 
 // Ensure the nested objects the editor binds to exist.
@@ -90,9 +108,8 @@ async function loadSlots(): Promise<void> {
     isLoading.value = true;
     loadError.value = "";
     try {
-        const headers = await authHeaders();
-        if (!headers) { await router.push({ name: "login", query: { redirect: route.fullPath } }); return; }
-        const res = await fetch(`${API_BASE_URL}/api/bots/${botId.value}/embeds`, { headers });
+        const res = await authedFetch(`${API_BASE_URL}/api/bots/${botId.value}/embeds`);
+        if (!res) return;
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         slots.value = (await res.json()) as EmbedSlot[];
         const first = slots.value[0];
@@ -107,15 +124,14 @@ async function loadSlots(): Promise<void> {
 
 async function save(): Promise<void> {
     if (!draft.value || !selected.value) return;
-    const headers = await authHeaders();
-    if (!headers) return;
     isSaving.value = true;
     try {
-        const res = await fetch(`${API_BASE_URL}/api/bots/${botId.value}/embeds/${selected.value.slotKey}`, {
+        const res = await authedFetch(`${API_BASE_URL}/api/bots/${botId.value}/embeds/${selected.value.slotKey}`, {
             method: "PUT",
-            headers: { ...headers, "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(clean(draft.value)),
         });
+        if (!res) return;
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const slot = slots.value.find((s) => s.slotKey === selectedKey.value);
         if (slot) { slot.embed = clean(draft.value); slot.overridden = true; }
