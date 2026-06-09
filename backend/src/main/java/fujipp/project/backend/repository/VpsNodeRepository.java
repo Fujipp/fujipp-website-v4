@@ -16,6 +16,8 @@ public interface VpsNodeRepository extends JpaRepository<VpsNode, UUID> {
     /** Placement candidates, most-capacity first. Filtered for free slots in the service. */
     List<VpsNode> findByStatusOrderByMaxSlotsDesc(String status);
 
+    boolean existsByName(String name);
+
     /**
      * Lock a node row before counting its slots, so concurrent placements onto the
      * same host are serialized and can't oversubscribe max_slots.
