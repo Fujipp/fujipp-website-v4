@@ -8,19 +8,18 @@
 // v1 top-up is a manual admin credit (/wallet-add). Automated SlipOK / TrueMoney
 // verification reuses the same wallet.credit() and is a follow-up.
 
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder } = require('discord.js');
 const { makeWallet } = require('../../lib/wallet');
 
-const BRAND = 0x37373d;
 const thb = (satang) => `฿${(satang / 100).toLocaleString('th-TH')}`;
 
 async function handleWallet(interaction, ctx) {
   await interaction.deferReply({ ephemeral: true });
   const balance = await ctx.services.wallet.getBalance(interaction.user.id);
-  const embed = new EmbedBuilder()
-    .setColor(BRAND)
-    .setTitle('กระเป๋าเงินของคุณ')
-    .setDescription(`ยอดคงเหลือ **${thb(balance)}**`);
+  const embed = await ctx.services.embeds.renderEmbed('balance', {
+    member: interaction.user.id,
+    balance: thb(balance),
+  });
   await interaction.editReply({ embeds: [embed] });
 }
 
@@ -37,10 +36,13 @@ async function handleWalletAdd(interaction, ctx) {
     type: 'TOPUP',
     note: `manual by ${interaction.user.id}`,
   });
-  const embed = new EmbedBuilder()
-    .setColor(0x3ba55d)
-    .setTitle('เติมเงินสำเร็จ')
-    .setDescription(`เติม **${thb(amountThb * 100)}** ให้ <@${member.id}>\nยอดใหม่ **${thb(balance)}**`);
+  const embed = await ctx.services.embeds.renderEmbed('topup_success', {
+    member: member.id,
+    amount: thb(amountThb * 100),
+    total_balance: thb(balance),
+    method: 'แอดมินเติม',
+    datetime: new Date().toLocaleString('th-TH'),
+  });
   await interaction.editReply({ embeds: [embed] });
 }
 

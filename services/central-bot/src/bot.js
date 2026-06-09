@@ -5,6 +5,7 @@
 const { Client, GatewayIntentBits, Partials, Events } = require('discord.js');
 const config = require('./config/env');
 const { loadEnabled } = require('./features');
+const { makeEmbedRenderer } = require('./lib/embeds');
 
 const log = (...args) => console.log('[central-bot]', ...args);
 
@@ -25,6 +26,9 @@ async function start() {
   });
 
   const ctx = { config, log, services: {} };
+
+  // Infra service available to every feature: configurable embed renderer.
+  ctx.services.embeds = makeEmbedRenderer(config.subjectId);
 
   // Let features register shared services first (e.g. wallet-topup → ctx.services.wallet).
   for (const feature of features) {
