@@ -57,9 +57,15 @@ async function authedFetch(url: string, init: RequestInit = {}): Promise<Respons
 
     let res = await send(token);
     if (res.status === 401) {
+        // Token rejected — try a refresh once. If the session can't be recovered
+        // (refresh token also expired), send the user to login instead of failing.
         const { data } = await supabase.auth.refreshSession();
         token = data.session?.access_token ?? null;
         if (token) res = await send(token);
+        if (!token || res.status === 401) {
+            await router.push({ name: "login", query: { redirect: route.fullPath } });
+            return null;
+        }
     }
     return res;
 }
