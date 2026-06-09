@@ -95,7 +95,8 @@ async function loadSlots(): Promise<void> {
         const res = await fetch(`${API_BASE_URL}/api/bots/${botId.value}/embeds`, { headers });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         slots.value = (await res.json()) as EmbedSlot[];
-        if (slots.value.length) selectSlot(slots.value[0].slotKey);
+        const first = slots.value[0];
+        if (first) selectSlot(first.slotKey);
     } catch {
         slots.value = [];
         loadError.value = "โหลด Embed ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
