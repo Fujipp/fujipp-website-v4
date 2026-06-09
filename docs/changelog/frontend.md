@@ -1,9 +1,10 @@
 # Changelog — Frontend
 
-**Current version: `0.3.7.1`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.3.7.2`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.3.7.2` | 2026-06-10 | Embed Designer: redirect to login when a 401 can't be recovered by refresh (expired session) |
 | `0.3.7.1` | 2026-06-09 | Embed Designer: refresh the session + retry once on 401 (fixes stale-token load failure) |
 | `0.3.7` | 2026-06-09 | Embed Designer page: per-slot editor (color/title/desc/image/footer/author) + live Discord-style preview with custom-emoji + markdown render |
 | `0.3.6` | 2026-06-09 | Runtime cards: real-time countdown timer + auto-renew toggle + renew-now button |
