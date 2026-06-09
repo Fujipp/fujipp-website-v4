@@ -1,9 +1,10 @@
 # Changelog — Frontend
 
-**Current version: `0.3.6`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.3.7`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.3.7` | 2026-06-09 | Embed Designer page: per-slot editor (color/title/desc/image/footer/author) + live Discord-style preview with custom-emoji + markdown render |
 | `0.3.6` | 2026-06-09 | Runtime cards: real-time countdown timer + auto-renew toggle + renew-now button |
 | `0.3.5` | 2026-06-09 | Create Bot dialog: pick a Runtime plan + show free VPS slots, charge on add, surface real errors |
 | `0.3.4.1` | 2026-06-09 | fix Shop dashboard feature table category typing for CI builds |

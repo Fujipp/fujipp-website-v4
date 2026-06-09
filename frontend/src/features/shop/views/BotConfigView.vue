@@ -155,7 +155,10 @@ onMounted(async () => {
                         <h1 :class="$style.pageTitle" class="type-h1-page-title-sb">BOT CONFIG</h1>
                         <p :class="$style.subtitle" class="type-body-small-r">ตั้งค่าฟีเจอร์ของบอท · {{ botName || botId || "—" }}</p>
                     </div>
-                    <button type="button" :class="$style.settingsButton" @click="showEditBot = true">⚙️ ตั้งค่าบอท (Token)</button>
+                    <div :class="$style.headerActions">
+                        <button type="button" :class="$style.settingsButton" @click="router.push({ name: 'shop-bot-embeds', params: { botId } })">🎨 ออกแบบ Embed</button>
+                        <button type="button" :class="$style.settingsButton" @click="showEditBot = true">⚙️ ตั้งค่าบอท (Token)</button>
+                    </div>
                 </div>
             </section>
 
@@ -243,6 +246,13 @@ onMounted(async () => {
     justify-content: space-between;
     gap: var(--spacing-space-4);
     flex-wrap: wrap;
+}
+
+.headerActions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-space-2);
+    flex-shrink: 0;
 }
 
 .settingsButton {

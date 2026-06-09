@@ -15,6 +15,7 @@ const ShopDashboardView = () => import('@/features/shop/views/ShopDashboardView.
 const ShopWalletView = () => import('@/features/shop/views/ShopWalletView.vue')
 const ShopPackageView = () => import('@/features/shop/views/ShopPackageView.vue')
 const BotConfigView = () => import('@/features/shop/views/BotConfigView.vue')
+const EmbedDesignerView = () => import('@/features/shop/views/EmbedDesignerView.vue')
 const AuthView = () => import('@/features/auth/views/AuthView.vue')
 
 const AUTH_CALLBACK_QUERY_KEYS = ['code', 'error', 'error_code', 'error_description'] as const
@@ -70,6 +71,7 @@ const router = createRouter({
     { path: '/shop/wallet', name: 'shop-wallet', component: ShopWalletView },
     { path: '/shop/package', name: 'shop-package', component: ShopPackageView },
     { path: '/shop/bots/:botId/config', name: 'shop-bot-config', component: BotConfigView },
+    { path: '/shop/bots/:botId/embeds', name: 'shop-bot-embeds', component: EmbedDesignerView },
 
     // Auth routes
     { path: '/login',    name: 'login',    component: AuthView },
