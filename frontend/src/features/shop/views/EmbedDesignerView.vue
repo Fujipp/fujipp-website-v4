@@ -116,13 +116,17 @@ async function loadSlots(): Promise<void> {
     try {
         const res = await authedFetch(`${API_BASE_URL}/api/bots/${botId.value}/embeds`);
         if (!res) return;
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) {
+            let body = "";
+            try { body = (await res.text()).slice(0, 300); } catch { /* ignore */ }
+            throw new Error(`HTTP ${res.status}${body ? ` — ${body}` : ""}`);
+        }
         slots.value = (await res.json()) as EmbedSlot[];
         const first = slots.value[0];
         if (first) selectSlot(first.slotKey);
-    } catch {
+    } catch (e) {
         slots.value = [];
-        loadError.value = "โหลด Embed ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+        loadError.value = `โหลด Embed ไม่สำเร็จ: ${(e as Error).message || "กรุณาลองใหม่อีกครั้ง"}`;
     } finally {
         isLoading.value = false;
     }
