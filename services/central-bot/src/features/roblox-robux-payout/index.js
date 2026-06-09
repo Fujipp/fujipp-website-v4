@@ -11,6 +11,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const roblox = require('./roblox');
 const panel = require('./panel');
+const { isAdmin } = require('../../lib/perms');
 
 const BRAND = 0x37373d;
 
@@ -55,8 +56,8 @@ async function handleBalance(interaction, ctx) {
 
 async function handlePayout(interaction, ctx) {
   if (!ensureEnabled(interaction, ctx)) return;
-  if (!ctx.config.isAuthorized(interaction.user.id)) {
-    await interaction.reply({ content: 'คุณไม่มีสิทธิ์ใช้คำสั่งนี้', ephemeral: true });
+  if (!isAdmin(interaction, ctx)) {
+    await interaction.reply({ content: 'คุณไม่มีสิทธิ์ใช้คำสั่งนี้ (เฉพาะแอดมินเซิร์ฟเวอร์)', ephemeral: true });
     return;
   }
   const username = interaction.options.getString('username', true);

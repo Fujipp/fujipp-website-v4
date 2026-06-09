@@ -10,6 +10,7 @@ const {
   ModalBuilder, TextInputBuilder, TextInputStyle,
 } = require('discord.js');
 const roblox = require('./roblox');
+const { isAdmin } = require('../../lib/perms');
 const { redeemRobux } = require('./redeem');
 
 // Fixed component ids (routed by prefix in bot.js).
@@ -57,8 +58,8 @@ function buildComponents(ctx) {
 
 // /panel — admin posts the shop panel into the channel.
 async function handlePanel(interaction, ctx) {
-  if (!ctx.config.isAuthorized(interaction.user.id)) {
-    await interaction.reply({ content: 'คุณไม่มีสิทธิ์ใช้คำสั่งนี้', ephemeral: true });
+  if (!isAdmin(interaction, ctx)) {
+    await interaction.reply({ content: 'คุณไม่มีสิทธิ์ใช้คำสั่งนี้ (เฉพาะแอดมินเซิร์ฟเวอร์)', ephemeral: true });
     return;
   }
   const embed = await ctx.services.embeds.renderEmbed('shop_panel');

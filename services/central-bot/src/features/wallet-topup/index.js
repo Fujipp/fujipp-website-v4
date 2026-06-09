@@ -11,6 +11,7 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { makeWallet } = require('../../lib/wallet');
 const topup = require('./topup');
+const { isAdmin } = require('../../lib/perms');
 
 const thb = (satang) => `฿${(satang / 100).toLocaleString('th-TH')}`;
 
@@ -25,8 +26,8 @@ async function handleWallet(interaction, ctx) {
 }
 
 async function handleWalletAdd(interaction, ctx) {
-  if (!ctx.config.isAuthorized(interaction.user.id)) {
-    await interaction.reply({ content: 'คุณไม่มีสิทธิ์ใช้คำสั่งนี้', ephemeral: true });
+  if (!isAdmin(interaction, ctx)) {
+    await interaction.reply({ content: 'คุณไม่มีสิทธิ์ใช้คำสั่งนี้ (เฉพาะแอดมินเซิร์ฟเวอร์)', ephemeral: true });
     return;
   }
   const member = interaction.options.getUser('member', true);
