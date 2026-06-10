@@ -1,9 +1,10 @@
 # Changelog — Database
 
-**Current version: `0.1.5.1`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.1.6`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.1.6` | 2026-06-10 | roblox-robux-payout: add numbered group config templates (ROBLOX_*_1/_2/_3), make legacy single keys optional, clarify ROBUX_RATE = Robux per baht |
 | `0.1.5.1` | 2026-06-10 | seed Kanom button/dropdown component appearance defaults under embed slot JSON components |
 | `0.1.5` | 2026-06-10 | seed real Kanom embed designs as slot defaults (panel + top-up flow visuals, dynamic {{vars}}, custom emoji) |
 | `0.1.4` | 2026-06-09 | add embed designer: `bots.embed_slots` (registry + defaults) + `bots.bot_embeds` (per-bot overrides); seed Kanom slots |
