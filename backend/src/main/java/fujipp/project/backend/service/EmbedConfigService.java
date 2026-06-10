@@ -30,14 +30,25 @@ public class EmbedConfigService {
     private final BotInstanceRepository bots;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    /** Every slot with its effective embed (override if set, else the seeded default). */
+    /** Every slot with its effective embed (seeded default merged with any bot override). */
     @Transactional(readOnly = true)
     public String listEmbeds(UUID userId, UUID botId) {
         assertOwner(userId, botId);
         List<ObjectNode> rows = jdbc.query(
             """
             SELECT s.feature_code, s.slot_key, s.label, s.description, s.available_vars, s.sort_order,
-                   COALESCE(b.embed_json::text, s.default_json::text) AS embed_text,
+                   (
+                     COALESCE(b.embed_json, s.default_json)
+                     || CASE
+                          WHEN (s.default_json ? 'components') OR (COALESCE(b.embed_json, '{}'::jsonb) ? 'components')
+                          THEN jsonb_build_object(
+                            'components',
+                            COALESCE(s.default_json->'components', '{}'::jsonb)
+                            || COALESCE(b.embed_json->'components', '{}'::jsonb)
+                          )
+                          ELSE '{}'::jsonb
+                        END
+                   )::text AS embed_text,
                    (b.id IS NOT NULL) AS overridden
               FROM bots.embed_slots s
               LEFT JOIN bots.bot_embeds b
@@ -72,7 +83,18 @@ public class EmbedConfigService {
         assertOwner(userId, botId);
         List<String> found = jdbc.query(
             """
-            SELECT COALESCE(b.embed_json::text, s.default_json::text) AS embed_text
+            SELECT (
+                     COALESCE(b.embed_json, s.default_json)
+                     || CASE
+                          WHEN (s.default_json ? 'components') OR (COALESCE(b.embed_json, '{}'::jsonb) ? 'components')
+                          THEN jsonb_build_object(
+                            'components',
+                            COALESCE(s.default_json->'components', '{}'::jsonb)
+                            || COALESCE(b.embed_json->'components', '{}'::jsonb)
+                          )
+                          ELSE '{}'::jsonb
+                        END
+                   )::text AS embed_text
               FROM bots.embed_slots s
               LEFT JOIN bots.bot_embeds b
                      ON b.slot_key = s.slot_key AND b.subject_id = ?

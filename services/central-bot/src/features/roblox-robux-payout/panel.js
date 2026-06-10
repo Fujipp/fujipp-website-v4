@@ -12,6 +12,7 @@ const {
 const roblox = require('./roblox');
 const { isAdmin } = require('../../lib/perms');
 const { redeemRobux } = require('./redeem');
+const { buttonStyle, parseEmoji, applyButton } = require('../../lib/components');
 
 // Fixed component ids (routed by prefix in bot.js).
 const ID = {
@@ -31,19 +32,23 @@ async function fetchStock(groups) {
     roblox.getGroupFunds({ groupKey: g.key }).then((f) => (f && f.ok ? f.robux : null)).catch(() => null)));
 }
 
-function buildComponents(ctx, groups, stock) {
+// `comp` = config.components (appearance overrides per role); custom_ids stay fixed.
+function buildComponents(ctx, groups, stock, comp = {}) {
   const rows = [];
 
   if (groups.length) {
+    const sel = comp.group_select || {};
+    const selectEmoji = parseEmoji(sel.emoji);
     const select = new StringSelectMenuBuilder()
       .setCustomId(ID.group)
-      .setPlaceholder('เลือกกลุ่มที่ต้องการซื้อ')
+      .setPlaceholder(String(sel.placeholder || 'เลือกกลุ่มที่ต้องการซื้อ').slice(0, 150))
       .addOptions(
         groups.slice(0, 25).map((g, i) => {
           const opt = new StringSelectMenuOptionBuilder()
             .setLabel(String(g.name || `กลุ่ม ${i + 1}`).slice(0, 100))
             .setValue(String(g.key));
           if (stock && stock[i] != null) opt.setDescription(`ยอดคงเหลือ ${stock[i].toLocaleString()}`.slice(0, 100));
+          if (selectEmoji) { try { opt.setEmoji(selectEmoji); } catch (_e) { /* skip */ } }
           return opt;
         }),
       );
@@ -51,13 +56,13 @@ function buildComponents(ctx, groups, stock) {
   }
 
   const buttons = [
-    new ButtonBuilder().setCustomId(ID.topup).setLabel('เติมเงิน').setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId(ID.buy).setLabel('ซื้อสินค้า').setStyle(ButtonStyle.Danger),
-    new ButtonBuilder().setCustomId(ID.balance).setLabel('เช็คยอดคงเหลือ').setStyle(ButtonStyle.Secondary),
+    applyButton(new ButtonBuilder().setCustomId(ID.topup).setStyle(buttonStyle(comp.btn_topup && comp.btn_topup.style, ButtonStyle.Primary)), comp.btn_topup, 'เติมเงิน'),
+    applyButton(new ButtonBuilder().setCustomId(ID.buy).setStyle(buttonStyle(comp.btn_buy && comp.btn_buy.style, ButtonStyle.Danger)), comp.btn_buy, 'ซื้อสินค้า'),
+    applyButton(new ButtonBuilder().setCustomId(ID.balance).setStyle(buttonStyle(comp.btn_balance && comp.btn_balance.style, ButtonStyle.Secondary)), comp.btn_balance, 'เช็คยอดคงเหลือ'),
   ];
-  const link = ctx.config.get('GROUP_LINK');
+  const link = (comp.btn_link && comp.btn_link.url) || ctx.config.get('GROUP_LINK');
   if (link && /^https?:\/\//i.test(link)) {
-    buttons.push(new ButtonBuilder().setLabel('ลิงก์กลุ่ม').setStyle(ButtonStyle.Link).setURL(link));
+    buttons.push(applyButton(new ButtonBuilder().setStyle(ButtonStyle.Link).setURL(link), comp.btn_link, 'ลิงก์กลุ่ม'));
   }
   rows.push(new ActionRowBuilder().addComponents(buttons));
 
@@ -74,6 +79,7 @@ async function handlePanel(interaction, ctx) {
 
   const groups = roblox.getGroupConfigs().list;
   const stock = groups.length ? await fetchStock(groups) : [];
+  const cfg = await ctx.services.embeds.getConfig('shop_panel');
   const embed = await ctx.services.embeds.renderEmbed('shop_panel');
   // Inject per-group stock fields (Robux กลุ่ม 1/2/3) to match the original design.
   if (groups.length) {
@@ -84,7 +90,7 @@ async function handlePanel(interaction, ctx) {
     })));
   }
 
-  await interaction.channel.send({ embeds: [embed], components: buildComponents(ctx, groups, stock) });
+  await interaction.channel.send({ embeds: [embed], components: buildComponents(ctx, groups, stock, cfg.components || {}) });
   await interaction.editReply({ content: 'โพสต์แผงร้านแล้ว ✅' });
 }
 
@@ -104,14 +110,23 @@ async function onBalance(interaction, ctx) {
 }
 
 async function onTopup(interaction, ctx) {
+  const cfg = await ctx.services.embeds.getConfig('topup_method');
+  const sel = (cfg.components && cfg.components.method_select) || {};
+  const emoji = parseEmoji(sel.emoji);
   const embed = await ctx.services.embeds.renderEmbed('topup_method');
   const select = new StringSelectMenuBuilder()
     .setCustomId(ID.topupMethod)
-    .setPlaceholder('เลือกช่องทางการเติมเงิน')
-    .addOptions(
-      new StringSelectMenuOptionBuilder().setLabel('พร้อมเพย์ธนาคาร').setValue('promptpay'),
-      new StringSelectMenuOptionBuilder().setLabel('ซองอั่งเปาทรูมันนี่').setValue('truemoney'),
-    );
+    .setPlaceholder(String(sel.placeholder || 'เลือกช่องทางการเติมเงิน').slice(0, 150));
+  const options = [
+    new StringSelectMenuOptionBuilder().setLabel('พร้อมเพย์ธนาคาร').setValue('promptpay'),
+    new StringSelectMenuOptionBuilder().setLabel('ซองอั่งเปาทรูมันนี่').setValue('truemoney'),
+  ];
+  if (emoji) {
+    for (const opt of options) {
+      try { opt.setEmoji(emoji); } catch (_e) { /* skip invalid emoji */ }
+    }
+  }
+  select.addOptions(options);
   await interaction.reply({
     embeds: [embed],
     components: [new ActionRowBuilder().addComponents(select)],

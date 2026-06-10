@@ -1,9 +1,10 @@
 # Changelog — Database
 
-**Current version: `0.1.5`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.1.5.1`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.1.5.1` | 2026-06-10 | seed Kanom button/dropdown component appearance defaults under embed slot JSON components |
 | `0.1.5` | 2026-06-10 | seed real Kanom embed designs as slot defaults (panel + top-up flow visuals, dynamic {{vars}}, custom emoji) |
 | `0.1.4` | 2026-06-09 | add embed designer: `bots.embed_slots` (registry + defaults) + `bots.bot_embeds` (per-bot overrides); seed Kanom slots |
 | `0.1.3` | 2026-06-09 | add `bots.vps_nodes` (host registry + max_slots) + `bot_instances.vps_node_id`; seed primary VPS at 5 slots |

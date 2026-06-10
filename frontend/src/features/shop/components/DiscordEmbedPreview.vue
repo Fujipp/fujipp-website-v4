@@ -6,6 +6,13 @@ export interface EmbedField {
     value?: string;
     inline?: boolean;
 }
+export interface ComponentConfig {
+    label?: string;
+    emoji?: string;
+    style?: string;
+    placeholder?: string;
+    url?: string;
+}
 export interface EmbedObject {
     color?: number;
     title?: string;
@@ -16,9 +23,30 @@ export interface EmbedObject {
     footer?: { text?: string; icon_url?: string };
     author?: { name?: string; icon_url?: string };
     fields?: EmbedField[];
+    components?: Record<string, ComponentConfig>;
 }
 
-const props = defineProps<{ embed: EmbedObject }>();
+const props = defineProps<{ embed: EmbedObject; slotKey?: string }>();
+
+interface PreviewRole {
+    key: string;
+    label: string;
+    type: "button" | "select" | "link";
+    fallback: string;
+}
+
+const COMPONENT_ROLES: Record<string, PreviewRole[]> = {
+    shop_panel: [
+        { key: "group_select", label: "เมนูเลือกกลุ่ม", type: "select", fallback: "เลือกกลุ่มที่ต้องการซื้อ" },
+        { key: "btn_topup", label: "ปุ่ม เติมเงิน", type: "button", fallback: "เติมเงิน" },
+        { key: "btn_buy", label: "ปุ่ม ซื้อสินค้า", type: "button", fallback: "ซื้อสินค้า" },
+        { key: "btn_balance", label: "ปุ่ม เช็คยอด", type: "button", fallback: "เช็คยอดคงเหลือ" },
+        { key: "btn_link", label: "ปุ่ม ลิงก์กลุ่ม", type: "link", fallback: "ลิงก์กลุ่ม" },
+    ],
+    topup_method: [
+        { key: "method_select", label: "เมนูช่องทางเติมเงิน", type: "select", fallback: "เลือกช่องทางการเติมเงิน" },
+    ],
+};
 
 function escapeHtml(s: string): string {
     return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -60,6 +88,29 @@ const image = computed(() => safeUrl(props.embed.image?.url));
 const thumbnail = computed(() => safeUrl(props.embed.thumbnail?.url));
 const authorIcon = computed(() => safeUrl(props.embed.author?.icon_url));
 const footerIcon = computed(() => safeUrl(props.embed.footer?.icon_url));
+const previewRoles = computed(() => (props.slotKey ? COMPONENT_ROLES[props.slotKey] ?? [] : []));
+
+function component(role: PreviewRole): ComponentConfig {
+    return props.embed.components?.[role.key] ?? {};
+}
+
+function componentText(role: PreviewRole): string {
+    const cfg = component(role);
+    return role.type === "select" ? (cfg.placeholder || role.fallback) : (cfg.label || role.fallback);
+}
+
+function componentEmoji(role: PreviewRole): string {
+    return component(role).emoji || "";
+}
+
+function buttonClass(role: PreviewRole): string {
+    const style = role.type === "link" ? "link" : (component(role).style || "");
+    if (style === "primary") return "primary";
+    if (style === "success") return "success";
+    if (style === "danger") return "danger";
+    if (style === "link") return "link";
+    return "secondary";
+}
 </script>
 
 <template>
@@ -92,6 +143,29 @@ const footerIcon = computed(() => safeUrl(props.embed.footer?.icon_url));
                 </div>
             </div>
             <img v-if="thumbnail" :class="$style.thumb" :src="thumbnail" alt="" />
+        </div>
+
+        <div v-if="previewRoles.length" :class="$style.components">
+            <div
+                v-for="role in previewRoles.filter((r) => r.type === 'select')"
+                :key="role.key"
+                :class="$style.selectPreview"
+            >
+                <span v-if="componentEmoji(role)" v-html="renderText(componentEmoji(role))" />
+                <span>{{ componentText(role) }}</span>
+                <span :class="$style.chevron">⌄</span>
+            </div>
+            <div :class="$style.buttonRow">
+                <button
+                    v-for="role in previewRoles.filter((r) => r.type !== 'select')"
+                    :key="role.key"
+                    type="button"
+                    :class="[$style.previewButton, $style[buttonClass(role)]]"
+                >
+                    <span v-if="componentEmoji(role)" v-html="renderText(componentEmoji(role))" />
+                    <span>{{ componentText(role) }}</span>
+                </button>
+            </div>
         </div>
     </div>
 </template>
@@ -142,4 +216,16 @@ const footerIcon = computed(() => safeUrl(props.embed.footer?.icon_url));
 .embed :global(code) { background: #1e1f22; border-radius: 3px; padding: 0 3px; font-family: monospace; font-size: 13px; }
 .embed :global(code.block) { display: block; padding: 6px 8px; margin: 2px 0; white-space: pre-wrap; }
 .embed :global(.quote) { display: inline-block; border-left: 3px solid #4e5058; padding-left: 8px; }
+
+.components { display: flex; flex-direction: column; gap: 8px; max-width: 432px; margin-top: 8px; }
+.selectPreview { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 12px; border: 1px solid #3f4147; border-radius: 4px; background: #2b2d31; color: #b5bac1; font-size: 14px; }
+.chevron { margin-left: auto; color: #949ba4; font-size: 18px; line-height: 1; }
+.buttonRow { display: flex; flex-wrap: wrap; gap: 8px; }
+.previewButton { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 38px; padding: 0 14px; border: 0; border-radius: 4px; color: #fff; font-weight: 600; font-size: 14px; cursor: default; }
+.primary { background: #5865f2; }
+.secondary { background: #4e5058; }
+.success { background: #248046; }
+.danger { background: #da373c; }
+.link { background: #5865f2; }
+.components :global(.emoji) { width: 1.25em; height: 1.25em; vertical-align: bottom; object-fit: contain; }
 </style>

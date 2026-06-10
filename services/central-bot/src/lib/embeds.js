@@ -1,9 +1,9 @@
 // src/lib/embeds.js
-// Configurable embed renderer (config layer 3). Loads a slot's template — the bot's
-// own override (bots.bot_embeds) or the seeded default (bots.embed_slots) — substitutes
-// {{vars}}, and builds a discord.js EmbedBuilder. Component behavior stays in the
-// feature; this only renders the visual embed. Custom emoji markup (<:name:id>) is
-// kept as-is so Discord renders it natively.
+// Configurable embed renderer (config layer 3). Loads a slot's seeded default
+// (bots.embed_slots), merges any bot override (bots.bot_embeds), substitutes {{vars}},
+// and builds a discord.js EmbedBuilder. Component behavior stays in the feature; this
+// only renders the visual embed. Custom emoji markup (<:name:id>) is kept as-is so
+// Discord renders it natively.
 
 const { EmbedBuilder } = require('discord.js');
 const { pool } = require('./db');
@@ -23,6 +23,26 @@ function clip(s, n) {
 function httpUrl(v) {
   const s = str(v);
   return /^https?:\/\//i.test(s) ? s : null;
+}
+function plainObject(v) {
+  return v && typeof v === 'object' && !Array.isArray(v);
+}
+
+// A bot override still owns the embed body. Component roles merge one level deep so
+// old overrides inherit newly seeded button/dropdown defaults from the Kanom slot
+// template without forcing default title/image/fields back into an edited embed.
+function mergeTemplate(defaultJson, overrideJson) {
+  const base = plainObject(defaultJson) ? defaultJson : {};
+  const hasOverride = plainObject(overrideJson);
+  const override = hasOverride ? overrideJson : {};
+  const merged = { ...(hasOverride ? override : base) };
+  if (plainObject(base.components) || plainObject(override.components)) {
+    merged.components = {
+      ...(plainObject(base.components) ? base.components : {}),
+      ...(plainObject(override.components) ? override.components : {}),
+    };
+  }
+  return merged;
 }
 
 // Replace {{key}} everywhere in the template; unknown keys collapse to '' so no
@@ -47,19 +67,17 @@ async function loadTemplate(subjectId, slotKey) {
 
   let json = {};
   try {
-    const override = await pool.query(
-      `SELECT embed_json FROM bots.bot_embeds WHERE subject_id = $1 AND slot_key = $2`,
+    const result = await pool.query(
+      `SELECT s.default_json, b.embed_json
+         FROM bots.embed_slots s
+         LEFT JOIN bots.bot_embeds b
+                ON b.slot_key = s.slot_key AND b.subject_id = $1
+        WHERE s.slot_key = $2
+        LIMIT 1`,
       [subjectId, slotKey],
     );
-    if (override.rows[0]) {
-      json = override.rows[0].embed_json;
-    } else {
-      const def = await pool.query(
-        `SELECT default_json FROM bots.embed_slots WHERE slot_key = $1 LIMIT 1`,
-        [slotKey],
-      );
-      json = def.rows[0] ? def.rows[0].default_json : {};
-    }
+    const row = result.rows[0];
+    json = row ? mergeTemplate(row.default_json, row.embed_json) : {};
   } catch (err) {
     console.error(`[central-bot] embed load failed for ${slotKey}:`, err.message);
     json = {};
@@ -106,11 +124,16 @@ function makeEmbedRenderer(subjectId) {
     const template = await loadTemplate(subjectId, slotKey);
     return buildEmbed(substitute(template, vars), slotKey);
   }
+  // Raw merged config for a slot (override or default) — lets a feature read the
+  // configurable component appearance (config.components) for that slot.
+  async function getConfig(slotKey) {
+    return loadTemplate(subjectId, slotKey);
+  }
   // Drop cached templates (call after a config edit to pick it up immediately).
   function invalidate(slotKey) {
     if (slotKey) cache.delete(`${subjectId}:${slotKey}`);
   }
-  return { renderEmbed, invalidate };
+  return { renderEmbed, getConfig, invalidate };
 }
 
 module.exports = { makeEmbedRenderer };

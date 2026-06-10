@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ShopSidebar, DiscordEmbedPreview } from "@/features/shop/components";
-import type { EmbedObject } from "@/features/shop/components";
+import type { EmbedObject, ComponentConfig } from "@/features/shop/components";
 import { TextField, StatusToast } from "@/shared/ui";
 import { API_BASE_URL } from "@/config";
 import { useUserStore } from "@/stores";
@@ -36,6 +36,29 @@ const loadError = ref("");
 const toast = ref<{ status: ToastStatus; title: string; description?: string } | null>(null);
 
 const selected = computed(() => slots.value.find((s) => s.slotKey === selectedKey.value) ?? null);
+
+// Editable component roles per slot (custom_id/behavior stay fixed in the bot).
+type RoleType = "button" | "select" | "link";
+interface Role { key: string; label: string; type: RoleType }
+const COMPONENT_ROLES: Record<string, Role[]> = {
+    shop_panel: [
+        { key: "group_select", label: "เมนูเลือกกลุ่ม", type: "select" },
+        { key: "btn_topup", label: "ปุ่ม เติมเงิน", type: "button" },
+        { key: "btn_buy", label: "ปุ่ม ซื้อสินค้า", type: "button" },
+        { key: "btn_balance", label: "ปุ่ม เช็คยอด", type: "button" },
+        { key: "btn_link", label: "ปุ่ม ลิงก์กลุ่ม", type: "link" },
+    ],
+    topup_method: [
+        { key: "method_select", label: "เมนูช่องทางเติมเงิน", type: "select" },
+    ],
+};
+const BUTTON_STYLES = [
+    { value: "primary", label: "น้ำเงิน (primary)" },
+    { value: "secondary", label: "เทา (secondary)" },
+    { value: "success", label: "เขียว (success)" },
+    { value: "danger", label: "แดง (danger)" },
+];
+const roles = computed<Role[]>(() => COMPONENT_ROLES[selectedKey.value] ?? []);
 
 function notify(status: ToastStatus, title: string, description?: string): void {
     toast.value = { status, title, description };
@@ -86,10 +109,20 @@ function normalize(embed: EmbedObject): EmbedObject {
     return e;
 }
 
+function ensureComponentRoles(embed: EmbedObject, slotKey: string): EmbedObject {
+    const editableRoles = COMPONENT_ROLES[slotKey] ?? [];
+    if (!editableRoles.length) return embed;
+    embed.components = embed.components ?? {};
+    for (const role of editableRoles) {
+        embed.components[role.key] = embed.components[role.key] ?? {};
+    }
+    return embed;
+}
+
 function selectSlot(key: string): void {
     selectedKey.value = key;
     const slot = slots.value.find((s) => s.slotKey === key);
-    draft.value = slot ? normalize(slot.embed) : null;
+    draft.value = slot ? ensureComponentRoles(normalize(slot.embed), key) : null;
 }
 
 const colorHex = computed<string>({
@@ -116,6 +149,22 @@ function removeField(index: number): void {
     draft.value?.fields?.splice(index, 1);
 }
 
+function cleanComponent(role: Role, cfg: ComponentConfig): ComponentConfig | null {
+    const out: ComponentConfig = {};
+    const label = cfg.label?.trim();
+    const emoji = cfg.emoji?.trim();
+    const style = cfg.style?.trim();
+    const placeholder = cfg.placeholder?.trim();
+    const url = cfg.url?.trim();
+
+    if (role.type !== "select" && label) out.label = label;
+    if (emoji) out.emoji = emoji;
+    if (role.type === "button" && style) out.style = style;
+    if (role.type === "select" && placeholder) out.placeholder = placeholder;
+    if (role.type === "link" && url) out.url = url;
+    return Object.keys(out).length ? out : null;
+}
+
 // Strip the editor's helper-empty nested objects so we don't persist blank fields.
 function clean(embed: EmbedObject): EmbedObject {
     const e: EmbedObject = cloneEmbed(embed);
@@ -126,6 +175,18 @@ function clean(embed: EmbedObject): EmbedObject {
     if (e.fields) {
         e.fields = e.fields.filter((f) => (f.name && f.name.trim()) || (f.value && f.value.trim()));
         if (e.fields.length === 0) delete e.fields;
+    }
+    const editableRoles = COMPONENT_ROLES[selectedKey.value] ?? [];
+    if (e.components && editableRoles.length) {
+        const kept: Record<string, ComponentConfig> = {};
+        for (const role of editableRoles) {
+            const cfg = e.components[role.key];
+            if (!cfg) continue;
+            const cleaned = cleanComponent(role, cfg);
+            if (cleaned) kept[role.key] = cleaned;
+        }
+        if (Object.keys(kept).length) e.components = kept;
+        else delete e.components;
     }
     return e;
 }
@@ -260,6 +321,54 @@ onMounted(loadSlots);
                             </div>
                         </div>
 
+                        <div v-if="roles.length && draft.components" :class="$style.componentsEditor">
+                            <div :class="$style.fieldsHead">
+                                <span :class="$style.fieldLabel">ปุ่ม / Dropdown</span>
+                                <span :class="$style.helperText">แก้เฉพาะหน้าตา · custom_id คงที่</span>
+                            </div>
+
+                            <div v-for="role in roles" :key="role.key" :class="$style.componentRow">
+                                <div :class="$style.componentTitle">
+                                    <span>{{ role.label }}</span>
+                                    <code>{{ role.key }}</code>
+                                </div>
+
+                                <div :class="$style.grid2">
+                                    <TextField
+                                        v-if="role.type !== 'select'"
+                                        v-model="draft.components[role.key].label"
+                                        label="Label"
+                                        placeholder="ข้อความบนปุ่ม"
+                                    />
+                                    <TextField v-model="draft.components[role.key].emoji" label="Emoji" placeholder="😀 หรือ <:name:id>" />
+                                </div>
+
+                                <div v-if="role.type === 'button'" :class="$style.selectField">
+                                    <label :class="$style.fieldLabel">Style</label>
+                                    <select v-model="draft.components[role.key].style" :class="$style.nativeSelect">
+                                        <option value="">ค่าเริ่มต้น</option>
+                                        <option v-for="style in BUTTON_STYLES" :key="style.value" :value="style.value">
+                                            {{ style.label }}
+                                        </option>
+                                    </select>
+                                </div>
+
+                                <TextField
+                                    v-if="role.type === 'select'"
+                                    v-model="draft.components[role.key].placeholder"
+                                    label="Placeholder"
+                                    placeholder="ข้อความใน dropdown"
+                                />
+
+                                <TextField
+                                    v-if="role.type === 'link'"
+                                    v-model="draft.components[role.key].url"
+                                    label="URL"
+                                    placeholder="https://"
+                                />
+                            </div>
+                        </div>
+
                         <button type="button" :class="$style.saveButton" :disabled="isSaving" @click="save">
                             {{ isSaving ? "กำลังบันทึก…" : "บันทึก Embed" }}
                         </button>
@@ -267,7 +376,7 @@ onMounted(loadSlots);
 
                     <div :class="$style.previewCol">
                         <span :class="$style.previewLabel" class="type-body-small-r">พรีวิว</span>
-                        <DiscordEmbedPreview :embed="draft" />
+                        <DiscordEmbedPreview :embed="draft" :slot-key="selectedKey" />
                         <p :class="$style.previewHint" class="type-body-small-r">
                             custom emoji วาง <code>&lt;:name:id&gt;</code> จากเซิร์ฟเวอร์ Discord ได้
                         </p>
@@ -324,12 +433,20 @@ onMounted(loadSlots);
 
 .fieldsEditor { display: flex; flex-direction: column; gap: var(--spacing-space-2); }
 .fieldsHead { display: flex; align-items: center; justify-content: space-between; }
+.helperText { color: var(--color-text-secondary); font-size: 12px; }
 .addBtn { padding: 4px 10px; border: 1px solid var(--color-main-border); border-radius: var(--radius-full); background: var(--color-main-surface); color: var(--color-text-secondary); font-size: 13px; cursor: pointer; }
 .addBtn:hover { border-color: var(--color-main-primary); color: var(--color-text-primary); }
 .fieldRow { display: grid; grid-template-columns: 1fr 1fr auto auto; align-items: end; gap: var(--spacing-space-2); padding: var(--spacing-space-2); border: 1px solid var(--color-main-divider); border-radius: var(--radius-lg); }
 .inlineToggle { display: inline-flex; align-items: center; gap: 4px; color: var(--color-text-secondary); font-size: 12px; white-space: nowrap; padding-bottom: 10px; }
 .inlineToggle input { accent-color: var(--color-main-primary); }
 .removeBtn { height: 34px; padding: 0 10px; border: 0; border-radius: var(--radius-lg); background: var(--color-status-error); color: #fff; font-size: 13px; cursor: pointer; }
+
+.componentsEditor { display: flex; flex-direction: column; gap: var(--spacing-space-2); margin-top: var(--spacing-space-2); }
+.componentRow { display: flex; flex-direction: column; gap: var(--spacing-space-2); padding: var(--spacing-space-3); border: 1px solid var(--color-main-divider); border-radius: var(--radius-lg); background: var(--color-main-surface); }
+.componentTitle { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-space-2); color: var(--color-text-primary); font-size: 14px; font-weight: 600; }
+.componentTitle code { color: var(--color-text-secondary); font-family: monospace; font-size: 12px; font-weight: 400; }
+.selectField { display: flex; flex-direction: column; gap: 6px; }
+.nativeSelect { width: 100%; height: 40px; padding: 0 12px; border: 1px solid var(--color-main-border); border-radius: var(--radius-lg); background: var(--color-main-background); color: var(--color-text-primary); font-family: var(--font-sans); font-size: 14px; }
 
 @media (max-width: 700px) { .fieldRow { grid-template-columns: 1fr 1fr; } }
 

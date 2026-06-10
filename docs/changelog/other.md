@@ -1,9 +1,12 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.10`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.11.2`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.11.2` | 2026-06-10 | central-bot: embed renderer merges seeded component roles into per-bot overrides while preserving edited embed body fields |
+| `0.0.11.1` | 2026-06-10 | docs: clarify Kanom test-bot handoff and fixed component-role model for Embed Designer continuation |
+| `0.0.11` | 2026-06-10 | central-bot: panel/top-up components read configurable label/emoji/style/placeholder/url appearance from embed JSON roles |
 | `0.0.10` | 2026-06-10 | central-bot: panel injects per-group Robux stock fields + select option stock descriptions (matches Kanom layout); posts to channel |
 | `0.0.9.9` | 2026-06-10 | central-bot: admin gate uses server Administrator permission (or AUTHORIZED_USER_IDS) for /panel, /wallet-add, /robux-payout |
 | `0.0.9.8` | 2026-06-10 | central-bot: TrueMoney voucher top-up (F3) — เติมเงิน→method→modal→voucher-service /v1/redeem→credit→topup_success/failed |

@@ -1,9 +1,10 @@
 # Changelog — Frontend
 
-**Current version: `0.3.8`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.3.9`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.3.9` | 2026-06-10 | Embed Designer: component appearance editor for fixed button/dropdown roles + live component preview |
 | `0.3.8` | 2026-06-10 | Embed Designer: fields[] editor (add/remove name·value·inline) + preview |
 | `0.3.7.4` | 2026-06-10 | Embed Designer: clone embeds via JSON (structuredClone failed on Vue reactive proxy → load error) |
 | `0.3.7.3` | 2026-06-10 | Embed Designer: surface the HTTP status + body in the load error (diagnostics) |
