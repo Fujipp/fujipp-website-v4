@@ -15,9 +15,11 @@
 
 const robloxRobuxPayout = require('./roblox-robux-payout');
 const walletTopup = require('./wallet-topup');
+const walletHistory = require('./wallet-history');
+const topSpenderRank = require('./top-spender-rank');
 
 // wallet-topup first so its ctx.services.wallet exists before features that use it.
-const ALL = [walletTopup, robloxRobuxPayout];
+const ALL = [walletTopup, robloxRobuxPayout, walletHistory, topSpenderRank];
 
 function loadEnabled(config) {
   return ALL.filter((f) => config.isFeatureEnabled(f.code));

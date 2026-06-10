@@ -3,14 +3,17 @@
 // other features via ctx.services.wallet (e.g. Roblox redeem debits it).
 //
 // Config keys (billing.feature_variable_templates): API_SLIPOK_KEY, SLIPOK_BRANCH_ID,
-// PROMPTPAY_NUMBER, MIN_TOPUP, API_TRUEMONEY_KEY_ID, TRUEMONEY_PHONE, TRUEMONEY_BASE, TRUEMONEY_FEE
+// PROMPTPAY_NUMBER, PROMPTPAY_ACCOUNT_NAME, MIN_TOPUP, TOPUP_QR_TIMEOUT,
+// SLIP_CHECK_CHANNEL, TOPUP_NOTIFY_CHANNEL, API_TRUEMONEY_KEY_ID, TRUEMONEY_PHONE,
+// TRUEMONEY_BASE, TRUEMONEY_FEE
 //
-// v1 top-up is a manual admin credit (/wallet-add). Automated SlipOK / TrueMoney
-// verification reuses the same wallet.credit() and is a follow-up.
+// Top-up paths: TrueMoney voucher + PromptPay QR with SlipOK slip verification
+// (slip.js), plus a manual admin credit (/wallet-add).
 
 const { SlashCommandBuilder } = require('discord.js');
 const { makeWallet } = require('../../lib/wallet');
 const topup = require('./topup');
+const slip = require('./slip');
 const { isAdmin } = require('../../lib/perms');
 
 const thb = (satang) => `฿${(satang / 100).toLocaleString('th-TH')}`;
@@ -77,6 +80,11 @@ module.exports = {
     'wallet-add': handleWalletAdd,
   },
 
-  // Top-up flow components (TrueMoney voucher; PromptPay later).
+  // Top-up flow components (TrueMoney voucher + PromptPay QR).
   components: topup.components,
+
+  // Slip verification listens to messageCreate in SLIP_CHECK_CHANNEL; the extra
+  // (privileged) intents are only requested when the slip config is present.
+  intents: slip.intents,
+  events: slip.events,
 };

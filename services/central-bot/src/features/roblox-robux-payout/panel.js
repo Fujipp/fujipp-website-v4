@@ -7,11 +7,10 @@
 const {
   SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle,
   StringSelectMenuBuilder, StringSelectMenuOptionBuilder,
-  ModalBuilder, TextInputBuilder, TextInputStyle,
 } = require('discord.js');
 const roblox = require('./roblox');
 const { isAdmin } = require('../../lib/perms');
-const { redeemRobux } = require('./redeem');
+const buy = require('./buy');
 const { buttonStyle, parseEmoji, applyButton } = require('../../lib/components');
 
 // Fixed component ids (routed by prefix in bot.js).
@@ -21,7 +20,6 @@ const ID = {
   buy: 'kanom:panel:buy',
   balance: 'kanom:panel:balance',
   topupMethod: 'kanom:topup:method',
-  buyModal: 'kanom:buy:modal', // + ":<groupKey>"
 };
 
 const thb = (satang) => `฿${(satang / 100).toLocaleString('th-TH')}`;
@@ -30,6 +28,81 @@ const thb = (satang) => `฿${(satang / 100).toLocaleString('th-TH')}`;
 async function fetchStock(groups) {
   return Promise.all(groups.map((g) =>
     roblox.getGroupFunds({ groupKey: g.key }).then((f) => (f && f.ok ? f.robux : null)).catch(() => null)));
+}
+
+// ─── Countdown (PAYMENT_COUNTDOWN_*) ─────────────────────────────────────────
+// PAYMENT_COUNTDOWN_TARGET accepts an ISO datetime (absolute target, like the
+// legacy bot's pause date) or a number of seconds counted from when the panel
+// was posted.
+function countdownTarget(ctx, postedAt) {
+  const raw = String(ctx.config.get('PAYMENT_COUNTDOWN_TARGET', '')).trim();
+  if (!raw) return null;
+  if (/^\d+$/.test(raw)) return postedAt + Number(raw) * 1000;
+  const ts = Date.parse(raw);
+  return Number.isFinite(ts) ? ts : null;
+}
+
+function formatCountdown(targetMs) {
+  const remaining = Math.floor((targetMs - Date.now()) / 1000);
+  if (remaining <= 0) return 'ครบกำหนดแล้ว';
+  const days = Math.floor(remaining / 86400);
+  const hours = Math.floor((remaining % 86400) / 3600);
+  const minutes = Math.floor((remaining % 3600) / 60);
+  const seconds = remaining % 60;
+  return `${days} วัน ${hours} ชั่วโมง ${minutes} นาที ${seconds} วินาที`;
+}
+
+// Build the full panel embed: configured shop_panel slot + live per-group stock
+// fields + optional countdown.
+async function buildPanelEmbed(ctx, groups, stock, postedAt) {
+  const embed = await ctx.services.embeds.renderEmbed('shop_panel');
+  if (groups.length) {
+    embed.addFields(groups.slice(0, 25).map((g, i) => ({
+      name: `Robux ${g.name || `กลุ่ม ${i + 1}`}`.slice(0, 256),
+      value: `\`\`\`${stock[i] != null ? stock[i].toLocaleString() : '—'}\`\`\``,
+      inline: true,
+    })));
+  }
+  if (ctx.config.bool('PAYMENT_COUNTDOWN_ENABLED', false)) {
+    const target = countdownTarget(ctx, postedAt);
+    if (target) {
+      embed.addFields({ name: '⏳ นับถอยหลัง', value: `\`\`\`${formatCountdown(target)}\`\`\``, inline: false });
+    }
+  }
+  return embed;
+}
+
+// ─── Auto-refresh (port of the legacy payment.js 10s updater) ────────────────
+// Keeps the posted panel's stock + countdown live. In-memory: a bot restart
+// stops refreshing until an admin posts /panel again.
+const refreshTimers = new Map(); // messageId -> intervalId
+
+function startPanelRefresh(message, ctx) {
+  const intervalMs = Math.max(5_000, ctx.config.number('PAYMENT_REFRESH_INTERVAL', 10_000));
+  const postedAt = Date.now();
+
+  const stop = (intervalId) => {
+    clearInterval(intervalId);
+    refreshTimers.delete(message.id);
+  };
+
+  const intervalId = setInterval(async () => {
+    try {
+      const groups = roblox.getGroupConfigs().list;
+      const stock = groups.length ? await fetchStock(groups) : [];
+      const cfg = await ctx.services.embeds.getConfig('shop_panel');
+      const embed = await buildPanelEmbed(ctx, groups, stock, postedAt);
+      await message.edit({ embeds: [embed], components: buildComponents(ctx, groups, stock, cfg.components || {}) });
+    } catch (err) {
+      console.error('[central-bot] panel refresh error:', err.message);
+      if (/unknown message|missing access/i.test(err.message)) stop(intervalId);
+    }
+  }, intervalMs);
+
+  // Replacing the panel in the same process stops the previous timer.
+  const existing = refreshTimers.get(message.id);
+  if (existing) clearInterval(existing);
+  refreshTimers.set(message.id, intervalId);
 }
 
 // `comp` = config.components (appearance overrides per role); custom_ids stay fixed.
@@ -80,18 +153,14 @@ async function handlePanel(interaction, ctx) {
   const groups = roblox.getGroupConfigs().list;
   const stock = groups.length ? await fetchStock(groups) : [];
   const cfg = await ctx.services.embeds.getConfig('shop_panel');
-  const embed = await ctx.services.embeds.renderEmbed('shop_panel');
-  // Inject per-group stock fields (Robux กลุ่ม 1/2/3) to match the original design.
-  if (groups.length) {
-    embed.addFields(groups.slice(0, 25).map((g, i) => ({
-      name: `Robux ${g.name || `กลุ่ม ${i + 1}`}`.slice(0, 256),
-      value: `\`\`\`${stock[i] != null ? stock[i].toLocaleString() : '—'}\`\`\``,
-      inline: true,
-    })));
-  }
+  const embed = await buildPanelEmbed(ctx, groups, stock, Date.now());
 
-  await interaction.channel.send({ embeds: [embed], components: buildComponents(ctx, groups, stock, cfg.components || {}) });
-  await interaction.editReply({ content: 'โพสต์แผงร้านแล้ว ✅' });
+  const message = await interaction.channel.send({
+    embeds: [embed],
+    components: buildComponents(ctx, groups, stock, cfg.components || {}),
+  });
+  startPanelRefresh(message, ctx);
+  await interaction.editReply({ content: 'โพสต์แผงร้านแล้ว ✅ (ยอดกลุ่ม + นับถอยหลังอัปเดตอัตโนมัติ)' });
 }
 
 async function onBalance(interaction, ctx) {
@@ -135,52 +204,8 @@ async function onTopup(interaction, ctx) {
 }
 
 // topup_method select + voucher redeem are handled by the wallet-topup feature.
-
-// Choosing a group opens a modal to enter the Roblox username + Robux amount.
-async function onGroupSelect(interaction, ctx) {
-  const key = interaction.values?.[0];
-  const group = roblox.getGroupConfigs().list.find((g) => String(g.key) === String(key));
-  const rate = ctx.config.number('ROBUX_RATE', 0);
-
-  const modal = new ModalBuilder()
-    .setCustomId(`${ID.buyModal}:${key}`)
-    .setTitle(`ซื้อ Robux${group?.name ? ` · ${group.name}` : ''}`.slice(0, 45));
-  const username = new TextInputBuilder()
-    .setCustomId('username').setLabel('Roblox username').setStyle(TextInputStyle.Short).setRequired(true);
-  const amount = new TextInputBuilder()
-    .setCustomId('robux')
-    .setLabel(rate > 0 ? `จำนวน Robux (เรท 1 บาท = ${rate})` : 'จำนวน Robux')
-    .setStyle(TextInputStyle.Short).setRequired(true);
-  modal.addComponents(
-    new ActionRowBuilder().addComponents(username),
-    new ActionRowBuilder().addComponents(amount),
-  );
-  await interaction.showModal(modal);
-}
-
-async function onBuyModal(interaction, ctx) {
-  const groupKey = interaction.customId.split(':')[3] || null;
-  const username = interaction.fields.getTextInputValue('username').trim();
-  const robux = Number.parseInt(interaction.fields.getTextInputValue('robux').trim(), 10);
-  await interaction.deferReply({ ephemeral: true });
-
-  const result = await redeemRobux(ctx, { discordUserId: interaction.user.id, username, robux, groupKey });
-  if (!result.ok) {
-    await interaction.editReply({ content: result.message });
-    return;
-  }
-  const embed = await ctx.services.embeds.renderEmbed('redeem_success', {
-    member: interaction.user.id,
-    robux: result.robux.toLocaleString(),
-    group_name: result.groupName,
-    balance: thb(result.balanceAfter),
-  });
-  await interaction.editReply({ embeds: [embed] });
-}
-
-async function onBuy(interaction) {
-  await interaction.reply({ content: 'เลือกกลุ่มที่ต้องการจากเมนูด้านบนเพื่อซื้อ Robux', ephemeral: true });
-}
+// Group select / buy button route into the full buy flow (eligibility check →
+// package select → confirm → payout queue) in buy.js.
 
 module.exports = {
   panelCommand: () =>
@@ -189,8 +214,8 @@ module.exports = {
   components: {
     [ID.balance]: onBalance,
     [ID.topup]: onTopup,
-    [ID.buy]: onBuy,
-    [ID.buyModal]: onBuyModal,
-    [ID.group]: onGroupSelect,
+    [ID.buy]: buy.onBuyButton,
+    [ID.group]: buy.onGroupSelect,
+    ...buy.components,
   },
 };

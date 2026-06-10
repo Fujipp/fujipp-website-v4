@@ -1,9 +1,13 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.11.6`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.15`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.15` | 2026-06-10 | central-bot: new wallet-history (/history, /wallet-get, /wallet-set with ADJUST ledger) and top-spender-rank (/top leaderboard + rank/milestone roles) features |
+| `0.0.14` | 2026-06-10 | central-bot: /panel auto-refreshes live group stock + optional countdown (PAYMENT_COUNTDOWN_TARGET = ISO date or seconds-from-post, PAYMENT_REFRESH_INTERVAL ms) |
+| `0.0.13` | 2026-06-10 | central-bot: full Robux buy flow (eligibility check → package select by rate w/ Kanom price tables → confirm → payout queue with cooldown + refund on failure + Roblox-avatar notifications) replacing the free-amount buy modal |
+| `0.0.12` | 2026-06-10 | central-bot: PromptPay QR top-up (promptpay.io, countdown → timeout) + SlipOK slip verification in SLIP_CHECK_CHANNEL crediting the shop wallet; bot.js supports per-feature gateway intents + events |
 | `0.0.11.6` | 2026-06-10 | central-bot: fix Robux redeem cost — ROBUX_RATE is Robux-per-baht, so cost = ceil(robux / rate * 100) (was robux × rate) |
 | `0.0.11.5` | 2026-06-10 | bot-runtime trims decrypted Discord credentials before injecting central-bot env |
 | `0.0.11.4` | 2026-06-10 | central-bot/runtime: expose boot failure reasons through `/readyz` so Start returns the real Discord/login error |

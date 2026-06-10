@@ -78,6 +78,69 @@ function makeWallet(subjectId) {
     }
   }
 
+  // Set the balance to an absolute amount (admin adjust). The delta is written to
+  // the ledger as an ADJUST entry so the audit trail stays complete.
+  async function setBalance(memberId, amountSatang, { note = null } = {}) {
+    if (amountSatang < 0) throw new Error('amount must not be negative');
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const { rows: prevRows } = await client.query(
+        `SELECT balance_satang FROM shop.member_wallets
+          WHERE external_subject_id = $1 AND member_discord_id = $2
+          FOR UPDATE`,
+        [subjectId, memberId],
+      );
+      const before = prevRows[0] ? Number(prevRows[0].balance_satang) : 0;
+      await client.query(
+        `INSERT INTO shop.member_wallets (external_subject_id, member_discord_id, balance_satang)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (external_subject_id, member_discord_id)
+         DO UPDATE SET balance_satang = $3`,
+        [subjectId, memberId, amountSatang],
+      );
+      const delta = amountSatang - before;
+      if (delta !== 0) {
+        await writeLedger(client, memberId, delta > 0 ? 'CREDIT' : 'DEBIT', 'ADJUST',
+          Math.abs(delta), amountSatang, null, note);
+      }
+      await client.query('COMMIT');
+      return amountSatang;
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  // Latest top-up ledger entries for one member (newest first).
+  async function getTopupHistory(memberId, limit = 10) {
+    const { rows } = await pool.query(
+      `SELECT amount_satang, note, reference, created_at
+         FROM shop.wallet_ledger
+        WHERE external_subject_id = $1 AND member_discord_id = $2
+          AND direction = 'CREDIT' AND type = 'TOPUP'
+        ORDER BY created_at DESC
+        LIMIT $3`,
+      [subjectId, memberId, limit],
+    );
+    return rows;
+  }
+
+  // Lifetime top-up leaderboard for this bot's members.
+  async function getLeaderboard(limit = 50) {
+    const { rows } = await pool.query(
+      `SELECT member_discord_id, total_topup_satang
+         FROM shop.member_wallets
+        WHERE external_subject_id = $1 AND total_topup_satang > 0
+        ORDER BY total_topup_satang DESC
+        LIMIT $2`,
+      [subjectId, limit],
+    );
+    return rows;
+  }
+
   function writeLedger(client, memberId, direction, type, amount, balanceAfter, reference, note) {
     return client.query(
       `INSERT INTO shop.wallet_ledger
@@ -87,7 +150,7 @@ function makeWallet(subjectId) {
     );
   }
 
-  return { getBalance, credit, debit };
+  return { getBalance, credit, debit, setBalance, getTopupHistory, getLeaderboard };
 }
 
 module.exports = { makeWallet, InsufficientFundsError };

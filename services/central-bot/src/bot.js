@@ -19,8 +19,17 @@ async function start() {
 
   // Slash commands only need Guilds — GuildMembers/MessageContent are PRIVILEGED
   // and make login fail with "disallowed intents" unless enabled in the Dev Portal.
+  // A feature may request extra intents via intents(config) — it must only do so
+  // when its config actually needs them (e.g. slip check needs MessageContent).
+  const intents = new Set([GatewayIntentBits.Guilds]);
+  for (const feature of features) {
+    if (typeof feature.intents === 'function') {
+      for (const intent of feature.intents(config) || []) intents.add(intent);
+    }
+  }
+
   const client = new Client({
-    intents: [GatewayIntentBits.Guilds],
+    intents: [...intents],
     partials: [Partials.Channel],
   });
 
@@ -58,6 +67,17 @@ async function start() {
     }
   }
   components.sort((a, b) => b.prefix.length - a.prefix.length);
+
+  // Gateway event listeners (e.g. messageCreate for slip verification).
+  for (const feature of features) {
+    for (const [event, fn] of Object.entries(feature.events || {})) {
+      client.on(event, (...args) => {
+        Promise.resolve(fn(...args, ctx)).catch((err) => {
+          console.error(`[central-bot] ${feature.code} ${event} error:`, err.message);
+        });
+      });
+    }
+  }
 
   const routeComponent = (customId) => components.find((c) => customId.startsWith(c.prefix))?.fn ?? null;
 
