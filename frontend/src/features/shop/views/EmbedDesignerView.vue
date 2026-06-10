@@ -106,6 +106,16 @@ function insertVar(name: string): void {
     draft.value.description = `${draft.value.description ?? ""}${varToken(name)}`;
 }
 
+function addField(): void {
+    if (!draft.value) return;
+    if (!draft.value.fields) draft.value.fields = [];
+    draft.value.fields.push({ name: "", value: "", inline: false });
+}
+
+function removeField(index: number): void {
+    draft.value?.fields?.splice(index, 1);
+}
+
 // Strip the editor's helper-empty nested objects so we don't persist blank fields.
 function clean(embed: EmbedObject): EmbedObject {
     const e: EmbedObject = cloneEmbed(embed);
@@ -113,6 +123,10 @@ function clean(embed: EmbedObject): EmbedObject {
     if (!e.thumbnail?.url) delete e.thumbnail;
     if (!e.footer?.text) delete e.footer;
     if (!e.author?.name) delete e.author;
+    if (e.fields) {
+        e.fields = e.fields.filter((f) => (f.name && f.name.trim()) || (f.value && f.value.trim()));
+        if (e.fields.length === 0) delete e.fields;
+    }
     return e;
 }
 
@@ -233,6 +247,19 @@ onMounted(loadSlots);
                             <TextField v-model="draft.footer!.text" label="ท้าย (footer)" placeholder="(ไม่บังคับ)" />
                         </div>
 
+                        <div :class="$style.fieldsEditor">
+                            <div :class="$style.fieldsHead">
+                                <span :class="$style.fieldLabel">ช่อง (fields)</span>
+                                <button type="button" :class="$style.addBtn" @click="addField">+ เพิ่มช่อง</button>
+                            </div>
+                            <div v-for="(f, i) in draft.fields ?? []" :key="i" :class="$style.fieldRow">
+                                <TextField v-model="f.name" label="ชื่อช่อง" placeholder="ชื่อ + emoji" />
+                                <TextField v-model="f.value" label="ค่า" placeholder="รองรับ markdown + ตัวแปร" />
+                                <label :class="$style.inlineToggle"><input type="checkbox" v-model="f.inline" /> inline</label>
+                                <button type="button" :class="$style.removeBtn" @click="removeField(i)">ลบ</button>
+                            </div>
+                        </div>
+
                         <button type="button" :class="$style.saveButton" :disabled="isSaving" @click="save">
                             {{ isSaving ? "กำลังบันทึก…" : "บันทึก Embed" }}
                         </button>
@@ -294,6 +321,17 @@ onMounted(loadSlots);
 .varChip:hover { border-color: var(--color-main-primary); color: var(--color-text-primary); }
 
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-space-3); }
+
+.fieldsEditor { display: flex; flex-direction: column; gap: var(--spacing-space-2); }
+.fieldsHead { display: flex; align-items: center; justify-content: space-between; }
+.addBtn { padding: 4px 10px; border: 1px solid var(--color-main-border); border-radius: var(--radius-full); background: var(--color-main-surface); color: var(--color-text-secondary); font-size: 13px; cursor: pointer; }
+.addBtn:hover { border-color: var(--color-main-primary); color: var(--color-text-primary); }
+.fieldRow { display: grid; grid-template-columns: 1fr 1fr auto auto; align-items: end; gap: var(--spacing-space-2); padding: var(--spacing-space-2); border: 1px solid var(--color-main-divider); border-radius: var(--radius-lg); }
+.inlineToggle { display: inline-flex; align-items: center; gap: 4px; color: var(--color-text-secondary); font-size: 12px; white-space: nowrap; padding-bottom: 10px; }
+.inlineToggle input { accent-color: var(--color-main-primary); }
+.removeBtn { height: 34px; padding: 0 10px; border: 0; border-radius: var(--radius-lg); background: var(--color-status-error); color: #fff; font-size: 13px; cursor: pointer; }
+
+@media (max-width: 700px) { .fieldRow { grid-template-columns: 1fr 1fr; } }
 
 .saveButton { margin-top: var(--spacing-space-2); height: 44px; border: 0; border-radius: var(--radius-xl); background: var(--color-button-primary-btn-bg); color: var(--color-button-primary-btn-text-active); font-weight: 600; font-size: 15px; cursor: pointer; }
 .saveButton:disabled { opacity: 0.55; cursor: not-allowed; }
