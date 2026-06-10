@@ -2,8 +2,10 @@
 // Roblox Robux Payout feature.
 //
 // Config (injected as env by the orchestrator, keys mirror billing.feature_variable_templates):
-//   ROBLOX_GROUP_ID, ROBLOX_SECURITY_COOKIE, ROBLOX_TOTP_SECRET, ROBLOX_GROUP_NAME,
-//   ROBUX_RATE, ROBUX_ENABLED, ROBUX_PAYOUT_COOLDOWN, ROBUX_NOTIFY_CHANNEL, ROBLOX_GROUPS
+//   ROBLOX_GROUP_ID{,_1,_2,_3}, ROBLOX_SECURITY_COOKIE{,_1,_2,_3},
+//   ROBLOX_TOTP_SECRET{,_1,_2,_3}, ROBLOX_GROUP_NAME{,_1,_2,_3},
+//   ROBUX_RATE (Robux per 1 baht), ROBUX_ENABLED, ROBUX_PAYOUT_COOLDOWN,
+//   ROBUX_NOTIFY_CHANNEL, ROBLOX_GROUPS (legacy JSON)
 //
 // The Roblox API client (roblox.js) is the proven implementation ported from the
 // original kanom-roblox bot; it reads the ROBLOX_* env keys directly.
@@ -109,7 +111,8 @@ async function handleRedeem(interaction, ctx) {
   }
   const username = interaction.options.getString('username', true);
   const robux = interaction.options.getInteger('amount', true);
-  const costSatang = Math.round(robux * rate * 100);
+  // ROBUX_RATE = Robux per 1 baht, so THB cost = robux / rate (round up to satang).
+  const costSatang = Math.ceil((robux / rate) * 100);
   await interaction.deferReply({ ephemeral: true });
 
   const user = await roblox.getUserByUsername(username);

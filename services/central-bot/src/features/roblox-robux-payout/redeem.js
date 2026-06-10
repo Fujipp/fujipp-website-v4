@@ -2,6 +2,9 @@
 // Shared "spend wallet → get Robux" core, used by both /robux-redeem (slash) and the
 // shop panel buy modal. Debit first, pay out, refund on failure. Flat ROBUX_RATE for
 // now (Kanom's package pricing is a later enhancement).
+//
+// ROBUX_RATE is "Robux per 1 baht" (e.g. 4 → ฿1 buys 4 Robux), so the THB cost of
+// `robux` is robux / rate. Round up to the satang so the shop never undercharges.
 
 const roblox = require('./roblox');
 
@@ -16,7 +19,7 @@ async function redeemRobux(ctx, { discordUserId, username, robux, groupKey = nul
   const user = await roblox.getUserByUsername(username);
   if (!user.ok) return { ok: false, message: user.error?.message || 'ไม่พบผู้ใช้ Roblox' };
 
-  const costSatang = Math.round(robux * rate * 100);
+  const costSatang = Math.ceil((robux / rate) * 100);
 
   // Debit first; refund if the payout fails.
   let balanceAfter;
