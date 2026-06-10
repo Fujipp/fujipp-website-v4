@@ -40,7 +40,8 @@ public class EmbedConfigService {
                    (
                      COALESCE(b.embed_json, s.default_json)
                      || CASE
-                          WHEN (s.default_json ? 'components') OR (COALESCE(b.embed_json, '{}'::jsonb) ? 'components')
+                          WHEN jsonb_typeof(s.default_json->'components') = 'object'
+                            OR jsonb_typeof(COALESCE(b.embed_json, '{}'::jsonb)->'components') = 'object'
                           THEN jsonb_build_object(
                             'components',
                             COALESCE(s.default_json->'components', '{}'::jsonb)
@@ -86,7 +87,8 @@ public class EmbedConfigService {
             SELECT (
                      COALESCE(b.embed_json, s.default_json)
                      || CASE
-                          WHEN (s.default_json ? 'components') OR (COALESCE(b.embed_json, '{}'::jsonb) ? 'components')
+                          WHEN jsonb_typeof(s.default_json->'components') = 'object'
+                            OR jsonb_typeof(COALESCE(b.embed_json, '{}'::jsonb)->'components') = 'object'
                           THEN jsonb_build_object(
                             'components',
                             COALESCE(s.default_json->'components', '{}'::jsonb)

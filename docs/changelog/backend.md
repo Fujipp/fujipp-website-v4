@@ -1,9 +1,10 @@
 # Changelog — Backend
 
-**Current version: `0.1.5.1`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.1.5.2`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.1.5.2` | 2026-06-10 | fix embed config merge SQL to avoid JDBC treating the JSONB `?` operator as bind parameters |
 | `0.1.5.1` | 2026-06-10 | embed config API merges seeded component roles into per-bot overrides so existing bot configs inherit new buttons/dropdowns |
 | `0.1.5` | 2026-06-09 | embed config API: `GET/PUT /api/bots/{id}/embeds[/{slot}]` (registry default + per-bot override via JdbcTemplate, ownership-checked) |
 | `0.1.4` | 2026-06-09 | admin VPS management (`GET/POST/PATCH /api/admin/vps-nodes`, role-gated) + move a bot across hosts (`POST /api/admin/bots/{id}/move`: stop → capacity-checked reassign → start) |
