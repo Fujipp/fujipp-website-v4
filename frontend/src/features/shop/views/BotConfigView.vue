@@ -1,7 +1,13 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { ShopSidebar, FeatureConfigForm, CreateBotDialog, type CreateBotPayload } from "@/features/shop/components";
+import {
+    ShopSidebar,
+    FeatureConfigForm,
+    RobloxRobuxConfigForm,
+    CreateBotDialog,
+    type CreateBotPayload,
+} from "@/features/shop/components";
 import { StatusToast, type SelectFieldOption } from "@/shared/ui";
 import { useUserStore } from "@/stores";
 import { API_BASE_URL } from "@/config";
@@ -11,6 +17,10 @@ import {
 } from "@/features/shop/config/featureConfig";
 
 type ToastStatus = "info" | "success" | "warning" | "error";
+
+// Feature codes that render through a bespoke form instead of the generic,
+// template-driven FeatureConfigForm.
+const ROBLOX_ROBUX_PAYOUT = "roblox-robux-payout";
 
 const route = useRoute();
 const router = useRouter();
@@ -32,6 +42,19 @@ const botName = ref("");
 const botInitial = ref<Partial<CreateBotPayload>>({});
 const showEditBot = ref(false);
 const isSavingBot = ref(false);
+
+// Which feature tab is active in the Feature Setting section.
+const activeFeatureCode = ref("");
+const activeFeature = computed<FeatureDefinition | null>(
+    () => features.value.find((f) => f.code === activeFeatureCode.value) ?? null,
+);
+
+// Keep the active tab valid as features (re)load.
+watch(features, (list) => {
+    if (!list.some((f) => f.code === activeFeatureCode.value)) {
+        activeFeatureCode.value = list[0]?.code ?? "";
+    }
+});
 
 const channelOptions = computed<SelectFieldOption[]>(() => channels.value.map((c) => ({ label: `#${c.name}`, value: c.id })));
 const roleOptions = computed<SelectFieldOption[]>(() => roles.value.map((r) => ({ label: `@${r.name}`, value: r.id })));
@@ -134,6 +157,10 @@ async function saveFeature(payload: Record<string, string>): Promise<void> {
     }
 }
 
+function openEmbedDesigner(): void {
+    router.push({ name: "shop-bot-embeds", params: { botId: botId.value } });
+}
+
 onMounted(async () => {
     await userStore.initAuth();
     if (!userStore.isAuthenticated) {
@@ -150,40 +177,106 @@ onMounted(async () => {
 
         <main :class="[$style.content, isSidebarOpen ? $style.sidebarOpen : $style.sidebarClosed]">
             <section :class="$style.titleSection">
-                <div :class="$style.titleRow">
-                    <div>
-                        <h1 :class="$style.pageTitle" class="type-h1-page-title-sb">BOT CONFIG</h1>
-                        <p :class="$style.subtitle" class="type-body-small-r">ตั้งค่าฟีเจอร์ของบอท · {{ botName || botId || "—" }}</p>
-                    </div>
-                    <div :class="$style.headerActions">
-                        <button type="button" :class="$style.settingsButton" @click="router.push({ name: 'shop-bot-embeds', params: { botId } })">🎨 ออกแบบ Embed</button>
-                        <button type="button" :class="$style.settingsButton" @click="showEditBot = true">⚙️ ตั้งค่าบอท (Token)</button>
+                <h1 :class="$style.pageTitle" class="type-h1-page-title-sb">BOT CONFIG</h1>
+                <p :class="$style.subtitle" class="type-body-small-r">ตั้งค่าฟีเจอร์ของบอท · {{ botName || botId || "—" }}</p>
+                <div :class="$style.divider" />
+            </section>
+
+            <!-- ── Bot Setting ─────────────────────────────────────────────── -->
+            <section :class="$style.block">
+                <h2 :class="$style.blockTitle" class="type-subtitle-sb">Bot Setting</h2>
+                <div :class="$style.card">
+                    <p :class="$style.cardLead">กรอกข้อมูลบอทจาก Discord Developer Portal — token จะถูกเข้ารหัสก่อนเก็บ</p>
+                    <div :class="$style.cardDivider" />
+                    <dl :class="$style.infoGrid">
+                        <div :class="$style.infoItem">
+                            <dt :class="$style.infoLabel">ชื่อบอท</dt>
+                            <dd :class="$style.infoValue">{{ botInitial.name || "—" }}</dd>
+                        </div>
+                        <div :class="$style.infoItem">
+                            <dt :class="$style.infoLabel">Application ID</dt>
+                            <dd :class="$style.infoValue">{{ botInitial.discordApplicationId || "—" }}</dd>
+                        </div>
+                        <div :class="$style.infoItem">
+                            <dt :class="$style.infoLabel">Server ID (Guild)</dt>
+                            <dd :class="$style.infoValue">{{ botInitial.discordGuildId || "—" }}</dd>
+                        </div>
+                        <div :class="$style.infoItem">
+                            <dt :class="$style.infoLabel">Bot Token / Client Secret</dt>
+                            <dd :class="$style.infoValue">••••••••</dd>
+                        </div>
+                    </dl>
+                    <div :class="$style.cardActions">
+                        <button type="button" :class="$style.primaryAction" @click="showEditBot = true">
+                            ⚙️ แก้ไขข้อมูลบอท / เปลี่ยน Token
+                        </button>
                     </div>
                 </div>
             </section>
 
-            <p v-if="isLoading" :class="$style.state" class="type-body-small-r">กำลังโหลด…</p>
-            <section v-else-if="configError" :class="$style.statePanel" aria-live="polite">
-                <h2 :class="$style.stateTitle">โหลดการตั้งค่าไม่สำเร็จ</h2>
-                <p :class="$style.stateText">{{ configError }}</p>
-                <button type="button" :class="$style.retryButton" @click="loadConfig">ลองใหม่</button>
-            </section>
-            <p v-else-if="features.length === 0" :class="$style.state" class="type-body-small-r">
-                บอทนี้ยังไม่มีฟีเจอร์ที่เปิดใช้งาน — ซื้อฟีเจอร์ในหน้า Package ก่อน
-            </p>
+            <!-- ── Feature Setting ─────────────────────────────────────────── -->
+            <section :class="$style.block">
+                <h2 :class="$style.blockTitle" class="type-subtitle-sb">Feature Setting</h2>
 
-            <div v-else :class="$style.forms">
-                <FeatureConfigForm
-                    v-for="feature in features"
-                    :key="feature.code"
-                    :feature="feature"
-                    :model-value="values"
-                    :channel-options="channelOptions"
-                    :role-options="roleOptions"
-                    :saving="isSaving"
-                    @submit="saveFeature"
-                />
-            </div>
+                <p v-if="isLoading" :class="$style.state" class="type-body-small-r">กำลังโหลด…</p>
+                <div v-else-if="configError" :class="$style.statePanel" aria-live="polite">
+                    <h3 :class="$style.stateTitle">โหลดการตั้งค่าไม่สำเร็จ</h3>
+                    <p :class="$style.stateText">{{ configError }}</p>
+                    <button type="button" :class="$style.retryButton" @click="loadConfig">ลองใหม่</button>
+                </div>
+                <p v-else-if="features.length === 0" :class="$style.state" class="type-body-small-r">
+                    บอทนี้ยังไม่มีฟีเจอร์ที่เปิดใช้งาน — ซื้อฟีเจอร์ในหน้า Package ก่อน
+                </p>
+
+                <template v-else>
+                    <div :class="$style.tabs" role="tablist" aria-label="ฟีเจอร์ที่เปิดใช้งาน">
+                        <button
+                            v-for="feature in features"
+                            :key="feature.code"
+                            type="button"
+                            role="tab"
+                            :aria-selected="feature.code === activeFeatureCode"
+                            :class="[$style.tab, feature.code === activeFeatureCode ? $style.tabActive : '']"
+                            @click="activeFeatureCode = feature.code"
+                        >
+                            {{ feature.name }}
+                        </button>
+                    </div>
+
+                    <RobloxRobuxConfigForm
+                        v-if="activeFeature && activeFeature.code === ROBLOX_ROBUX_PAYOUT"
+                        :key="activeFeature.code"
+                        :feature="activeFeature"
+                        :model-value="values"
+                        :channel-options="channelOptions"
+                        :saving="isSaving"
+                        @submit="saveFeature"
+                    />
+                    <FeatureConfigForm
+                        v-else-if="activeFeature"
+                        :key="activeFeature.code"
+                        :feature="activeFeature"
+                        :model-value="values"
+                        :channel-options="channelOptions"
+                        :role-options="roleOptions"
+                        :saving="isSaving"
+                        @submit="saveFeature"
+                    />
+                </template>
+            </section>
+
+            <!-- ── Embed Setting ───────────────────────────────────────────── -->
+            <section :class="$style.block">
+                <h2 :class="$style.blockTitle" class="type-subtitle-sb">Embed Setting</h2>
+                <div :class="$style.card">
+                    <p :class="$style.cardLead">ออกแบบหน้าตา embed ของบอท (panel ร้าน, การเติมเงิน, แจ้งเตือน) ด้วย Embed Designer</p>
+                    <div :class="$style.cardActions">
+                        <button type="button" :class="$style.primaryAction" @click="openEmbedDesigner">
+                            🎨 เปิด Embed Designer
+                        </button>
+                    </div>
+                </div>
+            </section>
         </main>
 
         <div v-if="toast" :class="$style.toastRegion" aria-live="polite">
@@ -240,25 +333,90 @@ onMounted(async () => {
     color: var(--color-text-primary);
 }
 
-.titleRow {
+.pageTitle {
+    margin: 0;
+}
+
+.subtitle {
+    opacity: 0.7;
+}
+
+.divider {
+    margin-top: var(--spacing-space-3);
+    height: 1px;
+    background-color: var(--color-main-divider);
+}
+
+.block {
     display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
+    flex-direction: column;
     gap: var(--spacing-space-4);
-    flex-wrap: wrap;
+    width: 100%;
+    max-width: 1100px;
 }
 
-.headerActions {
+.blockTitle {
+    margin: 0;
+}
+
+.card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-space-4);
+    padding: 24px;
+    border-radius: 16px;
+    background: var(--color-main-secondary);
+    color: var(--color-text-primary);
+}
+
+.cardLead {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: 14px;
+}
+
+.cardDivider {
+    height: 1px;
+    background-color: var(--color-main-divider);
+}
+
+.infoGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: var(--spacing-space-4);
+    margin: 0;
+}
+
+.infoItem {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.infoLabel {
+    color: var(--color-text-secondary);
+    font-size: 13px;
+}
+
+.infoValue {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cardActions {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--spacing-space-2);
-    flex-shrink: 0;
+    gap: var(--spacing-space-3);
 }
 
-.settingsButton {
-    flex-shrink: 0;
-    height: 42px;
-    padding: 0 var(--spacing-space-4);
+.primaryAction {
+    height: 44px;
+    padding: 0 var(--spacing-space-5);
     border: 1px solid var(--color-main-border);
     border-radius: var(--radius-xl);
     background-color: var(--color-main-surface);
@@ -270,16 +428,48 @@ onMounted(async () => {
     transition: background-color 0.15s ease;
 }
 
-.settingsButton:hover {
+.primaryAction:hover {
     background-color: var(--color-button-secondary-btn-bg);
 }
 
-.pageTitle {
-    margin: 0;
+.primaryAction:focus-visible {
+    outline: 2px solid var(--color-main-primary);
+    outline-offset: 2px;
 }
 
-.subtitle {
-    opacity: 0.7;
+.tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-space-2);
+}
+
+.tab {
+    height: 40px;
+    padding: 0 var(--spacing-space-4);
+    border: 1px solid var(--color-main-border);
+    border-radius: var(--radius-full);
+    background-color: var(--color-main-surface);
+    color: var(--color-text-secondary);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.tab:hover {
+    border-color: var(--color-main-primary);
+}
+
+.tab:focus-visible {
+    outline: 2px solid var(--color-main-primary);
+    outline-offset: 2px;
+}
+
+.tabActive {
+    background-color: var(--color-main-primary);
+    border-color: var(--color-main-primary);
+    color: var(--color-button-primary-btn-text-active);
 }
 
 .state {
@@ -304,13 +494,13 @@ onMounted(async () => {
 }
 
 .stateTitle {
-    font-size: 24px;
+    font-size: 22px;
     font-weight: 600;
 }
 
 .stateText {
     color: var(--color-text-secondary);
-    font-size: 18px;
+    font-size: 16px;
 }
 
 .retryButton {
@@ -339,13 +529,6 @@ onMounted(async () => {
     outline-offset: 2px;
 }
 
-.forms {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-space-6);
-    max-width: 960px;
-}
-
 .toastRegion {
     position: fixed;
     bottom: var(--spacing-space-5);
@@ -354,6 +537,7 @@ onMounted(async () => {
     width: min(360px, calc(100vw - var(--spacing-space-10)));
 }
 
+/* iPad ≈ two columns for the info/settings grids handled by auto-fit above. */
 @media (max-width: 760px) {
     .content {
         padding: var(--spacing-space-5);
@@ -362,6 +546,10 @@ onMounted(async () => {
     .sidebarOpen,
     .sidebarClosed {
         margin-left: 44px;
+    }
+
+    .card {
+        padding: 16px;
     }
 
     .toastRegion {

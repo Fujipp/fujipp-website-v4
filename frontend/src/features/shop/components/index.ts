@@ -10,6 +10,7 @@ export type { FeatureCategory, FeatureTableRow } from "./FeatureTable.vue";
 export { default as ShopSidebar } from "./ShopSidebar.vue";
 export { default as ConfigField } from "./ConfigField.vue";
 export { default as FeatureConfigForm } from "./FeatureConfigForm.vue";
+export { default as RobloxRobuxConfigForm } from "./RobloxRobuxConfigForm.vue";
 export { default as PackageCard } from "./PackageCard.vue";
 export type { PackageCardMode, PackageOption } from "./PackageCard.vue";
 export { default as PackageRuntimeCard } from "./PackageRuntimeCard.vue";
