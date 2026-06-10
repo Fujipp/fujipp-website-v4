@@ -78,11 +78,11 @@ async function buildEnv(subjectId) {
   const env = {
     BOT_SUBJECT_ID: bot.id,
     PORT: String(portForSubject(bot.id)),
-    DISCORD_TOKEN: decrypt(bot.discord_token_cipher),
+    DISCORD_TOKEN: decrypt(bot.discord_token_cipher).trim(),
     DISCORD_APPLICATION_ID: bot.discord_application_id || '',
     DISCORD_GUILD_ID: bot.discord_guild_id || '',
     DISCORD_PUBLIC_KEY: bot.discord_public_key || '',
-    DISCORD_CLIENT_SECRET: bot.discord_client_secret_cipher ? decrypt(bot.discord_client_secret_cipher) : '',
+    DISCORD_CLIENT_SECRET: bot.discord_client_secret_cipher ? decrypt(bot.discord_client_secret_cipher).trim() : '',
     ENABLED_FEATURES: codes.join(','),
     // Shop wallet (layer B) lives in the same Postgres; pass the resolved connection through.
     DATABASE_URL: process.env.SHOP_DATABASE_URL || resolveDatabaseUrl(),

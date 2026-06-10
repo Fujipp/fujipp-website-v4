@@ -57,11 +57,13 @@ public class BotService {
         if (request.discordApplicationId() != null) bot.setDiscordApplicationId(blankToNull(request.discordApplicationId()));
         if (request.discordGuildId() != null) bot.setDiscordGuildId(blankToNull(request.discordGuildId()));
         if (request.discordPublicKey() != null) bot.setDiscordPublicKey(blankToNull(request.discordPublicKey()));
-        if (request.discordToken() != null && !request.discordToken().isBlank()) {
-            bot.setDiscordTokenCipher(cipher.encrypt(request.discordToken()));
+        String discordToken = cleanSecret(request.discordToken());
+        if (discordToken != null) {
+            bot.setDiscordTokenCipher(cipher.encrypt(discordToken));
         }
-        if (request.discordClientSecret() != null && !request.discordClientSecret().isBlank()) {
-            bot.setDiscordClientSecretCipher(cipher.encrypt(request.discordClientSecret()));
+        String discordClientSecret = cleanSecret(request.discordClientSecret());
+        if (discordClientSecret != null) {
+            bot.setDiscordClientSecretCipher(cipher.encrypt(discordClientSecret));
         }
         return BotResponse.from(bots.save(bot));
     }
@@ -113,12 +115,19 @@ public class BotService {
         bot.setName(request.name());
         bot.setDiscordApplicationId(request.discordApplicationId());
         bot.setDiscordGuildId(request.discordGuildId());
-        bot.setDiscordTokenCipher(cipher.encrypt(request.discordToken()));
+        bot.setDiscordTokenCipher(cipher.encrypt(cleanSecret(request.discordToken())));
         bot.setDiscordPublicKey(request.discordPublicKey());
-        if (request.discordClientSecret() != null && !request.discordClientSecret().isBlank()) {
-            bot.setDiscordClientSecretCipher(cipher.encrypt(request.discordClientSecret()));
+        String discordClientSecret = cleanSecret(request.discordClientSecret());
+        if (discordClientSecret != null) {
+            bot.setDiscordClientSecretCipher(cipher.encrypt(discordClientSecret));
         }
         bot.setStatus("CREATED");
         return bot;
+    }
+
+    private static String cleanSecret(String s) {
+        if (s == null) return null;
+        String cleaned = s.trim();
+        return cleaned.isBlank() ? null : cleaned;
     }
 }

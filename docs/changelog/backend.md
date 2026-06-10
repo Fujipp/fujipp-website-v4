@@ -1,9 +1,10 @@
 # Changelog — Backend
 
-**Current version: `0.1.5.3`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.1.5.4`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.1.5.4` | 2026-06-10 | trim Discord bot tokens and client secrets before encrypting bot credentials |
 | `0.1.5.3` | 2026-06-10 | runtime bot actions now return orchestrator error JSON instead of Spring's generic 400 body |
 | `0.1.5.2` | 2026-06-10 | fix embed config merge SQL to avoid JDBC treating the JSONB `?` operator as bind parameters |
 | `0.1.5.1` | 2026-06-10 | embed config API merges seeded component roles into per-bot overrides so existing bot configs inherit new buttons/dropdowns |
