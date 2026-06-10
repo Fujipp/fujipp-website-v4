@@ -149,6 +149,13 @@ function removeField(index: number): void {
     draft.value?.fields?.splice(index, 1);
 }
 
+function componentConfig(roleKey: string): ComponentConfig {
+    if (!draft.value) return {};
+    draft.value.components = draft.value.components ?? {};
+    draft.value.components[roleKey] = draft.value.components[roleKey] ?? {};
+    return draft.value.components[roleKey];
+}
+
 function cleanComponent(role: Role, cfg: ComponentConfig): ComponentConfig | null {
     const out: ComponentConfig = {};
     const label = cfg.label?.trim();
@@ -321,7 +328,7 @@ onMounted(loadSlots);
                             </div>
                         </div>
 
-                        <div v-if="roles.length && draft.components" :class="$style.componentsEditor">
+                        <div v-if="roles.length" :class="$style.componentsEditor">
                             <div :class="$style.fieldsHead">
                                 <span :class="$style.fieldLabel">ปุ่ม / Dropdown</span>
                                 <span :class="$style.helperText">แก้เฉพาะหน้าตา · custom_id คงที่</span>
@@ -336,16 +343,16 @@ onMounted(loadSlots);
                                 <div :class="$style.grid2">
                                     <TextField
                                         v-if="role.type !== 'select'"
-                                        v-model="draft.components[role.key].label"
+                                        v-model="componentConfig(role.key).label"
                                         label="Label"
                                         placeholder="ข้อความบนปุ่ม"
                                     />
-                                    <TextField v-model="draft.components[role.key].emoji" label="Emoji" placeholder="😀 หรือ <:name:id>" />
+                                    <TextField v-model="componentConfig(role.key).emoji" label="Emoji" placeholder="😀 หรือ <:name:id>" />
                                 </div>
 
                                 <div v-if="role.type === 'button'" :class="$style.selectField">
                                     <label :class="$style.fieldLabel">Style</label>
-                                    <select v-model="draft.components[role.key].style" :class="$style.nativeSelect">
+                                    <select v-model="componentConfig(role.key).style" :class="$style.nativeSelect">
                                         <option value="">ค่าเริ่มต้น</option>
                                         <option v-for="style in BUTTON_STYLES" :key="style.value" :value="style.value">
                                             {{ style.label }}
@@ -355,14 +362,14 @@ onMounted(loadSlots);
 
                                 <TextField
                                     v-if="role.type === 'select'"
-                                    v-model="draft.components[role.key].placeholder"
+                                    v-model="componentConfig(role.key).placeholder"
                                     label="Placeholder"
                                     placeholder="ข้อความใน dropdown"
                                 />
 
                                 <TextField
                                     v-if="role.type === 'link'"
-                                    v-model="draft.components[role.key].url"
+                                    v-model="componentConfig(role.key).url"
                                     label="URL"
                                     placeholder="https://"
                                 />
