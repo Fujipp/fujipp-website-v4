@@ -418,7 +418,7 @@ onMounted(loadSlots);
 
 .slotList { display: flex; flex-direction: column; gap: 4px; }
 .slotItem { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border: 1px solid transparent; border-radius: var(--radius-lg); background: var(--color-main-surface); color: var(--color-text-secondary); font-size: 14px; cursor: pointer; text-align: left; }
-.slotActive { border-color: var(--color-main-primary); color: var(--color-text-primary); }
+.slotActive { border-color: var(--color-main-primary); color: var(--color-text-secondary); }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-main-primary); flex-shrink: 0; }
 
 .editor { display: grid; grid-template-columns: 1fr 460px; gap: var(--spacing-space-5); align-items: start; }
@@ -429,12 +429,12 @@ onMounted(loadSlots);
 .colorInput { width: 48px; height: 32px; padding: 0; border: 1px solid var(--color-main-border); border-radius: 6px; background: none; cursor: pointer; }
 
 .fieldLabel { color: var(--color-text-secondary); font-size: 14px; }
-.textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--color-main-border); border-radius: var(--radius-lg); background: var(--color-main-surface); color: var(--color-text-primary); font-family: var(--font-sans); font-size: 14px; resize: vertical; }
+.textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--color-main-border); border-radius: var(--radius-lg); background: var(--color-main-surface); color: var(--color-text-secondary); font-family: var(--font-sans); font-size: 14px; resize: vertical; }
 
 .vars { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .varsLabel { color: var(--color-text-secondary); font-size: 13px; }
 .varChip { padding: 3px 8px; border: 1px solid var(--color-main-border); border-radius: var(--radius-full); background: var(--color-main-surface); color: var(--color-text-secondary); font-size: 12px; font-family: monospace; cursor: pointer; }
-.varChip:hover { border-color: var(--color-main-primary); color: var(--color-text-primary); }
+.varChip:hover { border-color: var(--color-main-primary); color: var(--color-text-secondary); }
 
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-space-3); }
 
@@ -442,7 +442,7 @@ onMounted(loadSlots);
 .fieldsHead { display: flex; align-items: center; justify-content: space-between; }
 .helperText { color: var(--color-text-secondary); font-size: 12px; }
 .addBtn { padding: 4px 10px; border: 1px solid var(--color-main-border); border-radius: var(--radius-full); background: var(--color-main-surface); color: var(--color-text-secondary); font-size: 13px; cursor: pointer; }
-.addBtn:hover { border-color: var(--color-main-primary); color: var(--color-text-primary); }
+.addBtn:hover { border-color: var(--color-main-primary); color: var(--color-text-secondary); }
 .fieldRow { display: grid; grid-template-columns: 1fr 1fr auto auto; align-items: end; gap: var(--spacing-space-2); padding: var(--spacing-space-2); border: 1px solid var(--color-main-divider); border-radius: var(--radius-lg); }
 .inlineToggle { display: inline-flex; align-items: center; gap: 4px; color: var(--color-text-secondary); font-size: 12px; white-space: nowrap; padding-bottom: 10px; }
 .inlineToggle input { accent-color: var(--color-main-primary); }
@@ -450,7 +450,7 @@ onMounted(loadSlots);
 
 .componentsEditor { display: flex; flex-direction: column; gap: var(--spacing-space-2); margin-top: var(--spacing-space-2); }
 .componentRow { display: flex; flex-direction: column; gap: var(--spacing-space-2); padding: var(--spacing-space-3); border: 1px solid var(--color-main-divider); border-radius: var(--radius-lg); background: var(--color-main-surface); }
-.componentTitle { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-space-2); color: var(--color-text-primary); font-size: 14px; font-weight: 600; }
+.componentTitle { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-space-2); color: var(--color-text-secondary); font-size: 14px; font-weight: 600; }
 .componentTitle code { color: var(--color-text-secondary); font-family: monospace; font-size: 12px; font-weight: 400; }
 .selectField { display: flex; flex-direction: column; gap: 6px; }
 .nativeSelect { width: 100%; height: 40px; padding: 0 12px; border: 1px solid var(--color-main-border); border-radius: var(--radius-lg); background: var(--color-main-background); color: var(--color-text-primary); font-family: var(--font-sans); font-size: 14px; }

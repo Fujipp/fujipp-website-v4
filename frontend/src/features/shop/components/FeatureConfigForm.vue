@@ -93,19 +93,23 @@ function onSubmit(): void {
 .form {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: var(--spacing-space-5);
     width: 100%;
-    padding: 24px;
-    border-radius: 16px;
-    background: var(--color-main-secondary);
+    padding: var(--spacing-space-6);
+    border: 1px solid var(--color-input-border);
+    border-radius: var(--radius-2xl);
+    background: color-mix(in srgb, var(--color-main-background) 96%, var(--color-main-primary) 4%);
     color: var(--color-text-primary);
+    box-shadow: 0 18px 48px color-mix(in srgb, var(--color-text-primary) 8%, transparent);
 }
 
 .header {
     display: flex;
     align-items: baseline;
-    gap: 12px;
+    gap: var(--spacing-space-3);
     flex-wrap: wrap;
+    padding-bottom: var(--spacing-space-4);
+    border-bottom: 1px solid var(--color-input-border);
 }
 
 .title {
@@ -113,17 +117,28 @@ function onSubmit(): void {
 }
 
 .code {
-    opacity: 0.6;
+    color: var(--color-text-disabled);
 }
 
 .fields {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 16px;
+    gap: var(--spacing-space-5);
 }
 
 .actions {
     display: flex;
     justify-content: flex-end;
+    padding-top: var(--spacing-space-1);
+}
+
+@media (max-width: 760px) {
+    .form {
+        padding: var(--spacing-space-4);
+    }
+
+    .fields {
+        grid-template-columns: 1fr;
+    }
 }
 </style>

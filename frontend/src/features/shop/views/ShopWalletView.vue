@@ -532,7 +532,7 @@ onUnmounted(() => {
     border: 1px solid var(--color-main-border);
     border-radius: var(--radius-xl);
     background-color: var(--color-main-surface);
-    color: var(--color-text-primary);
+    color: var(--color-text-secondary);
 }
 
 .stateTitle,

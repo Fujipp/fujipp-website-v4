@@ -104,13 +104,12 @@ const textType = computed(() => (widget.value === "secret" ? "password" : widget
 .field {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--spacing-space-1);
     width: 100%;
 }
 
 .hint {
-    color: var(--color-text-primary);
-    opacity: 0.65;
+    color: var(--color-text-disabled);
     margin: 0;
 }
 </style>

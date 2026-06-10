@@ -186,7 +186,7 @@ onMounted(async () => {
             <section :class="$style.block">
                 <h2 :class="$style.blockTitle" class="type-subtitle-sb">Bot Setting</h2>
                 <div :class="$style.card">
-                    <p :class="$style.cardLead">กรอกข้อมูลบอทจาก Discord Developer Portal — token จะถูกเข้ารหัสก่อนเก็บ</p>
+                    <p :class="$style.cardLead">กรอกข้อมูลบอทจาก Discord Developer Portal - token จะถูกเข้ารหัสก่อนเก็บ</p>
                     <div :class="$style.cardDivider" />
                     <dl :class="$style.infoGrid">
                         <div :class="$style.infoItem">
@@ -208,7 +208,7 @@ onMounted(async () => {
                     </dl>
                     <div :class="$style.cardActions">
                         <button type="button" :class="$style.primaryAction" @click="showEditBot = true">
-                            ⚙️ แก้ไขข้อมูลบอท / เปลี่ยน Token
+                            แก้ไขข้อมูลบอท / เปลี่ยน Token
                         </button>
                     </div>
                 </div>
@@ -272,7 +272,7 @@ onMounted(async () => {
                     <p :class="$style.cardLead">ออกแบบหน้าตา embed ของบอท (panel ร้าน, การเติมเงิน, แจ้งเตือน) ด้วย Embed Designer</p>
                     <div :class="$style.cardActions">
                         <button type="button" :class="$style.primaryAction" @click="openEmbedDesigner">
-                            🎨 เปิด Embed Designer
+                            เปิด Embed Designer
                         </button>
                     </div>
                 </div>
@@ -313,8 +313,8 @@ onMounted(async () => {
     min-width: 0;
     flex-direction: column;
     box-sizing: border-box;
-    padding: var(--spacing-space-8);
-    gap: var(--spacing-space-6);
+    padding: var(--spacing-space-8) var(--spacing-space-10);
+    gap: var(--spacing-space-8);
     transition: margin-left 180ms ease;
 }
 
@@ -330,6 +330,8 @@ onMounted(async () => {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-space-1);
+    width: 100%;
+    max-width: 1180px;
     color: var(--color-text-primary);
 }
 
@@ -338,13 +340,14 @@ onMounted(async () => {
 }
 
 .subtitle {
-    opacity: 0.7;
+    margin: 0;
+    color: var(--color-text-disabled);
 }
 
 .divider {
-    margin-top: var(--spacing-space-3);
+    margin-top: var(--spacing-space-4);
     height: 1px;
-    background-color: var(--color-main-divider);
+    background-color: var(--color-input-border);
 }
 
 .block {
@@ -352,7 +355,7 @@ onMounted(async () => {
     flex-direction: column;
     gap: var(--spacing-space-4);
     width: 100%;
-    max-width: 1100px;
+    max-width: 1180px;
 }
 
 .blockTitle {
@@ -362,22 +365,24 @@ onMounted(async () => {
 .card {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-space-4);
-    padding: 24px;
-    border-radius: 16px;
-    background: var(--color-main-secondary);
+    gap: var(--spacing-space-5);
+    padding: var(--spacing-space-6);
+    border: 1px solid var(--color-input-border);
+    border-radius: var(--radius-2xl);
+    background: color-mix(in srgb, var(--color-main-background) 96%, var(--color-main-primary) 4%);
     color: var(--color-text-primary);
+    box-shadow: 0 18px 48px color-mix(in srgb, var(--color-text-primary) 8%, transparent);
 }
 
 .cardLead {
     margin: 0;
-    color: var(--color-text-secondary);
+    color: var(--color-text-disabled);
     font-size: 14px;
 }
 
 .cardDivider {
     height: 1px;
-    background-color: var(--color-main-divider);
+    background-color: var(--color-input-border);
 }
 
 .infoGrid {
@@ -390,12 +395,16 @@ onMounted(async () => {
 .infoItem {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--spacing-space-1);
     min-width: 0;
+    padding: var(--spacing-space-4);
+    border: 1px solid var(--color-input-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-main-background);
 }
 
 .infoLabel {
-    color: var(--color-text-secondary);
+    color: var(--color-text-disabled);
     font-size: 13px;
 }
 
@@ -417,19 +426,25 @@ onMounted(async () => {
 .primaryAction {
     height: 44px;
     padding: 0 var(--spacing-space-5);
-    border: 1px solid var(--color-main-border);
+    border: 1px solid var(--color-button-primary-btn-bg);
     border-radius: var(--radius-xl);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-primary);
+    background-color: var(--color-button-primary-btn-bg);
+    color: var(--color-button-primary-btn-text-active);
     font-family: var(--font-sans);
     font-size: 15px;
     font-weight: 600;
     cursor: pointer;
-    transition: background-color 0.15s ease;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
 .primaryAction:hover {
-    background-color: var(--color-button-secondary-btn-bg);
+    border-color: var(--color-button-primary-btn-hover);
+    background-color: var(--color-button-primary-btn-hover);
+}
+
+.primaryAction:active {
+    border-color: var(--color-button-primary-btn-active);
+    background-color: var(--color-button-primary-btn-active);
 }
 
 .primaryAction:focus-visible {
@@ -446,10 +461,10 @@ onMounted(async () => {
 .tab {
     height: 40px;
     padding: 0 var(--spacing-space-4);
-    border: 1px solid var(--color-main-border);
+    border: 1px solid var(--color-input-border);
     border-radius: var(--radius-full);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
+    background-color: var(--color-main-background);
+    color: var(--color-text-primary);
     font-family: var(--font-sans);
     font-size: 14px;
     font-weight: 600;
@@ -483,9 +498,9 @@ onMounted(async () => {
     flex-direction: column;
     padding: var(--spacing-space-6);
     gap: var(--spacing-space-4);
-    border: 1px solid var(--color-main-border);
+    border: 1px solid var(--color-input-border);
     border-radius: var(--radius-xl);
-    background-color: var(--color-main-surface);
+    background-color: color-mix(in srgb, var(--color-main-background) 96%, var(--color-main-primary) 4%);
 }
 
 .stateTitle,
@@ -499,7 +514,7 @@ onMounted(async () => {
 }
 
 .stateText {
-    color: var(--color-text-secondary);
+    color: var(--color-text-disabled);
     font-size: 16px;
 }
 
@@ -541,6 +556,7 @@ onMounted(async () => {
 @media (max-width: 760px) {
     .content {
         padding: var(--spacing-space-5);
+        gap: var(--spacing-space-6);
     }
 
     .sidebarOpen,
@@ -549,7 +565,7 @@ onMounted(async () => {
     }
 
     .card {
-        padding: 16px;
+        padding: var(--spacing-space-4);
     }
 
     .toastRegion {
