@@ -11,6 +11,7 @@ const app = express();
 app.set('trust proxy', true);
 
 let botStatus = 'starting';
+let botError = null;
 app.get('/', (_req, res) => res.status(200).send('OK'));
 app.get('/healthz', (_req, res) => res.status(200).json({ status: 'healthy' }));
 app.get('/readyz', (_req, res) =>
@@ -20,6 +21,7 @@ app.get('/readyz', (_req, res) =>
     uptime: process.uptime(),
     pid: process.pid,
     time: new Date().toISOString(),
+    error: botError,
   }),
 );
 
@@ -33,9 +35,11 @@ const server = app.listen(PORT, '0.0.0.0', () => {
     .then((client) => {
       botClient = client;
       botStatus = 'running';
+      botError = null;
     })
     .catch((err) => {
       botStatus = 'crashed';
+      botError = err && err.message ? err.message : 'central-bot failed to start';
       console.error('[central-bot] failed to start bot:', err);
     });
 });

@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Map;
@@ -98,22 +99,19 @@ public class BotController {
     @PostMapping("/{botId}/start")
     public ResponseEntity<String> start(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID botId) {
         assertOwner(jwt, botId);
-        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON)
-            .body(runtime.start(runtimeRouter.targetFor(botId), botId.toString()));
+        return runtimeAction(() -> runtime.start(runtimeRouter.targetFor(botId), botId.toString()));
     }
 
     @PostMapping("/{botId}/stop")
     public ResponseEntity<String> stop(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID botId) {
         assertOwner(jwt, botId);
-        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON)
-            .body(runtime.stop(runtimeRouter.targetFor(botId), botId.toString()));
+        return runtimeAction(() -> runtime.stop(runtimeRouter.targetFor(botId), botId.toString()));
     }
 
     @PostMapping("/{botId}/restart")
     public ResponseEntity<String> restart(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID botId) {
         assertOwner(jwt, botId);
-        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON)
-            .body(runtime.restart(runtimeRouter.targetFor(botId), botId.toString()));
+        return runtimeAction(() -> runtime.restart(runtimeRouter.targetFor(botId), botId.toString()));
     }
 
     @GetMapping("/{botId}/status")
@@ -125,5 +123,31 @@ public class BotController {
 
     private void assertOwner(Jwt jwt, UUID botId) {
         botService.assertOwnership(UUID.fromString(jwt.getSubject()), botId);
+    }
+
+    private ResponseEntity<String> runtimeAction(RuntimeCall call) {
+        try {
+            return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(call.run());
+        } catch (ResponseStatusException e) {
+            String reason = e.getReason() == null || e.getReason().isBlank()
+                ? "runtime service rejected the request"
+                : e.getReason();
+            return ResponseEntity.status(e.getStatusCode())
+                .contentType(MediaType.APPLICATION_JSON)
+                .body("{\"error\":" + jsonString(reason) + "}");
+        }
+    }
+
+    private static String jsonString(String value) {
+        return "\"" + value
+            .replace("\\", "\\\\")
+            .replace("\"", "\\\"")
+            .replace("\n", "\\n")
+            .replace("\r", "\\r") + "\"";
+    }
+
+    @FunctionalInterface
+    private interface RuntimeCall {
+        String run();
     }
 }

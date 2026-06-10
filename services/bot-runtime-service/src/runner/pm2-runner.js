@@ -58,7 +58,7 @@ async function waitUntilReady(subjectId, env) {
       } else if (ready.status === 'running') {
         return;
       } else if (ready.status === 'crashed') {
-        throw new Error('central-bot failed to log in; check bot token, public app settings, and runtime logs');
+        throw new Error(ready.error || 'central-bot failed to log in; check bot token, public app settings, and runtime logs');
       }
     } catch (err) {
       lastError = err;

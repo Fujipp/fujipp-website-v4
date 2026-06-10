@@ -11,8 +11,7 @@ const log = (...args) => console.log('[central-bot]', ...args);
 
 async function start() {
   if (!config.token) {
-    console.error('[central-bot] Missing DISCORD_TOKEN — cannot log in.');
-    return;
+    throw new Error('Missing DISCORD_TOKEN — cannot log in.');
   }
 
   const features = loadEnabled(config);

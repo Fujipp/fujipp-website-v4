@@ -1,9 +1,10 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.11.3`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.11.4`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.11.4` | 2026-06-10 | central-bot/runtime: expose boot failure reasons through `/readyz` so Start returns the real Discord/login error |
 | `0.0.11.3` | 2026-06-10 | bot-runtime: wait for central-bot `/readyz` before marking a bot RUNNING, and clean up failed PM2 starts |
 | `0.0.11.2` | 2026-06-10 | central-bot: embed renderer merges seeded component roles into per-bot overrides while preserving edited embed body fields |
 | `0.0.11.1` | 2026-06-10 | docs: clarify Kanom test-bot handoff and fixed component-role model for Embed Designer continuation |
