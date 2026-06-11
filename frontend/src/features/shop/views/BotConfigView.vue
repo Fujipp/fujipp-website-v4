@@ -15,6 +15,7 @@ import {
     type BotConfigResponse,
     type FeatureDefinition,
 } from "@/features/shop/config/featureConfig";
+import CountdownTimer from "@/features/shop/components/CountdownTimer.vue";
 
 type ToastStatus = "info" | "success" | "warning" | "error";
 
@@ -42,6 +43,22 @@ const botName = ref("");
 const botInitial = ref<Partial<CreateBotPayload>>({});
 const showEditBot = ref(false);
 const isSavingBot = ref(false);
+
+// Runtime subscription for this bot — lifecycle (auto-renew / renew now) lives here
+// rather than on the dashboard runtime card.
+interface RuntimeSubscription {
+    id: string;
+    externalSubjectId: string;
+    currentPeriodEnd: string | null;
+    autoRenew: boolean;
+    renewPriceSatang: number | null;
+    status: string;
+}
+const runtimeSub = ref<RuntimeSubscription | null>(null);
+const runtimeBusy = ref(false);
+const renewPrice = computed(() =>
+    ((runtimeSub.value?.renewPriceSatang ?? 0) / 100).toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+);
 
 // Which feature tab is active in the Feature Setting section.
 const activeFeatureCode = ref("");
@@ -106,6 +123,61 @@ async function saveBotSettings(payload: CreateBotPayload): Promise<void> {
     }
 }
 
+async function loadRuntime(): Promise<void> {
+    const headers = await authHeaders();
+    if (!headers) return;
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/subscriptions/runtime`, { headers });
+        if (!res.ok) return;
+        const subs = (await res.json()) as RuntimeSubscription[];
+        runtimeSub.value = subs.find((s) => s.externalSubjectId === botId.value) ?? null;
+    } catch { /* non-blocking */ }
+}
+
+async function setAutoRenew(value: boolean): Promise<void> {
+    const sub = runtimeSub.value;
+    if (!sub) return;
+    const headers = await authHeaders();
+    if (!headers) return;
+    runtimeBusy.value = true;
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/subscriptions/runtime/${sub.id}/auto-renew`, {
+            method: "PATCH",
+            headers: { ...headers, "Content-Type": "application/json" },
+            body: JSON.stringify({ autoRenew: value }),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        notify("success", value ? "เปิดต่ออัตโนมัติแล้ว" : "ปิดต่ออัตโนมัติแล้ว",
+            value ? "ระบบจะตัดเครดิตต่ออายุให้เมื่อใกล้หมด" : "บอทจะหยุดเมื่อ runtime หมดอายุ");
+        await loadRuntime();
+    } catch {
+        notify("error", "อัปเดตไม่สำเร็จ", "กรุณาลองใหม่อีกครั้ง");
+    } finally {
+        runtimeBusy.value = false;
+    }
+}
+
+async function renewRuntime(): Promise<void> {
+    const sub = runtimeSub.value;
+    if (!sub) return;
+    const headers = await authHeaders();
+    if (!headers) return;
+    runtimeBusy.value = true;
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/subscriptions/runtime/${sub.id}/renew`, {
+            method: "POST",
+            headers,
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        notify("success", "ต่ออายุ Runtime แล้ว", "ตัดเครดิตและขยายเวลาเรียบร้อย");
+        await loadRuntime();
+    } catch {
+        notify("error", "ต่ออายุไม่สำเร็จ", "เครดิตอาจไม่พอ — ลองเติมเงินก่อน");
+    } finally {
+        runtimeBusy.value = false;
+    }
+}
+
 async function loadConfig(): Promise<void> {
     isLoading.value = true;
     configError.value = "";
@@ -167,7 +239,7 @@ onMounted(async () => {
         await router.push({ name: "login", query: { redirect: `/shop/bots/${botId.value}/config` } });
         return;
     }
-    await Promise.all([loadConfig(), loadBot()]);
+    await Promise.all([loadConfig(), loadBot(), loadRuntime()]);
 });
 </script>
 
@@ -211,6 +283,40 @@ onMounted(async () => {
                             แก้ไขข้อมูลบอท / เปลี่ยน Token
                         </button>
                     </div>
+                </div>
+            </section>
+
+            <!-- ── Runtime ─────────────────────────────────────────────────── -->
+            <section :class="$style.block">
+                <h2 :class="$style.blockTitle" class="type-subtitle-sb">Runtime</h2>
+                <div :class="$style.card">
+                    <template v-if="runtimeSub">
+                        <div :class="$style.runtimeHead">
+                            <div :class="$style.runtimeInfo">
+                                <p :class="$style.cardLead">เวลาที่เหลือก่อนบอทหยุดทำงาน</p>
+                                <p :class="$style.runtimeRemaining">
+                                    <CountdownTimer :until="runtimeSub.currentPeriodEnd" />
+                                </p>
+                            </div>
+                            <span :class="$style.renewPrice">ต่ออายุ {{ renewPrice }} บาท</span>
+                        </div>
+                        <div :class="$style.cardDivider" />
+                        <div :class="$style.cardActions">
+                            <label :class="$style.autoRenew">
+                                <input
+                                    type="checkbox"
+                                    :checked="runtimeSub.autoRenew"
+                                    :disabled="runtimeBusy"
+                                    @change="setAutoRenew(($event.target as HTMLInputElement).checked)"
+                                >
+                                <span>ต่ออัตโนมัติ</span>
+                            </label>
+                            <button type="button" :class="$style.primaryAction" :disabled="runtimeBusy" @click="renewRuntime">
+                                {{ runtimeBusy ? "กำลังต่ออายุ…" : "ต่ออายุตอนนี้" }}
+                            </button>
+                        </div>
+                    </template>
+                    <p v-else :class="$style.cardLead">บอทนี้ยังไม่มี runtime — ซื้อ runtime ในหน้า Package ก่อน</p>
                 </div>
             </section>
 
@@ -313,8 +419,8 @@ onMounted(async () => {
     min-width: 0;
     flex-direction: column;
     box-sizing: border-box;
-    padding: var(--spacing-space-8) var(--spacing-space-10);
-    gap: var(--spacing-space-8);
+    padding: var(--spacing-space-6);
+    gap: var(--spacing-space-6);
     transition: margin-left 180ms ease;
 }
 
@@ -450,6 +556,55 @@ onMounted(async () => {
 .primaryAction:focus-visible {
     outline: 2px solid var(--color-main-primary);
     outline-offset: 2px;
+}
+
+.primaryAction:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+.runtimeHead {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--spacing-space-4);
+}
+
+.runtimeInfo {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-space-1);
+}
+
+.runtimeRemaining {
+    margin: 0;
+    color: var(--color-text-primary);
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 1.1;
+}
+
+.renewPrice {
+    align-self: center;
+    color: var(--color-text-disabled);
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.autoRenew {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-space-2);
+    color: var(--color-text-primary);
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.autoRenew input {
+    accent-color: var(--color-main-primary);
+    cursor: pointer;
 }
 
 .tabs {

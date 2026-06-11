@@ -67,6 +67,7 @@ interface BotDashboardItem {
     name: string;
     renewPrice: string;
     runtime: string;
+    currentPeriodEnd: string | null;
     status: BotStatus;
 }
 
@@ -86,7 +87,6 @@ const runtimePlans = ref<RuntimePlan[]>([]);
 const featureSubscriptions = ref<FeatureSubscriptionResponse[]>([]);
 const runtimeSubscriptions = ref<RuntimeSubscriptionResponse[]>([]);
 const availableSlots = ref<number | null>(null);
-const busySubs = ref<Set<string>>(new Set());
 
 const featureById = computed(() => new Map(catalogFeatures.value.map((feature) => [feature.id, feature])));
 const runtimePlanById = computed(() => new Map(runtimePlans.value.map((plan) => [plan.id, plan])));
@@ -101,6 +101,7 @@ const bots = computed<BotDashboardItem[]>(() => botRecords.value.map((bot) => {
         name: bot.name,
         renewPrice: formatMoney(runtime?.renewPriceSatang ?? 0),
         runtime: formatPeriod(runtime?.currentPeriodEnd),
+        currentPeriodEnd: runtime?.currentPeriodEnd ?? null,
         status: mapBotStatus(bot.status),
     };
 }));
@@ -332,64 +333,6 @@ async function createBot(payload: CreateBotPayload): Promise<void> {
     }
 }
 
-function setSubBusy(id: string, busy: boolean): void {
-    const next = new Set(busySubs.value);
-    if (busy) next.add(id); else next.delete(id);
-    busySubs.value = next;
-}
-
-async function extractReason(res: Response): Promise<string> {
-    try {
-        const body = await res.json();
-        let reason = String(body.message ?? body.error ?? "");
-        const m = reason.match(/"(?:error|message)"\s*:\s*"([^"]+)"/);
-        if (m?.[1]) reason = m[1];
-        return reason;
-    } catch {
-        return "";
-    }
-}
-
-async function toggleAutoRenew(subId: string, value: boolean): Promise<void> {
-    const headers = await authHeaders();
-    if (!headers) { await router.push({ name: "login", query: { redirect: "/shop" } }); return; }
-    setSubBusy(subId, true);
-    try {
-        const res = await fetch(`${API_BASE_URL}/api/subscriptions/runtime/${subId}/auto-renew`, {
-            method: "PATCH",
-            headers: { ...headers, "Content-Type": "application/json" },
-            body: JSON.stringify({ autoRenew: value }),
-        });
-        if (!res.ok) throw new Error((await extractReason(res)) || `HTTP ${res.status}`);
-        notify("success", value ? "เปิดต่ออัตโนมัติแล้ว" : "ปิดต่ออัตโนมัติแล้ว",
-            value ? "ระบบจะตัดเครดิตต่ออายุให้เมื่อใกล้หมด" : "บอทจะหยุดเมื่อ runtime หมดอายุ");
-        await loadDashboard();
-    } catch (e) {
-        notify("error", "อัปเดตไม่สำเร็จ", (e as Error).message || "กรุณาลองใหม่อีกครั้ง");
-    } finally {
-        setSubBusy(subId, false);
-    }
-}
-
-async function renewRuntimeNow(subId: string): Promise<void> {
-    const headers = await authHeaders();
-    if (!headers) { await router.push({ name: "login", query: { redirect: "/shop" } }); return; }
-    setSubBusy(subId, true);
-    try {
-        const res = await fetch(`${API_BASE_URL}/api/subscriptions/runtime/${subId}/renew`, {
-            method: "POST",
-            headers,
-        });
-        if (!res.ok) throw new Error((await extractReason(res)) || `HTTP ${res.status}`);
-        notify("success", "ต่ออายุ Runtime แล้ว", "ตัดเครดิตและขยายเวลาเรียบร้อย");
-        await loadDashboard();
-    } catch (e) {
-        notify("error", "ต่ออายุไม่สำเร็จ", (e as Error).message || "เครดิตอาจไม่พอ — ลองเติมเงินก่อน");
-    } finally {
-        setSubBusy(subId, false);
-    }
-}
-
 onMounted(loadDashboard);
 onUnmounted(clearToast);
 </script>
@@ -434,6 +377,7 @@ onUnmounted(clearToast);
                             :status="bot.status"
                             :image="bot.image"
                             :runtime="bot.runtime"
+                            :runtime-until="bot.currentPeriodEnd"
                             :renew-price="bot.renewPrice"
                             @action="(action) => handleBotAction(bot.id, action)"
                         />
@@ -479,12 +423,7 @@ onUnmounted(clearToast);
                             :remaining="runtime.remaining"
                             :status="runtime.status"
                             :bot-name="runtime.botName"
-                            :subscription-id="runtime.id"
-                            :auto-renew="runtime.autoRenew"
                             :current-period-end="runtime.currentPeriodEnd"
-                            :busy="busySubs.has(runtime.id)"
-                            @toggle-auto-renew="(value) => toggleAutoRenew(runtime.id, value)"
-                            @renew="renewRuntimeNow(runtime.id)"
                         />
                     </template>
                 </div>

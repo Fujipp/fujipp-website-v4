@@ -2,6 +2,7 @@
 import { computed } from "vue";
 import { ActionButton } from "@/shared/ui/buttons";
 import type { ActionButtonVariant } from "@/shared/ui/buttons";
+import CountdownTimer from "./CountdownTimer.vue";
 
 export type BotCardMode = "add" | "default" | "skeleton";
 export type BotStatus = "offline" | "online";
@@ -12,6 +13,9 @@ interface Props {
     name?: string;
     renewPrice?: string;
     runtime?: string;
+    // When set, the Runtime line shows a live "Xd HH:MM:SS" countdown to this
+    // date instead of the static `runtime` string.
+    runtimeUntil?: string | null;
     status?: BotStatus;
 }
 
@@ -21,6 +25,7 @@ const props = withDefaults(defineProps<Props>(), {
     name: "BOT NAME",
     renewPrice: "0.00",
     runtime: "30 Days 24:60:99",
+    runtimeUntil: null,
     status: "offline",
 });
 
@@ -80,7 +85,10 @@ const statusLabel = computed(() => props.status === "online" ? "Online" : "Offli
 
             <p :class="$style.detailLine">
                 Runtime :
-                <strong>{{ runtime }}</strong>
+                <strong>
+                    <CountdownTimer v-if="runtimeUntil" :until="runtimeUntil" />
+                    <template v-else>{{ runtime }}</template>
+                </strong>
             </p>
             <p :class="$style.detailLine">
                 Re-new :
