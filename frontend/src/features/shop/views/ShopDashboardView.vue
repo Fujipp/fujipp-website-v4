@@ -577,31 +577,30 @@ onUnmounted(clearToast);
 }
 
 .overviewGrid {
-    display: flex;
-    align-items: flex-start;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: var(--spacing-space-4);
     padding-inline: var(--spacing-space-5);
 }
 
 .metricCard {
     display: flex;
-    width: min(100%, 240px);
-    min-height: 132px;
+    min-height: 120px;
     flex-direction: column;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
     box-sizing: border-box;
-    padding: var(--spacing-space-5);
+    gap: var(--spacing-space-2);
+    padding: var(--spacing-space-5) var(--spacing-space-6);
     border: 1px solid var(--color-main-border);
     border-radius: var(--radius-xl);
     background-color: var(--color-main-surface);
     color: var(--color-text-secondary);
-    text-align: center;
+    text-align: left;
 }
 
 .metricValue {
-    color: var(--color-text-secondary);
+    color: var(--color-text-primary);
     font-size: 32px;
     font-weight: 800;
     line-height: 1;
@@ -610,8 +609,10 @@ onUnmounted(clearToast);
 .metricLabel {
     color: var(--color-text-secondary);
     font-size: 14px;
-    font-weight: 800;
+    font-weight: 600;
     line-height: 1;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
 }
 
 .botGrid,
@@ -709,14 +710,6 @@ onUnmounted(clearToast);
     .sidebarOpen,
     .sidebarClosed {
         margin-left: 44px;
-    }
-
-    .overviewGrid {
-        justify-content: center;
-    }
-
-    .metricCard {
-        width: min(100%, 240px);
     }
 
     .toastRegion {
