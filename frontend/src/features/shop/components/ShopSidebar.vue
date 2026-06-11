@@ -73,6 +73,11 @@ function toggleSidebar(): void {
 
 function selectItem(item: ShopSidebarItem): void {
     emit("select", item);
+    // On small screens the sidebar overlays the content, so close it after a nav
+    // tap to reveal the page the user just chose.
+    if (typeof window !== "undefined" && window.innerWidth <= 760) {
+        emit("update:modelValue", false);
+    }
 }
 
 function isRouteActive(item: ShopSidebarItem): boolean {
@@ -208,6 +213,14 @@ watch(isOpen, (value) => {
             >
         </button>
     </aside>
+
+    <button
+        v-if="isOpen"
+        type="button"
+        :class="$style.backdrop"
+        aria-label="Close shop sidebar"
+        @click="toggleSidebar"
+    />
 </template>
 
 <style module>
@@ -464,5 +477,24 @@ watch(isOpen, (value) => {
 .logoutIcon {
     width: var(--spacing-icon-xs);
     height: var(--spacing-icon-xs);
+}
+
+/* Dim, tap-to-close overlay behind the expanded sidebar — only on small screens
+   where the sidebar floats over the content instead of sitting beside it. */
+.backdrop {
+    display: none;
+}
+
+@media (max-width: 760px) {
+    .backdrop {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 35;
+        padding: 0;
+        border: 0;
+        background-color: color-mix(in srgb, var(--color-text-primary) 45%, transparent);
+        cursor: pointer;
+    }
 }
 </style>
