@@ -258,6 +258,7 @@ onMounted(loadSlots);
                     ← กลับไป Config
                 </button>
             </section>
+            <div :class="$style.divider" aria-hidden="true" />
 
             <p v-if="isLoading" :class="$style.state" class="type-body-small-r">กำลังโหลด…</p>
             <section v-else-if="loadError" :class="$style.statePanel">
@@ -399,14 +400,15 @@ onMounted(loadSlots);
 </template>
 
 <style module>
-.page { display: flex; min-height: 100vh; background: var(--color-main-background); }
-.content { flex: 1; padding: var(--spacing-space-6); transition: margin 0.2s ease; min-width: 0; }
-.sidebarOpen { margin-left: 0; }
-.sidebarClosed { margin-left: 0; }
+.page { display: flex; min-height: 100vh; background: var(--color-main-background); color: var(--color-text-primary); }
+.content { display: flex; min-width: 0; flex: 1; flex-direction: column; box-sizing: border-box; padding: var(--spacing-space-6); gap: var(--spacing-space-6); transition: margin-left 180ms ease; }
+.sidebarOpen { margin-left: 194px; }
+.sidebarClosed { margin-left: 44px; }
 
-.titleSection { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--spacing-space-4); margin-bottom: var(--spacing-space-5); }
+.titleSection { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--spacing-space-4); }
 .pageTitle { margin: 0; color: var(--color-text-primary); }
 .subtitle { margin: 4px 0 0; color: var(--color-text-secondary); }
+.divider { height: 1px; background-color: var(--color-main-divider); }
 .backButton { height: 38px; padding: 0 var(--spacing-space-4); border: 1px solid var(--color-main-border); border-radius: var(--radius-full); background: var(--color-main-surface); color: var(--color-text-secondary); cursor: pointer; white-space: nowrap; }
 
 .state { color: var(--color-text-secondary); }
@@ -471,5 +473,11 @@ onMounted(loadSlots);
     .layout { grid-template-columns: 1fr; }
     .editor { grid-template-columns: 1fr; }
     .previewCol { position: static; }
+}
+
+@media (max-width: 760px) {
+    .sidebarOpen, .sidebarClosed { margin-left: 44px; }
+    .content { padding: var(--spacing-space-5); }
+    .titleSection { flex-direction: column; }
 }
 </style>
