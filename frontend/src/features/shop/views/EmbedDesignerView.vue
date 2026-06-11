@@ -177,8 +177,8 @@ function clean(embed: EmbedObject): EmbedObject {
     const e: EmbedObject = cloneEmbed(embed);
     if (!e.image?.url) delete e.image;
     if (!e.thumbnail?.url) delete e.thumbnail;
-    if (!e.footer?.text) delete e.footer;
-    if (!e.author?.name) delete e.author;
+    if (!e.footer?.text && !e.footer?.icon_url) delete e.footer;
+    if (!e.author?.name && !e.author?.icon_url) delete e.author;
     if (e.fields) {
         e.fields = e.fields.filter((f) => (f.name && f.name.trim()) || (f.value && f.value.trim()));
         if (e.fields.length === 0) delete e.fields;
@@ -313,7 +313,11 @@ onMounted(loadSlots);
                         </div>
                         <div :class="$style.grid2">
                             <TextField v-model="draft.author!.name" label="ผู้เขียน (author)" placeholder="(ไม่บังคับ)" />
+                            <TextField v-model="draft.author!.icon_url" label="ไอคอนผู้เขียน (author icon url)" placeholder="https://" />
+                        </div>
+                        <div :class="$style.grid2">
                             <TextField v-model="draft.footer!.text" label="ท้าย (footer)" placeholder="(ไม่บังคับ)" />
+                            <TextField v-model="draft.footer!.icon_url" label="ไอคอนท้าย (footer icon url)" placeholder="https://" />
                         </div>
 
                         <div :class="$style.fieldsEditor">
