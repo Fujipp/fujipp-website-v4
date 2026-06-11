@@ -1,9 +1,12 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.15.1`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.15.5`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.15.5` | 2026-06-11 | dev tooling: `docs/secrets-inventory.md` (full env/secret map), root `Makefile` (`make dev` / `dev-full` + per-service targets), and `scripts/check-secrets.sh` (verify shared secrets match across `.env` files via fingerprints, no values printed) |
+| `0.0.15.4` | 2026-06-11 | deploy-backend: optional `SHOP_DATABASE_URL` secret appended as `DATABASE_URL` after the env blob, so the runtime + bots can use the Supabase transaction pooler without editing `BACKEND_ENV_FILE` |
+| `0.0.15.3` | 2026-06-10 | bot-runtime: document Supabase transaction pooler (port 6543, `?pgbouncer=true`) as the prod DATABASE_URL recommendation in `.env.example`, so the shared shop-wallet DB stays under the connection ceiling as bot count grows |
 | `0.0.15.1` | 2026-06-10 | bot-runtime: include PM2 status and central-bot error-log tail when `/readyz` never opens, so start failures show the real boot error instead of only ECONNREFUSED |
 | `0.0.15` | 2026-06-10 | central-bot: new wallet-history (/history, /wallet-get, /wallet-set with ADJUST ledger) and top-spender-rank (/top leaderboard + rank/milestone roles) features |
 | `0.0.14` | 2026-06-10 | central-bot: /panel auto-refreshes live group stock + optional countdown (PAYMENT_COUNTDOWN_TARGET = ISO date or seconds-from-post, PAYMENT_REFRESH_INTERVAL ms) |

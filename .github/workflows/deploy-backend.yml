@@ -197,6 +197,7 @@ jobs:
           VOUCHER_SERVICE_TOKEN: ${{ secrets.VOUCHER_SERVICE_TOKEN }}
           BOT_SECRET_KEY: ${{ secrets.BOT_SECRET_KEY }}
           RUNTIME_SERVICE_TOKEN: ${{ secrets.RUNTIME_SERVICE_TOKEN }}
+          SHOP_DATABASE_URL: ${{ secrets.SHOP_DATABASE_URL }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_USER: ${{ github.actor }}
           BACKEND_CHANGED: ${{ needs.changes.outputs.backend }}
@@ -209,7 +210,7 @@ jobs:
           # base64-encode the secret so newlines/quotes survive the SSH hop intact
           ENV_B64=$(printf '%s' "$BACKEND_ENV_FILE" | base64 -w0)
           ssh -p "${SSH_PORT:-22}" -i ~/.ssh/id_deploy "$SSH_USER@$SSH_HOST" \
-            "ENV_B64='$ENV_B64' VOUCHER_SERVICE_TOKEN='$VOUCHER_SERVICE_TOKEN' REGISTRY='${{ env.REGISTRY }}' OWNER='$OWNER' SHA='$SHA' BOT_SECRET_KEY='$BOT_SECRET_KEY' RUNTIME_SERVICE_TOKEN='$RUNTIME_SERVICE_TOKEN' GHCR_TOKEN='$GHCR_TOKEN' GHCR_USER='$GHCR_USER' BACKEND_CHANGED='$BACKEND_CHANGED' BILLING_CHANGED='$BILLING_CHANGED' VOUCHER_CHANGED='$VOUCHER_CHANGED' RUNTIME_CHANGED='$RUNTIME_CHANGED' bash -se" <<'REMOTE'
+            "ENV_B64='$ENV_B64' VOUCHER_SERVICE_TOKEN='$VOUCHER_SERVICE_TOKEN' REGISTRY='${{ env.REGISTRY }}' OWNER='$OWNER' SHA='$SHA' BOT_SECRET_KEY='$BOT_SECRET_KEY' RUNTIME_SERVICE_TOKEN='$RUNTIME_SERVICE_TOKEN' SHOP_DATABASE_URL='$SHOP_DATABASE_URL' GHCR_TOKEN='$GHCR_TOKEN' GHCR_USER='$GHCR_USER' BACKEND_CHANGED='$BACKEND_CHANGED' BILLING_CHANGED='$BILLING_CHANGED' VOUCHER_CHANGED='$VOUCHER_CHANGED' RUNTIME_CHANGED='$RUNTIME_CHANGED' bash -se" <<'REMOTE'
           set -euo pipefail
           cd /opt/fujipp
           umask 077
@@ -240,6 +241,13 @@ jobs:
           fi
           if [ -n "${RUNTIME_SERVICE_TOKEN:-}" ]; then
             echo "RUNTIME_SERVICE_TOKEN=$RUNTIME_SERVICE_TOKEN" >> .env
+          fi
+
+          # Shop-wallet DB override: point the runtime + every launched bot at the
+          # Supabase transaction pooler without editing the BACKEND_ENV_FILE blob.
+          # Appended after the blob so this DATABASE_URL wins over any value inside it.
+          if [ -n "${SHOP_DATABASE_URL:-}" ]; then
+            echo "DATABASE_URL=$SHOP_DATABASE_URL" >> .env
           fi
 
           # Final image pins: changed services move to this commit's SHA; unchanged
