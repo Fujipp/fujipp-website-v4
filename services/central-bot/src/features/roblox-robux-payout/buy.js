@@ -73,21 +73,15 @@ function loadingEmbed(text, avatarUrl) {
   return e;
 }
 
-function errorEmbed({ reason, robloxUsername, avatarUrl }) {
-  const e = new EmbedBuilder()
-    .setColor(COLOR_ERROR)
-    .setTitle('<:Ts_12_discord_bbane:1397694208969543720> เกิดข้อผิดพลาด')
-    .setDescription([
-      '> <:Ts_4_discord_trade:1397694172416180236> : รายละเอียด',
-      `\`\`\`${reason || 'เกิดข้อผิดพลาด'}\`\`\``,
-      '> <:Ts_9_discord_member:1397694189575344298> : Roblox Username',
-      `\`\`\`${robloxUsername || '-'}\`\`\``,
-      '> <:Ts_10_discord_Clock:1397694191429095675> : วันที่และเวลาทำรายการ',
-      `\`\`\`${tsReadable()}\`\`\``,
-    ].join('\n'))
-    .setImage(ERROR_IMAGE);
-  if (avatarUrl) e.setThumbnail(avatarUrl);
-  return e;
+// Configurable error embed (Embed Designer slot 'buy_error'). Async: loads the
+// bot's template (or seeded default) and substitutes {{vars}}.
+async function errorEmbed(ctx, { reason, robloxUsername, avatarUrl }) {
+  return ctx.services.embeds.renderEmbed('buy_error', {
+    reason: reason || 'เกิดข้อผิดพลาด',
+    username: robloxUsername || '-',
+    datetime: tsReadable(),
+    avatar: avatarUrl || '',
+  });
 }
 
 function formatPayoutError(error) {
@@ -162,7 +156,7 @@ async function processPayout(job, ctx) {
     }
     const reason = formatPayoutError(payout.error);
     await interaction.editReply({
-      embeds: [errorEmbed({
+      embeds: [await errorEmbed(ctx, {
         reason: `โอน Robux ไม่สำเร็จ: ${reason}\n`
           + (refundedBalance != null
             ? `ระบบคืนเงิน ${baht(purchase.priceSatang)} บาทแล้ว (คงเหลือ ${baht(refundedBalance)} บาท)`
@@ -265,10 +259,10 @@ async function sendNotification(client, ctx, data) {
 }
 
 // ─── Flow steps ───────────────────────────────────────────────────────────────
-function ensureEnabled(interaction, ctx) {
+async function ensureEnabled(interaction, ctx) {
   if (!ctx.config.bool('ROBUX_ENABLED', true)) {
     interaction.reply({
-      embeds: [errorEmbed({
+      embeds: [await errorEmbed(ctx, {
         reason: 'ขณะนี้ระบบเติม Robux ปิดให้บริการชั่วคราว กรุณาติดต่อ Admin หากมีข้อสงสัย',
         avatarUrl: interaction.user.displayAvatarURL(),
       })],
@@ -299,12 +293,12 @@ function usernameModal(group) {
 
 // Group select (from the shop panel) → username modal.
 async function onGroupSelect(interaction, ctx) {
-  if (!ensureEnabled(interaction, ctx)) return;
+  if (!(await ensureEnabled(interaction, ctx))) return;
   const key = interaction.values?.[0];
   const group = roblox.getGroupConfigs().map[key];
   if (!group) {
     await interaction.reply({
-      embeds: [errorEmbed({ reason: 'ไม่พบกลุ่มที่เลือก', avatarUrl: interaction.user.displayAvatarURL() })],
+      embeds: [await errorEmbed(ctx, { reason: 'ไม่พบกลุ่มที่เลือก', avatarUrl: interaction.user.displayAvatarURL() })],
       flags: MessageFlags.Ephemeral,
     });
     return;
@@ -314,11 +308,11 @@ async function onGroupSelect(interaction, ctx) {
 
 // Buy button → single group goes straight to the modal; multiple groups prompt.
 async function onBuyButton(interaction, ctx) {
-  if (!ensureEnabled(interaction, ctx)) return;
+  if (!(await ensureEnabled(interaction, ctx))) return;
   const groups = roblox.getGroupConfigs().list;
   if (groups.length === 0) {
     await interaction.reply({
-      embeds: [errorEmbed({ reason: 'ยังไม่ได้ตั้งค่า Roblox Group สำหรับระบบ Robux', avatarUrl: interaction.user.displayAvatarURL() })],
+      embeds: [await errorEmbed(ctx, { reason: 'ยังไม่ได้ตั้งค่า Roblox Group สำหรับระบบ Robux', avatarUrl: interaction.user.displayAvatarURL() })],
       flags: MessageFlags.Ephemeral,
     });
     return;
@@ -345,7 +339,7 @@ async function onUserModal(interaction, ctx) {
   const result = await roblox.checkRobloxEligibility(username, groupKey ? { groupKey } : null);
   if (!result.ok || !result.eligible) {
     await interaction.editReply({
-      embeds: [errorEmbed({ reason: result.message || 'ไม่สามารถตรวจสอบสิทธิ์ได้', robloxUsername: username, avatarUrl })],
+      embeds: [await errorEmbed(ctx, { reason: result.message || 'ไม่สามารถตรวจสอบสิทธิ์ได้', robloxUsername: username, avatarUrl })],
     });
     return;
   }
@@ -368,7 +362,7 @@ async function onUserModal(interaction, ctx) {
 
   if (options.length === 0) {
     await interaction.editReply({
-      embeds: [errorEmbed({
+      embeds: [await errorEmbed(ctx, {
         reason: 'ขณะนี้ยอด Robux ในกลุ่มไม่เพียงพอสำหรับทุก Package กรุณารอสักครู่แล้วลองใหม่อีกครั้ง',
         robloxUsername: result.username,
         avatarUrl,
@@ -416,7 +410,7 @@ async function onPackageSelect(interaction, ctx) {
   const avatarUrl = interaction.user.displayAvatarURL();
 
   if (!pkg) {
-    await interaction.editReply({ embeds: [errorEmbed({ reason: 'ไม่พบ package ที่เลือก', avatarUrl })] });
+    await interaction.editReply({ embeds: [await errorEmbed(ctx, { reason: 'ไม่พบ package ที่เลือก', avatarUrl })] });
     return;
   }
 
@@ -424,7 +418,7 @@ async function onPackageSelect(interaction, ctx) {
   const balanceSatang = await ctx.services.wallet.getBalance(interaction.user.id);
   if (balanceSatang < priceSatang) {
     await interaction.editReply({
-      embeds: [errorEmbed({
+      embeds: [await errorEmbed(ctx, {
         reason: `ยอดเงินไม่เพียงพอ (ขาดอีก ${baht(priceSatang - balanceSatang)} บาท)`,
         robloxUsername,
         avatarUrl,
@@ -477,7 +471,7 @@ async function onConfirm(interaction, ctx) {
 
   if (!purchase || purchase.discordUserId !== interaction.user.id) {
     await interaction.update({
-      embeds: [errorEmbed({ reason: 'รายการหมดอายุหรือไม่พบ', avatarUrl })],
+      embeds: [await errorEmbed(ctx, { reason: 'รายการหมดอายุหรือไม่พบ', avatarUrl })],
       components: [],
     });
     return;
@@ -493,7 +487,7 @@ async function onConfirm(interaction, ctx) {
   if (!funds.ok || Number(funds.robux || 0) < purchase.pkg.robux) {
     pendingPurchases.delete(purchaseId);
     await interaction.editReply({
-      embeds: [errorEmbed({
+      embeds: [await errorEmbed(ctx, {
         reason: funds.ok
           ? `Robux ในกลุ่มไม่พอ ต้องใช้ ${purchase.pkg.robux} R$ แต่มี ${Number(funds.robux || 0).toLocaleString()} R$`
           : `ไม่สามารถเช็คยอด Robux ในกลุ่มได้ (${funds.error?.message || 'Unknown error'})`,
@@ -509,7 +503,7 @@ async function onConfirm(interaction, ctx) {
   if (!restriction.ok || !restriction.canPayout) {
     pendingPurchases.delete(purchaseId);
     await interaction.editReply({
-      embeds: [errorEmbed({
+      embeds: [await errorEmbed(ctx, {
         reason: `กลุ่มนี้ยังไม่สามารถโอน Robux ได้ (${restriction.error?.message || 'payout ถูกปิดโดย Roblox'})`,
         robloxUsername: purchase.robloxUsername,
         avatarUrl,
@@ -530,7 +524,7 @@ async function onConfirm(interaction, ctx) {
     pendingPurchases.delete(purchaseId);
     const reason = err.code === 'INSUFFICIENT_FUNDS' ? 'ยอดเงินไม่พอ กรุณาเติมเงินก่อน' : 'ไม่สามารถหักเงินได้';
     await interaction.editReply({
-      embeds: [errorEmbed({ reason, robloxUsername: purchase.robloxUsername, avatarUrl })],
+      embeds: [await errorEmbed(ctx, { reason, robloxUsername: purchase.robloxUsername, avatarUrl })],
       components: [],
     });
     return;
@@ -555,9 +549,9 @@ async function onConfirm(interaction, ctx) {
   });
 }
 
-async function onCancel(interaction) {
+async function onCancel(interaction, ctx) {
   await interaction.update({
-    embeds: [errorEmbed({ reason: 'ยกเลิกการซื้อ Robux แล้ว', avatarUrl: interaction.user.displayAvatarURL() })],
+    embeds: [await errorEmbed(ctx, { reason: 'ยกเลิกการซื้อ Robux แล้ว', avatarUrl: interaction.user.displayAvatarURL() })],
     components: [],
   });
 }
