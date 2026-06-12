@@ -25,9 +25,21 @@ const ID = {
 const thb = (satang) => `฿${(satang / 100).toLocaleString('th-TH')}`;
 
 // Best-effort live Robux stock per group (read-only; tolerates missing cookies).
+// Roblox intermittently rate-limits the currency endpoint, so remember the last
+// good reading per group — a failed poll shows the previous number instead of
+// flipping the panel to "—" every few refreshes.
+const lastStock = new Map(); // groupKey -> robux
 async function fetchStock(groups) {
-  return Promise.all(groups.map((g) =>
-    roblox.getGroupFunds({ groupKey: g.key }).then((f) => (f && f.ok ? f.robux : null)).catch(() => null)));
+  return Promise.all(groups.map(async (g) => {
+    try {
+      const f = await roblox.getGroupFunds({ groupKey: g.key });
+      if (f && f.ok && typeof f.robux === 'number') {
+        lastStock.set(g.key, f.robux);
+        return f.robux;
+      }
+    } catch (_e) { /* fall through to the cached value */ }
+    return lastStock.has(g.key) ? lastStock.get(g.key) : null;
+  }));
 }
 
 // ─── Countdown (PAYMENT_COUNTDOWN_*) ─────────────────────────────────────────
