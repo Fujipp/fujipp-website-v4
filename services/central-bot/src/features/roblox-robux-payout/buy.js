@@ -22,7 +22,6 @@ const ID = {
 const COLOR_NORMAL = 15902662;
 const COLOR_ERROR = 16222858;
 const COLOR_SUCCESS = 9107360;
-const COLOR_CONFIRM = 16247178;
 const ERROR_IMAGE = 'https://www.animatedimages.org/data/media/562/animated-line-image-0378.gif';
 const SUCCESS_IMAGE = 'https://www.animatedimages.org/data/media/562/animated-line-image-0388.gif';
 
@@ -50,6 +49,17 @@ const PACKAGES_RATE_4 = [
 const GENERIC_ROBUX_STEPS = [200, 300, 400, 500, 600, 800, 1000, 1200, 1400, 1600, 2000, 3000, 4000, 5000, 7000, 10000, 20000];
 
 function getPackages(ctx) {
+  // A shop can define its own list via the ROBUX_PACKAGES JSON config; when present
+  // and valid it overrides the rate tables. Otherwise fall back to ROBUX_RATE.
+  const custom = ctx.config.json('ROBUX_PACKAGES');
+  if (Array.isArray(custom)) {
+    const packages = custom
+      .map((p) => ({ robux: Number(p && p.robux), price: Number(p && p.price) }))
+      .filter((p) => Number.isFinite(p.robux) && p.robux > 0 && Number.isFinite(p.price) && p.price > 0)
+      .sort((a, b) => a.robux - b.robux);
+    if (packages.length) return packages;
+  }
+
   const rate = ctx.config.number('ROBUX_RATE', 3.5);
   if (rate === 3.5) return PACKAGES_RATE_3_5;
   if (rate === 4) return PACKAGES_RATE_4;
@@ -64,13 +74,13 @@ function tsReadable(date = new Date()) {
 
 const baht = (satang) => (satang / 100).toFixed(2);
 
-function loadingEmbed(text, avatarUrl) {
-  const e = new EmbedBuilder()
-    .setColor(COLOR_NORMAL)
-    .setTitle('<a:Ts_22_discord_3loading:1397892630729461841> กำลังประมวลผล')
-    .setDescription(`\n> <:Ts_4_discord_trade:1397694172416180236> : รายละเอียด\n\`\`\`${text}\`\`\``);
-  if (avatarUrl) e.setThumbnail(avatarUrl);
-  return e;
+// Configurable loading embed (Embed Designer slot 'buy_loading'). Async: loads the
+// bot's template (or seeded default) and substitutes {{vars}}.
+async function loadingEmbed(ctx, text, avatarUrl) {
+  return ctx.services.embeds.renderEmbed('buy_loading', {
+    detail: text || 'กำลังประมวลผล',
+    avatar: avatarUrl || '',
+  });
 }
 
 // Configurable error embed (Embed Designer slot 'buy_error'). Async: loads the
@@ -177,21 +187,13 @@ async function processPayout(job, ctx) {
 
   const balance = await ctx.services.wallet.getBalance(purchase.discordUserId);
   await interaction.editReply({
-    embeds: [new EmbedBuilder()
-      .setColor(COLOR_SUCCESS)
-      .setTitle('<:Ts_22_discord_1ture:1397892606209429584> โอน Robux สำเร็จ')
-      .setDescription([
-        '> <:Ts_7_discord_id:1397694178846310520> : Roblox ID',
-        `\`\`\`${purchase.robloxUserId}\`\`\``,
-        '> <:Icon_Square_robux_1:1397902872146083861> : Robux',
-        `\`\`\`${purchase.pkg.robux} R$\`\`\``,
-        '> <:Ts_19_discord_coin:1397694253676630066> : ราคา',
-        `\`\`\`${purchase.pkg.price} บาท\`\`\``,
-        '> <:Ts_19_discord_coin:1397694253676630066> : ยอดคงเหลือ',
-        `\`\`\`${baht(balance)} บาท\`\`\``,
-      ].join('\n'))
-      .setThumbnail(avatarUrl)
-      .setImage(SUCCESS_IMAGE)],
+    embeds: [await ctx.services.embeds.renderEmbed('buy_success', {
+      roblox_id: purchase.robloxUserId,
+      robux: purchase.pkg.robux,
+      price: purchase.pkg.price,
+      balance: baht(balance),
+      avatar: avatarUrl || '',
+    })],
     components: [],
   }).catch(() => {});
 
@@ -332,7 +334,7 @@ async function onUserModal(interaction, ctx) {
   const avatarUrl = interaction.user.displayAvatarURL();
 
   await interaction.reply({
-    embeds: [loadingEmbed('กำลังตรวจสอบข้อมูล', avatarUrl)],
+    embeds: [await loadingEmbed(ctx, 'กำลังตรวจสอบข้อมูล', avatarUrl)],
     flags: MessageFlags.Ephemeral,
   });
 
@@ -372,19 +374,15 @@ async function onUserModal(interaction, ctx) {
     return;
   }
 
-  const embed = new EmbedBuilder()
-    .setColor(COLOR_SUCCESS)
-    .setTitle('<:Ts_22_discord_1ture:1397892606209429584> สามารถซื้อ Robux ได้แล้ว')
-    .setDescription(
-      `> <:Ts_4_discord_trade:1397694172416180236> : รายละเอียด\n\`\`\`${result.message}\`\`\`\n`
-      + `> <:Ts_9_discord_member:1397694189575344298> : Roblox Username\n\`\`\`${result.username}\`\`\`\n`
-      + `> <:Ts_19_discord_coin:1397694253676630066> : ยอดคงเหลือ\n\`\`\`${baht(balanceSatang)} บาท\`\`\`\n`
-      + `> <:Ts_19_discord_coin:1397694253676630066> : เรทปัจจุบัน\n\`\`\`1 บาท = ${rate} Robux\`\`\`\n`
-      + `> <:Icon_Square_robux_1:1397902872146083861> : Robux ในกลุ่ม\n\`\`\`${groupRobux.toLocaleString()} R$\`\`\`\n`
-      + `> <:Ts_7_discord_id:1397694178846310520> : กลุ่มที่เลือก\n\`\`\`${group?.name || '-'}\`\`\`\n`,
-    )
-    .setThumbnail(avatarUrl)
-    .setImage(SUCCESS_IMAGE);
+  const embed = await ctx.services.embeds.renderEmbed('buy_eligible', {
+    message: result.message,
+    username: result.username,
+    balance: baht(balanceSatang),
+    rate,
+    group_robux: groupRobux.toLocaleString(),
+    group_name: group?.name || '-',
+    avatar: avatarUrl || '',
+  });
 
   await interaction.editReply({
     embeds: [embed],
@@ -439,20 +437,13 @@ async function onPackageSelect(interaction, ctx) {
     timestamp: Date.now(),
   });
 
-  const confirmEmbed = new EmbedBuilder()
-    .setColor(COLOR_CONFIRM)
-    .setTitle('<:Icon_Square_robux_1:1397902872146083861>  ยืนยันการซื้อ Robux')
-    .setDescription(
-      '> <:Ts_4_discord_trade:1397694172416180236> : รายละเอียด\n```ตรวจสอบข้อมูลก่อนยืนยัน```\n'
-      + `> <:Ts_7_discord_id:1397694178846310520> : Roblox ID\n\`\`\`${robloxUserId || 'N/A'}\`\`\`\n`
-      + '> <:Ts_12_discord_abane:1397694204863315998> : เงื่อนไขการใช้บริการ\n```เมื่อกดยืนยัน ระบบจะหักเงินและโอน Robux ทันที```',
-    )
-    .setThumbnail(avatarUrl)
-    .addFields(
-      { name: '<:Icon_Square_robux_1:1397902872146083861> : Package', value: `\`\`\`${pkg.robux}\`\`\``, inline: true },
-      { name: '<:Ts_19_discord_coin:1397694253676630066> : ราคา', value: `\`\`\`${pkg.price} บาท\`\`\``, inline: true },
-      { name: '<:Ts_19_discord_coin:1397694253676630066> : ยอดเงินหลังการซื้อ', value: `\`\`\`${baht(balanceSatang - priceSatang)} บาท\`\`\``, inline: false },
-    );
+  const confirmEmbed = await ctx.services.embeds.renderEmbed('buy_confirm', {
+    roblox_id: robloxUserId || 'N/A',
+    robux: pkg.robux,
+    price: pkg.price,
+    balance_after: baht(balanceSatang - priceSatang),
+    avatar: avatarUrl || '',
+  });
 
   await interaction.editReply({
     embeds: [confirmEmbed],
@@ -479,7 +470,7 @@ async function onConfirm(interaction, ctx) {
 
   // Ack immediately — funds/restriction checks and the queue can be slow.
   await interaction.update({
-    embeds: [loadingEmbed('กำลังดำเนินการ...', avatarUrl)],
+    embeds: [await loadingEmbed(ctx, 'กำลังดำเนินการ...', avatarUrl)],
     components: [],
   });
 
