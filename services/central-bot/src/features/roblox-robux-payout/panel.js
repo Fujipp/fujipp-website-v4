@@ -180,27 +180,28 @@ async function onBalance(interaction, ctx) {
 
 async function onTopup(interaction, ctx) {
   const cfg = await ctx.services.embeds.getConfig('topup_method');
-  const sel = (cfg.components && cfg.components.method_select) || {};
-  const emoji = parseEmoji(sel.emoji);
+  const roles = (cfg.components && cfg.components) || {};
   const embed = await ctx.services.embeds.renderEmbed('topup_method');
-  const select = new StringSelectMenuBuilder()
-    .setCustomId(ID.topupMethod)
-    .setPlaceholder(String(sel.placeholder || 'เลือกช่องทางการเติมเงิน').slice(0, 150));
-  const options = [
-    new StringSelectMenuOptionBuilder().setLabel('พร้อมเพย์ธนาคาร').setValue('promptpay'),
-    new StringSelectMenuOptionBuilder().setLabel('ซองอั่งเปาทรูมันนี่').setValue('truemoney'),
-  ];
-  if (emoji) {
-    for (const opt of options) {
-      try { opt.setEmoji(emoji); } catch (_e) { /* skip invalid emoji */ }
-    }
-  }
-  select.addOptions(options);
-  await interaction.reply({
-    embeds: [embed],
-    components: [new ActionRowBuilder().addComponents(select)],
-    ephemeral: true,
-  });
+
+  // Buttons (not a select) so a member can pick a method, complete it, and pick again
+  // without the menu sticking on the last choice. Label/emoji are configurable via the
+  // topup_method component roles btn_promptpay / btn_truemoney (fall back to defaults).
+  const mkButton = (id, label, style, fallbackEmoji, roleKey) => {
+    const role = roles[roleKey] || {};
+    const btn = new ButtonBuilder()
+      .setCustomId(id)
+      .setLabel(String(role.label || label).slice(0, 80))
+      .setStyle(style);
+    const emoji = parseEmoji(role.emoji) || fallbackEmoji;
+    if (emoji) { try { btn.setEmoji(emoji); } catch (_e) { /* skip invalid emoji */ } }
+    return btn;
+  };
+
+  const row = new ActionRowBuilder().addComponents(
+    mkButton('kanom:topup:btn:promptpay', 'พร้อมเพย์ธนาคาร', ButtonStyle.Primary, '🏧', 'btn_promptpay'),
+    mkButton('kanom:topup:btn:truemoney', 'ซองอั่งเปาทรูมันนี่', ButtonStyle.Success, '🧧', 'btn_truemoney'),
+  );
+  await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
 }
 
 // topup_method select + voucher redeem are handled by the wallet-topup feature.

@@ -50,7 +50,10 @@ async function redeemVoucher(ctx, giftUrl) {
 
 // topup_method select → open the matching input.
 async function onTopupMethod(interaction, ctx) {
-  const method = interaction.values?.[0];
+  // Method comes from a button custom_id (kanom:topup:btn:<method>) — buttons re-fire
+  // every click, unlike a select which sticks on the chosen value. (.values kept as a
+  // fallback for any legacy select interaction.)
+  const method = interaction.values?.[0] ?? interaction.customId.split(':').pop();
   if (method === 'truemoney') {
     const modal = new ModalBuilder().setCustomId('kanom:topup:tmn:modal').setTitle('เติมเงินผ่านซองทรูมันนี่');
     const link = new TextInputBuilder()
@@ -166,7 +169,7 @@ async function onTmnModal(interaction, ctx) {
 
 module.exports = {
   components: {
-    'kanom:topup:method': onTopupMethod,
+    'kanom:topup:btn:': onTopupMethod,
     'kanom:topup:tmn:modal': onTmnModal,
     'kanom:topup:pp:modal': onPpModal,
   },
