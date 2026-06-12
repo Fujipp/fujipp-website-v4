@@ -1,9 +1,11 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.15.11`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.15.13`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.15.13` | 2026-06-13 | central-bot: Robux package dropdown reads the `buy_eligible` slot's `pkg_select` component role (placeholder / per-option emoji / `option_label` template `{{robux}}`/`{{price}}` / ok/insufficient descriptions) instead of hardcoded text — frontend designer fields pending |
+| `0.0.15.12` | 2026-06-13 | central-bot: Robux payout review fixes — claim pending purchase before validation so a double-click on confirm can't double-debit; select value carries robux+price (not index) so config edits mid-flow can't swap the package; /robux-redeem reuses redeem.js core + eligibility check before debit; panel refresh timers keyed per channel (re-posting /panel stops the old poller); payout queue falls back to DM when the interaction token (15 min) has expired |
 | `0.0.15.11` | 2026-06-12 | central-bot: PromptPay countdown back to the precise "X นาที YY วินาที" text, but now ticking every 1s (was a live Discord timestamp / 15s edits); `topup_qr` `{{countdown}}` restored to the code-block style |
 | `0.0.15.10` | 2026-06-12 | central-bot: top-up method picker is now two buttons (PromptPay / TrueMoney) instead of a select menu, so a member can pick, finish, and pick again without the dropdown sticking on the last choice; labels/emoji read optional `btn_promptpay`/`btn_truemoney` component roles |
 | `0.0.15.9` | 2026-06-12 | central-bot: PromptPay top-up countdown is now a live Discord relative timestamp (`<t:…:R>`, ticks down realtime client-side) instead of a 15s message-edit loop; `topup_qr` default moves `{{countdown}}` out of the code block so the timestamp renders |

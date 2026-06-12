@@ -74,16 +74,22 @@ async function buildPanelEmbed(ctx, groups, stock, postedAt) {
 
 // ─── Auto-refresh (port of the legacy payment.js 10s updater) ────────────────
 // Keeps the posted panel's stock + countdown live. In-memory: a bot restart
-// stops refreshing until an admin posts /panel again.
-const refreshTimers = new Map(); // messageId -> intervalId
+// stops refreshing until an admin posts /panel again. Keyed by channel so
+// re-posting /panel replaces the old refresher instead of stacking intervals
+// that keep polling the Roblox API for an abandoned panel message.
+const refreshTimers = new Map(); // channelId -> intervalId
 
 function startPanelRefresh(message, ctx) {
   const intervalMs = Math.max(5_000, ctx.config.number('PAYMENT_REFRESH_INTERVAL', 10_000));
   const postedAt = Date.now();
+  const channelId = message.channelId;
+
+  const existing = refreshTimers.get(channelId);
+  if (existing) clearInterval(existing);
 
   const stop = (intervalId) => {
     clearInterval(intervalId);
-    refreshTimers.delete(message.id);
+    if (refreshTimers.get(channelId) === intervalId) refreshTimers.delete(channelId);
   };
 
   const intervalId = setInterval(async () => {
@@ -99,10 +105,7 @@ function startPanelRefresh(message, ctx) {
     }
   }, intervalMs);
 
-  // Replacing the panel in the same process stops the previous timer.
-  const existing = refreshTimers.get(message.id);
-  if (existing) clearInterval(existing);
-  refreshTimers.set(message.id, intervalId);
+  refreshTimers.set(channelId, intervalId);
 }
 
 // `comp` = config.components (appearance overrides per role); custom_ids stay fixed.

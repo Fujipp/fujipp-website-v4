@@ -1,7 +1,7 @@
 // src/features/roblox-robux-payout/redeem.js
-// Shared "spend wallet → get Robux" core, used by both /robux-redeem (slash) and the
-// shop panel buy modal. Debit first, pay out, refund on failure. Flat ROBUX_RATE for
-// now (Kanom's package pricing is a later enhancement).
+// "Spend wallet → get Robux" core behind /robux-redeem (the shop panel's package
+// flow lives in buy.js). Eligibility check → debit → pay out → refund on failure.
+// Flat ROBUX_RATE pricing; the panel uses package tables instead.
 //
 // ROBUX_RATE is "Robux per 1 baht" (e.g. 4 → ฿1 buys 4 Robux), so the THB cost of
 // `robux` is robux / rate. Round up to the satang so the shop never undercharges.
@@ -16,8 +16,13 @@ async function redeemRobux(ctx, { discordUserId, username, robux, groupKey = nul
   if (!rate || rate <= 0) return { ok: false, message: 'ร้านยังไม่ได้ตั้งเรท (ROBUX_RATE)' };
   if (!Number.isInteger(robux) || robux <= 0) return { ok: false, message: 'จำนวน Robux ไม่ถูกต้อง' };
 
-  const user = await roblox.getUserByUsername(username);
-  if (!user.ok) return { ok: false, message: user.error?.message || 'ไม่พบผู้ใช้ Roblox' };
+  // Eligibility first (also resolves the userId) — a member who isn't in the
+  // group yet gets a clear Thai message instead of debit → payout fail → refund.
+  const elig = await roblox.checkRobloxEligibility(username, groupKey ? { groupKey } : null);
+  if (!elig.ok || !elig.eligible) {
+    return { ok: false, message: elig.message || 'ผู้ใช้นี้ยังไม่มีสิทธิ์รับ Robux' };
+  }
+  const user = { userId: elig.userId, username: elig.username };
 
   const costSatang = Math.ceil((robux / rate) * 100);
 
