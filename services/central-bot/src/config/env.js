@@ -41,6 +41,15 @@ const config = {
     const n = Number(v);
     return Number.isFinite(n) ? n : fallback;
   },
+  json: (key, fallback = null) => {
+    const v = process.env[key];
+    if (v === undefined || v === '') return fallback;
+    try {
+      return JSON.parse(v);
+    } catch {
+      return fallback;
+    }
+  },
 };
 
 module.exports = config;
