@@ -413,17 +413,17 @@ onMounted(loadSlots);
 .pageTitle { margin: 0; color: var(--color-text-primary); }
 .subtitle { margin: 4px 0 0; color: var(--color-text-primary); }
 .divider { height: 1px; background-color: var(--color-main-divider); }
-.backButton { height: 38px; padding: 0 var(--spacing-space-4); border: 1px solid var(--color-input-border); border-radius: var(--radius-full); background: var(--color-input-bg); color: var(--color-text-primary); cursor: pointer; white-space: nowrap; }
+.backButton { height: 38px; padding: 0 var(--spacing-space-4); border: 1px solid var(--color-main-border); border-radius: var(--radius-full); background: var(--color-main-background); color: var(--color-text-primary); cursor: pointer; white-space: nowrap; }
 
 .state { color: var(--color-text-primary); }
-.statePanel { padding: var(--spacing-space-5); border: 1px solid var(--color-input-border); border-radius: var(--radius-lg); }
+.statePanel { padding: var(--spacing-space-5); border: 1px solid var(--color-main-border); border-radius: var(--radius-lg); }
 .stateText { color: var(--color-text-primary); margin: 0 0 var(--spacing-space-3); }
 .retryButton { height: 38px; padding: 0 var(--spacing-space-4); border: 0; border-radius: var(--radius-full); background: var(--color-button-primary-btn-bg); color: var(--color-button-primary-btn-text-active); cursor: pointer; }
 
 .layout { display: grid; grid-template-columns: 220px 1fr; gap: var(--spacing-space-5); align-items: start; }
 
 .slotList { display: flex; flex-direction: column; gap: 4px; }
-.slotItem { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border: 1px solid var(--color-input-border); border-radius: var(--radius-lg); background: var(--color-input-bg); color: var(--color-text-primary); font-size: 14px; cursor: pointer; text-align: left; }
+.slotItem { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border: 1px solid var(--color-main-border); border-radius: var(--radius-lg); background: var(--color-main-background); color: var(--color-text-primary); font-size: 14px; cursor: pointer; text-align: left; }
 .slotItem:hover { border-color: var(--color-input-border-hover); }
 .slotActive { border-color: var(--color-main-primary); color: var(--color-text-primary); }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-main-primary); flex-shrink: 0; }
@@ -433,14 +433,14 @@ onMounted(loadSlots);
 .slotDesc { margin: 0 0 var(--spacing-space-1); color: var(--color-text-primary); }
 
 .colorRow { display: flex; align-items: center; gap: var(--spacing-space-3); color: var(--color-text-primary); font-size: 14px; }
-.colorInput { width: 48px; height: 32px; padding: 0; border: 1px solid var(--color-input-border); border-radius: 6px; background: none; cursor: pointer; }
+.colorInput { width: 48px; height: 32px; padding: 0; border: 1px solid var(--color-main-border); border-radius: 6px; background: none; cursor: pointer; }
 
 .fieldLabel { color: var(--color-text-primary); font-size: 14px; }
-.textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--color-input-border); border-radius: var(--radius-lg); background: var(--color-input-bg); color: var(--color-text-primary); font-family: var(--font-sans); font-size: 14px; resize: vertical; }
+.textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--color-main-border); border-radius: var(--radius-lg); background: var(--color-main-background); color: var(--color-text-primary); font-family: var(--font-sans); font-size: 14px; resize: vertical; }
 
 .vars { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .varsLabel { color: var(--color-text-primary); font-size: 13px; }
-.varChip { padding: 3px 8px; border: 1px solid var(--color-input-border); border-radius: var(--radius-full); background: var(--color-input-bg); color: var(--color-text-primary); font-size: 12px; font-family: monospace; cursor: pointer; }
+.varChip { padding: 3px 8px; border: 1px solid var(--color-main-border); border-radius: var(--radius-full); background: var(--color-main-background); color: var(--color-text-primary); font-size: 12px; font-family: monospace; cursor: pointer; }
 .varChip:hover { border-color: var(--color-main-primary); color: var(--color-text-primary); }
 
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-space-3); }
@@ -448,19 +448,19 @@ onMounted(loadSlots);
 .fieldsEditor { display: flex; flex-direction: column; gap: var(--spacing-space-2); }
 .fieldsHead { display: flex; align-items: center; justify-content: space-between; }
 .helperText { color: var(--color-text-primary); font-size: 12px; }
-.addBtn { padding: 4px 10px; border: 1px solid var(--color-input-border); border-radius: var(--radius-full); background: var(--color-input-bg); color: var(--color-text-primary); font-size: 13px; cursor: pointer; }
+.addBtn { padding: 4px 10px; border: 1px solid var(--color-main-border); border-radius: var(--radius-full); background: var(--color-main-background); color: var(--color-text-primary); font-size: 13px; cursor: pointer; }
 .addBtn:hover { border-color: var(--color-main-primary); color: var(--color-text-primary); }
-.fieldRow { display: grid; grid-template-columns: 1fr 1fr auto auto; align-items: end; gap: var(--spacing-space-2); padding: var(--spacing-space-2); border: 1px solid var(--color-input-border); border-radius: var(--radius-lg); }
+.fieldRow { display: grid; grid-template-columns: 1fr 1fr auto auto; align-items: end; gap: var(--spacing-space-2); padding: var(--spacing-space-2); border: 1px solid var(--color-main-border); border-radius: var(--radius-lg); }
 .inlineToggle { display: inline-flex; align-items: center; gap: 4px; color: var(--color-text-primary); font-size: 12px; white-space: nowrap; padding-bottom: 10px; }
 .inlineToggle input { accent-color: var(--color-main-primary); }
 .removeBtn { height: 34px; padding: 0 10px; border: 0; border-radius: var(--radius-lg); background: var(--color-status-error); color: #fff; font-size: 13px; cursor: pointer; }
 
 .componentsEditor { display: flex; flex-direction: column; gap: var(--spacing-space-2); margin-top: var(--spacing-space-2); }
-.componentRow { display: flex; flex-direction: column; gap: var(--spacing-space-2); padding: var(--spacing-space-3); border: 1px solid var(--color-input-border); border-radius: var(--radius-lg); background: var(--color-input-bg); }
+.componentRow { display: flex; flex-direction: column; gap: var(--spacing-space-2); padding: var(--spacing-space-3); border: 1px solid var(--color-main-border); border-radius: var(--radius-lg); background: var(--color-main-background); }
 .componentTitle { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-space-2); color: var(--color-text-primary); font-size: 14px; font-weight: 600; }
 .componentTitle code { color: var(--color-text-primary); font-family: monospace; font-size: 12px; font-weight: 400; }
 .selectField { display: flex; flex-direction: column; gap: 6px; }
-.nativeSelect { width: 100%; height: 40px; padding: 0 12px; border: 1px solid var(--color-input-border); border-radius: var(--radius-lg); background: var(--color-main-background); color: var(--color-text-primary); font-family: var(--font-sans); font-size: 14px; }
+.nativeSelect { width: 100%; height: 40px; padding: 0 12px; border: 1px solid var(--color-main-border); border-radius: var(--radius-lg); background: var(--color-main-background); color: var(--color-text-primary); font-family: var(--font-sans); font-size: 14px; }
 
 @media (max-width: 700px) { .fieldRow { grid-template-columns: 1fr 1fr; } }
 
@@ -470,7 +470,7 @@ onMounted(loadSlots);
 .previewCol { position: sticky; top: var(--spacing-space-4); display: flex; flex-direction: column; gap: var(--spacing-space-2); }
 .previewLabel { color: var(--color-text-primary); }
 .previewHint { margin: 0; color: var(--color-text-primary); }
-.previewHint code { background: var(--color-input-bg-disabled); padding: 0 4px; border-radius: 4px; }
+.previewHint code { background: color-mix(in srgb, var(--color-text-primary) 12%, transparent); padding: 0 4px; border-radius: 4px; }
 
 .toastRegion { position: fixed; right: var(--spacing-space-5); bottom: var(--spacing-space-5); z-index: 1000; }
 
