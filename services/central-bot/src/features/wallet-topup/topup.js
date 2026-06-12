@@ -14,6 +14,11 @@ const {
 const thb = (satang) => `฿${(satang / 100).toLocaleString('th-TH')}`;
 const GIFT_RE = /^https:\/\/gift\.truemoney\.com\/campaign\/\?v=/;
 
+// QR countdown: edit the message once a second so "X นาที YY วินาที" ticks down.
+const COUNTDOWN_TICK_MS = 1000;
+const fmtCountdown = (secLeft) =>
+  `${Math.floor(secLeft / 60)} นาที ${String(secLeft % 60).padStart(2, '0')} วินาที`;
+
 
 // Redeem a TrueMoney gift link through our voucher-service. Returns satang on success.
 async function redeemVoucher(ctx, giftUrl) {
@@ -101,13 +106,11 @@ async function onPpModal(interaction, ctx) {
   const minutes = Math.max(1, ctx.config.number('TOPUP_QR_TIMEOUT', 5));
   const targetTs = Math.floor(Date.now() / 1000) + minutes * 60;
 
-  // <t:…:R> is a Discord relative timestamp — the client ticks it down live
-  // (truly realtime, no per-second message edits / rate limits).
-  const renderQr = () =>
+  const renderQr = (secLeft) =>
     ctx.services.embeds.renderEmbed('topup_qr', {
       amount: `${amount.toFixed(2)} THB`,
       account_name: ctx.config.get('PROMPTPAY_ACCOUNT_NAME', '-'),
-      countdown: `<t:${targetTs}:R>`,
+      countdown: fmtCountdown(secLeft),
       qr_image: qrImage,
     });
 
@@ -123,18 +126,23 @@ async function onPpModal(interaction, ctx) {
     ));
   }
 
-  await interaction.editReply({ embeds: [await renderQr()], components });
+  await interaction.editReply({ embeds: [await renderQr(minutes * 60)], components });
 
-  // Discord ticks the relative timestamp itself, so we only need one timer to swap
-  // the QR for the timeout embed when it expires.
-  setTimeout(async () => {
+  const tick = setInterval(async () => {
+    const left = Math.max(0, targetTs - Math.floor(Date.now() / 1000));
     try {
-      const timeout = await ctx.services.embeds.renderEmbed('topup_timeout');
-      await interaction.editReply({ embeds: [timeout], components: [] }).catch(() => {});
+      if (left <= 0) {
+        clearInterval(tick);
+        const timeout = await ctx.services.embeds.renderEmbed('topup_timeout');
+        await interaction.editReply({ embeds: [timeout], components: [] }).catch(() => {});
+        return;
+      }
+      await interaction.editReply({ embeds: [await renderQr(left)] }).catch(() => {});
     } catch (err) {
-      console.error('[central-bot] promptpay timeout error:', err.message);
+      clearInterval(tick);
+      console.error('[central-bot] promptpay countdown error:', err.message);
     }
-  }, minutes * 60 * 1000);
+  }, COUNTDOWN_TICK_MS);
 }
 
 // TrueMoney voucher modal → redeem → credit → topup_success / topup_failed.
