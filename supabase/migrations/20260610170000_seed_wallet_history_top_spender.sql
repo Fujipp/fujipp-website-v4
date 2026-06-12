@@ -20,7 +20,9 @@ VALUES
    'Top Spender Rank',
    'จัดอันดับยอดเติมสะสม + แจกยศ Top 1 / Top 10 และยศตามยอดสะสม (milestone). ใช้คู่กับ wallet-topup. '
    || 'ต้องเปิด Server Members Intent ใน Discord Dev Portal เมื่อใช้ระบบแจกยศ.',
-   'UTILITY', FALSE, 40, TRUE)
+   -- 'ENGAGEMENT' (was 'UTILITY', which violates feature_catalog_category_chk —
+   -- the original migration could never apply; fixed in place 2026-06-13)
+   'ENGAGEMENT', FALSE, 40, TRUE)
 ON CONFLICT (code) DO UPDATE SET
   name        = EXCLUDED.name,
   description = EXCLUDED.description,
