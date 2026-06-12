@@ -10,7 +10,7 @@
 // The Roblox API client (roblox.js) is the proven implementation ported from the
 // original kanom-roblox bot; it reads the ROBLOX_* env keys directly.
 
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder } = require('discord.js');
 const roblox = require('./roblox');
 const panel = require('./panel');
 const { redeemRobux } = require('./redeem');
@@ -32,11 +32,14 @@ async function handleCheck(interaction, ctx) {
   await interaction.deferReply();
 
   const result = await roblox.checkRobloxEligibility(username);
-  const embed = new EmbedBuilder()
-    .setColor(result.color ?? BRAND)
-    .setTitle('ตรวจสอบสิทธิ์รับ Robux')
-    .setDescription(result.message || 'ไม่สามารถตรวจสอบได้')
-    .setFooter({ text: ctx.config.get('ROBLOX_GROUP_NAME', 'Roblox') });
+  const embed = await ctx.services.embeds.renderEmbed('check_result', {
+    message: result.message || 'ไม่สามารถตรวจสอบได้',
+    username: result.username || username,
+    group_name: ctx.config.get('ROBLOX_GROUP_NAME', 'Roblox'),
+  });
+  // The seeded template has no color so the result drives green/red; a bot
+  // override that sets a fixed color wins.
+  if (embed.data.color == null) embed.setColor(result.color ?? BRAND);
   await interaction.editReply({ embeds: [embed] });
 }
 
@@ -49,11 +52,10 @@ async function handleBalance(interaction, ctx) {
     await interaction.editReply({ content: `ดึงยอดกลุ่มไม่สำเร็จ: ${funds.error?.message || 'unknown'}` });
     return;
   }
-  const embed = new EmbedBuilder()
-    .setColor(BRAND)
-    .setTitle('ยอด Robux ของกลุ่ม')
-    .setDescription(`คงเหลือ **${funds.robux.toLocaleString()}** Robux`)
-    .setFooter({ text: ctx.config.get('ROBLOX_GROUP_NAME', 'Roblox') });
+  const embed = await ctx.services.embeds.renderEmbed('group_balance', {
+    robux: funds.robux.toLocaleString(),
+    group_name: ctx.config.get('ROBLOX_GROUP_NAME', 'Roblox'),
+  });
   await interaction.editReply({ embeds: [embed] });
 }
 
@@ -83,10 +85,10 @@ async function handlePayout(interaction, ctx) {
     return;
   }
 
-  const embed = new EmbedBuilder()
-    .setColor(0x3ba55d)
-    .setTitle('จ่าย Robux สำเร็จ')
-    .setDescription(`ส่ง **${amount.toLocaleString()}** Robux ให้ \`${user.username}\` แล้ว`);
+  const embed = await ctx.services.embeds.renderEmbed('payout_admin_success', {
+    robux: amount.toLocaleString(),
+    username: user.username,
+  });
   await interaction.editReply({ embeds: [embed] });
 
   const notifyChannelId = ctx.config.get('ROBUX_NOTIFY_CHANNEL');
@@ -115,10 +117,12 @@ async function handleRedeem(interaction, ctx) {
     return;
   }
 
-  const embed = new EmbedBuilder()
-    .setColor(0x3ba55d)
-    .setTitle('แลก Robux สำเร็จ')
-    .setDescription(`ส่ง **${robux.toLocaleString()}** Robux ให้ \`${result.username}\`\nคงเหลือ **฿${(result.balanceAfter / 100).toLocaleString('th-TH')}**`);
+  const embed = await ctx.services.embeds.renderEmbed('redeem_success', {
+    member: result.username,
+    robux: robux.toLocaleString(),
+    group_name: result.groupName || ctx.config.get('ROBLOX_GROUP_NAME', 'Roblox'),
+    balance: `฿${(result.balanceAfter / 100).toLocaleString('th-TH')}`,
+  });
   await interaction.editReply({ embeds: [embed] });
 
   const notifyChannelId = ctx.config.get('ROBUX_NOTIFY_CHANNEL');

@@ -6,7 +6,7 @@
 // the buyer's Roblox avatar. Money flows through ctx.services.wallet (satang).
 
 const {
-  EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle,
+  ActionRowBuilder, ButtonBuilder, ButtonStyle,
   StringSelectMenuBuilder, StringSelectMenuOptionBuilder,
   ModalBuilder, TextInputBuilder, TextInputStyle,
   MessageFlags,
@@ -21,11 +21,6 @@ const ID = {
   cancel: 'kanom:buy:no',
 };
 
-const COLOR_NORMAL = 15902662;
-const COLOR_ERROR = 16222858;
-const COLOR_SUCCESS = 9107360;
-const ERROR_IMAGE = 'https://www.animatedimages.org/data/media/562/animated-line-image-0378.gif';
-const SUCCESS_IMAGE = 'https://www.animatedimages.org/data/media/562/animated-line-image-0388.gif';
 
 // ─── Packages ────────────────────────────────────────────────────────────────
 // The 3.5 / 4 tables are Kanom's real price lists (some entries carry a bulk
@@ -226,6 +221,7 @@ async function processPayout(job, ctx) {
 }
 
 // Notification to ROBUX_NOTIFY_CHANNEL with the buyer's Roblox avatar.
+// Configurable Embed Designer slots 'notify_success' / 'notify_error'.
 async function sendNotification(client, ctx, data) {
   const channelId = ctx.config.get('ROBUX_NOTIFY_CHANNEL');
   if (!channelId || !client) return;
@@ -234,45 +230,28 @@ async function sendNotification(client, ctx, data) {
       || (await client.channels.fetch(String(channelId)).catch(() => null));
     if (!channel?.isTextBased?.()) return;
 
-    const embed = new EmbedBuilder();
+    let avatarUrl = '';
     if (data.robloxUserId) {
       const avatar = await roblox.getUserAvatarUrl(data.robloxUserId);
-      if (avatar.ok) embed.setThumbnail(avatar.avatarUrl);
+      if (avatar.ok) avatarUrl = avatar.avatarUrl;
     }
 
-    if (data.success) {
-      embed
-        .setColor(COLOR_NORMAL)
-        .setTitle('<:Ts_22_discord_1ture:1397892606209429584> ทำรายการสำเร็จ')
-        .setDescription([
-          '> <:Ts_9_discord_member:1397694189575344298> : Discord Username',
-          `\`\`\`${data.username}\`\`\``,
-          '> <:Ts_7_discord_id:1397694178846310520> : Roblox ID',
-          `\`\`\`${data.robloxUserId}\`\`\``,
-          '> <:Icon_Square_robux_1:1397902872146083861> : Robux',
-          `\`\`\`${data.robux} R$\`\`\``,
-          '> <:Ts_19_discord_coin:1397694253676630066> : ราคา',
-          `\`\`\`${data.price} บาท\`\`\``,
-          '> <:Ts_10_discord_Clock:1397694191429095675> : วันที่และเวลาทำรายการ',
-          `\`\`\`${tsReadable()}\`\`\``,
-        ].join('\n'))
-        .setImage('https://pixelsafari.neocities.org/dividers/more/cat8.gif');
-    } else {
-      embed
-        .setColor(COLOR_ERROR)
-        .setTitle('<:Ts_12_discord_bbane:1397694208969543720> เกิดข้อผิดพลาด')
-        .setDescription([
-          '> <:Ts_4_discord_trade:1397694172416180236> : รายละเอียด',
-          `\`\`\`${data.error || 'เกิดข้อผิดพลาด'}\`\`\``,
-          '> <:Ts_9_discord_member:1397694189575344298> : Discord Username',
-          `\`\`\`${data.username || '-'}\`\`\``,
-          '> <:Ts_7_discord_id:1397694178846310520> : Roblox ID',
-          `\`\`\`${data.robloxUserId || '-'}\`\`\``,
-          '> <:Ts_10_discord_Clock:1397694191429095675> : วันที่และเวลาทำรายการ',
-          `\`\`\`${tsReadable()}\`\`\``,
-        ].join('\n'))
-        .setImage(ERROR_IMAGE);
-    }
+    const embed = data.success
+      ? await ctx.services.embeds.renderEmbed('notify_success', {
+        username: data.username,
+        roblox_id: data.robloxUserId,
+        robux: data.robux,
+        price: data.price,
+        datetime: tsReadable(),
+        avatar: avatarUrl,
+      })
+      : await ctx.services.embeds.renderEmbed('notify_error', {
+        error: data.error || 'เกิดข้อผิดพลาด',
+        username: data.username || '-',
+        roblox_id: data.robloxUserId || '-',
+        datetime: tsReadable(),
+        avatar: avatarUrl,
+      });
     await channel.send({ embeds: [embed] });
   } catch (err) {
     console.error('[central-bot] notify failed:', err.message);
@@ -563,17 +542,13 @@ async function onConfirm(interaction, ctx) {
   addToQueue({ interaction, purchase }, ctx);
 
   await interaction.editReply({
-    embeds: [new EmbedBuilder()
-      .setColor(COLOR_SUCCESS)
-      .setTitle('<:Ts_22_discord_1ture:1397892606209429584> กำลังดำเนินการ...')
-      .setDescription(
-        `> <:Ts_4_discord_trade:1397694172416180236> : รายละเอียด\n\`\`\`หักเงินเรียบร้อย! กำลังโอน Robux... (คิว #${payoutQueue.length})\`\`\`\n`
-        + `> <:Icon_Square_robux_1:1397902872146083861> : Robux\n\`\`\`${purchase.pkg.robux} R$\`\`\`\n`
-        + `> <:Ts_19_discord_coin:1397694253676630066> : ราคา\n\`\`\`${purchase.pkg.price} บาท\`\`\`\n`
-        + `> <:Ts_19_discord_coin:1397694253676630066> : ยอดคงเหลือ\n\`\`\`${baht(balanceAfter)} บาท\`\`\`\n`,
-      )
-      .setThumbnail(avatarUrl)
-      .setImage(SUCCESS_IMAGE)],
+    embeds: [await ctx.services.embeds.renderEmbed('buy_queued', {
+      queue: payoutQueue.length,
+      robux: purchase.pkg.robux,
+      price: purchase.pkg.price,
+      balance: baht(balanceAfter),
+      avatar: avatarUrl || '',
+    })],
     components: [],
   });
 }
