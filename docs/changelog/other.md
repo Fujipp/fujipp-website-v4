@@ -1,9 +1,10 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.15.15`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.15.16`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.15.16` | 2026-06-13 | central-bot: retire the robux-check / robux-balance / robux-payout / robux-redeem slash commands — the feature now exposes only /panel; all member flows run through the shop panel components (commands.set overwrites the registered set, so the old commands disappear from Discord on the next bot restart) |
 | `0.0.15.15` | 2026-06-13 | central-bot: remove the ซื้อสินค้า button from the shop panel — buying goes through the group select; buttons are now เติมเงิน / เช็คยอดคงเหลือ (+ optional link). Stale panels keep working until their auto-refresh rebuilds the components |
 | `0.0.15.14` | 2026-06-13 | central-bot: last hardcoded Robux embeds now render from Embed Designer slots — buy-queue (`buy_queued`), notify channel (`notify_success`/`notify_error`), /robux-check (`check_result`, green/red by result unless template sets a color), /robux-balance (`group_balance`), /robux-payout (`payout_admin_success`), /robux-redeem (reuses seeded `redeem_success`) — every embed the feature sends is editable now |
 | `0.0.15.13` | 2026-06-13 | central-bot: Robux package dropdown reads the `buy_eligible` slot's `pkg_select` component role (placeholder / per-option emoji / `option_label` template `{{robux}}`/`{{price}}` / ok/insufficient descriptions) instead of hardcoded text — frontend designer fields pending |
