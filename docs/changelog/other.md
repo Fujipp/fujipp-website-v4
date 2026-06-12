@@ -1,9 +1,10 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.15.10`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.15.11`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.15.11` | 2026-06-12 | central-bot: PromptPay countdown back to the precise "X นาที YY วินาที" text, but now ticking every 1s (was a live Discord timestamp / 15s edits); `topup_qr` `{{countdown}}` restored to the code-block style |
 | `0.0.15.10` | 2026-06-12 | central-bot: top-up method picker is now two buttons (PromptPay / TrueMoney) instead of a select menu, so a member can pick, finish, and pick again without the dropdown sticking on the last choice; labels/emoji read optional `btn_promptpay`/`btn_truemoney` component roles |
 | `0.0.15.9` | 2026-06-12 | central-bot: PromptPay top-up countdown is now a live Discord relative timestamp (`<t:…:R>`, ticks down realtime client-side) instead of a 15s message-edit loop; `topup_qr` default moves `{{countdown}}` out of the code block so the timestamp renders |
 | `0.0.15.8` | 2026-06-12 | central-bot: Roblox buy-flow eligibility + loading embeds are now configurable Embed Designer slots (`buy_eligible`, `buy_loading`); Robux packages can be customized per-shop via the new `ROBUX_PACKAGES` JSON config (overrides the rate tables when set) |
