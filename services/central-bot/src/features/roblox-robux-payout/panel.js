@@ -131,9 +131,9 @@ function buildComponents(ctx, groups, stock, comp = {}) {
     rows.push(new ActionRowBuilder().addComponents(select));
   }
 
+  // Buying goes through the group select above; the panel only offers topup/balance.
   const buttons = [
     applyButton(new ButtonBuilder().setCustomId(ID.topup).setStyle(buttonStyle(comp.btn_topup && comp.btn_topup.style, ButtonStyle.Primary)), comp.btn_topup, 'เติมเงิน'),
-    applyButton(new ButtonBuilder().setCustomId(ID.buy).setStyle(buttonStyle(comp.btn_buy && comp.btn_buy.style, ButtonStyle.Danger)), comp.btn_buy, 'ซื้อสินค้า'),
     applyButton(new ButtonBuilder().setCustomId(ID.balance).setStyle(buttonStyle(comp.btn_balance && comp.btn_balance.style, ButtonStyle.Secondary)), comp.btn_balance, 'เช็คยอดคงเหลือ'),
   ];
   const link = (comp.btn_link && comp.btn_link.url) || ctx.config.get('GROUP_LINK');
