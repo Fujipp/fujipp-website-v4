@@ -1,9 +1,10 @@
 # Changelog — Database
 
-**Current version: `0.1.8.1`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.1.8.2`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.1.8.2` | 2026-06-13 | roblox-robux-payout: seed `pkg_select` component role on the `buy_eligible` slot (placeholder, emoji, `option_label` template with `{{robux}}`/`{{price}}`, ok/insufficient descriptions) so the package dropdown is Embed-Designer-editable |
 | `0.1.8.1` | 2026-06-12 | roblox-robux-payout: add `ROBUX_PACKAGES` JSON config template — lets a shop define its own {robux, price} package list instead of deriving from the rate |
 | `0.1.8` | 2026-06-10 | seed wallet-history + top-spender-rank features with config templates (history limit, rank/milestone roles, leaderboard channel) |
 | `0.1.7.1` | 2026-06-10 | roblox-robux-payout: add PAYMENT_REFRESH_INTERVAL template + PAYMENT_COUNTDOWN_TARGET accepts ISO date or seconds |
