@@ -211,7 +211,7 @@ function buttonClass(role: PreviewRole): string {
 .footer { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 12px; color: #b5bac1; }
 .footerIcon { width: 20px; height: 20px; border-radius: 50%; }
 
-.embed :global(.emoji) { width: 1.375em; height: 1.375em; vertical-align: bottom; object-fit: contain; }
+.embed :global(.emoji) { display: inline-block; width: 1.375em; height: 1.375em; vertical-align: -0.2em; object-fit: contain; }
 .embed :global(.mention) { background: rgba(88,101,242,0.3); color: #c9cdfb; border-radius: 3px; padding: 0 2px; }
 .embed :global(code) { background: #1e1f22; border-radius: 3px; padding: 0 3px; font-family: monospace; font-size: 13px; }
 .embed :global(code.block) { display: block; padding: 6px 8px; margin: 2px 0; white-space: pre-wrap; }
