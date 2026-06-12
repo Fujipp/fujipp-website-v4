@@ -10,9 +10,10 @@
 // The Roblox API client (roblox.js) is the proven implementation ported from the
 // original kanom-roblox bot; it reads the ROBLOX_* env keys directly.
 
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder } = require('discord.js');
 const roblox = require('./roblox');
 const panel = require('./panel');
+const { redeemRobux } = require('./redeem');
 const { isAdmin } = require('../../lib/perms');
 
 const BRAND = 0x37373d;
@@ -31,11 +32,14 @@ async function handleCheck(interaction, ctx) {
   await interaction.deferReply();
 
   const result = await roblox.checkRobloxEligibility(username);
-  const embed = new EmbedBuilder()
-    .setColor(result.color ?? BRAND)
-    .setTitle('ตรวจสอบสิทธิ์รับ Robux')
-    .setDescription(result.message || 'ไม่สามารถตรวจสอบได้')
-    .setFooter({ text: ctx.config.get('ROBLOX_GROUP_NAME', 'Roblox') });
+  const embed = await ctx.services.embeds.renderEmbed('check_result', {
+    message: result.message || 'ไม่สามารถตรวจสอบได้',
+    username: result.username || username,
+    group_name: ctx.config.get('ROBLOX_GROUP_NAME', 'Roblox'),
+  });
+  // The seeded template has no color so the result drives green/red; a bot
+  // override that sets a fixed color wins.
+  if (embed.data.color == null) embed.setColor(result.color ?? BRAND);
   await interaction.editReply({ embeds: [embed] });
 }
 
@@ -48,11 +52,10 @@ async function handleBalance(interaction, ctx) {
     await interaction.editReply({ content: `ดึงยอดกลุ่มไม่สำเร็จ: ${funds.error?.message || 'unknown'}` });
     return;
   }
-  const embed = new EmbedBuilder()
-    .setColor(BRAND)
-    .setTitle('ยอด Robux ของกลุ่ม')
-    .setDescription(`คงเหลือ **${funds.robux.toLocaleString()}** Robux`)
-    .setFooter({ text: ctx.config.get('ROBLOX_GROUP_NAME', 'Roblox') });
+  const embed = await ctx.services.embeds.renderEmbed('group_balance', {
+    robux: funds.robux.toLocaleString(),
+    group_name: ctx.config.get('ROBLOX_GROUP_NAME', 'Roblox'),
+  });
   await interaction.editReply({ embeds: [embed] });
 }
 
@@ -82,10 +85,10 @@ async function handlePayout(interaction, ctx) {
     return;
   }
 
-  const embed = new EmbedBuilder()
-    .setColor(0x3ba55d)
-    .setTitle('จ่าย Robux สำเร็จ')
-    .setDescription(`ส่ง **${amount.toLocaleString()}** Robux ให้ \`${user.username}\` แล้ว`);
+  const embed = await ctx.services.embeds.renderEmbed('payout_admin_success', {
+    robux: amount.toLocaleString(),
+    username: user.username,
+  });
   await interaction.editReply({ embeds: [embed] });
 
   const notifyChannelId = ctx.config.get('ROBUX_NOTIFY_CHANNEL');
@@ -97,58 +100,29 @@ async function handlePayout(interaction, ctx) {
 }
 
 // Self-service: member spends their shop wallet (THB) to receive Robux.
+// Money logic lives in redeem.js (shared core): eligibility → debit → payout → refund.
 async function handleRedeem(interaction, ctx) {
   if (!ensureEnabled(interaction, ctx)) return;
-  const wallet = ctx.services && ctx.services.wallet;
-  if (!wallet) {
-    await interaction.reply({ content: 'ระบบกระเป๋าเงินยังไม่เปิด (ต้องเปิดฟีเจอร์ wallet-topup)', ephemeral: true });
-    return;
-  }
-  const rate = ctx.config.number('ROBUX_RATE', 0);
-  if (!rate || rate <= 0) {
-    await interaction.reply({ content: 'ร้านยังไม่ได้ตั้งเรท (ROBUX_RATE)', ephemeral: true });
-    return;
-  }
   const username = interaction.options.getString('username', true);
   const robux = interaction.options.getInteger('amount', true);
-  // ROBUX_RATE = Robux per 1 baht, so THB cost = robux / rate (round up to satang).
-  const costSatang = Math.ceil((robux / rate) * 100);
   await interaction.deferReply({ ephemeral: true });
 
-  const user = await roblox.getUserByUsername(username);
-  if (!user.ok) {
-    await interaction.editReply({ content: user.error?.message || 'ไม่พบผู้ใช้' });
+  const result = await redeemRobux(ctx, {
+    discordUserId: interaction.user.id,
+    username,
+    robux,
+  });
+  if (!result.ok) {
+    await interaction.editReply({ content: result.message });
     return;
   }
 
-  // Debit first; refund if the payout fails.
-  let balanceAfter;
-  try {
-    balanceAfter = await wallet.debit(interaction.user.id, costSatang, {
-      type: 'ROBUX_REDEEM',
-      note: `${robux} Robux → ${user.username}`,
-    });
-  } catch (err) {
-    if (err.code === 'INSUFFICIENT_FUNDS') {
-      await interaction.editReply({ content: `ยอดเงินไม่พอ ต้องใช้ ฿${(costSatang / 100).toLocaleString('th-TH')}` });
-      return;
-    }
-    throw err;
-  }
-
-  const payout = await roblox.makeOneTimePayout(user.userId, robux);
-  if (!payout.ok) {
-    await wallet.credit(interaction.user.id, costSatang, { type: 'REFUND', note: 'payout failed' }).catch(() => {});
-    await interaction.editReply({
-      content: `จ่าย Robux ไม่สำเร็จ คืนเงินแล้ว: ${payout.error?.message || roblox.mapErrorCode(payout.error?.code)}`,
-    });
-    return;
-  }
-
-  const embed = new EmbedBuilder()
-    .setColor(0x3ba55d)
-    .setTitle('แลก Robux สำเร็จ')
-    .setDescription(`ส่ง **${robux.toLocaleString()}** Robux ให้ \`${user.username}\`\nคงเหลือ **฿${(balanceAfter / 100).toLocaleString('th-TH')}**`);
+  const embed = await ctx.services.embeds.renderEmbed('redeem_success', {
+    member: result.username,
+    robux: robux.toLocaleString(),
+    group_name: result.groupName || ctx.config.get('ROBLOX_GROUP_NAME', 'Roblox'),
+    balance: `฿${(result.balanceAfter / 100).toLocaleString('th-TH')}`,
+  });
   await interaction.editReply({ embeds: [embed] });
 
   const notifyChannelId = ctx.config.get('ROBUX_NOTIFY_CHANNEL');

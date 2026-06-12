@@ -6,11 +6,13 @@
 // the buyer's Roblox avatar. Money flows through ctx.services.wallet (satang).
 
 const {
-  EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle,
-  StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle,
+  ActionRowBuilder, ButtonBuilder, ButtonStyle,
+  StringSelectMenuBuilder, StringSelectMenuOptionBuilder,
+  ModalBuilder, TextInputBuilder, TextInputStyle,
   MessageFlags,
 } = require('discord.js');
 const roblox = require('./roblox');
+const { parseEmoji } = require('../../lib/components');
 
 const ID = {
   userModal: 'kanom:buy:user',   // + ":<groupKey>"
@@ -19,11 +21,6 @@ const ID = {
   cancel: 'kanom:buy:no',
 };
 
-const COLOR_NORMAL = 15902662;
-const COLOR_ERROR = 16222858;
-const COLOR_SUCCESS = 9107360;
-const ERROR_IMAGE = 'https://www.animatedimages.org/data/media/562/animated-line-image-0378.gif';
-const SUCCESS_IMAGE = 'https://www.animatedimages.org/data/media/562/animated-line-image-0388.gif';
 
 // ─── Packages ────────────────────────────────────────────────────────────────
 // The 3.5 / 4 tables are Kanom's real price lists (some entries carry a bulk
@@ -73,6 +70,11 @@ function tsReadable(date = new Date()) {
 }
 
 const baht = (satang) => (satang / 100).toFixed(2);
+
+// Substitute {{var}} placeholders in a component template string.
+function fillVars(template, vars) {
+  return String(template).replace(/\{\{(\w+)\}\}/g, (_m, key) => (vars[key] != null ? String(vars[key]) : ''));
+}
 
 // Configurable loading embed (Embed Designer slot 'buy_loading'). Async: loads the
 // bot's template (or seeded default) and substitutes {{vars}}.
@@ -145,6 +147,18 @@ async function processQueue(ctx) {
   isProcessingQueue = false;
 }
 
+// Discord interaction tokens live 15 minutes; past that editReply always fails.
+const INTERACTION_TOKEN_TTL_MS = 14 * 60 * 1000;
+
+// editReply while the token is alive, otherwise fall back to a DM so a buyer
+// stuck deep in the queue still learns the outcome (notify channel gets it too).
+function replyOrDm(interaction, payload) {
+  if (Date.now() - interaction.createdTimestamp < INTERACTION_TOKEN_TTL_MS) {
+    return interaction.editReply(payload).catch(() => {});
+  }
+  return interaction.user?.send({ embeds: payload.embeds }).catch(() => {});
+}
+
 async function processPayout(job, ctx) {
   const { interaction, purchase } = job;
   const avatarUrl = interaction.user?.displayAvatarURL?.() || '';
@@ -165,7 +179,7 @@ async function processPayout(job, ctx) {
       console.error('[central-bot] refund failed:', err.message);
     }
     const reason = formatPayoutError(payout.error);
-    await interaction.editReply({
+    await replyOrDm(interaction, {
       embeds: [await errorEmbed(ctx, {
         reason: `โอน Robux ไม่สำเร็จ: ${reason}\n`
           + (refundedBalance != null
@@ -175,7 +189,7 @@ async function processPayout(job, ctx) {
         avatarUrl,
       })],
       components: [],
-    }).catch(() => {});
+    });
     await sendNotification(interaction.client, ctx, {
       success: false,
       username: interaction.user?.username || 'Unknown',
@@ -186,7 +200,7 @@ async function processPayout(job, ctx) {
   }
 
   const balance = await ctx.services.wallet.getBalance(purchase.discordUserId);
-  await interaction.editReply({
+  await replyOrDm(interaction, {
     embeds: [await ctx.services.embeds.renderEmbed('buy_success', {
       roblox_id: purchase.robloxUserId,
       robux: purchase.pkg.robux,
@@ -195,7 +209,7 @@ async function processPayout(job, ctx) {
       avatar: avatarUrl || '',
     })],
     components: [],
-  }).catch(() => {});
+  });
 
   await sendNotification(interaction.client, ctx, {
     success: true,
@@ -207,6 +221,7 @@ async function processPayout(job, ctx) {
 }
 
 // Notification to ROBUX_NOTIFY_CHANNEL with the buyer's Roblox avatar.
+// Configurable Embed Designer slots 'notify_success' / 'notify_error'.
 async function sendNotification(client, ctx, data) {
   const channelId = ctx.config.get('ROBUX_NOTIFY_CHANNEL');
   if (!channelId || !client) return;
@@ -215,45 +230,28 @@ async function sendNotification(client, ctx, data) {
       || (await client.channels.fetch(String(channelId)).catch(() => null));
     if (!channel?.isTextBased?.()) return;
 
-    const embed = new EmbedBuilder();
+    let avatarUrl = '';
     if (data.robloxUserId) {
       const avatar = await roblox.getUserAvatarUrl(data.robloxUserId);
-      if (avatar.ok) embed.setThumbnail(avatar.avatarUrl);
+      if (avatar.ok) avatarUrl = avatar.avatarUrl;
     }
 
-    if (data.success) {
-      embed
-        .setColor(COLOR_NORMAL)
-        .setTitle('<:Ts_22_discord_1ture:1397892606209429584> ทำรายการสำเร็จ')
-        .setDescription([
-          '> <:Ts_9_discord_member:1397694189575344298> : Discord Username',
-          `\`\`\`${data.username}\`\`\``,
-          '> <:Ts_7_discord_id:1397694178846310520> : Roblox ID',
-          `\`\`\`${data.robloxUserId}\`\`\``,
-          '> <:Icon_Square_robux_1:1397902872146083861> : Robux',
-          `\`\`\`${data.robux} R$\`\`\``,
-          '> <:Ts_19_discord_coin:1397694253676630066> : ราคา',
-          `\`\`\`${data.price} บาท\`\`\``,
-          '> <:Ts_10_discord_Clock:1397694191429095675> : วันที่และเวลาทำรายการ',
-          `\`\`\`${tsReadable()}\`\`\``,
-        ].join('\n'))
-        .setImage('https://pixelsafari.neocities.org/dividers/more/cat8.gif');
-    } else {
-      embed
-        .setColor(COLOR_ERROR)
-        .setTitle('<:Ts_12_discord_bbane:1397694208969543720> เกิดข้อผิดพลาด')
-        .setDescription([
-          '> <:Ts_4_discord_trade:1397694172416180236> : รายละเอียด',
-          `\`\`\`${data.error || 'เกิดข้อผิดพลาด'}\`\`\``,
-          '> <:Ts_9_discord_member:1397694189575344298> : Discord Username',
-          `\`\`\`${data.username || '-'}\`\`\``,
-          '> <:Ts_7_discord_id:1397694178846310520> : Roblox ID',
-          `\`\`\`${data.robloxUserId || '-'}\`\`\``,
-          '> <:Ts_10_discord_Clock:1397694191429095675> : วันที่และเวลาทำรายการ',
-          `\`\`\`${tsReadable()}\`\`\``,
-        ].join('\n'))
-        .setImage(ERROR_IMAGE);
-    }
+    const embed = data.success
+      ? await ctx.services.embeds.renderEmbed('notify_success', {
+        username: data.username,
+        roblox_id: data.robloxUserId,
+        robux: data.robux,
+        price: data.price,
+        datetime: tsReadable(),
+        avatar: avatarUrl,
+      })
+      : await ctx.services.embeds.renderEmbed('notify_error', {
+        error: data.error || 'เกิดข้อผิดพลาด',
+        username: data.username || '-',
+        roblox_id: data.robloxUserId || '-',
+        datetime: tsReadable(),
+        avatar: avatarUrl,
+      });
     await channel.send({ embeds: [embed] });
   } catch (err) {
     console.error('[central-bot] notify failed:', err.message);
@@ -351,16 +349,31 @@ async function onUserModal(interaction, ctx) {
   const balanceSatang = await ctx.services.wallet.getBalance(interaction.user.id);
   const rate = ctx.config.number('ROBUX_RATE', 3.5);
 
+  // Dropdown appearance comes from the buy_eligible slot's pkg_select component
+  // role (Embed Designer); the option list itself stays generated from the packages.
+  const eligibleCfg = await ctx.services.embeds.getConfig('buy_eligible');
+  const sel = (eligibleCfg.components && eligibleCfg.components.pkg_select) || {};
+  const labelTpl = String(sel.option_label || '{{robux}} Robux ({{price}} บาท)');
+  const okText = String(sel.option_ok || '✅');
+  const insufficientText = String(sel.option_insufficient || '❌ ยอดเงินไม่พอ');
+  const optionEmoji = parseEmoji(sel.emoji);
+
   // Packages the group can actually pay out; balance only affects the ✅/❌ hint.
+  // The value carries robux+price (not an index) so a config change between
+  // select and confirm can't silently swap the package under the buyer.
   const packages = getPackages(ctx).slice(0, 25);
   const options = packages
-    .map((pkg, index) => ({ pkg, index }))
-    .filter(({ pkg }) => groupRobux >= pkg.robux)
-    .map(({ pkg, index }) => ({
-      label: `${pkg.robux} Robux (${pkg.price} บาท)`,
-      value: `${index}:${result.userId}:${groupKey || 'default'}:${encodeURIComponent(result.username)}`,
-      description: balanceSatang >= pkg.price * 100 ? '✅' : '❌ ยอดเงินไม่พอ',
-    }));
+    .filter((pkg) => groupRobux >= pkg.robux)
+    .map((pkg) => {
+      const vars = { robux: pkg.robux, price: pkg.price };
+      const opt = new StringSelectMenuOptionBuilder()
+        .setLabel(fillVars(labelTpl, vars).slice(0, 100) || `${pkg.robux} Robux`)
+        .setValue(`${pkg.robux}:${pkg.price}:${result.userId}:${groupKey || 'default'}:${encodeURIComponent(result.username)}`);
+      const description = fillVars(balanceSatang >= pkg.price * 100 ? okText : insufficientText, vars).slice(0, 100);
+      if (description) opt.setDescription(description);
+      if (optionEmoji) { try { opt.setEmoji(optionEmoji); } catch (_e) { /* skip invalid emoji */ } }
+      return opt;
+    });
 
   if (options.length === 0) {
     await interaction.editReply({
@@ -389,7 +402,7 @@ async function onUserModal(interaction, ctx) {
     components: [new ActionRowBuilder().addComponents(
       new StringSelectMenuBuilder()
         .setCustomId(ID.pkgSelect)
-        .setPlaceholder('🎮 เลือก Robux Package')
+        .setPlaceholder(String(sel.placeholder || '🎮 เลือก Robux Package').slice(0, 150))
         .addOptions(options),
     )],
   });
@@ -401,14 +414,18 @@ async function onPackageSelect(interaction, ctx) {
   if (!selected) return;
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-  const [pkgIndexRaw, robloxUserId, groupKeyRaw, usernameRaw] = selected.split(':');
-  const pkg = getPackages(ctx)[Number.parseInt(pkgIndexRaw, 10)];
+  const [robuxRaw, priceRaw, robloxUserId, groupKeyRaw, usernameRaw] = selected.split(':');
+  const robux = Number.parseInt(robuxRaw, 10);
+  const price = Number.parseInt(priceRaw, 10);
+  const pkg = getPackages(ctx).find((p) => p.robux === robux && p.price === price);
   const groupKey = groupKeyRaw === 'default' ? null : groupKeyRaw;
   const robloxUsername = usernameRaw ? decodeURIComponent(usernameRaw) : null;
   const avatarUrl = interaction.user.displayAvatarURL();
 
   if (!pkg) {
-    await interaction.editReply({ embeds: [await errorEmbed(ctx, { reason: 'ไม่พบ package ที่เลือก', avatarUrl })] });
+    await interaction.editReply({
+      embeds: [await errorEmbed(ctx, { reason: 'Package นี้ถูกเปลี่ยนแปลงแล้ว กรุณาเริ่มทำรายการใหม่', avatarUrl })],
+    });
     return;
   }
 
@@ -468,6 +485,10 @@ async function onConfirm(interaction, ctx) {
     return;
   }
 
+  // Claim the purchase before any await — a rapid double-click on the confirm
+  // button must hit "not found" on the second click, never a second debit.
+  pendingPurchases.delete(purchaseId);
+
   // Ack immediately — funds/restriction checks and the queue can be slow.
   await interaction.update({
     embeds: [await loadingEmbed(ctx, 'กำลังดำเนินการ...', avatarUrl)],
@@ -476,7 +497,6 @@ async function onConfirm(interaction, ctx) {
 
   const funds = await roblox.getGroupFunds(purchase.groupKey ? { groupKey: purchase.groupKey } : null);
   if (!funds.ok || Number(funds.robux || 0) < purchase.pkg.robux) {
-    pendingPurchases.delete(purchaseId);
     await interaction.editReply({
       embeds: [await errorEmbed(ctx, {
         reason: funds.ok
@@ -492,7 +512,6 @@ async function onConfirm(interaction, ctx) {
 
   const restriction = await roblox.getPayoutRestriction(purchase.groupKey ? { groupKey: purchase.groupKey } : null);
   if (!restriction.ok || !restriction.canPayout) {
-    pendingPurchases.delete(purchaseId);
     await interaction.editReply({
       embeds: [await errorEmbed(ctx, {
         reason: `กลุ่มนี้ยังไม่สามารถโอน Robux ได้ (${restriction.error?.message || 'payout ถูกปิดโดย Roblox'})`,
@@ -512,7 +531,6 @@ async function onConfirm(interaction, ctx) {
       note: `${purchase.pkg.robux} Robux → ${purchase.robloxUsername || purchase.robloxUserId}`,
     });
   } catch (err) {
-    pendingPurchases.delete(purchaseId);
     const reason = err.code === 'INSUFFICIENT_FUNDS' ? 'ยอดเงินไม่พอ กรุณาเติมเงินก่อน' : 'ไม่สามารถหักเงินได้';
     await interaction.editReply({
       embeds: [await errorEmbed(ctx, { reason, robloxUsername: purchase.robloxUsername, avatarUrl })],
@@ -521,21 +539,16 @@ async function onConfirm(interaction, ctx) {
     return;
   }
 
-  pendingPurchases.delete(purchaseId);
   addToQueue({ interaction, purchase }, ctx);
 
   await interaction.editReply({
-    embeds: [new EmbedBuilder()
-      .setColor(COLOR_SUCCESS)
-      .setTitle('<:Ts_22_discord_1ture:1397892606209429584> กำลังดำเนินการ...')
-      .setDescription(
-        `> <:Ts_4_discord_trade:1397694172416180236> : รายละเอียด\n\`\`\`หักเงินเรียบร้อย! กำลังโอน Robux... (คิว #${payoutQueue.length})\`\`\`\n`
-        + `> <:Icon_Square_robux_1:1397902872146083861> : Robux\n\`\`\`${purchase.pkg.robux} R$\`\`\`\n`
-        + `> <:Ts_19_discord_coin:1397694253676630066> : ราคา\n\`\`\`${purchase.pkg.price} บาท\`\`\`\n`
-        + `> <:Ts_19_discord_coin:1397694253676630066> : ยอดคงเหลือ\n\`\`\`${baht(balanceAfter)} บาท\`\`\`\n`,
-      )
-      .setThumbnail(avatarUrl)
-      .setImage(SUCCESS_IMAGE)],
+    embeds: [await ctx.services.embeds.renderEmbed('buy_queued', {
+      queue: payoutQueue.length,
+      robux: purchase.pkg.robux,
+      price: purchase.pkg.price,
+      balance: baht(balanceAfter),
+      avatar: avatarUrl || '',
+    })],
     components: [],
   });
 }
