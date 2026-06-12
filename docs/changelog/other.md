@@ -1,9 +1,10 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.15.6`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.15.7`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.15.7` | 2026-06-12 | central-bot: Roblox buy-flow confirm + payout-success embeds are now configurable Embed Designer slots (`buy_confirm` vars `{{roblox_id}}/{{robux}}/{{price}}/{{balance_after}}/{{avatar}}`; `buy_success` vars `{{roblox_id}}/{{robux}}/{{price}}/{{balance}}/{{avatar}}`) instead of hardcoded |
 | `0.0.15.6` | 2026-06-12 | central-bot: Roblox buy-flow error embed is now a configurable Embed Designer slot (`buy_error`, vars `{{reason}}/{{username}}/{{datetime}}/{{avatar}}`) instead of hardcoded — first step of making the buy embeds editable |
 | `0.0.15.5` | 2026-06-11 | dev tooling: `docs/secrets-inventory.md` (full env/secret map), root `Makefile` (`make dev` / `dev-full` + per-service targets), and `scripts/check-secrets.sh` (verify shared secrets match across `.env` files via fingerprints, no values printed) |
 | `0.0.15.4` | 2026-06-11 | deploy-backend: optional `SHOP_DATABASE_URL` secret appended as `DATABASE_URL` after the env blob, so the runtime + bots can use the Supabase transaction pooler without editing `BACKEND_ENV_FILE` |

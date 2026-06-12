@@ -22,7 +22,6 @@ const ID = {
 const COLOR_NORMAL = 15902662;
 const COLOR_ERROR = 16222858;
 const COLOR_SUCCESS = 9107360;
-const COLOR_CONFIRM = 16247178;
 const ERROR_IMAGE = 'https://www.animatedimages.org/data/media/562/animated-line-image-0378.gif';
 const SUCCESS_IMAGE = 'https://www.animatedimages.org/data/media/562/animated-line-image-0388.gif';
 
@@ -177,21 +176,13 @@ async function processPayout(job, ctx) {
 
   const balance = await ctx.services.wallet.getBalance(purchase.discordUserId);
   await interaction.editReply({
-    embeds: [new EmbedBuilder()
-      .setColor(COLOR_SUCCESS)
-      .setTitle('<:Ts_22_discord_1ture:1397892606209429584> โอน Robux สำเร็จ')
-      .setDescription([
-        '> <:Ts_7_discord_id:1397694178846310520> : Roblox ID',
-        `\`\`\`${purchase.robloxUserId}\`\`\``,
-        '> <:Icon_Square_robux_1:1397902872146083861> : Robux',
-        `\`\`\`${purchase.pkg.robux} R$\`\`\``,
-        '> <:Ts_19_discord_coin:1397694253676630066> : ราคา',
-        `\`\`\`${purchase.pkg.price} บาท\`\`\``,
-        '> <:Ts_19_discord_coin:1397694253676630066> : ยอดคงเหลือ',
-        `\`\`\`${baht(balance)} บาท\`\`\``,
-      ].join('\n'))
-      .setThumbnail(avatarUrl)
-      .setImage(SUCCESS_IMAGE)],
+    embeds: [await ctx.services.embeds.renderEmbed('buy_success', {
+      roblox_id: purchase.robloxUserId,
+      robux: purchase.pkg.robux,
+      price: purchase.pkg.price,
+      balance: baht(balance),
+      avatar: avatarUrl || '',
+    })],
     components: [],
   }).catch(() => {});
 
@@ -439,20 +430,13 @@ async function onPackageSelect(interaction, ctx) {
     timestamp: Date.now(),
   });
 
-  const confirmEmbed = new EmbedBuilder()
-    .setColor(COLOR_CONFIRM)
-    .setTitle('<:Icon_Square_robux_1:1397902872146083861>  ยืนยันการซื้อ Robux')
-    .setDescription(
-      '> <:Ts_4_discord_trade:1397694172416180236> : รายละเอียด\n```ตรวจสอบข้อมูลก่อนยืนยัน```\n'
-      + `> <:Ts_7_discord_id:1397694178846310520> : Roblox ID\n\`\`\`${robloxUserId || 'N/A'}\`\`\`\n`
-      + '> <:Ts_12_discord_abane:1397694204863315998> : เงื่อนไขการใช้บริการ\n```เมื่อกดยืนยัน ระบบจะหักเงินและโอน Robux ทันที```',
-    )
-    .setThumbnail(avatarUrl)
-    .addFields(
-      { name: '<:Icon_Square_robux_1:1397902872146083861> : Package', value: `\`\`\`${pkg.robux}\`\`\``, inline: true },
-      { name: '<:Ts_19_discord_coin:1397694253676630066> : ราคา', value: `\`\`\`${pkg.price} บาท\`\`\``, inline: true },
-      { name: '<:Ts_19_discord_coin:1397694253676630066> : ยอดเงินหลังการซื้อ', value: `\`\`\`${baht(balanceSatang - priceSatang)} บาท\`\`\``, inline: false },
-    );
+  const confirmEmbed = await ctx.services.embeds.renderEmbed('buy_confirm', {
+    roblox_id: robloxUserId || 'N/A',
+    robux: pkg.robux,
+    price: pkg.price,
+    balance_after: baht(balanceSatang - priceSatang),
+    avatar: avatarUrl || '',
+  });
 
   await interaction.editReply({
     embeds: [confirmEmbed],
