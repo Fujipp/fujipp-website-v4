@@ -1,9 +1,10 @@
 # Changelog — Frontend
 
-**Current version: `0.4.0.3`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.4.0.4`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.4.0.4` | 2026-06-13 | refresh Shop package cards (feature + runtime): full-width primary buy button, accent-colored price, lighter 1px border + 2xl radius, hover lift/shadow, roomier padding and consistent left alignment — all via existing tokens |
 | `0.4.0.3` | 2026-06-13 | Shop dashboard feature table: rename the "Expire" column to "Usage", showing which bot uses each feature subscription (maps `externalSubjectId` → bot name) |
 | `0.4.0.2` | 2026-06-10 | align Shop main-surface components with text-secondary foregrounds |
 | `0.4.0.1` | 2026-06-10 | refine Shop bot-config light theme surfaces, spacing, tabs, and action copy |
