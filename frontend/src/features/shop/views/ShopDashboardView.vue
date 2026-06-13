@@ -540,7 +540,7 @@ onUnmounted(clearToast);
 }
 
 .metricValue {
-    color: var(--color-text-primary);
+    color: var(--color-text-secondary);
     font-size: 32px;
     font-weight: 800;
     line-height: 1;

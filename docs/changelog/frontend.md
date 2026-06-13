@@ -1,9 +1,10 @@
 # Changelog — Frontend
 
-**Current version: `0.4.0.6`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.4.0.7`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.4.0.7` | 2026-06-13 | fix more dark-on-surface contrast: dashboard metric numbers (`metricValue`) and the `TextareaField`/`SelectField` labels now use `text-secondary` instead of `text-primary` (invisible on `main-surface` in light mode) |
 | `0.4.0.6` | 2026-06-13 | refresh the Wallet top-up view: balance card with a tinted balance panel (muted label + large accent value + unit), full-width amount buttons, taller 46px primary buttons, standard readable amount input, roomier spacing |
 | `0.4.0.5` | 2026-06-13 | fix `TextField` label color — use `text-secondary` (was `text-primary`, invisible on the dark `main-surface` when the field is teleported outside the theme wrapper, e.g. the edit-bot modal) |
 | `0.4.0.4` | 2026-06-13 | refresh Shop package cards (feature + runtime): full-width primary buy button, accent-colored price, lighter 1px border + 2xl radius, hover lift/shadow, roomier padding and consistent left alignment — all via existing tokens |

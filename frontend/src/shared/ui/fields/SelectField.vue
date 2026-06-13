@@ -125,7 +125,8 @@ onUnmounted(() => {
     flex-direction: column;
     width: 100%;
     gap: 8px;
-    color: var(--color-text-primary);
+    /* Label sits on the dark main-surface; text-secondary stays legible in both themes. */
+    color: var(--color-text-secondary);
 }
 
 .title {
