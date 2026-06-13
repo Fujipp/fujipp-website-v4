@@ -23,11 +23,6 @@ async function handleLogOut(): Promise<void> {
     isExpanded.value = false;
     await router.push({ name: "home" });
 }
-
-async function goToAdmin(): Promise<void> {
-    isExpanded.value = false;
-    await router.push({ name: "admin-dashboard" });
-}
 </script>
 
 <template>
@@ -61,13 +56,8 @@ async function goToAdmin(): Promise<void> {
         </button>
 
         <div v-if="isExpanded" :class="$style.actionList">
-            <button
-                :class="[$style.actionButton, $style.settingButton]"
-                class="type-button-r"
-                type="button"
-                @click="goToAdmin"
-            >
-                Admin
+            <button :class="[$style.actionButton, $style.settingButton]" class="type-button-r" type="button">
+                Setting
             </button>
             <button
                 :class="[$style.actionButton, $style.logOutButton]"
