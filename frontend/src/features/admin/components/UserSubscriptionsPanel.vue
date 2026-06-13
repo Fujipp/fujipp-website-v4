@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from "vue";
+import { onMounted, ref } from "vue";
 import { useAdminStore } from "@/features/admin/stores";
 import {
     bahtToSatang,
@@ -25,9 +25,13 @@ interface Draft {
     autoRenew: boolean;
 }
 
-const runtime = ref<AdminRuntimeSubscription[]>([]);
-const features = ref<AdminFeatureSubscription[]>([]);
-const drafts = reactive<Record<string, Draft>>({});
+// Pair each subscription with its editable draft so the template iterates defined
+// objects (no Record index access — keeps noUncheckedIndexedAccess happy).
+interface RuntimeRow { sub: AdminRuntimeSubscription; draft: Draft }
+interface FeatureRow { sub: AdminFeatureSubscription; draft: Draft }
+
+const runtimeRows = ref<RuntimeRow[]>([]);
+const featureRows = ref<FeatureRow[]>([]);
 
 const isLoading = ref(false);
 const loadError = ref("");
@@ -41,8 +45,8 @@ function showToast(status: "success" | "error", title: string): void {
     toastTimer = setTimeout(() => (toast.value = null), 2600);
 }
 
-function toDraft(sub: { id: string; status: string; autoRenew: boolean; renewPriceSatang: number | null }): void {
-    drafts[sub.id] = {
+function toDraft(sub: { status: string; autoRenew: boolean; renewPriceSatang: number | null }): Draft {
+    return {
         renewBaht: satangToBaht(sub.renewPriceSatang),
         status: sub.status,
         autoRenew: sub.autoRenew,
@@ -54,10 +58,8 @@ async function load(): Promise<void> {
     loadError.value = "";
     try {
         const data = await adminStore.fetchUserSubscriptions(props.userId);
-        runtime.value = data.runtime;
-        features.value = data.features;
-        for (const sub of data.runtime) toDraft(sub);
-        for (const sub of data.features) toDraft(sub);
+        runtimeRows.value = data.runtime.map((sub) => ({ sub, draft: toDraft(sub) }));
+        featureRows.value = data.features.map((sub) => ({ sub, draft: toDraft(sub) }));
     } catch (cause) {
         loadError.value = cause instanceof Error ? cause.message : "Failed to load subscriptions";
     } finally {
@@ -82,21 +84,21 @@ function buildPayload(
     return payload;
 }
 
-async function saveRuntime(sub: AdminRuntimeSubscription): Promise<void> {
-    const payload = buildPayload(drafts[sub.id], sub);
-    await save(sub.id, async () => {
-        const updated = await adminStore.updateRuntimeSubscription(sub.id, payload);
-        runtime.value = runtime.value.map((s) => (s.id === updated.id ? updated : s));
-        toDraft(updated);
+async function saveRuntime(row: RuntimeRow): Promise<void> {
+    const payload = buildPayload(row.draft, row.sub);
+    await save(row.sub.id, async () => {
+        const updated = await adminStore.updateRuntimeSubscription(row.sub.id, payload);
+        row.sub = updated;
+        row.draft = toDraft(updated);
     });
 }
 
-async function saveFeature(sub: AdminFeatureSubscription): Promise<void> {
-    const payload = buildPayload(drafts[sub.id], sub);
-    await save(sub.id, async () => {
-        const updated = await adminStore.updateFeatureSubscription(sub.id, payload);
-        features.value = features.value.map((s) => (s.id === updated.id ? updated : s));
-        toDraft(updated);
+async function saveFeature(row: FeatureRow): Promise<void> {
+    const payload = buildPayload(row.draft, row.sub);
+    await save(row.sub.id, async () => {
+        const updated = await adminStore.updateFeatureSubscription(row.sub.id, payload);
+        row.sub = updated;
+        row.draft = toDraft(updated);
     });
 }
 
@@ -136,23 +138,23 @@ onMounted(load);
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="sub in runtime" :key="sub.id">
-                            <td :class="$style.td">{{ sub.externalSubjectId }}</td>
-                            <td :class="$style.td">{{ sub.currentPeriodEnd ?? "—" }}</td>
-                            <td :class="$style.td"><input v-model.number="drafts[sub.id].renewBaht" :class="$style.input" type="number" min="0" step="0.01" placeholder="—"></td>
+                        <tr v-for="row in runtimeRows" :key="row.sub.id">
+                            <td :class="$style.td">{{ row.sub.externalSubjectId }}</td>
+                            <td :class="$style.td">{{ row.sub.currentPeriodEnd ?? "—" }}</td>
+                            <td :class="$style.td"><input v-model.number="row.draft.renewBaht" :class="$style.input" type="number" min="0" step="0.01" placeholder="—"></td>
                             <td :class="$style.td">
-                                <select v-model="drafts[sub.id].status" :class="$style.input">
+                                <select v-model="row.draft.status" :class="$style.input">
                                     <option v-for="s in SUBSCRIPTION_STATUSES" :key="s" :value="s">{{ s }}</option>
                                 </select>
                             </td>
-                            <td :class="[$style.td, $style.center]"><input v-model="drafts[sub.id].autoRenew" type="checkbox"></td>
+                            <td :class="[$style.td, $style.center]"><input v-model="row.draft.autoRenew" type="checkbox"></td>
                             <td :class="$style.td">
-                                <button type="button" :class="$style.saveBtn" :disabled="savingId === sub.id" @click="saveRuntime(sub)">
-                                    {{ savingId === sub.id ? "…" : "Save" }}
+                                <button type="button" :class="$style.saveBtn" :disabled="savingId === row.sub.id" @click="saveRuntime(row)">
+                                    {{ savingId === row.sub.id ? "…" : "Save" }}
                                 </button>
                             </td>
                         </tr>
-                        <tr v-if="runtime.length === 0"><td :class="$style.empty" colspan="6">No runtime subscriptions.</td></tr>
+                        <tr v-if="runtimeRows.length === 0"><td :class="$style.empty" colspan="6">No runtime subscriptions.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -172,24 +174,24 @@ onMounted(load);
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="sub in features" :key="sub.id">
-                            <td :class="$style.td">{{ sub.externalSubjectId ?? sub.scope }}</td>
-                            <td :class="$style.td">{{ sub.billingType }}</td>
-                            <td :class="$style.td">{{ sub.currentPeriodEnd ?? "—" }}</td>
-                            <td :class="$style.td"><input v-model.number="drafts[sub.id].renewBaht" :class="$style.input" type="number" min="0" step="0.01" placeholder="—"></td>
+                        <tr v-for="row in featureRows" :key="row.sub.id">
+                            <td :class="$style.td">{{ row.sub.externalSubjectId ?? row.sub.scope }}</td>
+                            <td :class="$style.td">{{ row.sub.billingType }}</td>
+                            <td :class="$style.td">{{ row.sub.currentPeriodEnd ?? "—" }}</td>
+                            <td :class="$style.td"><input v-model.number="row.draft.renewBaht" :class="$style.input" type="number" min="0" step="0.01" placeholder="—"></td>
                             <td :class="$style.td">
-                                <select v-model="drafts[sub.id].status" :class="$style.input">
+                                <select v-model="row.draft.status" :class="$style.input">
                                     <option v-for="s in SUBSCRIPTION_STATUSES" :key="s" :value="s">{{ s }}</option>
                                 </select>
                             </td>
-                            <td :class="[$style.td, $style.center]"><input v-model="drafts[sub.id].autoRenew" type="checkbox"></td>
+                            <td :class="[$style.td, $style.center]"><input v-model="row.draft.autoRenew" type="checkbox"></td>
                             <td :class="$style.td">
-                                <button type="button" :class="$style.saveBtn" :disabled="savingId === sub.id" @click="saveFeature(sub)">
-                                    {{ savingId === sub.id ? "…" : "Save" }}
+                                <button type="button" :class="$style.saveBtn" :disabled="savingId === row.sub.id" @click="saveFeature(row)">
+                                    {{ savingId === row.sub.id ? "…" : "Save" }}
                                 </button>
                             </td>
                         </tr>
-                        <tr v-if="features.length === 0"><td :class="$style.empty" colspan="7">No feature subscriptions.</td></tr>
+                        <tr v-if="featureRows.length === 0"><td :class="$style.empty" colspan="7">No feature subscriptions.</td></tr>
                     </tbody>
                 </table>
             </div>
