@@ -10,6 +10,11 @@
   RewriteCond %{HTTPS} off
   RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
+  # Never serve index.html for missing static assets. Module scripts must fail as
+  # 404s, not as text/html, otherwise browsers reject them with a MIME error.
+  RewriteRule ^(?:assets|fonts|images|models|music)/ - [L]
+  RewriteRule ^(?:favicon\.ico|recover-chat2date-draft\.html)$ - [L]
+
   # SPA fallback: serve index.html for non-asset routes
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
