@@ -21,6 +21,7 @@ const adminStore = useAdminStore();
 
 interface Draft {
     renewBaht: number | null;
+    periodEnd: string;
     status: string;
     autoRenew: boolean;
 }
@@ -45,9 +46,15 @@ function showToast(status: "success" | "error", title: string): void {
     toastTimer = setTimeout(() => (toast.value = null), 2600);
 }
 
-function toDraft(sub: { status: string; autoRenew: boolean; renewPriceSatang: number | null }): Draft {
+function toDraft(sub: {
+    status: string;
+    autoRenew: boolean;
+    renewPriceSatang: number | null;
+    currentPeriodEnd: string | null;
+}): Draft {
     return {
         renewBaht: satangToBaht(sub.renewPriceSatang),
+        periodEnd: sub.currentPeriodEnd ?? "",
         status: sub.status,
         autoRenew: sub.autoRenew,
     };
@@ -70,7 +77,7 @@ async function load(): Promise<void> {
 /** Shared renew-price + status + auto-renew diff. */
 function buildPayload(
     draft: Draft,
-    original: { status: string; autoRenew: boolean; renewPriceSatang: number | null },
+    original: { status: string; autoRenew: boolean; renewPriceSatang: number | null; currentPeriodEnd: string | null },
 ): UpdateRuntimeSubscriptionPayload & UpdateFeatureSubscriptionPayload {
     const payload: UpdateRuntimeSubscriptionPayload & UpdateFeatureSubscriptionPayload = {};
     const renewSatang = bahtToSatang(draft.renewBaht);
@@ -78,6 +85,9 @@ function buildPayload(
         payload.clearRenewPrice = true;
     } else if (renewSatang !== null && renewSatang !== original.renewPriceSatang) {
         payload.renewPriceSatang = renewSatang;
+    }
+    if (draft.periodEnd !== "" && draft.periodEnd !== (original.currentPeriodEnd ?? "")) {
+        payload.currentPeriodEnd = draft.periodEnd;
     }
     if (draft.status !== original.status) payload.status = draft.status;
     if (draft.autoRenew !== original.autoRenew) payload.autoRenew = draft.autoRenew;
@@ -140,7 +150,7 @@ onMounted(load);
                     <tbody>
                         <tr v-for="row in runtimeRows" :key="row.sub.id">
                             <td :class="$style.td">{{ row.sub.externalSubjectId }}</td>
-                            <td :class="$style.td">{{ row.sub.currentPeriodEnd ?? "—" }}</td>
+                            <td :class="$style.td"><input v-model="row.draft.periodEnd" :class="$style.input" type="date"></td>
                             <td :class="$style.td"><input v-model.number="row.draft.renewBaht" :class="$style.input" type="number" min="0" step="0.01" placeholder="—"></td>
                             <td :class="$style.td">
                                 <select v-model="row.draft.status" :class="$style.input">
@@ -177,7 +187,7 @@ onMounted(load);
                         <tr v-for="row in featureRows" :key="row.sub.id">
                             <td :class="$style.td">{{ row.sub.externalSubjectId ?? row.sub.scope }}</td>
                             <td :class="$style.td">{{ row.sub.billingType }}</td>
-                            <td :class="$style.td">{{ row.sub.currentPeriodEnd ?? "—" }}</td>
+                            <td :class="$style.td"><input v-model="row.draft.periodEnd" :class="$style.input" type="date"></td>
                             <td :class="$style.td"><input v-model.number="row.draft.renewBaht" :class="$style.input" type="number" min="0" step="0.01" placeholder="—"></td>
                             <td :class="$style.td">
                                 <select v-model="row.draft.status" :class="$style.input">

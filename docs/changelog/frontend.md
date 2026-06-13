@@ -1,9 +1,10 @@
 # Changelog — Frontend
 
-**Current version: `0.4.7.5`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.4.8`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.4.8` | 2026-06-13 | admin: editable **Period end** (date) on runtime + feature subscriptions in `UserSubscriptionsPanel` (backend already accepted `currentPeriodEnd`) |
 | `0.4.7.5` | 2026-06-13 | fix(admin): hide the main-site navbar + UserControl on `/admin` routes (admin has its own layout) — extend `shouldShowAppChrome` to exclude `/admin` |
 | `0.4.7.4` | 2026-06-13 | admin: keep the Admin entry **only in the Shop sidebar** (shop is a separate section from the main site) — revert the main-navbar ADMIN link (#61) and restore the avatar menu's "Setting" button |
 | `0.4.7.3` | 2026-06-13 | admin: add an "Admin" entry to the **Shop sidebar** (`ShopSidebar`, admins only) → `/admin`, so it's reachable from the shop where the user actually navigates |
