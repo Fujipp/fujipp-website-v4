@@ -67,6 +67,13 @@ public class WalletService {
     @Transactional
     public WalletTransaction debit(UUID userId, long amountSatang, String type,
                                    String referenceType, UUID referenceId, String note) {
+        return debit(userId, amountSatang, type, referenceType, referenceId, note, null);
+    }
+
+    /** Debit variant recording who performed it ({@code createdBy}) — used by admin adjustments. */
+    @Transactional
+    public WalletTransaction debit(UUID userId, long amountSatang, String type,
+                                   String referenceType, UUID referenceId, String note, UUID createdBy) {
         requirePositive(amountSatang);
         Wallet wallet = lockOrCreate(userId);
         if (wallet.getBalanceSatang() < amountSatang) {
@@ -76,7 +83,7 @@ public class WalletService {
         long newBalance = wallet.getBalanceSatang() - amountSatang;
         wallet.setBalanceSatang(newBalance);
         return writeLedger(wallet, DIRECTION_DEBIT, type, amountSatang, newBalance,
-            referenceType, referenceId, note, null);
+            referenceType, referenceId, note, createdBy);
     }
 
     // ── internals ───────────────────────────────────────────────────────────

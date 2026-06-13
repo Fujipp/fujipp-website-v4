@@ -125,6 +125,30 @@ export interface UpdateFeatureSubscriptionPayload {
 /** Subscription lifecycle states an admin can set. */
 export const SUBSCRIPTION_STATUSES = ["ACTIVE", "PAST_DUE", "SUSPENDED", "CANCELED"] as const;
 
+// ── wallet ───────────────────────────────────────────────────────────────────
+export interface AdminWallet {
+    balanceSatang: number;
+    currency: string;
+}
+
+export interface AdminWalletTransaction {
+    id: string;
+    direction: "CREDIT" | "DEBIT";
+    type: string;
+    amountSatang: number;
+    balanceAfterSatang: number;
+    referenceType: string | null;
+    referenceId: string | null;
+    note: string | null;
+    createdAt: string;
+}
+
+export interface WalletAdjustPayload {
+    direction: "CREDIT" | "DEBIT";
+    amountSatang: number;
+    note?: string;
+}
+
 export interface AdminNavItem {
     label: string;
     icon: string;

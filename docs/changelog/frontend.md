@@ -1,9 +1,10 @@
 # Changelog — Frontend
 
-**Current version: `0.4.3`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.4.4`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.4.4` | 2026-06-13 | admin: `UserWalletPanel` on the user detail page — balance, add/subtract adjustment form (baht↔satang) with a note, and the wallet ledger |
 | `0.4.3` | 2026-06-13 | admin: `UserSubscriptionsPanel` on the user detail page — view a user's runtime + feature subscriptions and override renewal price (baht↔satang, clear), status, and auto-renew per subscription |
 | `0.4.2` | 2026-06-13 | admin: `AdminPricingView` — inline-editable tables for runtime plans and feature prices (baht↔satang, promo price/label with clear, featured/active/sort toggles); new "Pricing" sidebar item + `/admin/pricing` route |
 | `0.4.1` | 2026-06-13 | admin: new `features/admin/` shell — collapsible `AdminLayout` sidebar, role-gated `/admin` routes (Dashboard stub + Users list/search + read-only user detail), `adminStore` API client, and an "Admin" entry in the admin `UserControl` menu |

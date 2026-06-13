@@ -13,6 +13,9 @@ import type {
     AdminFeatureSubscription,
     UpdateRuntimeSubscriptionPayload,
     UpdateFeatureSubscriptionPayload,
+    AdminWallet,
+    AdminWalletTransaction,
+    WalletAdjustPayload,
 } from "@/features/admin/config";
 
 /**
@@ -122,12 +125,29 @@ export const useAdminStore = defineStore("admin", () => {
         });
     }
 
+    // ── wallet (per-user balance + adjustments) ──────────────────────────────
+    function fetchUserWallet(userId: string): Promise<AdminWallet> {
+        return adminFetch<AdminWallet>(`/api/admin/users/${userId}/wallet`);
+    }
+
+    function fetchUserWalletTransactions(userId: string): Promise<AdminWalletTransaction[]> {
+        return adminFetch<AdminWalletTransaction[]>(`/api/admin/users/${userId}/wallet/transactions`);
+    }
+
+    function adjustUserWallet(userId: string, payload: WalletAdjustPayload): Promise<AdminWallet> {
+        return adminFetch<AdminWallet>(`/api/admin/users/${userId}/wallet/adjust`, {
+            method: "POST",
+            body: payload,
+        });
+    }
+
     return {
         users, isLoading, error, adminFetch,
         fetchUsers, fetchUser,
         fetchRuntimePlans, updateRuntimePlan,
         fetchFeaturePrices, updateFeaturePrice,
         fetchUserSubscriptions, updateRuntimeSubscription, updateFeatureSubscription,
+        fetchUserWallet, fetchUserWalletTransactions, adjustUserWallet,
     };
 });
 
