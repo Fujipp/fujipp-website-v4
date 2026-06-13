@@ -16,6 +16,7 @@ import type {
     AdminWallet,
     AdminWalletTransaction,
     WalletAdjustPayload,
+    UpdateUserPayload,
 } from "@/features/admin/config";
 
 /**
@@ -77,6 +78,10 @@ export const useAdminStore = defineStore("admin", () => {
         } finally {
             isLoading.value = false;
         }
+    }
+
+    function updateUser(userId: string, payload: UpdateUserPayload): Promise<AdminUser> {
+        return adminFetch<AdminUser>(`/api/admin/users/${userId}`, { method: "PATCH", body: payload });
     }
 
     // ── catalog pricing ──────────────────────────────────────────────────────
@@ -143,7 +148,7 @@ export const useAdminStore = defineStore("admin", () => {
 
     return {
         users, isLoading, error, adminFetch,
-        fetchUsers, fetchUser,
+        fetchUsers, fetchUser, updateUser,
         fetchRuntimePlans, updateRuntimePlan,
         fetchFeaturePrices, updateFeaturePrice,
         fetchUserSubscriptions, updateRuntimeSubscription, updateFeatureSubscription,

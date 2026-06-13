@@ -149,6 +149,17 @@ export interface WalletAdjustPayload {
     note?: string;
 }
 
+export interface UpdateUserPayload {
+    username?: string;
+    displayName?: string;
+    bio?: string;
+    website?: string;
+    githubUrl?: string;
+    role?: "USER" | "ADMIN";
+}
+
+export const USER_ROLES = ["USER", "ADMIN"] as const;
+
 export interface AdminNavItem {
     label: string;
     icon: string;
