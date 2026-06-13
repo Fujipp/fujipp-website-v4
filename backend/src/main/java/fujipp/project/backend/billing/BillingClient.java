@@ -389,6 +389,18 @@ public class BillingClient {
             .body(AdminMetrics.class);
     }
 
+    /** Move a bot's billing rows (subscriptions + config) to a new owner. */
+    public String adminTransferBotSubject(UUID adminId, String subjectId, UUID newUserId) {
+        return http.post().uri("/api/billing/admin/bots/{subjectId}/transfer", subjectId)
+            .header("X-Service-Token", serviceToken)
+            .header("X-Admin-Id", adminId.toString())
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(Map.of("newUserId", newUserId.toString()))
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raiseWithReason(res))
+            .body(String.class);
+    }
+
     /** Trigger the daily renewal/expiry sweep. Returns which subjects were suspended. */
     public SweepResult runAutomation() {
         return http.post().uri("/api/billing/automation/run")
