@@ -49,7 +49,9 @@ const emit = defineEmits<{
     flex-direction: column;
     width: 100%;
     gap: 8px;
-    color: var(--color-text-primary);
+    /* Forms sit on main-surface (dark in both themes); text-secondary stays legible
+       even when the field is teleported outside the theme wrapper (e.g. modals). */
+    color: var(--color-text-secondary);
 }
 
 .title {

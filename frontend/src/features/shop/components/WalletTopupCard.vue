@@ -147,9 +147,10 @@ const emit = defineEmits<{
     flex-direction: column;
     align-items: flex-start;
     box-sizing: border-box;
-    padding: var(--spacing-space-3);
-    gap: 10px;
-    border-radius: var(--radius-xl);
+    padding: var(--spacing-space-4);
+    gap: var(--spacing-space-4);
+    border: 1px solid var(--color-main-border);
+    border-radius: var(--radius-2xl);
     background-color: var(--color-main-surface);
     color: var(--color-text-secondary);
     text-align: left;
@@ -168,18 +169,18 @@ const emit = defineEmits<{
 .instructionPanel {
     display: flex;
     align-items: flex-start;
-    padding: var(--spacing-space-3);
-    gap: 10px;
+    padding: var(--spacing-space-4);
+    gap: var(--spacing-space-3);
     overflow: hidden;
 }
 
 .instructionText {
     flex: 1;
     margin: 0;
-    color: var(--color-text-secondary);
-    font-size: 20px;
-    font-weight: 300;
-    line-height: 1.25;
+    color: color-mix(in srgb, var(--color-text-secondary) 82%, transparent);
+    font-size: 15px;
+    font-weight: 400;
+    line-height: 1.6;
 }
 
 .instructionText strong {
@@ -200,7 +201,7 @@ const emit = defineEmits<{
     justify-content: center;
     flex-wrap: wrap;
     gap: 20px;
-    padding: var(--spacing-space-3);
+    padding: var(--spacing-space-4);
     color: var(--color-text-secondary);
 }
 
@@ -231,15 +232,14 @@ const emit = defineEmits<{
 
 .controls {
     display: flex;
-    width: 347px;
-    height: 293px;
+    width: min(100%, 360px);
     min-width: 0;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     box-sizing: border-box;
     padding: 0 var(--spacing-space-3);
-    gap: 10px;
+    gap: var(--spacing-space-3);
 }
 
 .quickAmountGrid {
@@ -247,7 +247,7 @@ const emit = defineEmits<{
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 20px;
+    gap: var(--spacing-space-2);
 }
 
 .quickAmount,
@@ -265,18 +265,17 @@ const emit = defineEmits<{
 
 .quickAmount {
     display: flex;
-    width: 40px;
-    height: 40px;
-    flex: 0 0 auto;
+    flex: 1 1 0;
+    height: 44px;
     align-items: center;
     justify-content: center;
     box-sizing: border-box;
     border: 1px solid var(--color-main-divider);
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius-lg);
     background-color: var(--color-main-secondary);
     color: var(--color-text-secondary);
-    font-size: 16px;
-    font-weight: 300;
+    font-size: 15px;
+    font-weight: 500;
 }
 
 .quickAmount:hover,
@@ -299,7 +298,7 @@ const emit = defineEmits<{
 .errorText,
 .referenceBox {
     font-size: 14px;
-    font-weight: 300;
+    font-weight: 400;
 }
 
 .input {
@@ -307,13 +306,17 @@ const emit = defineEmits<{
     width: 100%;
     height: 48px;
     padding: 12px 16px;
-    border: 1px solid var(--color-input-placeholder);
+    border: 1px solid var(--color-input-border);
     border-radius: var(--radius-lg);
-    background-color: var(--color-input-placeholder-bg);
-    color: var(--color-input-placeholder);
+    background-color: var(--color-input-bg);
+    color: var(--color-text-input);
     font: inherit;
-    font-size: 18px;
-    font-weight: 300;
+    font-size: 16px;
+    font-weight: 400;
+}
+
+.input::placeholder {
+    color: var(--color-text-disabled);
 }
 
 .input:hover {
@@ -333,7 +336,7 @@ const emit = defineEmits<{
 .primaryButton {
     display: inline-flex;
     align-self: stretch;
-    height: 31px;
+    height: 46px;
     align-items: center;
     justify-content: center;
     padding: 12px 16px;
@@ -341,7 +344,7 @@ const emit = defineEmits<{
     background-color: var(--color-button-primary-btn-bg);
     color: var(--color-button-primary-btn-text-active);
     font-size: 16px;
-    font-weight: 300;
+    font-weight: 600;
 }
 
 .primaryButton:hover:not(:disabled) {
@@ -383,8 +386,8 @@ const emit = defineEmits<{
 .slipPanel {
     display: flex;
     align-items: center;
-    padding: var(--spacing-space-3);
-    gap: 10px;
+    padding: var(--spacing-space-4);
+    gap: var(--spacing-space-3);
     overflow: hidden;
     text-align: center;
 }
@@ -411,12 +414,13 @@ const emit = defineEmits<{
 
 .dropNormal,
 .dropStrong {
-    font-size: 20px;
-    line-height: 1.35;
+    font-size: 15px;
+    line-height: 1.6;
 }
 
 .dropNormal {
-    font-weight: 300;
+    font-weight: 400;
+    color: color-mix(in srgb, var(--color-text-secondary) 82%, transparent);
 }
 
 .dropStrong {
@@ -435,7 +439,7 @@ const emit = defineEmits<{
 .verifyButton {
     display: inline-flex;
     min-width: 145px;
-    height: 44px;
+    height: 46px;
     align-items: center;
     justify-content: center;
     padding: 12px 16px;
@@ -443,7 +447,7 @@ const emit = defineEmits<{
     background-color: var(--color-button-primary-btn-bg);
     color: var(--color-button-primary-btn-text-active);
     font-size: 16px;
-    font-weight: 300;
+    font-weight: 600;
 }
 
 .verifyButton:hover:not(:disabled) {
