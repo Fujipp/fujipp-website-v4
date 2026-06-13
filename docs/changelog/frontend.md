@@ -1,9 +1,10 @@
 # Changelog — Frontend
 
-**Current version: `0.4.7.1`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.4.7.2`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.4.7.2` | 2026-06-13 | fix(admin): resolve `vue-tsc` failures that blocked the frontend deploy — `AdminPricingView` & `UserSubscriptionsPanel` now iterate `{item, draft}` row objects instead of indexing a `Record` (which is `T \| undefined` under `noUncheckedIndexedAccess`) |
 | `0.4.7.1` | 2026-06-13 | admin: surface an "ADMIN" entry in the main navbar (desktop centre nav + mobile menu), shown only to admins → goes to `/admin` |
 | `0.4.7` | 2026-06-13 | admin: real `AdminDashboardView` — metric cards (users/admins, bots/running, VPS slots, 30-day top-up revenue, total wallet credit) and a recent admin-activity feed |
 | `0.4.6` | 2026-06-13 | admin: `AdminBotsView` (all bots across users + owner) and `AdminBotConfigView` (generic per-feature config editor, sensitive fields kept blank to preserve secrets); new "Bots" sidebar item + `/admin/bots` routes |

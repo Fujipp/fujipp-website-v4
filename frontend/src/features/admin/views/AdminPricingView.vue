@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from "vue";
+import { onMounted, ref } from "vue";
 import { AdminLayout } from "@/features/admin/components";
 import { useAdminStore } from "@/features/admin/stores";
 import {
@@ -33,10 +33,13 @@ interface FeatureDraft {
     active: boolean;
 }
 
-const plans = ref<AdminRuntimePlan[]>([]);
-const prices = ref<AdminFeaturePrice[]>([]);
-const planDrafts = reactive<Record<string, RuntimeDraft>>({});
-const priceDrafts = reactive<Record<string, FeatureDraft>>({});
+// Each row pairs the saved record with its editable draft, so the template iterates
+// defined objects (no Record index access — keeps noUncheckedIndexedAccess happy).
+interface PlanRow { plan: AdminRuntimePlan; draft: RuntimeDraft }
+interface PriceRow { price: AdminFeaturePrice; draft: FeatureDraft }
+
+const planRows = ref<PlanRow[]>([]);
+const priceRows = ref<PriceRow[]>([]);
 
 const isLoading = ref(false);
 const loadError = ref("");
@@ -77,14 +80,12 @@ async function load(): Promise<void> {
     isLoading.value = true;
     loadError.value = "";
     try {
-        const [runtimePlans, featurePrices] = await Promise.all([
+        const [plans, prices] = await Promise.all([
             adminStore.fetchRuntimePlans(),
             adminStore.fetchFeaturePrices(),
         ]);
-        plans.value = runtimePlans;
-        prices.value = featurePrices;
-        for (const plan of runtimePlans) planDrafts[plan.id] = toRuntimeDraft(plan);
-        for (const price of featurePrices) priceDrafts[price.id] = toFeatureDraft(price);
+        planRows.value = plans.map((plan) => ({ plan, draft: toRuntimeDraft(plan) }));
+        priceRows.value = prices.map((price) => ({ price, draft: toFeatureDraft(price) }));
     } catch (cause) {
         loadError.value = cause instanceof Error ? cause.message : "Failed to load catalog";
     } finally {
@@ -110,8 +111,8 @@ function promoPayload(
     return {};
 }
 
-async function savePlan(plan: AdminRuntimePlan): Promise<void> {
-    const draft = planDrafts[plan.id];
+async function savePlan(row: PlanRow): Promise<void> {
+    const { plan, draft } = row;
     const payload: UpdateRuntimePlanPayload = {};
     if (draft.name !== plan.name) payload.name = draft.name;
     if (draft.durationMonths !== plan.durationMonths) payload.durationMonths = draft.durationMonths;
@@ -124,13 +125,13 @@ async function savePlan(plan: AdminRuntimePlan): Promise<void> {
 
     await save(plan.id, async () => {
         const updated = await adminStore.updateRuntimePlan(plan.id, payload);
-        plans.value = plans.value.map((p) => (p.id === updated.id ? updated : p));
-        planDrafts[updated.id] = toRuntimeDraft(updated);
+        row.plan = updated;
+        row.draft = toRuntimeDraft(updated);
     });
 }
 
-async function savePrice(price: AdminFeaturePrice): Promise<void> {
-    const draft = priceDrafts[price.id];
+async function savePrice(row: PriceRow): Promise<void> {
+    const { price, draft } = row;
     const payload: UpdateFeaturePricePayload = {};
     const priceSatang = bahtToSatang(draft.priceBaht);
     if (priceSatang !== null && priceSatang !== price.priceSatang) payload.priceSatang = priceSatang;
@@ -142,8 +143,8 @@ async function savePrice(price: AdminFeaturePrice): Promise<void> {
 
     await save(price.id, async () => {
         const updated = await adminStore.updateFeaturePrice(price.id, payload);
-        prices.value = prices.value.map((p) => (p.id === updated.id ? updated : p));
-        priceDrafts[updated.id] = toFeatureDraft(updated);
+        row.price = updated;
+        row.draft = toFeatureDraft(updated);
     });
 }
 
@@ -187,19 +188,19 @@ onMounted(load);
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="plan in plans" :key="plan.id">
-                            <td :class="$style.td">{{ plan.code }}</td>
-                            <td :class="$style.td"><input v-model="planDrafts[plan.id].name" :class="[$style.input, $style.text]" type="text"></td>
-                            <td :class="$style.td"><input v-model.number="planDrafts[plan.id].durationMonths" :class="$style.input" type="number" min="1"></td>
-                            <td :class="$style.td"><input v-model.number="planDrafts[plan.id].priceBaht" :class="$style.input" type="number" min="0" step="0.01"></td>
-                            <td :class="$style.td"><input v-model.number="planDrafts[plan.id].promoBaht" :class="$style.input" type="number" min="0" step="0.01" placeholder="—"></td>
-                            <td :class="$style.td"><input v-model="planDrafts[plan.id].promoLabel" :class="[$style.input, $style.text]" type="text" placeholder="—"></td>
-                            <td :class="[$style.td, $style.center]"><input v-model="planDrafts[plan.id].featured" type="checkbox"></td>
-                            <td :class="$style.td"><input v-model.number="planDrafts[plan.id].sortOrder" :class="$style.input" type="number"></td>
-                            <td :class="[$style.td, $style.center]"><input v-model="planDrafts[plan.id].active" type="checkbox"></td>
+                        <tr v-for="row in planRows" :key="row.plan.id">
+                            <td :class="$style.td">{{ row.plan.code }}</td>
+                            <td :class="$style.td"><input v-model="row.draft.name" :class="[$style.input, $style.text]" type="text"></td>
+                            <td :class="$style.td"><input v-model.number="row.draft.durationMonths" :class="$style.input" type="number" min="1"></td>
+                            <td :class="$style.td"><input v-model.number="row.draft.priceBaht" :class="$style.input" type="number" min="0" step="0.01"></td>
+                            <td :class="$style.td"><input v-model.number="row.draft.promoBaht" :class="$style.input" type="number" min="0" step="0.01" placeholder="—"></td>
+                            <td :class="$style.td"><input v-model="row.draft.promoLabel" :class="[$style.input, $style.text]" type="text" placeholder="—"></td>
+                            <td :class="[$style.td, $style.center]"><input v-model="row.draft.featured" type="checkbox"></td>
+                            <td :class="$style.td"><input v-model.number="row.draft.sortOrder" :class="$style.input" type="number"></td>
+                            <td :class="[$style.td, $style.center]"><input v-model="row.draft.active" type="checkbox"></td>
                             <td :class="$style.td">
-                                <button type="button" :class="$style.saveBtn" :disabled="savingId === plan.id" @click="savePlan(plan)">
-                                    {{ savingId === plan.id ? "…" : "Save" }}
+                                <button type="button" :class="$style.saveBtn" :disabled="savingId === row.plan.id" @click="savePlan(row)">
+                                    {{ savingId === row.plan.id ? "…" : "Save" }}
                                 </button>
                             </td>
                         </tr>
@@ -226,17 +227,17 @@ onMounted(load);
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="price in prices" :key="price.id">
-                            <td :class="$style.td">{{ price.featureName ?? price.featureCode ?? "—" }}</td>
-                            <td :class="$style.td">{{ price.kind }}</td>
-                            <td :class="$style.td"><input v-model.number="priceDrafts[price.id].priceBaht" :class="$style.input" type="number" min="0" step="0.01"></td>
-                            <td :class="$style.td"><input v-model.number="priceDrafts[price.id].durationMonths" :class="$style.input" type="number" min="1" placeholder="—"></td>
-                            <td :class="$style.td"><input v-model.number="priceDrafts[price.id].promoBaht" :class="$style.input" type="number" min="0" step="0.01" placeholder="—"></td>
-                            <td :class="$style.td"><input v-model="priceDrafts[price.id].promoLabel" :class="[$style.input, $style.text]" type="text" placeholder="—"></td>
-                            <td :class="[$style.td, $style.center]"><input v-model="priceDrafts[price.id].active" type="checkbox"></td>
+                        <tr v-for="row in priceRows" :key="row.price.id">
+                            <td :class="$style.td">{{ row.price.featureName ?? row.price.featureCode ?? "—" }}</td>
+                            <td :class="$style.td">{{ row.price.kind }}</td>
+                            <td :class="$style.td"><input v-model.number="row.draft.priceBaht" :class="$style.input" type="number" min="0" step="0.01"></td>
+                            <td :class="$style.td"><input v-model.number="row.draft.durationMonths" :class="$style.input" type="number" min="1" placeholder="—"></td>
+                            <td :class="$style.td"><input v-model.number="row.draft.promoBaht" :class="$style.input" type="number" min="0" step="0.01" placeholder="—"></td>
+                            <td :class="$style.td"><input v-model="row.draft.promoLabel" :class="[$style.input, $style.text]" type="text" placeholder="—"></td>
+                            <td :class="[$style.td, $style.center]"><input v-model="row.draft.active" type="checkbox"></td>
                             <td :class="$style.td">
-                                <button type="button" :class="$style.saveBtn" :disabled="savingId === price.id" @click="savePrice(price)">
-                                    {{ savingId === price.id ? "…" : "Save" }}
+                                <button type="button" :class="$style.saveBtn" :disabled="savingId === row.price.id" @click="savePrice(row)">
+                                    {{ savingId === row.price.id ? "…" : "Save" }}
                                 </button>
                             </td>
                         </tr>
