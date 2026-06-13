@@ -12,6 +12,7 @@ const TRANSACTION_API_BASE = 'https://apis.roblox.com/transaction-records';
 
 // Cache CSRF token per cookie
 const csrfTokens = new Map();
+const groupFundsCache = new Map();
 
 function getEnvConfig() {
     return {
@@ -133,6 +134,7 @@ function getConfig(groupKey = null) {
 
 function mergeConfig(base, override) {
     const next = { ...base };
+    if (override.key) next.key = String(override.key).trim();
     if (override.groupId) next.groupId = String(override.groupId).trim();
     if (override.cookie) next.cookie = String(override.cookie).trim();
     if (override.totpSecret) next.totpSecret = String(override.totpSecret).trim().replace(/\s+/g, '');
@@ -141,7 +143,7 @@ function mergeConfig(base, override) {
 
 function resolveConfig(groupIdOrOptions) {
     if (groupIdOrOptions && typeof groupIdOrOptions === 'object') {
-        const base = getConfig(groupIdOrOptions.groupKey || null);
+        const base = getConfig(groupIdOrOptions.groupKey || groupIdOrOptions.key || null);
         return mergeConfig(base, groupIdOrOptions);
     }
     const base = getConfig();
@@ -149,6 +151,22 @@ function resolveConfig(groupIdOrOptions) {
         return { ...base, groupId: groupIdOrOptions.trim() };
     }
     return base;
+}
+
+function groupFundsCacheKey(configOverride = null) {
+    const cfg = resolveConfig(configOverride);
+    return cfg.key || cfg.groupId || 'default';
+}
+
+function getCachedGroupFunds(groupIdOrOptions = null) {
+    const cacheKey = groupFundsCacheKey(groupIdOrOptions);
+    return groupFundsCache.has(cacheKey) ? groupFundsCache.get(cacheKey) : null;
+}
+
+function rememberGroupFunds(groupIdOrOptions = null, robux = null) {
+    if (typeof robux !== 'number' || !Number.isFinite(robux)) return;
+    const cacheKey = groupFundsCacheKey(groupIdOrOptions);
+    groupFundsCache.set(cacheKey, robux);
 }
 
 function getCsrfToken(cookie) {
@@ -258,7 +276,9 @@ async function getGroupFunds(groupIdOrOptions = null) {
             headers: getHeaders(false, cfg),
         });
 
-        return { ok: true, robux: res.data?.robux ?? 0, data: res.data };
+        const robux = res.data?.robux ?? 0;
+        rememberGroupFunds(cfg, robux);
+        return { ok: true, robux, data: res.data };
     } catch (err) {
         return {
             ok: false,
@@ -895,6 +915,7 @@ async function getGroupRevenueSummary(groupIdOrOptions = null) {
 
 module.exports = {
     getGroupConfigs,
+    getCachedGroupFunds,
     getGroupInfo,
     getGroupFunds,
     getGroupIcon,
