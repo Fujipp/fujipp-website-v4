@@ -46,6 +46,10 @@ jobs:
             cp -n public/assets/*.js dist/assets/
           fi
 
+      - name: Pin index to last known good bundle
+        run: |
+          node -e "const fs = require('fs'); const path = 'dist/index.html'; let html = fs.readFileSync(path, 'utf8'); html = html.replace(/\/assets\/index-[^\"']+\.js/, '/assets/index-DviLTd3i.js').replace(/\/assets\/index-[^\"']+\.css/, '/assets/index-B7MVb-pB.css'); fs.writeFileSync(path, html);"
+
       - name: Deploy dist/ over FTP (lftp mirror)
         env:
           FTP_HOST: ${{ secrets.FTP_HOST }}

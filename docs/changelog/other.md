@@ -1,9 +1,10 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.15.22`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.15.23`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.15.23` | 2026-06-14 | deploy-frontend: emergency-pin `dist/index.html` to the last known-good hosted Vite bundle while the shared host is serving freshly uploaded `/assets/index-*` files as SPA HTML |
 | `0.0.15.22` | 2026-06-14 | deploy-frontend: explicitly copy `frontend/public/assets/*.js` into `dist/assets/` after Vite build so restored legacy chunks are uploaded by the FTP mirror |
 | `0.0.15.21` | 2026-06-14 | deploy-frontend: stop deleting old hashed Vite assets during FTP mirror so cached index/main chunks can still load their previous lazy route chunks after a deploy |
 | `0.0.15.20` | 2026-06-13 | `.agents/README.md`: standing approval to commit + squash-merge finished work to `main` without asking each time (stop only when risky/irreversible/uncertain); WIP is still never committed |
