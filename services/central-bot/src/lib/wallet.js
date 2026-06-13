@@ -101,7 +101,7 @@ function makeWallet(subjectId) {
       );
       const delta = amountSatang - before;
       if (delta !== 0) {
-        await writeLedger(client, memberId, delta > 0 ? 'CREDIT' : 'DEBIT', 'ADJUST',
+        await writeLedger(client, memberId, delta > 0 ? 'CREDIT' : 'DEBIT', 'ADJUSTMENT',
           Math.abs(delta), amountSatang, null, note);
       }
       await client.query('COMMIT');

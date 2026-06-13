@@ -142,6 +142,8 @@ async function onMessage(message, ctx) {
         });
         await loading.edit({ embeds: [embed] }).catch(() => {});
         await notifyChannel(message, ctx, embed);
+        // Refresh rank roles off the new lifetime total (no-op if top-spender-rank is off).
+        ctx.services.rankSync?.(message.guild)?.catch(() => {});
       } else {
         const code = Number(result.body?.code ?? result.status);
         const reason = SLIP_ERRORS[code]

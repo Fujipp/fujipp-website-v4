@@ -173,6 +173,17 @@ async function onTmnModal(interaction, ctx) {
     datetime: new Date().toLocaleString('th-TH'),
   });
   await interaction.editReply({ embeds: [embed] });
+
+  // Post the same success embed publicly, like a SlipOK top-up does (slip.js).
+  const channelId = ctx.config.get('TOPUP_NOTIFY_CHANNEL');
+  if (channelId && interaction.guild) {
+    const channel = interaction.guild.channels.cache.get(String(channelId))
+      || (await interaction.guild.channels.fetch(String(channelId)).catch(() => null));
+    if (channel?.isTextBased()) await channel.send({ embeds: [embed] }).catch(() => {});
+  }
+
+  // Refresh rank roles off the new lifetime total (no-op if top-spender-rank is off).
+  ctx.services.rankSync?.(interaction.guild)?.catch(() => {});
 }
 
 module.exports = {

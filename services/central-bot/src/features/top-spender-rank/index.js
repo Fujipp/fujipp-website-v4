@@ -12,11 +12,15 @@
 // TOP_SPENDER_MILESTONE_ROLES (JSON [{threshold(บาท), roleId}]),
 // TOP_SPENDER_LEADERBOARD_CHANNEL.
 
-const { SlashCommandBuilder, EmbedBuilder, GatewayIntentBits } = require('discord.js');
+const { SlashCommandBuilder, GatewayIntentBits } = require('discord.js');
 const { isAdmin } = require('../../lib/perms');
 
-const COLOR = 15902662;
 const baht = (satang) => (Number(satang) / 100).toFixed(2);
+
+// Serialize role sweeps per guild: top-ups can fire syncRoles concurrently, and the
+// strip-then-regrant sweep must not overlap with itself. Each guild keeps a promise
+// chain so sweeps run one after another.
+const sweepChains = new Map();
 
 function milestoneRoles(ctx) {
   const raw = String(ctx.config.get('TOP_SPENDER_MILESTONE_ROLES', '')).trim();
@@ -51,6 +55,80 @@ function intents(config) {
   return rolesConfigured(config) ? [GatewayIntentBits.GuildMembers] : [];
 }
 
+// Which managed roles a member at `rank` with `totalBaht` lifetime top-up should hold.
+function rankRolesFor(rank, totalBaht, { top1RoleId, top10RoleId, milestones }) {
+  const give = new Set();
+  if (rank === 1 && top1RoleId) give.add(String(top1RoleId));
+  if (rank <= 10 && top10RoleId) give.add(String(top10RoleId));
+  for (const m of milestones) {
+    if (totalBaht >= m.threshold) give.add(m.roleId);
+  }
+  return give;
+}
+
+// Rebuild the reward roles for a guild from the lifetime top-up leaderboard:
+// strip every managed role, then re-grant by rank/milestone. Returns
+// { updated, errors, fetchError } — fetchError set when the member fetch fails
+// (almost always a missing Server Members Intent).
+async function runSweep(guild, ctx) {
+  const managed = managedRoleIds(ctx);
+  if (managed.length === 0) return { updated: 0, errors: [] };
+
+  const leaderboard = await ctx.services.wallet.getLeaderboard(50);
+  if (leaderboard.length === 0) return { updated: 0, errors: [] };
+
+  const cfg = {
+    top1RoleId: ctx.config.get('TOP_SPENDER_TOP1_ROLE_ID'),
+    top10RoleId: ctx.config.get('TOP_SPENDER_TOP10_ROLE_ID'),
+    milestones: milestoneRoles(ctx),
+  };
+
+  // Role sweep needs every member cached (Server Members Intent).
+  try {
+    await guild.members.fetch();
+  } catch (err) {
+    return { updated: 0, errors: [], fetchError: err.message };
+  }
+
+  // Strip every managed role first, then re-grant from the leaderboard.
+  for (const roleId of managed) {
+    const role = guild.roles.cache.get(roleId);
+    if (!role) continue;
+    for (const member of role.members.values()) {
+      await member.roles.remove(role).catch(() => {});
+    }
+  }
+
+  let updated = 0;
+  const errors = [];
+  for (let i = 0; i < leaderboard.length; i += 1) {
+    const entry = leaderboard[i];
+    const member = guild.members.cache.get(entry.member_discord_id);
+    if (!member) continue;
+    const give = rankRolesFor(i + 1, Number(entry.total_topup_satang) / 100, cfg);
+    try {
+      for (const roleId of give) {
+        const role = guild.roles.cache.get(roleId);
+        if (role && !member.roles.cache.has(roleId)) await member.roles.add(role);
+      }
+      if (give.size > 0) updated += 1;
+    } catch (err) {
+      errors.push(`<@${entry.member_discord_id}>: ${err.message}`);
+    }
+  }
+  return { updated, errors };
+}
+
+// Serialized entry point: queues the sweep on the guild's promise chain so concurrent
+// top-ups never run overlapping strip/re-grant passes. Exposed as ctx.services.rankSync.
+function syncRoles(guild, ctx) {
+  if (!guild) return Promise.resolve({ updated: 0, errors: [] });
+  const prev = sweepChains.get(guild.id) ?? Promise.resolve();
+  const next = prev.then(() => runSweep(guild, ctx));
+  sweepChains.set(guild.id, next.catch(() => {}));
+  return next;
+}
+
 async function handleTop(interaction, ctx) {
   if (!ctx.services?.wallet) {
     await interaction.reply({ content: 'ต้องเปิดฟีเจอร์ wallet-topup ก่อนจึงจะใช้คำสั่งนี้ได้', ephemeral: true });
@@ -68,76 +146,22 @@ async function handleTop(interaction, ctx) {
     return;
   }
 
-  const guild = interaction.guild;
-  const top1RoleId = ctx.config.get('TOP_SPENDER_TOP1_ROLE_ID');
-  const top10RoleId = ctx.config.get('TOP_SPENDER_TOP10_ROLE_ID');
-  const milestones = milestoneRoles(ctx);
-  const managed = managedRoleIds(ctx);
-
-  let updated = 0;
-  const errors = [];
-
-  if (managed.length > 0) {
-    // Role sweep needs every member cached (Server Members Intent).
-    try {
-      await guild.members.fetch();
-    } catch (err) {
-      await interaction.editReply(
-        `❌ ดึงรายชื่อสมาชิกไม่สำเร็จ (${err.message}) — ตรวจว่าเปิด Server Members Intent ใน Discord Dev Portal แล้ว`,
-      );
-      return;
-    }
-
-    // Strip every managed role first, then re-grant from the leaderboard.
-    for (const roleId of managed) {
-      const role = guild.roles.cache.get(roleId);
-      if (!role) continue;
-      for (const member of role.members.values()) {
-        await member.roles.remove(role).catch(() => {});
-      }
-    }
-
-    for (let i = 0; i < leaderboard.length; i += 1) {
-      const entry = leaderboard[i];
-      const rank = i + 1;
-      const member = guild.members.cache.get(entry.member_discord_id);
-      if (!member) continue;
-
-      const give = new Set();
-      if (rank === 1 && top1RoleId) give.add(String(top1RoleId));
-      if (rank <= 10 && top10RoleId) give.add(String(top10RoleId));
-      const totalBaht = Number(entry.total_topup_satang) / 100;
-      for (const m of milestones) {
-        if (totalBaht >= m.threshold) give.add(m.roleId);
-      }
-
-      try {
-        for (const roleId of give) {
-          const role = guild.roles.cache.get(roleId);
-          if (role && !member.roles.cache.has(roleId)) await member.roles.add(role);
-        }
-        if (give.size > 0) updated += 1;
-      } catch (err) {
-        errors.push(`<@${entry.member_discord_id}>: ${err.message}`);
-      }
-    }
+  const { updated, errors, fetchError } = await syncRoles(interaction.guild, ctx);
+  if (fetchError) {
+    await interaction.editReply(
+      `❌ ดึงรายชื่อสมาชิกไม่สำเร็จ (${fetchError}) — ตรวจว่าเปิด Server Members Intent ใน Discord Dev Portal แล้ว`,
+    );
+    return;
   }
 
-  const top10 = leaderboard.slice(0, 10);
-  const board = top10.map((entry, i) => {
+  const board = leaderboard.slice(0, 10).map((entry, i) => {
     const rank = i + 1;
     const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `${rank}.`;
     return `${medal} <@${entry.member_discord_id}> — **${baht(entry.total_topup_satang)}** บาท`;
   }).join('\n');
 
-  const embed = new EmbedBuilder()
-    .setColor(COLOR)
-    .setTitle('<:Ts_22_discord_1ture:1397892606209429584> Top ยอดเติมสะสม')
-    .setDescription(
-      `> <:Ts_4_discord_trade:1397694172416180236> : รายละเอียด\n\`\`\`อัปเดตยศให้ ${updated} คน\`\`\`\n`
-      + `> <:Ts_14_discord_pointg:1397694229333016647> : Top 10 ยอดเติมสะสม\n${board}`,
-    )
-    .setTimestamp();
+  const embed = await ctx.services.embeds.renderEmbed('top_leaderboard', { updated, board });
+  embed.setTimestamp();
   if (errors.length > 0) {
     embed.addFields({
       name: '⚠️ Errors',
@@ -150,8 +174,8 @@ async function handleTop(interaction, ctx) {
   // Also post the board publicly when a leaderboard channel is configured.
   const channelId = ctx.config.get('TOP_SPENDER_LEADERBOARD_CHANNEL');
   if (channelId) {
-    const channel = guild.channels.cache.get(String(channelId))
-      || (await guild.channels.fetch(String(channelId)).catch(() => null));
+    const channel = interaction.guild.channels.cache.get(String(channelId))
+      || (await interaction.guild.channels.fetch(String(channelId)).catch(() => null));
     if (channel?.isTextBased()) await channel.send({ embeds: [embed] }).catch(() => {});
   }
 }
@@ -160,6 +184,11 @@ module.exports = {
   code: 'top-spender-rank',
   name: 'Top Spender Rank',
   intents,
+
+  // Expose rank resync so top-ups (wallet-topup) can refresh roles automatically.
+  provides(ctx) {
+    ctx.services.rankSync = (guild) => syncRoles(guild, ctx);
+  },
 
   commands() {
     return [

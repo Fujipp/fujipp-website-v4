@@ -1,9 +1,10 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.15.17`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.15.18`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.15.18` | 2026-06-13 | central-bot wallet/rank fixes: (1) ranks now resync automatically on every top-up (SlipOK / TrueMoney / /wallet-add) via a new `ctx.services.rankSync` (per-guild serialized sweep) instead of only on manual /top; (2) /wallet-add and the TrueMoney-voucher top-up now also post the success embed to `TOPUP_NOTIFY_CHANNEL` like a SlipOK top-up; (3) fix /wallet-set crash — `setBalance` wrote ledger type `ADJUST` which violates the `ADJUSTMENT` CHECK constraint; (4) /top embed now renders from the `top_leaderboard` Embed Designer slot instead of a hardcoded EmbedBuilder |
 | `0.0.15.17` | 2026-06-13 | central-bot: shop panel remembers the last good Robux stock per group — when Roblox rate-limits/errors a poll the panel keeps showing the previous number instead of flipping to "—" every few refreshes |
 | `0.0.15.16` | 2026-06-13 | central-bot: retire the robux-check / robux-balance / robux-payout / robux-redeem slash commands — the feature now exposes only /panel; all member flows run through the shop panel components (commands.set overwrites the registered set, so the old commands disappear from Discord on the next bot restart) |
 | `0.0.15.15` | 2026-06-13 | central-bot: remove the ซื้อสินค้า button from the shop panel — buying goes through the group select; buttons are now เติมเงิน / เช็คยอดคงเหลือ (+ optional link). Stale panels keep working until their auto-refresh rebuilds the components |

@@ -1,9 +1,10 @@
 # Changelog — Database
 
-**Current version: `0.1.8.5`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.1.8.6`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.1.8.6` | 2026-06-13 | seed the `top-spender-rank` embed slot `top_leaderboard` (`20260613150000`) with a default mirroring the previously hardcoded /top embed (`{{updated}}`, `{{board}}`) — the /top leaderboard is now editable in the Embed Designer |
 | `0.1.8.5` | 2026-06-13 | fix the wallet-history/top-spender seed (`20260610170000`): category UTILITY violated `feature_catalog_category_chk` so the migration had never applied — now ENGAGEMENT; applied to the shared DB and wallet-history subscribed to Test-001 |
 | `0.1.8.4` | 2026-06-13 | promote the shop owner's Test-001 embed designs to the seeded defaults for all 18 customized slots (roblox-robux-payout + wallet-topup); previously seeded component roles (pkg_select, group_select, method_select, btn_*) preserved via merge |
 | `0.1.8.3` | 2026-06-13 | roblox-robux-payout: seed the 6 remaining embed slots (`check_result`, `group_balance`, `payout_admin_success`, `buy_queued`, `notify_success`, `notify_error`) with defaults mirroring the previously hardcoded embeds |
