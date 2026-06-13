@@ -272,6 +272,41 @@ public class BillingClient {
             .body(String.class);
     }
 
+    // ── admin subscription overrides (service token + acting admin id) ──────────
+
+    /** Raw JSON of one user's runtime + feature subscriptions for the admin panel. */
+    public String adminListUserSubscriptions(UUID userId) {
+        return http.get().uri("/api/billing/admin/subscriptions?userId={userId}", userId)
+            .header("X-Service-Token", serviceToken)
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raise(res.getStatusCode()))
+            .body(String.class);
+    }
+
+    /** Override a runtime subscription. {@code body} is the AdminUpdateRuntimeSubscriptionRequest JSON. */
+    public String adminUpdateRuntimeSubscription(UUID adminId, UUID subId, String body) {
+        return http.patch().uri("/api/billing/admin/subscriptions/runtime/{id}", subId)
+            .header("X-Service-Token", serviceToken)
+            .header("X-Admin-Id", adminId.toString())
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(body)
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raiseWithReason(res))
+            .body(String.class);
+    }
+
+    /** Override a feature subscription. {@code body} is the AdminUpdateFeatureSubscriptionRequest JSON. */
+    public String adminUpdateFeatureSubscription(UUID adminId, UUID subId, String body) {
+        return http.patch().uri("/api/billing/admin/subscriptions/features/{id}", subId)
+            .header("X-Service-Token", serviceToken)
+            .header("X-Admin-Id", adminId.toString())
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(body)
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raiseWithReason(res))
+            .body(String.class);
+    }
+
     /** Trigger the daily renewal/expiry sweep. Returns which subjects were suspended. */
     public SweepResult runAutomation() {
         return http.post().uri("/api/billing/automation/run")
