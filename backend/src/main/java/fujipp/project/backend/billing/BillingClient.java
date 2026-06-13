@@ -307,6 +307,38 @@ public class BillingClient {
             .body(String.class);
     }
 
+    // ── admin wallet (service token + acting admin id) ──────────────────────────
+
+    /** Raw JSON of a user's wallet balance for the admin panel. */
+    public String adminGetWallet(UUID userId) {
+        return http.get().uri("/api/billing/admin/wallet/{userId}", userId)
+            .header("X-Service-Token", serviceToken)
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raise(res.getStatusCode()))
+            .body(String.class);
+    }
+
+    /** Raw JSON of a user's recent wallet ledger for the admin panel. */
+    public String adminWalletTransactions(UUID userId) {
+        return http.get().uri("/api/billing/admin/wallet/{userId}/transactions", userId)
+            .header("X-Service-Token", serviceToken)
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raise(res.getStatusCode()))
+            .body(String.class);
+    }
+
+    /** Adjust a user's balance up/down. {@code body} is the AdminWalletAdjustRequest JSON. */
+    public String adminAdjustWallet(UUID adminId, UUID userId, String body) {
+        return http.post().uri("/api/billing/admin/wallet/{userId}/adjust", userId)
+            .header("X-Service-Token", serviceToken)
+            .header("X-Admin-Id", adminId.toString())
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(body)
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raiseWithReason(res))
+            .body(String.class);
+    }
+
     /** Trigger the daily renewal/expiry sweep. Returns which subjects were suspended. */
     public SweepResult runAutomation() {
         return http.post().uri("/api/billing/automation/run")
