@@ -108,12 +108,13 @@ const bots = computed<BotDashboardItem[]>(() => botRecords.value.map((bot) => {
 
 const features = computed<FeatureTableRow[]>(() => featureSubscriptions.value.map((subscription) => {
     const feature = featureById.value.get(subscription.featureId);
+    const bot = subscription.externalSubjectId ? botById.value.get(subscription.externalSubjectId) : undefined;
 
     return {
         id: subscription.id,
         feature: feature?.name ?? subscription.featureId,
         category: formatBillingType(subscription.billingType),
-        expire: formatPeriod(subscription.currentPeriodEnd),
+        usage: bot?.name ?? subscription.externalSubjectId ?? "-",
     };
 }));
 
