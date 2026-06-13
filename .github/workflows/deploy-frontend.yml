@@ -49,6 +49,8 @@ jobs:
         run: |
           sudo apt-get update -qq && sudo apt-get install -y lftp
           # Try FTPS if the server offers it, fall back to plain FTP; don't verify the cert.
+          # Keep old hashed assets so cached index/main chunks from a previous deploy
+          # can still load their lazy route chunks instead of receiving index.html.
           lftp -c "
             set ftp:ssl-allow true;
             set ftp:ssl-protect-data true;
@@ -56,5 +58,5 @@ jobs:
             set net:max-retries 2;
             set net:timeout 20;
             open -u '$FTP_USER','$FTP_PASSWORD' -p ${FTP_PORT:-21} '$FTP_HOST';
-            mirror -R --delete --parallel=4 --verbose dist/ '$FTP_REMOTE_DIR';
+            mirror -R --parallel=4 --verbose dist/ '$FTP_REMOTE_DIR';
           "
