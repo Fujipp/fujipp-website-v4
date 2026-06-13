@@ -6,7 +6,10 @@ import { useUserStore } from '@/stores'
 
 const userStore = useUserStore()
 const route = useRoute()
-const shouldShowAppChrome = computed(() => !route.path.startsWith('/shop') && !['login', 'register'].includes(String(route.name)))
+const shouldShowAppChrome = computed(() =>
+  !route.path.startsWith('/shop')
+  && !route.path.startsWith('/admin')
+  && !['login', 'register'].includes(String(route.name)))
 
 onMounted(() => {
   void userStore.initAuth()
