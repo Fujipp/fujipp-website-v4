@@ -2,13 +2,22 @@
 import { computed, ref } from "vue";
 import { storeToRefs } from "pinia";
 import { mobileNavbarLinks, navbarLinks, ThemeApp } from "@/config";
-import { useThemeStore } from "@/stores";
+import type { NavbarLink } from "@/config/navigation";
+import { useThemeStore, useUserStore } from "@/stores";
 import type { ThemeMode } from "@/config/theme";
 
 const isMenuOpen = ref(false);
 const isThemePickerOpen = ref(false);
 const themeStore = useThemeStore();
 const { selectedTheme } = storeToRefs(themeStore);
+
+const userStore = useUserStore();
+const { isAdmin } = storeToRefs(userStore);
+
+// Admin entry is only shown to admins; appended to the normal nav links.
+const ADMIN_LINK: NavbarLink = { label: "ADMIN", path: "/admin", icon: "/images/icons/sidebar/performance.svg" };
+const desktopLinks = computed(() => (isAdmin.value ? [...navbarLinks, ADMIN_LINK] : navbarLinks));
+const mobileLinks = computed(() => (isAdmin.value ? [...mobileNavbarLinks, ADMIN_LINK] : mobileNavbarLinks));
 
 const themeTrackOffset = computed(() => {
     if (isThemePickerOpen.value) return 0;
@@ -60,7 +69,7 @@ function handleThemeIconClick(theme: ThemeMode) {
             </div>
             <!-- Center: Navigation Links -->
             <nav class="hidden md:flex items-center gap-space-6 absolute left-1/2 transform -translate-x-1/2">
-                <RouterLink v-for="link in navbarLinks" :key="link.path" v-slot="{ href, navigate, isExactActive }"
+                <RouterLink v-for="link in desktopLinks" :key="link.path" v-slot="{ href, navigate, isExactActive }"
                     :to="link.path" custom>
                     <a :href="href"
                         class="relative inline-flex h-[44px] w-fit items-center justify-center transition-colors focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-main-primary"
@@ -116,7 +125,7 @@ function handleThemeIconClick(theme: ThemeMode) {
                 Menu
             </p>
             <div class="mt-space-4 flex flex-col gap-space-2">
-                <RouterLink v-for="link in mobileNavbarLinks" :key="link.path"
+                <RouterLink v-for="link in mobileLinks" :key="link.path"
                     v-slot="{ href, navigate, isExactActive }" :to="link.path" custom>
                     <a :href="href"
                         class="flex h-[44px] items-center gap-space-3 rounded-sm px-space-3 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-main-primary"
