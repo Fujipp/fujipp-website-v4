@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { AdminLayout } from "@/features/admin/components";
 import { useAdminStore } from "@/features/admin/stores";
 import type { AdminBot, AdminUser } from "@/features/admin/config";
-import { StatusToast } from "@/shared/ui";
+import { SearchField, StatusToast } from "@/shared/ui";
 
 const router = useRouter();
 const adminStore = useAdminStore();
@@ -17,7 +17,22 @@ const loadError = ref("");
 const transferBotTarget = ref<AdminBot | null>(null);
 const users = ref<AdminUser[]>([]);
 const targetUserId = ref("");
+const query = ref("");
 const isTransferring = ref(false);
+
+const filteredUsers = computed<AdminUser[]>(() => {
+    const ownerId = transferBotTarget.value?.ownerId;
+    const pool = users.value.filter((u) => u.id !== ownerId);
+    const q = query.value.trim().toLowerCase();
+    const matched = q === ""
+        ? pool
+        : pool.filter((u) =>
+            (u.displayName ?? "").toLowerCase().includes(q)
+            || (u.username ?? "").toLowerCase().includes(q)
+            || (u.email ?? "").toLowerCase().includes(q)
+            || u.id.toLowerCase().includes(q));
+    return matched.slice(0, 8);
+});
 
 const toast = ref<{ status: "success" | "error"; title: string } | null>(null);
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
@@ -47,6 +62,7 @@ function openConfig(bot: AdminBot): void {
 async function openTransfer(bot: AdminBot): Promise<void> {
     transferBotTarget.value = bot;
     targetUserId.value = "";
+    query.value = "";
     if (users.value.length === 0) {
         try {
             users.value = await adminStore.fetchUsers();
@@ -57,10 +73,6 @@ async function openTransfer(bot: AdminBot): Promise<void> {
 function closeTransfer(): void {
     transferBotTarget.value = null;
     targetUserId.value = "";
-}
-
-function userLabel(u: AdminUser): string {
-    return `${u.displayName || u.username || u.email || u.id.slice(0, 8)} · ${u.id.slice(0, 8)}`;
 }
 
 async function confirmTransfer(): Promise<void> {
@@ -132,12 +144,25 @@ onMounted(load);
                     Moves the bot + its subscriptions &amp; config to the new owner. Wallet is not moved.
                 </p>
                 <label :class="$style.label">New owner</label>
-                <select v-model="targetUserId" :class="$style.input">
-                    <option value="" disabled>เลือกผู้ใช้…</option>
-                    <option v-for="u in users" :key="u.id" :value="u.id" :disabled="u.id === transferBotTarget.ownerId">
-                        {{ userLabel(u) }}{{ u.id === transferBotTarget.ownerId ? " (current owner)" : "" }}
-                    </option>
-                </select>
+                <SearchField
+                    :model-value="query"
+                    aria-label="Search users"
+                    placeholder="ค้นหาผู้ใช้ (ชื่อ / อีเมล / id)"
+                    @update:model-value="query = $event"
+                />
+                <div :class="$style.results">
+                    <button
+                        v-for="u in filteredUsers"
+                        :key="u.id"
+                        type="button"
+                        :class="[$style.result, targetUserId === u.id ? $style.resultSelected : '']"
+                        @click="targetUserId = u.id"
+                    >
+                        <span :class="$style.resultName">{{ u.displayName || u.username || u.email || u.id.slice(0, 8) }}</span>
+                        <span :class="$style.resultId">{{ u.email ?? u.id.slice(0, 8) }}</span>
+                    </button>
+                    <p v-if="filteredUsers.length === 0" :class="$style.resultEmpty">ไม่พบผู้ใช้</p>
+                </div>
                 <div :class="$style.dialogActions">
                     <button type="button" :class="$style.ghostBtn" @click="closeTransfer">Cancel</button>
                     <button type="button" :class="$style.primaryBtn" :disabled="!targetUserId || isTransferring" @click="confirmTransfer">
@@ -247,6 +272,36 @@ onMounted(load);
     font: inherit;
 }
 .input:focus-visible { outline: none; border-color: var(--color-input-border-focus); }
+
+.results {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 220px;
+    overflow-y: auto;
+    margin-top: 4px;
+}
+
+.result {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    text-align: left;
+    box-sizing: border-box;
+    padding: 8px 12px;
+    border: 1px solid var(--color-main-divider);
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    cursor: pointer;
+    transition: border-color 140ms ease, background-color 140ms ease;
+}
+.result:hover { border-color: var(--color-main-primary); }
+.resultSelected { border-color: var(--color-main-primary); background-color: var(--color-table-row-hover); }
+.resultName { font-size: 14px; font-weight: 500; }
+.resultId { font-size: 12px; color: var(--color-text-disabled); }
+.resultEmpty { margin: 6px 0; font-size: 13px; color: var(--color-text-disabled); }
 
 .dialogActions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 12px; }
 </style>

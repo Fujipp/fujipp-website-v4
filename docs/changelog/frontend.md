@@ -1,9 +1,10 @@
 # Changelog — Frontend
 
-**Current version: `0.5.0`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.5.0.1`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.5.0.1` | 2026-06-13 | admin: transfer-bot owner picker is now a `SearchField` + filtered results list (search by name/email/id) instead of a native `<select>` — matches the app's UI and scales past a few users |
 | `0.5.0` | 2026-06-13 | admin: transfer a bot to another user from `AdminBotsView` — a dialog to pick the new owner; moves the bot + its subscriptions & config |
 | `0.4.9` | 2026-06-13 | admin: rebuild bot config page with a **feature selector** (pick a feature → edit only its fields; no more one long page) and a full **embed editor**; extracted the Embed Designer into a shared `EmbedEditor`/`DiscordEmbedPreview` (`shared/ui/embeds`, base-path prop) reused by both shop and admin |
 | `0.4.8` | 2026-06-13 | admin: editable **Period end** (date) on runtime + feature subscriptions in `UserSubscriptionsPanel` (backend already accepted `currentPeriodEnd`) |
