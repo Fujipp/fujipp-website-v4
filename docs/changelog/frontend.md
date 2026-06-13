@@ -1,9 +1,10 @@
 # Changelog — Frontend
 
-**Current version: `0.5.0.2`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.5.0.3`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.5.0.3` | 2026-06-14 | restore the deleted legacy Vite JS chunks from the previous deploy under `public/assets/` so browsers with cached old HTML/entry chunks stop receiving `index.html` as `text/html` for module scripts |
 | `0.5.0.2` | 2026-06-14 | deploy asset guard: `.htaccess` no longer rewrites missing static assets to `index.html`, so stale/missing JS chunks fail as 404 instead of browser-blocking `text/html` module MIME errors |
 | `0.5.0.1` | 2026-06-13 | admin: transfer-bot owner picker is now a `SearchField` + filtered results list (search by name/email/id) instead of a native `<select>` — matches the app's UI and scales past a few users |
 | `0.5.0` | 2026-06-13 | admin: transfer a bot to another user from `AdminBotsView` — a dialog to pick the new owner; moves the bot + its subscriptions & config |
