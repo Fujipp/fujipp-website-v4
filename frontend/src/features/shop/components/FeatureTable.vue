@@ -6,7 +6,7 @@ export type FeatureCategory = "Permanent Feature" | "Rental Feature";
 
 export interface FeatureTableRow {
     category: FeatureCategory;
-    expire: string;
+    usage: string;
     feature: string;
     id: string | number;
 }
@@ -50,7 +50,7 @@ const filteredRows = computed(() => {
     return categoryRows.filter((row) => (
         row.feature.toLowerCase().includes(normalizedSearch)
         || row.category.toLowerCase().includes(normalizedSearch)
-        || row.expire.toLowerCase().includes(normalizedSearch)
+        || row.usage.toLowerCase().includes(normalizedSearch)
     ));
 });
 
@@ -194,7 +194,7 @@ onUnmounted(() => {
                 <span>No</span>
                 <span>Feature</span>
                 <span :class="$style.desktopCell">Category</span>
-                <span>Expire</span>
+                <span>Usage</span>
             </div>
             <div :class="$style.divider" />
 
@@ -207,7 +207,7 @@ onUnmounted(() => {
                 <span :class="$style.noCell">{{ ((currentPage - 1) * pageSize) + index + 1 }}</span>
                 <span :class="$style.featureCell">{{ row.feature }}</span>
                 <span :class="[$style.categoryCell, $style.desktopCell]">{{ row.category }}</span>
-                <span :class="$style.expireCell">{{ row.expire }}</span>
+                <span :class="$style.usageCell">{{ row.usage }}</span>
             </div>
             <div
                 v-for="index in fillerRowCount"
@@ -457,7 +457,7 @@ onUnmounted(() => {
 
 .featureCell,
 .categoryCell,
-.expireCell {
+.usageCell {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
