@@ -2,7 +2,13 @@ import { ref } from "vue";
 import { defineStore } from "pinia";
 import { API_BASE_URL } from "@/config";
 import { useUserStore } from "@/stores";
-import type { AdminUser } from "@/features/admin/config";
+import type {
+    AdminUser,
+    AdminRuntimePlan,
+    AdminFeaturePrice,
+    UpdateRuntimePlanPayload,
+    UpdateFeaturePricePayload,
+} from "@/features/admin/config";
 
 /**
  * Admin API client. Every call hits the backend `/api/admin/**` namespace with the
@@ -65,7 +71,35 @@ export const useAdminStore = defineStore("admin", () => {
         }
     }
 
-    return { users, isLoading, error, adminFetch, fetchUsers, fetchUser };
+    // ── catalog pricing ──────────────────────────────────────────────────────
+    function fetchRuntimePlans(): Promise<AdminRuntimePlan[]> {
+        return adminFetch<AdminRuntimePlan[]>("/api/admin/catalog/runtime-plans");
+    }
+
+    function updateRuntimePlan(id: string, payload: UpdateRuntimePlanPayload): Promise<AdminRuntimePlan> {
+        return adminFetch<AdminRuntimePlan>(`/api/admin/catalog/runtime-plans/${id}`, {
+            method: "PATCH",
+            body: payload,
+        });
+    }
+
+    function fetchFeaturePrices(): Promise<AdminFeaturePrice[]> {
+        return adminFetch<AdminFeaturePrice[]>("/api/admin/catalog/feature-prices");
+    }
+
+    function updateFeaturePrice(id: string, payload: UpdateFeaturePricePayload): Promise<AdminFeaturePrice> {
+        return adminFetch<AdminFeaturePrice>(`/api/admin/catalog/feature-prices/${id}`, {
+            method: "PATCH",
+            body: payload,
+        });
+    }
+
+    return {
+        users, isLoading, error, adminFetch,
+        fetchUsers, fetchUser,
+        fetchRuntimePlans, updateRuntimePlan,
+        fetchFeaturePrices, updateFeaturePrice,
+    };
 });
 
 async function parseResponse<T>(response: Response): Promise<T> {

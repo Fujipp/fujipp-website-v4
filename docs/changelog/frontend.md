@@ -1,9 +1,10 @@
 # Changelog — Frontend
 
-**Current version: `0.4.1`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.4.2`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.4.2` | 2026-06-13 | admin: `AdminPricingView` — inline-editable tables for runtime plans and feature prices (baht↔satang, promo price/label with clear, featured/active/sort toggles); new "Pricing" sidebar item + `/admin/pricing` route |
 | `0.4.1` | 2026-06-13 | admin: new `features/admin/` shell — collapsible `AdminLayout` sidebar, role-gated `/admin` routes (Dashboard stub + Users list/search + read-only user detail), `adminStore` API client, and an "Admin" entry in the admin `UserControl` menu |
 | `0.4.0.7` | 2026-06-13 | fix more dark-on-surface contrast: dashboard metric numbers (`metricValue`) and the `TextareaField`/`SelectField` labels now use `text-secondary` instead of `text-primary` (invisible on `main-surface` in light mode) |
 | `0.4.0.6` | 2026-06-13 | refresh the Wallet top-up view: balance card with a tinted balance panel (muted label + large accent value + unit), full-width amount buttons, taller 46px primary buttons, standard readable amount input, roomier spacing |
