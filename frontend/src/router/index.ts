@@ -21,6 +21,8 @@ const AdminDashboardView = () => import('@/features/admin/views/AdminDashboardVi
 const AdminUsersView = () => import('@/features/admin/views/AdminUsersView.vue')
 const AdminUserDetailView = () => import('@/features/admin/views/AdminUserDetailView.vue')
 const AdminPricingView = () => import('@/features/admin/views/AdminPricingView.vue')
+const AdminBotsView = () => import('@/features/admin/views/AdminBotsView.vue')
+const AdminBotConfigView = () => import('@/features/admin/views/AdminBotConfigView.vue')
 
 const AUTH_CALLBACK_QUERY_KEYS = ['code', 'error', 'error_code', 'error_description'] as const
 
@@ -82,6 +84,8 @@ const router = createRouter({
     { path: '/admin/users', name: 'admin-users', component: AdminUsersView, beforeEnter: requireAdmin },
     { path: '/admin/users/:userId', name: 'admin-user-detail', component: AdminUserDetailView, beforeEnter: requireAdmin },
     { path: '/admin/pricing', name: 'admin-pricing', component: AdminPricingView, beforeEnter: requireAdmin },
+    { path: '/admin/bots', name: 'admin-bots', component: AdminBotsView, beforeEnter: requireAdmin },
+    { path: '/admin/bots/:botId/config', name: 'admin-bot-config', component: AdminBotConfigView, beforeEnter: requireAdmin },
 
     // Auth routes
     { path: '/login',    name: 'login',    component: AuthView },

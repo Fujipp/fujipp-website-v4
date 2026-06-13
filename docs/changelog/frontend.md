@@ -1,9 +1,10 @@
 # Changelog — Frontend
 
-**Current version: `0.4.5`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.4.6`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.4.6` | 2026-06-13 | admin: `AdminBotsView` (all bots across users + owner) and `AdminBotConfigView` (generic per-feature config editor, sensitive fields kept blank to preserve secrets); new "Bots" sidebar item + `/admin/bots` routes |
 | `0.4.5` | 2026-06-13 | admin: user detail page is now an editable form — username, display name, bio, website, GitHub, and USER↔ADMIN role, saved via `PATCH /api/admin/users/{id}` |
 | `0.4.4` | 2026-06-13 | admin: `UserWalletPanel` on the user detail page — balance, add/subtract adjustment form (baht↔satang) with a note, and the wallet ledger |
 | `0.4.3` | 2026-06-13 | admin: `UserSubscriptionsPanel` on the user detail page — view a user's runtime + feature subscriptions and override renewal price (baht↔satang, clear), status, and auto-renew per subscription |
