@@ -1,9 +1,10 @@
 # Changelog — Database
 
-**Current version: `0.1.9`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.1.9.1`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.1.9.1` | 2026-06-13 | `admin_audit_log.payload` jsonb → text (`20260613173500`) — billing runs on Jackson 3, which Hibernate's auto jsonb mapper can't use; the app serializes payload to JSON text itself |
 | `0.1.9` | 2026-06-13 | admin: new append-only `billing.admin_audit_log` table (`20260613163224`) — actor/action/target + jsonb payload, RLS-enabled (service_role only), indexed on actor/target-user/created; trail for admin price/wallet/user/bot actions |
 | `0.1.8.7` | 2026-06-13 | wallet-topup: seed config template `TOPUP_ROLE_ID` (`20260613160000`) — a dedicated "top-up role" given to anyone who tops up, shown in the Shop Wallet & Top-up tab (separate from the Top Spender rank/milestone roles) |
 | `0.1.8.6` | 2026-06-13 | seed the `top-spender-rank` embed slot `top_leaderboard` (`20260613150000`) with a default mirroring the previously hardcoded /top embed (`{{updated}}`, `{{board}}`) — the /top leaderboard is now editable in the Embed Designer |

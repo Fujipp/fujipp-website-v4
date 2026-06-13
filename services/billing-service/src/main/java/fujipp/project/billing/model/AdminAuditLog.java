@@ -6,14 +6,11 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.OffsetDateTime;
-import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -52,10 +49,9 @@ public class AdminAuditLog {
     @Column(name = "target_id", updatable = false)
     private String targetId;
 
-    /** JSON detail (before/after diff or action context). Mapped to jsonb by Hibernate. */
-    @JdbcTypeCode(SqlTypes.JSON)
+    /** JSON detail (before/after diff or action context), serialized to a text column. */
     @Column(name = "payload", updatable = false)
-    private Map<String, Object> payload;
+    private String payload;
 
     @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
     private OffsetDateTime createdAt;
