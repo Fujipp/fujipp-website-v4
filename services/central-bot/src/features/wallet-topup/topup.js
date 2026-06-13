@@ -10,6 +10,7 @@ const {
   ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle,
   ButtonBuilder, ButtonStyle,
 } = require('discord.js');
+const { grantTopupRole } = require('./topup-role');
 
 const thb = (satang) => `฿${(satang / 100).toLocaleString('th-TH')}`;
 const GIFT_RE = /^https:\/\/gift\.truemoney\.com\/campaign\/\?v=/;
@@ -181,6 +182,9 @@ async function onTmnModal(interaction, ctx) {
       || (await interaction.guild.channels.fetch(String(channelId)).catch(() => null));
     if (channel?.isTextBased()) await channel.send({ embeds: [embed] }).catch(() => {});
   }
+
+  // Grant the configured top-up role (no-op if unset).
+  await grantTopupRole(ctx, interaction.guild, interaction.user.id);
 
   // Refresh rank roles off the new lifetime total (no-op if top-spender-rank is off).
   ctx.services.rankSync?.(interaction.guild)?.catch(() => {});

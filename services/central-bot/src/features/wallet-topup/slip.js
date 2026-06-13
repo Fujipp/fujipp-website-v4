@@ -10,6 +10,7 @@
 // Config keys: SLIPOK_BRANCH_ID, API_SLIPOK_KEY, SLIP_CHECK_CHANNEL, TOPUP_NOTIFY_CHANNEL.
 
 const { GatewayIntentBits } = require('discord.js');
+const { grantTopupRole } = require('./topup-role');
 
 const SLIPOK_BASE = 'https://api.slipok.com/api/line/apikey';
 
@@ -142,6 +143,8 @@ async function onMessage(message, ctx) {
         });
         await loading.edit({ embeds: [embed] }).catch(() => {});
         await notifyChannel(message, ctx, embed);
+        // Grant the configured top-up role (no-op if unset).
+        await grantTopupRole(ctx, message.guild, message.author.id);
         // Refresh rank roles off the new lifetime total (no-op if top-spender-rank is off).
         ctx.services.rankSync?.(message.guild)?.catch(() => {});
       } else {
