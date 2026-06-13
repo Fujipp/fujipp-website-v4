@@ -1,13 +1,17 @@
 package fujipp.project.backend.controller;
 
+import fujipp.project.backend.dto.AdminUpdateUserRequest;
 import fujipp.project.backend.dto.ProfileResponse;
 import fujipp.project.backend.service.AdminUserService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -34,5 +38,13 @@ public class AdminController {
     public ResponseEntity<ProfileResponse> getUser(
             @AuthenticationPrincipal Jwt jwt, @PathVariable UUID userId) {
         return ResponseEntity.ok(users.getUser(UUID.fromString(jwt.getSubject()), userId));
+    }
+
+    @PatchMapping("/users/{userId}")
+    public ResponseEntity<ProfileResponse> updateUser(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID userId,
+            @RequestBody @Valid AdminUpdateUserRequest request) {
+        return ResponseEntity.ok(users.updateUser(UUID.fromString(jwt.getSubject()), userId, request));
     }
 }

@@ -339,6 +339,29 @@ public class BillingClient {
             .body(String.class);
     }
 
+    /**
+     * Append to the admin audit trail for an action that happens in this backend
+     * (e.g. a profile/role edit) rather than inside billing. Best-effort context only;
+     * {@code payload} entries with null values are dropped (the JSON map forbids them).
+     */
+    public void recordAudit(UUID adminId, String action, UUID targetUserId,
+                            String targetType, String targetId, Map<String, Object> payload) {
+        Map<String, Object> body = new java.util.HashMap<>();
+        body.put("action", action);
+        if (targetUserId != null) body.put("targetUserId", targetUserId.toString());
+        if (targetType != null) body.put("targetType", targetType);
+        if (targetId != null) body.put("targetId", targetId);
+        if (payload != null) body.put("payload", payload);
+        http.post().uri("/api/billing/admin/audit")
+            .header("X-Service-Token", serviceToken)
+            .header("X-Admin-Id", adminId.toString())
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(body)
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raise(res.getStatusCode()))
+            .toBodilessEntity();
+    }
+
     /** Trigger the daily renewal/expiry sweep. Returns which subjects were suspended. */
     public SweepResult runAutomation() {
         return http.post().uri("/api/billing/automation/run")
