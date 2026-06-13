@@ -344,8 +344,21 @@ async function onUserModal(interaction, ctx) {
     return;
   }
 
-  const funds = await roblox.getGroupFunds(groupKey ? { groupKey } : null);
-  const groupRobux = funds.ok ? funds.robux : 0;
+  const groupOptions = groupKey ? { groupKey } : null;
+  const funds = await roblox.getGroupFunds(groupOptions);
+  const cachedGroupRobux = funds.ok ? null : roblox.getCachedGroupFunds(groupOptions);
+  if (!funds.ok && cachedGroupRobux == null) {
+    await interaction.editReply({
+      embeds: [await errorEmbed(ctx, {
+        reason: `ไม่สามารถเช็คยอด Robux ในกลุ่มได้ (${funds.error?.message || 'Unknown error'}) กรุณาลองใหม่อีกครั้ง`,
+        robloxUsername: result.username,
+        avatarUrl,
+      })],
+      components: [],
+    });
+    return;
+  }
+  const groupRobux = funds.ok ? funds.robux : cachedGroupRobux;
   const balanceSatang = await ctx.services.wallet.getBalance(interaction.user.id);
   const rate = ctx.config.number('ROBUX_RATE', 3.5);
 
@@ -495,13 +508,16 @@ async function onConfirm(interaction, ctx) {
     components: [],
   });
 
-  const funds = await roblox.getGroupFunds(purchase.groupKey ? { groupKey: purchase.groupKey } : null);
-  if (!funds.ok || Number(funds.robux || 0) < purchase.pkg.robux) {
+  const groupOptions = purchase.groupKey ? { groupKey: purchase.groupKey } : null;
+  const funds = await roblox.getGroupFunds(groupOptions);
+  const cachedGroupRobux = funds.ok ? null : roblox.getCachedGroupFunds(groupOptions);
+  const groupRobux = funds.ok ? Number(funds.robux || 0) : cachedGroupRobux;
+  if (groupRobux == null || groupRobux < purchase.pkg.robux) {
     await interaction.editReply({
       embeds: [await errorEmbed(ctx, {
-        reason: funds.ok
-          ? `Robux ในกลุ่มไม่พอ ต้องใช้ ${purchase.pkg.robux} R$ แต่มี ${Number(funds.robux || 0).toLocaleString()} R$`
-          : `ไม่สามารถเช็คยอด Robux ในกลุ่มได้ (${funds.error?.message || 'Unknown error'})`,
+        reason: !funds.ok && cachedGroupRobux == null
+          ? `ไม่สามารถเช็คยอด Robux ในกลุ่มได้ (${funds.error?.message || 'Unknown error'})`
+          : `Robux ในกลุ่มไม่พอ ต้องใช้ ${purchase.pkg.robux} R$ แต่มี ${Number(groupRobux || 0).toLocaleString()} R$`,
         robloxUsername: purchase.robloxUsername,
         avatarUrl,
       })],

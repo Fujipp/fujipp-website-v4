@@ -38,6 +38,8 @@ async function fetchStock(groups) {
         return f.robux;
       }
     } catch (_e) { /* fall through to the cached value */ }
+    const sharedStock = roblox.getCachedGroupFunds({ groupKey: g.key });
+    if (sharedStock != null) return sharedStock;
     return lastStock.has(g.key) ? lastStock.get(g.key) : null;
   }));
 }
