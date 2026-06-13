@@ -17,4 +17,9 @@ public interface BotInstanceRepository extends JpaRepository<BotInstance, UUID> 
 
     /** Slots consumed on a node = bots currently placed on it. */
     long countByVpsNodeId(UUID vpsNodeId);
+
+    long countByStatus(String status);
+
+    /** Total slots consumed across all nodes = bots that have been placed. */
+    long countByVpsNodeIdNotNull();
 }

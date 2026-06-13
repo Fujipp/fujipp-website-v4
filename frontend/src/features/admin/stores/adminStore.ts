@@ -19,6 +19,7 @@ import type {
     UpdateUserPayload,
     AdminBot,
     BotConfig,
+    AdminDashboard,
 } from "@/features/admin/config";
 
 /**
@@ -148,6 +149,11 @@ export const useAdminStore = defineStore("admin", () => {
         });
     }
 
+    // ── dashboard ────────────────────────────────────────────────────────────
+    function fetchDashboard(): Promise<AdminDashboard> {
+        return adminFetch<AdminDashboard>("/api/admin/dashboard");
+    }
+
     // ── bots ─────────────────────────────────────────────────────────────────
     function fetchBots(): Promise<AdminBot[]> {
         return adminFetch<AdminBot[]>("/api/admin/bots");
@@ -172,6 +178,7 @@ export const useAdminStore = defineStore("admin", () => {
         fetchUserSubscriptions, updateRuntimeSubscription, updateFeatureSubscription,
         fetchUserWallet, fetchUserWalletTransactions, adjustUserWallet,
         fetchBots, fetchBotConfig, updateBotConfig,
+        fetchDashboard,
     };
 });
 

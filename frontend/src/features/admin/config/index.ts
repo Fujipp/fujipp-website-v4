@@ -197,6 +197,31 @@ export interface BotConfig {
     values: Record<string, string>;
 }
 
+// ── dashboard ────────────────────────────────────────────────────────────────
+export interface AdminAuditEntry {
+    id: string;
+    actorId: string | null;
+    action: string;
+    targetUserId: string | null;
+    targetType: string | null;
+    targetId: string | null;
+    createdAt: string;
+}
+
+export interface AdminDashboard {
+    totalUsers: number;
+    adminUsers: number;
+    totalBots: number;
+    runningBots: number;
+    vpsNodes: number;
+    vpsSlotsUsed: number;
+    vpsSlotsTotal: number;
+    topupRevenueSatang30d: number;
+    totalWalletBalanceSatang: number;
+    walletCount: number;
+    recentAudit: AdminAuditEntry[];
+}
+
 export interface AdminNavItem {
     label: string;
     icon: string;

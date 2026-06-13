@@ -1,9 +1,10 @@
 # Changelog — Backend
 
-**Current version: `0.2.1`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.2.2`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.2.2` | 2026-06-13 | admin dashboard: `GET /api/admin/dashboard` aggregates platform counts (users/admins, bots/running, VPS slots used/total) with billing-service `/api/billing/admin/metrics` (30-day top-up revenue, total wallet balances, recent audit) — billing fetch is best-effort |
 | `0.2.1` | 2026-06-13 | admin bot management: `AdminBotService.listBots` (all bots + owner) + `AdminBotController` — `GET /api/admin/bots`, `GET/PUT /api/admin/bots/{id}/config` (proxy to billing bot config, config update audited as `BOT_CONFIG_UPDATE`) |
 | `0.2.0` | 2026-06-13 | admin user settings: `AdminUserService.updateUser` + `PATCH /api/admin/users/{id}` (profile fields + USER↔ADMIN role, self-demotion guard); billing-service `/api/billing/admin/audit` record endpoint + `BillingClient.recordAudit` so backend-side admin actions land in the audit trail |
 | `0.1.9` | 2026-06-13 | admin wallet adjust: billing-service `AdminWalletService` + `/api/billing/admin/wallet/{userId}` (balance, ledger, credit/debit adjust as type `ADJUSTMENT`/`MANUAL` with admin as `created_by`, audited); `WalletService.debit` gains a `createdBy` overload; backend gateway `/api/admin/users/{id}/wallet/*` |

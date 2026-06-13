@@ -16,6 +16,8 @@ public interface ProfileRepository extends JpaRepository<Profile, UUID> {
 
     boolean existsByUsername(String username);
 
+    long countByRole(String role);
+
     /**
      * Admin user search. A blank query returns the most recent profiles; otherwise
      * matches a case-insensitive substring on email, username, or display name.
