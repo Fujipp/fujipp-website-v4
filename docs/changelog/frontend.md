@@ -1,9 +1,10 @@
 # Changelog — Frontend
 
-**Current version: `0.4.7.3`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.4.7.4`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.4.7.4` | 2026-06-13 | admin: keep the Admin entry **only in the Shop sidebar** (shop is a separate section from the main site) — revert the main-navbar ADMIN link (#61) and restore the avatar menu's "Setting" button |
 | `0.4.7.3` | 2026-06-13 | admin: add an "Admin" entry to the **Shop sidebar** (`ShopSidebar`, admins only) → `/admin`, so it's reachable from the shop where the user actually navigates |
 | `0.4.7.2` | 2026-06-13 | fix(admin): resolve `vue-tsc` failures that blocked the frontend deploy — `AdminPricingView` & `UserSubscriptionsPanel` now iterate `{item, draft}` row objects instead of indexing a `Record` (which is `T \| undefined` under `noUncheckedIndexedAccess`) |
 | `0.4.7.1` | 2026-06-13 | admin: surface an "ADMIN" entry in the main navbar (desktop centre nav + mobile menu), shown only to admins → goes to `/admin` |
