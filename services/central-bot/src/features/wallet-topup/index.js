@@ -14,6 +14,7 @@ const { SlashCommandBuilder } = require('discord.js');
 const { makeWallet } = require('../../lib/wallet');
 const topup = require('./topup');
 const slip = require('./slip');
+const { grantTopupRole } = require('./topup-role');
 const { isAdmin } = require('../../lib/perms');
 
 const thb = (satang) => `฿${(satang / 100).toLocaleString('th-TH')}`;
@@ -49,6 +50,21 @@ async function handleWalletAdd(interaction, ctx) {
     datetime: new Date().toLocaleString('th-TH'),
   });
   await interaction.editReply({ embeds: [embed] });
+
+  // Post the same success embed publicly, like a SlipOK top-up does (slip.js).
+  const channelId = ctx.config.get('TOPUP_NOTIFY_CHANNEL');
+  if (channelId && interaction.guild) {
+    const channel = interaction.guild.channels.cache.get(String(channelId))
+      || (await interaction.guild.channels.fetch(String(channelId)).catch(() => null));
+    if (channel?.isTextBased()) await channel.send({ embeds: [embed] }).catch(() => {});
+  }
+
+  // Grant the configured top-up role (no-op if unset).
+  await grantTopupRole(ctx, interaction.guild, member.id);
+
+  // A manual credit moves the lifetime top-up total — refresh rank roles if the
+  // top-spender-rank feature is enabled (no-op otherwise).
+  ctx.services.rankSync?.(interaction.guild)?.catch(() => {});
 }
 
 module.exports = {

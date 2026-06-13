@@ -34,9 +34,21 @@ When you finish a task without running verification, end with:
 
 ### Commits and Pushes
 
-**Never commit or push unless the user explicitly asks.**
+**Do not commit or push work-in-progress.** But once a task is **complete** (and verified
+as far as the user asked), you have standing approval to commit it and get it onto `main` —
+you do **not** need to ask again each time. Squash-merging a PR to `main` auto-deploys, so
+"done" means done-and-deployed.
 
-When asked to commit or push, follow `.agents/skills/github-push-guide/SKILL.md`.
+Workflow when a task is finished:
+
+1. Branch from `main`, commit in clean Conventional Commit groups
+   (follow `.agents/skills/github-push-guide/SKILL.md`), and push.
+2. Open a PR and **squash-merge it into `main`** (the auto-deploy runs on merge).
+3. Never commit secrets or local env files (see the push guide's exclusion list).
+
+**Stop and confirm first** (don't auto-merge) when the change is risky or hard to reverse,
+touches secrets/infra/migrations you're unsure about, or you aren't confident it's what the
+user wanted. When in doubt, ask.
 
 ### File and Scope Changes
 
