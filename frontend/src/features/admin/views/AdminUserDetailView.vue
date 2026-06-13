@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
-import { AdminLayout } from "@/features/admin/components";
+import { AdminLayout, UserSubscriptionsPanel } from "@/features/admin/components";
 import { useAdminStore } from "@/features/admin/stores";
 import type { AdminUser } from "@/features/admin/config";
 
@@ -60,6 +60,8 @@ onMounted(load);
                 <span :class="$style.fieldValue">{{ field.value }}</span>
             </div>
         </section>
+
+        <UserSubscriptionsPanel v-if="user" :user-id="userId" />
     </AdminLayout>
 </template>
 

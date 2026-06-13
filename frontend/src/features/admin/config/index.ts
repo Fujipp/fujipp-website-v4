@@ -75,6 +75,56 @@ export interface UpdateFeaturePricePayload {
     promotionPriceSatang?: number | null;
 }
 
+// ── subscriptions (what a user already owns) ─────────────────────────────────
+export interface AdminRuntimeSubscription {
+    id: string;
+    externalSubjectId: string;
+    runtimePlanId: string | null;
+    status: string;
+    currentPeriodStart: string | null;
+    currentPeriodEnd: string | null;
+    autoRenew: boolean;
+    renewPriceSatang: number | null;
+}
+
+export interface AdminFeatureSubscription {
+    id: string;
+    featureId: string;
+    scope: string;
+    externalSubjectId: string | null;
+    billingType: string;
+    status: string;
+    currentPeriodStart: string | null;
+    currentPeriodEnd: string | null;
+    autoRenew: boolean;
+    renewPriceSatang: number | null;
+}
+
+export interface AdminUserSubscriptions {
+    runtime: AdminRuntimeSubscription[];
+    features: AdminFeatureSubscription[];
+}
+
+export interface UpdateRuntimeSubscriptionPayload {
+    renewPriceSatang?: number | null;
+    clearRenewPrice?: boolean;
+    renewPlanId?: string;
+    status?: string;
+    currentPeriodEnd?: string;
+    autoRenew?: boolean;
+}
+
+export interface UpdateFeatureSubscriptionPayload {
+    renewPriceSatang?: number | null;
+    clearRenewPrice?: boolean;
+    status?: string;
+    currentPeriodEnd?: string;
+    autoRenew?: boolean;
+}
+
+/** Subscription lifecycle states an admin can set. */
+export const SUBSCRIPTION_STATUSES = ["ACTIVE", "PAST_DUE", "SUSPENDED", "CANCELED"] as const;
+
 export interface AdminNavItem {
     label: string;
     icon: string;

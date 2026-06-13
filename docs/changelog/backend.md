@@ -1,9 +1,10 @@
 # Changelog — Backend
 
-**Current version: `0.1.7`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.1.8`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.1.8` | 2026-06-13 | admin subscription overrides: billing-service `AdminSubscriptionService` + `/api/billing/admin/subscriptions` (list a user's subs, PATCH renew price/plan/status/period/auto-renew, audited); backend gateway `/api/admin/users/{id}/subscriptions` + `/api/admin/subscriptions/{runtime,features}/{id}` |
 | `0.1.7` | 2026-06-13 | admin catalog pricing: billing-service `AdminCatalogService` + `/api/billing/admin/catalog/*` (list all + partial update of runtime plans & feature prices, promo-clear, audited); backend gateway `/api/admin/catalog/*` (role-gated JSON passthrough, forwards `X-Admin-Id`) |
 | `0.1.6` | 2026-06-13 | admin: extract `AdminAccessService.requireAdmin` (reused by `VpsNodeAdminService`); new `AdminController` user directory — `GET /api/admin/users` (search) + `GET /api/admin/users/{id}` |
 | `0.1.5.4` | 2026-06-10 | trim Discord bot tokens and client secrets before encrypting bot credentials |
