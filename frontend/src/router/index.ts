@@ -17,6 +17,9 @@ const ShopPackageView = () => import('@/features/shop/views/ShopPackageView.vue'
 const BotConfigView = () => import('@/features/shop/views/BotConfigView.vue')
 const EmbedDesignerView = () => import('@/features/shop/views/EmbedDesignerView.vue')
 const AuthView = () => import('@/features/auth/views/AuthView.vue')
+const AdminDashboardView = () => import('@/features/admin/views/AdminDashboardView.vue')
+const AdminUsersView = () => import('@/features/admin/views/AdminUsersView.vue')
+const AdminUserDetailView = () => import('@/features/admin/views/AdminUserDetailView.vue')
 
 const AUTH_CALLBACK_QUERY_KEYS = ['code', 'error', 'error_code', 'error_description'] as const
 
@@ -72,6 +75,11 @@ const router = createRouter({
     { path: '/shop/package', name: 'shop-package', component: ShopPackageView },
     { path: '/shop/bots/:botId/config', name: 'shop-bot-config', component: BotConfigView },
     { path: '/shop/bots/:botId/embeds', name: 'shop-bot-embeds', component: EmbedDesignerView },
+
+    // Admin routes (role-gated)
+    { path: '/admin', name: 'admin-dashboard', component: AdminDashboardView, beforeEnter: requireAdmin },
+    { path: '/admin/users', name: 'admin-users', component: AdminUsersView, beforeEnter: requireAdmin },
+    { path: '/admin/users/:userId', name: 'admin-user-detail', component: AdminUserDetailView, beforeEnter: requireAdmin },
 
     // Auth routes
     { path: '/login',    name: 'login',    component: AuthView },
