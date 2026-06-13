@@ -4,6 +4,7 @@ import fujipp.project.backend.billing.BillingClient;
 import fujipp.project.backend.dto.AdminBotResponse;
 import fujipp.project.backend.service.AdminAccessService;
 import fujipp.project.backend.service.AdminBotService;
+import fujipp.project.backend.service.EmbedConfigService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -32,6 +33,7 @@ public class AdminBotController {
     private final AdminAccessService adminAccess;
     private final AdminBotService adminBots;
     private final BillingClient billing;
+    private final EmbedConfigService embeds;
 
     @GetMapping
     public ResponseEntity<List<AdminBotResponse>> list(@AuthenticationPrincipal Jwt jwt) {
@@ -52,6 +54,33 @@ public class AdminBotController {
         String result = billing.updateBotConfig(botId.toString(), body);
         billing.recordAudit(adminId, "BOT_CONFIG_UPDATE", null, "BOT", botId.toString(),
             Map.of("botId", botId.toString()));
+        return json(result);
+    }
+
+    // ── embeds (any bot) ─────────────────────────────────────────────────────────
+
+    @GetMapping("/{botId}/embeds")
+    public ResponseEntity<String> listEmbeds(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID botId) {
+        adminAccess.requireAdmin(UUID.fromString(jwt.getSubject()));
+        return json(embeds.listEmbedsForAdmin(botId));
+    }
+
+    @GetMapping("/{botId}/embeds/{slotKey}")
+    public ResponseEntity<String> getEmbed(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable UUID botId, @PathVariable String slotKey) {
+        adminAccess.requireAdmin(UUID.fromString(jwt.getSubject()));
+        return json(embeds.getEmbedForAdmin(botId, slotKey));
+    }
+
+    @PutMapping("/{botId}/embeds/{slotKey}")
+    public ResponseEntity<String> saveEmbed(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable UUID botId,
+            @PathVariable String slotKey, @RequestBody String body) {
+        UUID adminId = UUID.fromString(jwt.getSubject());
+        adminAccess.requireAdmin(adminId);
+        String result = embeds.saveEmbedForAdmin(botId, slotKey, body);
+        billing.recordAudit(adminId, "BOT_EMBED_UPDATE", null, "BOT", botId.toString(),
+            Map.of("botId", botId.toString(), "slotKey", slotKey));
         return json(result);
     }
 
