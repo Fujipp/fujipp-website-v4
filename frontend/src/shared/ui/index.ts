@@ -7,3 +7,5 @@ export type { StatusTagValue } from "./tags";
 export { StatusToast } from "./toasts";
 export { TextareaField, SelectField, TextField, SearchField } from "./fields";
 export type { SelectFieldOption } from "./fields";
+export { DiscordEmbedPreview, EmbedEditor } from "./embeds";
+export type { EmbedObject, EmbedField, ComponentConfig } from "./embeds";
