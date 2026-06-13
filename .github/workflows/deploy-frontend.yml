@@ -39,6 +39,13 @@ jobs:
       - name: Build
         run: bun run build
 
+      - name: Restore legacy cached assets
+        run: |
+          if [ -d public/assets ]; then
+            mkdir -p dist/assets
+            cp -n public/assets/*.js dist/assets/
+          fi
+
       - name: Deploy dist/ over FTP (lftp mirror)
         env:
           FTP_HOST: ${{ secrets.FTP_HOST }}
