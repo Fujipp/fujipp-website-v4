@@ -1,9 +1,10 @@
 # Changelog — Backend
 
-**Current version: `0.2.3`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.2.4`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.2.4` | 2026-06-13 | admin bot transfer: `POST /api/admin/bots/{id}/transfer` reassigns a bot to a new owner — bot row (`bot_instances.user_id`) + billing rows (runtime/feature subscriptions + config values via billing `AdminBotTransferService`), name-conflict checked, audited `BOT_TRANSFER`; wallets not moved |
 | `0.2.3` | 2026-06-13 | admin embeds: `EmbedConfigService` admin variants (no ownership check) + `AdminBotController` `GET/PUT /api/admin/bots/{id}/embeds[/{slotKey}]` (audited `BOT_EMBED_UPDATE`) — lets an admin edit any bot's embeds |
 | `0.2.2.1` | 2026-06-13 | fix(billing): `AdminAuditService` no longer imports Jackson (not on billing-service's Spring Boot 4 compile classpath — broke `mvn` build since #53); `admin_audit_log.payload` is now a `Map<String,Object>` mapped to jsonb by Hibernate |
 | `0.2.2` | 2026-06-13 | admin dashboard: `GET /api/admin/dashboard` aggregates platform counts (users/admins, bots/running, VPS slots used/total) with billing-service `/api/billing/admin/metrics` (30-day top-up revenue, total wallet balances, recent audit) — billing fetch is best-effort |

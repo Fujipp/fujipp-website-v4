@@ -170,6 +170,13 @@ export const useAdminStore = defineStore("admin", () => {
         });
     }
 
+    function transferBot(botId: string, newUserId: string): Promise<AdminBot> {
+        return adminFetch<AdminBot>(`/api/admin/bots/${botId}/transfer`, {
+            method: "POST",
+            body: { newUserId },
+        });
+    }
+
     return {
         users, isLoading, error, adminFetch,
         fetchUsers, fetchUser, updateUser,
@@ -177,7 +184,7 @@ export const useAdminStore = defineStore("admin", () => {
         fetchFeaturePrices, updateFeaturePrice,
         fetchUserSubscriptions, updateRuntimeSubscription, updateFeatureSubscription,
         fetchUserWallet, fetchUserWalletTransactions, adjustUserWallet,
-        fetchBots, fetchBotConfig, updateBotConfig,
+        fetchBots, fetchBotConfig, updateBotConfig, transferBot,
         fetchDashboard,
     };
 });

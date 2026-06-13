@@ -2,9 +2,11 @@ package fujipp.project.backend.controller;
 
 import fujipp.project.backend.billing.BillingClient;
 import fujipp.project.backend.dto.AdminBotResponse;
+import fujipp.project.backend.dto.TransferBotRequest;
 import fujipp.project.backend.service.AdminAccessService;
 import fujipp.project.backend.service.AdminBotService;
 import fujipp.project.backend.service.EmbedConfigService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -12,6 +14,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -38,6 +41,14 @@ public class AdminBotController {
     @GetMapping
     public ResponseEntity<List<AdminBotResponse>> list(@AuthenticationPrincipal Jwt jwt) {
         return ResponseEntity.ok(adminBots.listBots(UUID.fromString(jwt.getSubject())));
+    }
+
+    @PostMapping("/{botId}/transfer")
+    public ResponseEntity<AdminBotResponse> transfer(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable UUID botId,
+            @RequestBody @Valid TransferBotRequest request) {
+        return ResponseEntity.ok(
+            adminBots.transferBot(UUID.fromString(jwt.getSubject()), botId, request.newUserId()));
     }
 
     @GetMapping("/{botId}/config")
