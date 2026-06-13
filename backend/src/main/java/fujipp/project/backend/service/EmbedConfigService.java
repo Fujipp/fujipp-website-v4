@@ -34,6 +34,16 @@ public class EmbedConfigService {
     @Transactional(readOnly = true)
     public String listEmbeds(UUID userId, UUID botId) {
         assertOwner(userId, botId);
+        return listEmbedsInternal(botId);
+    }
+
+    /** Admin: list embeds for any bot (no ownership check). */
+    @Transactional(readOnly = true)
+    public String listEmbedsForAdmin(UUID botId) {
+        return listEmbedsInternal(botId);
+    }
+
+    private String listEmbedsInternal(UUID botId) {
         List<ObjectNode> rows = jdbc.query(
             """
             SELECT s.feature_code, s.slot_key, s.label, s.description, s.available_vars, s.sort_order,
@@ -82,6 +92,16 @@ public class EmbedConfigService {
     @Transactional(readOnly = true)
     public String getEmbed(UUID userId, UUID botId, String slotKey) {
         assertOwner(userId, botId);
+        return getEmbedInternal(botId, slotKey);
+    }
+
+    /** Admin: effective embed for one slot of any bot (no ownership check). */
+    @Transactional(readOnly = true)
+    public String getEmbedForAdmin(UUID botId, String slotKey) {
+        return getEmbedInternal(botId, slotKey);
+    }
+
+    private String getEmbedInternal(UUID botId, String slotKey) {
         List<String> found = jdbc.query(
             """
             SELECT (
@@ -115,7 +135,16 @@ public class EmbedConfigService {
     @Transactional
     public String saveEmbed(UUID userId, UUID botId, String slotKey, String embedJson) {
         assertOwner(userId, botId);
+        return saveEmbedInternal(botId, slotKey, embedJson);
+    }
 
+    /** Admin: save an embed override for any bot (no ownership check). */
+    @Transactional
+    public String saveEmbedForAdmin(UUID botId, String slotKey, String embedJson) {
+        return saveEmbedInternal(botId, slotKey, embedJson);
+    }
+
+    private String saveEmbedInternal(UUID botId, String slotKey, String embedJson) {
         Integer exists = jdbc.query(
             "SELECT 1 FROM bots.embed_slots WHERE slot_key = ? LIMIT 1",
             rs -> rs.next() ? 1 : null, slotKey);
