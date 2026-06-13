@@ -71,73 +71,75 @@ function selectOption(): void {
     display: flex;
     flex-shrink: 0;
     flex-direction: column;
-    align-items: center;
     box-sizing: border-box;
-    width: min(100%, 285px);
-    height: 156px;
-    padding: var(--spacing-space-2);
-    gap: 10px;
+    width: min(100%, 300px);
+    min-height: 172px;
+    padding: var(--spacing-space-6);
+    gap: var(--spacing-space-5);
     overflow: hidden;
-    border: 2px solid var(--color-main-border);
-    border-radius: var(--radius-xl);
+    border: 1px solid var(--color-main-border);
+    border-radius: var(--radius-2xl);
     background-color: var(--color-main-surface);
     color: var(--color-text-secondary);
     text-align: left;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.card:hover {
+    border-color: var(--color-main-primary);
+    box-shadow: 0 12px 32px color-mix(in srgb, var(--color-main-primary) 22%, transparent);
+    transform: translateY(-2px);
 }
 
 .skeletonCard {
+    min-height: 172px;
     border-color: transparent;
     background: linear-gradient(262.31deg, #ffffff 0%, var(--color-main-surface) 100%);
 }
 
+.skeletonCard:hover {
+    border-color: transparent;
+    box-shadow: none;
+    transform: none;
+}
+
 .body {
+    flex: 1;
     align-self: stretch;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 10px;
+    gap: var(--spacing-space-3);
 }
 
-.titleWrap {
+.titleWrap,
+.priceWrap {
     align-self: stretch;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
+    text-align: left;
 }
 
 .title {
-    align-self: stretch;
     margin: 0;
     font-family: var(--font-sans);
-    font-size: 24px;
+    font-size: 22px;
     font-weight: 600;
-    line-height: normal;
+    line-height: 1.3;
     letter-spacing: 0;
-}
-
-.priceWrap {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
 }
 
 .price {
-    align-self: stretch;
     margin: 0;
     font-family: var(--font-sans);
-    font-size: 32px;
+    font-size: 34px;
     font-weight: 800;
-    line-height: normal;
-    letter-spacing: 0;
+    line-height: 1.1;
+    letter-spacing: -0.5px;
+    color: var(--color-main-primary);
 }
 
 .actionWrap {
+    align-self: stretch;
     display: flex;
-    flex-direction: column;
-    align-items: center;
 }
 
 .button {
@@ -145,13 +147,13 @@ function selectOption(): void {
     align-items: center;
     justify-content: center;
     box-sizing: border-box;
-    width: 160px;
-    height: 48px;
+    width: 100%;
+    height: 46px;
     padding: 12px 16px;
     border: 0;
-    border-radius: var(--radius-xl);
-    background-color: var(--color-button-secondary-btn-bg);
-    color: var(--color-button-secondary-btn-text);
+    border-radius: var(--radius-lg);
+    background-color: var(--color-button-primary-btn-bg);
+    color: var(--color-button-primary-btn-text-active);
     font-family: var(--font-sans);
     font-size: 16px;
     font-weight: 600;
@@ -162,11 +164,11 @@ function selectOption(): void {
 }
 
 .button:hover:not(:disabled) {
-    background-color: var(--color-button-secondary-btn-hover);
+    background-color: var(--color-button-primary-btn-hover);
 }
 
 .button:active:not(:disabled) {
-    background-color: var(--color-button-secondary-btn-active);
+    background-color: var(--color-button-primary-btn-active);
 }
 
 .button:focus-visible {
@@ -176,7 +178,7 @@ function selectOption(): void {
 
 .button:disabled {
     cursor: not-allowed;
-    opacity: 0.55;
+    opacity: 0.45;
 }
 
 @media (max-width: 520px) {
@@ -185,7 +187,11 @@ function selectOption(): void {
     }
 
     .title {
-        font-size: 22px;
+        font-size: 20px;
+    }
+
+    .price {
+        font-size: 30px;
     }
 }
 </style>
