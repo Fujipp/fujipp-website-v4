@@ -25,6 +25,24 @@ public class BillingClient {
         String currency
     ) {}
 
+    /** Money-side dashboard metrics from billing-service. */
+    public record AdminMetrics(
+        long topupRevenueSatang30d,
+        long totalWalletBalanceSatang,
+        long walletCount,
+        java.util.List<AuditEntry> recentAudit
+    ) {}
+
+    public record AuditEntry(
+        java.util.UUID id,
+        java.util.UUID actorId,
+        String action,
+        java.util.UUID targetUserId,
+        String targetType,
+        String targetId,
+        java.time.OffsetDateTime createdAt
+    ) {}
+
     private final RestClient http;
     private final String serviceToken;
 
@@ -360,6 +378,15 @@ public class BillingClient {
             .retrieve()
             .onStatus(HttpStatusCode::isError, (req, res) -> raise(res.getStatusCode()))
             .toBodilessEntity();
+    }
+
+    /** Money-side dashboard metrics (top-up revenue, total balances, recent audit). */
+    public AdminMetrics adminMetrics() {
+        return http.get().uri("/api/billing/admin/metrics")
+            .header("X-Service-Token", serviceToken)
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raise(res.getStatusCode()))
+            .body(AdminMetrics.class);
     }
 
     /** Trigger the daily renewal/expiry sweep. Returns which subjects were suspended. */

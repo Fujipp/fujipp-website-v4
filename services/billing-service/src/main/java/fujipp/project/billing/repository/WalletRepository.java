@@ -14,6 +14,10 @@ public interface WalletRepository extends JpaRepository<Wallet, UUID> {
 
     Optional<Wallet> findByUserId(UUID userId);
 
+    /** Total credit held across all wallets (satang). Used by the admin dashboard. */
+    @Query("select coalesce(sum(w.balanceSatang), 0) from Wallet w")
+    long sumAllBalances();
+
     /**
      * Locks the wallet row (SELECT ... FOR UPDATE) so concurrent credit/debit
      * calls for the same user serialize. Must be called inside a transaction.
