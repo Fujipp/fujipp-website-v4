@@ -17,6 +17,8 @@ import type {
     AdminWalletTransaction,
     WalletAdjustPayload,
     UpdateUserPayload,
+    AdminBot,
+    BotConfig,
 } from "@/features/admin/config";
 
 /**
@@ -146,6 +148,22 @@ export const useAdminStore = defineStore("admin", () => {
         });
     }
 
+    // ── bots ─────────────────────────────────────────────────────────────────
+    function fetchBots(): Promise<AdminBot[]> {
+        return adminFetch<AdminBot[]>("/api/admin/bots");
+    }
+
+    function fetchBotConfig(botId: string): Promise<BotConfig> {
+        return adminFetch<BotConfig>(`/api/admin/bots/${botId}/config`);
+    }
+
+    function updateBotConfig(botId: string, values: Record<string, string>): Promise<BotConfig> {
+        return adminFetch<BotConfig>(`/api/admin/bots/${botId}/config`, {
+            method: "PUT",
+            body: { values },
+        });
+    }
+
     return {
         users, isLoading, error, adminFetch,
         fetchUsers, fetchUser, updateUser,
@@ -153,6 +171,7 @@ export const useAdminStore = defineStore("admin", () => {
         fetchFeaturePrices, updateFeaturePrice,
         fetchUserSubscriptions, updateRuntimeSubscription, updateFeatureSubscription,
         fetchUserWallet, fetchUserWalletTransactions, adjustUserWallet,
+        fetchBots, fetchBotConfig, updateBotConfig,
     };
 });
 

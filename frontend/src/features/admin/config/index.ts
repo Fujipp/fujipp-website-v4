@@ -160,6 +160,43 @@ export interface UpdateUserPayload {
 
 export const USER_ROLES = ["USER", "ADMIN"] as const;
 
+// ── bots ─────────────────────────────────────────────────────────────────────
+export interface AdminBot {
+    id: string;
+    name: string;
+    status: string;
+    ownerId: string;
+    ownerName: string | null;
+    ownerEmail: string | null;
+    discordApplicationId: string | null;
+    discordGuildId: string | null;
+    tokenConfigured: boolean;
+    vpsNodeId: string | null;
+    createdAt: string;
+}
+
+export interface BotConfigField {
+    variableKey: string;
+    label: string;
+    description: string | null;
+    valueType: string;
+    isRequired: boolean;
+    isSensitive: boolean;
+    defaultValue: string | null;
+    sortOrder: number;
+}
+
+export interface BotConfigFeature {
+    code: string;
+    name: string;
+    fields: BotConfigField[];
+}
+
+export interface BotConfig {
+    features: BotConfigFeature[];
+    values: Record<string, string>;
+}
+
 export interface AdminNavItem {
     label: string;
     icon: string;
@@ -174,6 +211,7 @@ export const adminNavItems: readonly AdminNavItem[] = [
     { label: "Dashboard", icon: "/images/icons/sidebar/home.svg", to: { name: "admin-dashboard" } },
     { label: "Users", icon: "/images/icons/sidebar/about.svg", to: { name: "admin-users" } },
     { label: "Pricing", icon: "/images/icons/sidebar/package.svg", to: { name: "admin-pricing" } },
+    { label: "Bots", icon: "/images/icons/sidebar/projects.svg", to: { name: "admin-bots" } },
 ] satisfies readonly AdminNavItem[];
 
 /** satang ⇄ baht helpers — money is stored in satang (THB ×100) everywhere. */
