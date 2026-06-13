@@ -37,7 +37,17 @@ const emit = defineEmits<{
 const route = useRoute();
 const router = useRouter();
 const userStore = useUserStore();
-const { isAuthenticated, profile, user } = storeToRefs(userStore);
+const { isAuthenticated, isAdmin, profile, user } = storeToRefs(userStore);
+
+// Admins get an extra entry into the admin area, appended to the shop nav.
+const ADMIN_ITEM: ShopSidebarItem = {
+    label: "Admin",
+    icon: "/images/icons/sidebar/performance.svg",
+    to: { name: "admin-dashboard" },
+};
+const displayItems = computed<readonly ShopSidebarItem[]>(() =>
+    isAdmin.value ? [...props.items, ADMIN_ITEM] : props.items,
+);
 
 const isOpen = computed(() => props.modelValue);
 const signInRoute = computed<RouteLocationRaw>(() => ({
@@ -144,7 +154,7 @@ watch(isOpen, (value) => {
                 <nav :class="$style.navigation" aria-label="Shop navigation">
                     <component
                         :is="item.to ? 'RouterLink' : 'button'"
-                        v-for="item in items"
+                        v-for="item in displayItems"
                         :key="item.label"
                         :to="item.to"
                         :type="item.to ? undefined : 'button'"
