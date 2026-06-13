@@ -1,0 +1,63 @@
+package fujipp.project.backend.controller;
+
+import fujipp.project.backend.billing.BillingClient;
+import fujipp.project.backend.service.AdminAccessService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.UUID;
+
+/**
+ * Admin catalog pricing. Enforces the ADMIN role, then forwards to billing-service
+ * (JSON passed through as-is so new fields flow without a redeploy here). The acting
+ * admin's id is forwarded for the audit trail.
+ */
+@RestController
+@RequestMapping("/api/admin/catalog")
+@RequiredArgsConstructor
+public class AdminCatalogController {
+
+    private final AdminAccessService adminAccess;
+    private final BillingClient billing;
+
+    @GetMapping("/runtime-plans")
+    public ResponseEntity<String> runtimePlans(@AuthenticationPrincipal Jwt jwt) {
+        adminAccess.requireAdmin(UUID.fromString(jwt.getSubject()));
+        return json(billing.adminListRuntimePlans());
+    }
+
+    @PatchMapping("/runtime-plans/{id}")
+    public ResponseEntity<String> updateRuntimePlan(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable UUID id, @RequestBody String body) {
+        UUID adminId = UUID.fromString(jwt.getSubject());
+        adminAccess.requireAdmin(adminId);
+        return json(billing.adminUpdateRuntimePlan(adminId, id, body));
+    }
+
+    @GetMapping("/feature-prices")
+    public ResponseEntity<String> featurePrices(@AuthenticationPrincipal Jwt jwt) {
+        adminAccess.requireAdmin(UUID.fromString(jwt.getSubject()));
+        return json(billing.adminListFeaturePrices());
+    }
+
+    @PatchMapping("/feature-prices/{id}")
+    public ResponseEntity<String> updateFeaturePrice(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable UUID id, @RequestBody String body) {
+        UUID adminId = UUID.fromString(jwt.getSubject());
+        adminAccess.requireAdmin(adminId);
+        return json(billing.adminUpdateFeaturePrice(adminId, id, body));
+    }
+
+    private ResponseEntity<String> json(String body) {
+        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(body);
+    }
+}

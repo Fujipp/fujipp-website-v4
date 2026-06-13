@@ -228,6 +228,50 @@ public class BillingClient {
             .body(String.class);
     }
 
+    // ── admin catalog pricing (service token + acting admin id) ─────────────────
+
+    /** Raw JSON list of all runtime plans (incl. inactive) for the admin editor. */
+    public String adminListRuntimePlans() {
+        return http.get().uri("/api/billing/admin/catalog/runtime-plans")
+            .header("X-Service-Token", serviceToken)
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raise(res.getStatusCode()))
+            .body(String.class);
+    }
+
+    /** Partial-update a runtime plan. {@code body} is the UpdateRuntimePlanRequest JSON. */
+    public String adminUpdateRuntimePlan(UUID adminId, UUID planId, String body) {
+        return http.patch().uri("/api/billing/admin/catalog/runtime-plans/{id}", planId)
+            .header("X-Service-Token", serviceToken)
+            .header("X-Admin-Id", adminId.toString())
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(body)
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raiseWithReason(res))
+            .body(String.class);
+    }
+
+    /** Raw JSON list of all feature prices (incl. inactive) for the admin editor. */
+    public String adminListFeaturePrices() {
+        return http.get().uri("/api/billing/admin/catalog/feature-prices")
+            .header("X-Service-Token", serviceToken)
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raise(res.getStatusCode()))
+            .body(String.class);
+    }
+
+    /** Partial-update a feature price. {@code body} is the UpdateFeaturePriceRequest JSON. */
+    public String adminUpdateFeaturePrice(UUID adminId, UUID priceId, String body) {
+        return http.patch().uri("/api/billing/admin/catalog/feature-prices/{id}", priceId)
+            .header("X-Service-Token", serviceToken)
+            .header("X-Admin-Id", adminId.toString())
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(body)
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raiseWithReason(res))
+            .body(String.class);
+    }
+
     /** Trigger the daily renewal/expiry sweep. Returns which subjects were suspended. */
     public SweepResult runAutomation() {
         return http.post().uri("/api/billing/automation/run")

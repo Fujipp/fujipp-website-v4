@@ -20,6 +20,7 @@ const AuthView = () => import('@/features/auth/views/AuthView.vue')
 const AdminDashboardView = () => import('@/features/admin/views/AdminDashboardView.vue')
 const AdminUsersView = () => import('@/features/admin/views/AdminUsersView.vue')
 const AdminUserDetailView = () => import('@/features/admin/views/AdminUserDetailView.vue')
+const AdminPricingView = () => import('@/features/admin/views/AdminPricingView.vue')
 
 const AUTH_CALLBACK_QUERY_KEYS = ['code', 'error', 'error_code', 'error_description'] as const
 
@@ -80,6 +81,7 @@ const router = createRouter({
     { path: '/admin', name: 'admin-dashboard', component: AdminDashboardView, beforeEnter: requireAdmin },
     { path: '/admin/users', name: 'admin-users', component: AdminUsersView, beforeEnter: requireAdmin },
     { path: '/admin/users/:userId', name: 'admin-user-detail', component: AdminUserDetailView, beforeEnter: requireAdmin },
+    { path: '/admin/pricing', name: 'admin-pricing', component: AdminPricingView, beforeEnter: requireAdmin },
 
     // Auth routes
     { path: '/login',    name: 'login',    component: AuthView },

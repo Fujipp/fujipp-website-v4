@@ -1,0 +1,58 @@
+package fujipp.project.billing.controller;
+
+import fujipp.project.billing.dto.AdminFeaturePriceResponse;
+import fujipp.project.billing.dto.AdminRuntimePlanResponse;
+import fujipp.project.billing.dto.UpdateFeaturePriceRequest;
+import fujipp.project.billing.dto.UpdateRuntimePlanRequest;
+import fujipp.project.billing.service.AdminCatalogService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+import java.util.UUID;
+
+/**
+ * Internal admin catalog API. Guarded by the service token (the main backend enforces
+ * the ADMIN role before forwarding); the acting admin's id arrives in {@code X-Admin-Id}
+ * for the audit trail.
+ */
+@RestController
+@RequestMapping("/api/billing/admin/catalog")
+@RequiredArgsConstructor
+public class AdminCatalogController {
+
+    private final AdminCatalogService catalog;
+
+    @GetMapping("/runtime-plans")
+    public ResponseEntity<List<AdminRuntimePlanResponse>> runtimePlans() {
+        return ResponseEntity.ok(catalog.listRuntimePlans());
+    }
+
+    @PatchMapping("/runtime-plans/{id}")
+    public ResponseEntity<AdminRuntimePlanResponse> updateRuntimePlan(
+            @RequestHeader("X-Admin-Id") UUID adminId,
+            @PathVariable UUID id,
+            @RequestBody UpdateRuntimePlanRequest request) {
+        return ResponseEntity.ok(catalog.updateRuntimePlan(adminId, id, request));
+    }
+
+    @GetMapping("/feature-prices")
+    public ResponseEntity<List<AdminFeaturePriceResponse>> featurePrices() {
+        return ResponseEntity.ok(catalog.listFeaturePrices());
+    }
+
+    @PatchMapping("/feature-prices/{id}")
+    public ResponseEntity<AdminFeaturePriceResponse> updateFeaturePrice(
+            @RequestHeader("X-Admin-Id") UUID adminId,
+            @PathVariable UUID id,
+            @RequestBody UpdateFeaturePriceRequest request) {
+        return ResponseEntity.ok(catalog.updateFeaturePrice(adminId, id, request));
+    }
+}
