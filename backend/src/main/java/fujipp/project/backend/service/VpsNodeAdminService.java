@@ -4,10 +4,8 @@ import fujipp.project.backend.dto.CreateVpsNodeRequest;
 import fujipp.project.backend.dto.UpdateVpsNodeRequest;
 import fujipp.project.backend.dto.VpsNodeResponse;
 import fujipp.project.backend.model.BotInstance;
-import fujipp.project.backend.model.Profile;
 import fujipp.project.backend.model.VpsNode;
 import fujipp.project.backend.repository.BotInstanceRepository;
-import fujipp.project.backend.repository.ProfileRepository;
 import fujipp.project.backend.repository.VpsNodeRepository;
 import fujipp.project.backend.runtime.RuntimeClient;
 import fujipp.project.backend.runtime.RuntimeRouter;
@@ -34,7 +32,7 @@ public class VpsNodeAdminService {
 
     private final VpsNodeRepository nodes;
     private final BotInstanceRepository bots;
-    private final ProfileRepository profiles;
+    private final AdminAccessService adminAccess;
     private final SecretCipher cipher;
     private final PlacementService placement;
     private final RuntimeRouter runtimeRouter;
@@ -127,11 +125,7 @@ public class VpsNodeAdminService {
     // ── helpers ─────────────────────────────────────────────────────────────────
 
     private void requireAdmin(UUID userId) {
-        Profile profile = profiles.findById(userId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin role required"));
-        if (!"ADMIN".equals(profile.getRole())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin role required");
-        }
+        adminAccess.requireAdmin(userId);
     }
 
     private static String normalizeStatus(String status, String fallback) {
