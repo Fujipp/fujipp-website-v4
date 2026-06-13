@@ -1,7 +1,5 @@
 package fujipp.project.billing.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import fujipp.project.billing.model.AdminAuditLog;
 import fujipp.project.billing.repository.AdminAuditLogRepository;
 import lombok.RequiredArgsConstructor;
@@ -14,14 +12,14 @@ import java.util.UUID;
 /**
  * Writes the append-only {@code billing.admin_audit_log} trail. Callers invoke
  * {@link #record} from within their own transaction so the audit row commits
- * atomically with the action it describes.
+ * atomically with the action it describes. The payload is stored as jsonb
+ * (Hibernate serializes the Map).
  */
 @Service
 @RequiredArgsConstructor
 public class AdminAuditService {
 
     private final AdminAuditLogRepository repository;
-    private final ObjectMapper objectMapper;
 
     /**
      * @param actorId      admin profile performing the action (may be null)
@@ -39,7 +37,7 @@ public class AdminAuditService {
         log.setTargetUserId(targetUserId);
         log.setTargetType(targetType);
         log.setTargetId(targetId);
-        log.setPayload(toJson(payload));
+        log.setPayload(payload == null || payload.isEmpty() ? null : payload);
         return repository.save(log);
     }
 
@@ -49,17 +47,5 @@ public class AdminAuditService {
 
     public List<AdminAuditLog> recentForUser(UUID targetUserId) {
         return repository.findTop50ByTargetUserIdOrderByCreatedAtDesc(targetUserId);
-    }
-
-    private String toJson(Map<String, Object> payload) {
-        if (payload == null || payload.isEmpty()) {
-            return null;
-        }
-        try {
-            return objectMapper.writeValueAsString(payload);
-        } catch (JsonProcessingException e) {
-            // Auditing must never block the action it records; fall back to a marker.
-            return "{\"_serializationError\":true}";
-        }
     }
 }

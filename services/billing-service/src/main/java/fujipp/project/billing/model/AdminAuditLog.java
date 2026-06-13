@@ -13,6 +13,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.OffsetDateTime;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -51,10 +52,10 @@ public class AdminAuditLog {
     @Column(name = "target_id", updatable = false)
     private String targetId;
 
-    /** JSON detail (before/after diff or action context). */
+    /** JSON detail (before/after diff or action context). Mapped to jsonb by Hibernate. */
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "payload", updatable = false)
-    private String payload;
+    private Map<String, Object> payload;
 
     @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
     private OffsetDateTime createdAt;
