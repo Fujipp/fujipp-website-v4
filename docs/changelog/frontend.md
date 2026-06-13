@@ -1,9 +1,10 @@
 # Changelog — Frontend
 
-**Current version: `0.4.2`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.4.3`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.4.3` | 2026-06-13 | admin: `UserSubscriptionsPanel` on the user detail page — view a user's runtime + feature subscriptions and override renewal price (baht↔satang, clear), status, and auto-renew per subscription |
 | `0.4.2` | 2026-06-13 | admin: `AdminPricingView` — inline-editable tables for runtime plans and feature prices (baht↔satang, promo price/label with clear, featured/active/sort toggles); new "Pricing" sidebar item + `/admin/pricing` route |
 | `0.4.1` | 2026-06-13 | admin: new `features/admin/` shell — collapsible `AdminLayout` sidebar, role-gated `/admin` routes (Dashboard stub + Users list/search + read-only user detail), `adminStore` API client, and an "Admin" entry in the admin `UserControl` menu |
 | `0.4.0.7` | 2026-06-13 | fix more dark-on-surface contrast: dashboard metric numbers (`metricValue`) and the `TextareaField`/`SelectField` labels now use `text-secondary` instead of `text-primary` (invisible on `main-surface` in light mode) |

@@ -8,6 +8,11 @@ import type {
     AdminFeaturePrice,
     UpdateRuntimePlanPayload,
     UpdateFeaturePricePayload,
+    AdminUserSubscriptions,
+    AdminRuntimeSubscription,
+    AdminFeatureSubscription,
+    UpdateRuntimeSubscriptionPayload,
+    UpdateFeatureSubscriptionPayload,
 } from "@/features/admin/config";
 
 /**
@@ -94,11 +99,35 @@ export const useAdminStore = defineStore("admin", () => {
         });
     }
 
+    // ── subscriptions (per-user overrides) ───────────────────────────────────
+    function fetchUserSubscriptions(userId: string): Promise<AdminUserSubscriptions> {
+        return adminFetch<AdminUserSubscriptions>(`/api/admin/users/${userId}/subscriptions`);
+    }
+
+    function updateRuntimeSubscription(
+        id: string, payload: UpdateRuntimeSubscriptionPayload,
+    ): Promise<AdminRuntimeSubscription> {
+        return adminFetch<AdminRuntimeSubscription>(`/api/admin/subscriptions/runtime/${id}`, {
+            method: "PATCH",
+            body: payload,
+        });
+    }
+
+    function updateFeatureSubscription(
+        id: string, payload: UpdateFeatureSubscriptionPayload,
+    ): Promise<AdminFeatureSubscription> {
+        return adminFetch<AdminFeatureSubscription>(`/api/admin/subscriptions/features/${id}`, {
+            method: "PATCH",
+            body: payload,
+        });
+    }
+
     return {
         users, isLoading, error, adminFetch,
         fetchUsers, fetchUser,
         fetchRuntimePlans, updateRuntimePlan,
         fetchFeaturePrices, updateFeaturePrice,
+        fetchUserSubscriptions, updateRuntimeSubscription, updateFeatureSubscription,
     };
 });
 
