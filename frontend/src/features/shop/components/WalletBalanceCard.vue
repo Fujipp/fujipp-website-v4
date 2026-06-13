@@ -14,21 +14,23 @@ withDefaults(defineProps<Props>(), {
 
 <template>
     <article :class="$style.balanceCard" aria-live="polite">
-        <img
-            :class="$style.avatar"
-            :src="avatarUrl"
-            alt=""
-            aria-hidden="true"
-            draggable="false"
-        >
-        <div :class="$style.username">{{ username }}</div>
+        <div :class="$style.identity">
+            <img
+                :class="$style.avatar"
+                :src="avatarUrl"
+                alt=""
+                aria-hidden="true"
+                draggable="false"
+            >
+            <div :class="$style.username">{{ username }}</div>
+        </div>
 
-        <div :class="$style.creditRow">
-            <div :class="$style.creditLabel">เครดิตของคุณ</div>
-            <div :class="$style.balanceWrap">
-                <div :class="$style.balanceValue">{{ loading ? "..." : balance }}</div>
+        <div :class="$style.balancePanel">
+            <span :class="$style.creditLabel">เครดิตของคุณ</span>
+            <div :class="$style.balanceLine">
+                <span :class="$style.balanceValue">{{ loading ? "..." : balance }}</span>
+                <span :class="$style.balanceUnit">บาท</span>
             </div>
-            <div :class="$style.creditLabel">บาท</div>
         </div>
     </article>
 </template>
@@ -37,65 +39,80 @@ withDefaults(defineProps<Props>(), {
 .balanceCard {
     display: flex;
     width: 380px;
-    height: 450px;
+    min-height: 450px;
     max-width: 100%;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
     box-sizing: border-box;
-    padding: var(--spacing-space-3);
-    gap: 10px;
-    border-radius: var(--radius-xl);
+    padding: var(--spacing-space-6);
+    gap: var(--spacing-space-5);
+    border: 1px solid var(--color-main-border);
+    border-radius: var(--radius-2xl);
     background-color: var(--color-main-surface);
     color: var(--color-text-secondary);
     text-align: center;
 }
 
+.identity {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-space-4);
+}
+
 .avatar {
-    width: 275px;
-    height: 275px;
-    border-radius: var(--radius-xl);
+    width: 100%;
+    max-width: 240px;
+    aspect-ratio: 1 / 1;
+    border-radius: var(--radius-2xl);
     object-fit: cover;
 }
 
 .username {
-    align-self: stretch;
-    font-size: 24px;
-    font-weight: 800;
-    line-height: 1.15;
-}
-
-.creditRow {
-    align-self: stretch;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 20px;
-    color: var(--color-text-secondary);
-    text-align: left;
-}
-
-.creditLabel {
     font-size: 22px;
-    font-weight: 800;
-    line-height: 1.15;
-    white-space: nowrap;
+    font-weight: 600;
+    line-height: 1.2;
 }
 
-.balanceWrap {
+.balancePanel {
+    align-self: stretch;
+    margin-top: auto;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    min-width: 0;
-    text-align: center;
+    gap: var(--spacing-space-1);
+    box-sizing: border-box;
+    padding: var(--spacing-space-5);
+    border-radius: var(--radius-xl);
+    background-color: color-mix(in srgb, var(--color-main-primary) 10%, var(--color-main-surface));
+}
+
+.creditLabel {
+    font-size: 14px;
+    font-weight: 400;
+    letter-spacing: 0.2px;
+    color: color-mix(in srgb, var(--color-text-secondary) 72%, transparent);
+}
+
+.balanceLine {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
 }
 
 .balanceValue {
-    font-size: 32px;
+    font-size: 40px;
     font-weight: 800;
-    line-height: 1.15;
+    line-height: 1.1;
+    letter-spacing: -0.5px;
+    color: var(--color-main-primary);
     overflow-wrap: anywhere;
+}
+
+.balanceUnit {
+    font-size: 16px;
+    font-weight: 600;
+    color: color-mix(in srgb, var(--color-text-secondary) 72%, transparent);
 }
 
 @media (max-width: 1024px) {
@@ -107,15 +124,10 @@ withDefaults(defineProps<Props>(), {
 @media (max-width: 520px) {
     .balanceCard {
         width: min(100%, 326px);
-        height: 450px;
     }
 
-    .creditRow {
-        gap: 12px;
-    }
-
-    .creditLabel {
-        font-size: 20px;
+    .balanceValue {
+        font-size: 34px;
     }
 }
 </style>
