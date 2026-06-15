@@ -139,6 +139,7 @@ export interface AdminUserSubscriptions {
 export interface UpdateRuntimeSubscriptionPayload {
     renewPriceSatang?: number | null;
     clearRenewPrice?: boolean;
+    runtimePlanId?: string;
     renewPlanId?: string;
     status?: string;
     currentPeriodEnd?: string;
