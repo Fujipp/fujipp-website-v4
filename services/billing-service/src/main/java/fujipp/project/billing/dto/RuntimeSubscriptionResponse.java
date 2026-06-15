@@ -13,12 +13,13 @@ public record RuntimeSubscriptionResponse(
     LocalDate currentPeriodStart,
     LocalDate currentPeriodEnd,
     boolean autoRenew,
-    Long renewPriceSatang
+    Long renewPriceSatang,
+    UUID renewPlanId
 ) {
     public static RuntimeSubscriptionResponse from(RuntimeSubscription s) {
         return new RuntimeSubscriptionResponse(
             s.getId(), s.getExternalSubjectId(), s.getRuntimePlanId(), s.getStatus(),
             s.getCurrentPeriodStart(), s.getCurrentPeriodEnd(), s.isAutoRenew(),
-            s.getRenewPriceSatang());
+            s.getRenewPriceSatang(), s.getRenewPlanId());
     }
 }
