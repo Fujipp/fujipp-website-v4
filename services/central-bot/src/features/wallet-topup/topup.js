@@ -162,16 +162,33 @@ async function onTmnModal(interaction, ctx) {
     return;
   }
 
-  const balance = await ctx.services.wallet.credit(interaction.user.id, result.amountSatang, {
+  // Apply the configurable TrueMoney fee: percent of the voucher + a flat baht amount
+  // (both default 0 = no fee; they stack). Credit the net; never below zero.
+  const gross = result.amountSatang;
+  const feePercent = ctx.config.number('TRUEMONEY_FEE', 0) || 0;
+  const feeFlatSatang = Math.round((ctx.config.number('TRUEMONEY_FEE_FLAT', 0) || 0) * 100);
+  const feeSatang = Math.min(gross, Math.max(0, Math.round((gross * feePercent) / 100) + feeFlatSatang));
+  const creditSatang = gross - feeSatang;
+  if (creditSatang <= 0) {
+    const embed = await ctx.services.embeds.renderEmbed('topup_failed', {
+      reason: 'ค่าธรรมเนียมมากกว่าหรือเท่ากับยอดซอง — ไม่สามารถเติมได้',
+    });
+    await interaction.editReply({ embeds: [embed] });
+    return;
+  }
+
+  const balance = await ctx.services.wallet.credit(interaction.user.id, creditSatang, {
     type: 'TOPUP',
     note: 'truemoney voucher',
   });
   const embed = await ctx.services.embeds.renderEmbed('topup_success', {
     member: interaction.user.id,
-    amount: thb(result.amountSatang),
+    amount: thb(creditSatang),
     total_balance: thb(balance),
     method: 'ซองทรูมันนี่',
     datetime: new Date().toLocaleString('th-TH'),
+    fee: thb(feeSatang),
+    gross: thb(gross),
   });
   await interaction.editReply({ embeds: [embed] });
 
