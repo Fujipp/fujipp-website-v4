@@ -1,9 +1,10 @@
 # Changelog — Database
 
-**Current version: `0.2.0`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.2.0.1`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.2.0.1` | 2026-06-15 | seed review-credit price (`20260615120200`) — RENT_PERMANENT 190 THB (no monthly); makes it purchasable + visible in the admin Pricing page. Editable there afterwards |
 | `0.2.0` | 2026-06-15 | review-credit: new `shop.review_credit_state` table (`20260615120000`, per-bot/channel counter + last reply id, RLS service_role only) + seed the `review-credit` feature into `billing.feature_catalog` (ENGAGEMENT) with 6 config templates (`20260615120100`); ports the legacy Aka Shop review counter — no price yet (visible, not purchasable) |
 | `0.1.9.1` | 2026-06-13 | `admin_audit_log.payload` jsonb → text (`20260613173500`) — billing runs on Jackson 3, which Hibernate's auto jsonb mapper can't use; the app serializes payload to JSON text itself |
 | `0.1.9` | 2026-06-13 | admin: new append-only `billing.admin_audit_log` table (`20260613163224`) — actor/action/target + jsonb payload, RLS-enabled (service_role only), indexed on actor/target-user/created; trail for admin price/wallet/user/bot actions |
