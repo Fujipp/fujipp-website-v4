@@ -20,6 +20,17 @@ function makeReviewStore(subjectId) {
     };
   }
 
+  // Whether a counter row exists yet for this channel. Used to decide whether to
+  // run the one-time full recount on startup (absent row = never counted / reset).
+  async function exists(channelId) {
+    const { rows } = await pool.query(
+      `SELECT 1 FROM shop.review_credit_state
+        WHERE external_subject_id = $1 AND channel_id = $2`,
+      [subjectId, String(channelId)],
+    );
+    return rows.length > 0;
+  }
+
   // Atomically bump the counter by one and return the new count.
   async function increment(channelId) {
     const { rows } = await pool.query(
@@ -56,7 +67,7 @@ function makeReviewStore(subjectId) {
     );
   }
 
-  return { getState, increment, setCount, setLastMessageId };
+  return { getState, exists, increment, setCount, setLastMessageId };
 }
 
 module.exports = { makeReviewStore };

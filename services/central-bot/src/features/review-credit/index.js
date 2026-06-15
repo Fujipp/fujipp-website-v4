@@ -224,6 +224,28 @@ async function handleReCredit(interaction, ctx) {
   await interaction.editReply({ content: lines.join('\n') });
 }
 
+// ─── onReady: one-time full count ────────────────────────────────────────────
+// On first start (no counter row yet — also the state after the web "recount"
+// resets it), count every member message in the review channel so the counter
+// starts from the real total instead of 0. Runs once; subsequent messages just
+// increment.
+async function onReady(client, ctx) {
+  const cfgChannel = channelId(ctx);
+  if (!cfgChannel) return;
+  const store = getStore(ctx);
+  try {
+    if (await store.exists(cfgChannel)) return;
+    const channel = await client.channels.fetch(cfgChannel).catch(() => null);
+    if (!channel || !channel.isTextBased()) return;
+    const total = await countUserMessages(channel);
+    await store.setCount(cfgChannel, total);
+    await renameToCount(channel, total, ctx);
+    ctx.log(`review-credit: initialized counter for ${cfgChannel} = ${total}`);
+  } catch (err) {
+    ctx.log(`review-credit initial count failed: ${err.message}`);
+  }
+}
+
 // ─── Intents ─────────────────────────────────────────────────────────────────
 // GuildMessages is needed to receive messageCreate; GuildMembers (privileged) is
 // only needed to grant the reviewer role to a member not in the event payload.
@@ -255,6 +277,8 @@ module.exports = {
     checkcredit: handleCheckCredit,
     recredit: handleReCredit,
   },
+
+  onReady,
 
   events: {
     messageCreate: onMessage,
