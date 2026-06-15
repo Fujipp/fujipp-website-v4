@@ -290,6 +290,18 @@ public class BillingClient {
             .body(String.class);
     }
 
+    /** Create a new feature price (SKU). {@code body} is the CreateFeaturePriceRequest JSON. */
+    public String adminCreateFeaturePrice(UUID adminId, String body) {
+        return http.post().uri("/api/billing/admin/catalog/feature-prices")
+            .header("X-Service-Token", serviceToken)
+            .header("X-Admin-Id", adminId.toString())
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(body)
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raiseWithReason(res))
+            .body(String.class);
+    }
+
     // ── admin subscription overrides (service token + acting admin id) ──────────
 
     /** Raw JSON of one user's runtime + feature subscriptions for the admin panel. */

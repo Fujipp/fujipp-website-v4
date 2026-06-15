@@ -2,6 +2,7 @@ package fujipp.project.billing.service;
 
 import fujipp.project.billing.dto.AdminFeaturePriceResponse;
 import fujipp.project.billing.dto.AdminRuntimePlanResponse;
+import fujipp.project.billing.dto.CreateFeaturePriceRequest;
 import fujipp.project.billing.dto.UpdateFeaturePriceRequest;
 import fujipp.project.billing.dto.UpdateRuntimePlanRequest;
 import fujipp.project.billing.model.FeatureCatalog;
@@ -20,6 +21,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 
@@ -89,6 +91,66 @@ public class AdminCatalogService {
     }
 
     // ── feature prices ─────────────────────────────────────────────────────────────
+
+    /** Valid price kinds — mirrors feature_prices_kind_chk. */
+    private static final Set<String> PRICE_KINDS = Set.of("RENT_MONTHLY", "RENT_PERMANENT", "SOURCE_CODE");
+
+    @Transactional
+    public AdminFeaturePriceResponse createFeaturePrice(UUID adminId, CreateFeaturePriceRequest req) {
+        if (req.featureId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "featureId is required");
+        }
+        if (req.kind() == null || !PRICE_KINDS.contains(req.kind())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "kind must be one of " + PRICE_KINDS);
+        }
+        if (req.priceSatang() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "priceSatang is required");
+        }
+        requireNonNegative(req.priceSatang());
+
+        FeatureCatalog feature = features.findById(req.featureId())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Feature not found"));
+
+        if (featurePrices.existsByFeatureIdAndKind(feature.getId(), req.kind())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "A " + req.kind() + " price already exists for this feature");
+        }
+
+        FeaturePrice price = new FeaturePrice();
+        price.setFeatureId(feature.getId());
+        price.setKind(req.kind());
+        price.setPriceSatang(req.priceSatang());
+        price.setCurrency("THB");
+        // Monthly rents need a duration; permanent / source-code are open-ended.
+        if ("RENT_MONTHLY".equals(req.kind())) {
+            int months = req.durationMonths() != null ? req.durationMonths() : 1;
+            requirePositive(months, "durationMonths");
+            price.setDurationMonths(months);
+        } else {
+            price.setDurationMonths(req.durationMonths());
+        }
+        price.setActive(req.active() == null || req.active());
+
+        if (req.promotionPriceSatang() != null) {
+            requireNonNegative(req.promotionPriceSatang());
+            price.setPromotionPriceSatang(req.promotionPriceSatang());
+        }
+        if (req.promotionLabel() != null) price.setPromotionLabel(req.promotionLabel());
+        if (req.promotionStartsAt() != null) price.setPromotionStartsAt(req.promotionStartsAt());
+        if (req.promotionEndsAt() != null) price.setPromotionEndsAt(req.promotionEndsAt());
+
+        FeaturePrice saved = featurePrices.save(price);
+
+        Map<String, Object> changes = new LinkedHashMap<>();
+        changes.put("featureCode", feature.getCode());
+        changes.put("kind", saved.getKind());
+        changes.put("priceSatang", saved.getPriceSatang());
+        changes.put("durationMonths", saved.getDurationMonths());
+        changes.put("active", saved.isActive());
+        audit.record(adminId, "CATALOG_PRICE_CREATE", null, "FEATURE_PRICE", saved.getId().toString(), changes);
+
+        return AdminFeaturePriceResponse.from(saved, feature.getCode(), feature.getName());
+    }
 
     @Transactional(readOnly = true)
     public List<AdminFeaturePriceResponse> listFeaturePrices() {

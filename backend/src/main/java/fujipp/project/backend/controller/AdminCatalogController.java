@@ -10,6 +10,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -43,10 +44,25 @@ public class AdminCatalogController {
         return json(billing.adminUpdateRuntimePlan(adminId, id, body));
     }
 
+    /** All catalog features (incl. unpriced) so the admin can pick one to price. */
+    @GetMapping("/features")
+    public ResponseEntity<String> features(@AuthenticationPrincipal Jwt jwt) {
+        adminAccess.requireAdmin(UUID.fromString(jwt.getSubject()));
+        return json(billing.listFeatures());
+    }
+
     @GetMapping("/feature-prices")
     public ResponseEntity<String> featurePrices(@AuthenticationPrincipal Jwt jwt) {
         adminAccess.requireAdmin(UUID.fromString(jwt.getSubject()));
         return json(billing.adminListFeaturePrices());
+    }
+
+    @PostMapping("/feature-prices")
+    public ResponseEntity<String> createFeaturePrice(
+            @AuthenticationPrincipal Jwt jwt, @RequestBody String body) {
+        UUID adminId = UUID.fromString(jwt.getSubject());
+        adminAccess.requireAdmin(adminId);
+        return json(billing.adminCreateFeaturePrice(adminId, body));
     }
 
     @PatchMapping("/feature-prices/{id}")

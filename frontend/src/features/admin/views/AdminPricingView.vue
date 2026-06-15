@@ -5,8 +5,11 @@ import { useAdminStore } from "@/features/admin/stores";
 import {
     bahtToSatang,
     satangToBaht,
+    FEATURE_PRICE_KINDS,
+    type AdminFeature,
     type AdminFeaturePrice,
     type AdminRuntimePlan,
+    type CreateFeaturePricePayload,
     type UpdateFeaturePricePayload,
     type UpdateRuntimePlanPayload,
 } from "@/features/admin/config";
@@ -38,8 +41,23 @@ interface FeatureDraft {
 interface PlanRow { plan: AdminRuntimePlan; draft: RuntimeDraft }
 interface PriceRow { price: AdminFeaturePrice; draft: FeatureDraft }
 
+interface AddPriceDraft {
+    featureId: string;
+    kind: string;
+    priceBaht: number | null;
+    durationMonths: number | null;
+    active: boolean;
+}
+
+function emptyAddDraft(): AddPriceDraft {
+    return { featureId: "", kind: "RENT_PERMANENT", priceBaht: null, durationMonths: null, active: true };
+}
+
 const planRows = ref<PlanRow[]>([]);
 const priceRows = ref<PriceRow[]>([]);
+const features = ref<AdminFeature[]>([]);
+const addDraft = ref<AddPriceDraft>(emptyAddDraft());
+const addSaving = ref(false);
 
 const isLoading = ref(false);
 const loadError = ref("");
@@ -80,12 +98,14 @@ async function load(): Promise<void> {
     isLoading.value = true;
     loadError.value = "";
     try {
-        const [plans, prices] = await Promise.all([
+        const [plans, prices, catalog] = await Promise.all([
             adminStore.fetchRuntimePlans(),
             adminStore.fetchFeaturePrices(),
+            adminStore.fetchFeatures(),
         ]);
         planRows.value = plans.map((plan) => ({ plan, draft: toRuntimeDraft(plan) }));
         priceRows.value = prices.map((price) => ({ price, draft: toFeatureDraft(price) }));
+        features.value = catalog;
     } catch (cause) {
         loadError.value = cause instanceof Error ? cause.message : "Failed to load catalog";
     } finally {
@@ -157,6 +177,40 @@ async function save(id: string, run: () => Promise<void>): Promise<void> {
         showToast("error", cause instanceof Error ? cause.message : "Save failed");
     } finally {
         savingId.value = null;
+    }
+}
+
+async function addPrice(): Promise<void> {
+    const priceSatang = bahtToSatang(addDraft.value.priceBaht);
+    if (!addDraft.value.featureId) {
+        showToast("error", "เลือก feature ก่อน");
+        return;
+    }
+    if (priceSatang === null) {
+        showToast("error", "ใส่ราคาก่อน");
+        return;
+    }
+    const payload: CreateFeaturePricePayload = {
+        featureId: addDraft.value.featureId,
+        kind: addDraft.value.kind,
+        priceSatang,
+        active: addDraft.value.active,
+    };
+    // Only monthly rents carry a duration; permanent / source-code are open-ended.
+    if (addDraft.value.kind === "RENT_MONTHLY") {
+        payload.durationMonths = addDraft.value.durationMonths ?? 1;
+    }
+
+    addSaving.value = true;
+    try {
+        await adminStore.createFeaturePrice(payload);
+        showToast("success", "Added");
+        addDraft.value = emptyAddDraft();
+        await load();
+    } catch (cause) {
+        showToast("error", cause instanceof Error ? cause.message : "Add failed");
+    } finally {
+        addSaving.value = false;
     }
 }
 
@@ -246,6 +300,31 @@ onMounted(load);
             </div>
         </section>
 
+        <!-- Add a price for a feature that has none yet -->
+        <section :class="$style.section" aria-label="Add feature price">
+            <h2 :class="$style.heading">Add feature price</h2>
+            <div :class="$style.panel">
+                <div :class="$style.addForm">
+                    <select v-model="addDraft.featureId" :class="[$style.input, $style.select]" aria-label="Feature">
+                        <option value="" disabled>เลือก feature…</option>
+                        <option v-for="f in features" :key="f.id" :value="f.id">
+                            {{ f.name }} ({{ f.code }}){{ f.prices.length ? ` — มี ${f.prices.length} ราคา` : "" }}
+                        </option>
+                    </select>
+                    <select v-model="addDraft.kind" :class="[$style.input, $style.select]" aria-label="Kind">
+                        <option v-for="k in FEATURE_PRICE_KINDS" :key="k" :value="k">{{ k }}</option>
+                    </select>
+                    <input v-model.number="addDraft.priceBaht" :class="$style.input" type="number" min="0" step="0.01" placeholder="ราคา ฿" aria-label="Price">
+                    <input v-if="addDraft.kind === 'RENT_MONTHLY'" v-model.number="addDraft.durationMonths" :class="$style.input" type="number" min="1" placeholder="เดือน" aria-label="Months">
+                    <label :class="$style.activeLabel"><input v-model="addDraft.active" type="checkbox"> Active</label>
+                    <button type="button" :class="$style.saveBtn" :disabled="addSaving" @click="addPrice">
+                        {{ addSaving ? "…" : "Add" }}
+                    </button>
+                </div>
+                <p :class="$style.note">เลือก feature ที่ยังไม่มีราคา แล้วตั้งราคา (เช่น review-credit). ตั้ง kind ซ้ำของ feature เดิมไม่ได้ — แก้ราคาเดิมในตารางด้านบนแทน</p>
+            </div>
+        </section>
+
         <StatusToast v-if="toast" :status="toast.status" :title="toast.title" />
     </AdminLayout>
 </template>
@@ -294,6 +373,23 @@ onMounted(load);
 }
 
 .text { width: 130px; }
+
+.addForm {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 12px;
+}
+
+.select { width: auto; min-width: 180px; }
+
+.activeLabel {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--color-text-secondary);
+}
 
 .input:focus-visible {
     outline: none;

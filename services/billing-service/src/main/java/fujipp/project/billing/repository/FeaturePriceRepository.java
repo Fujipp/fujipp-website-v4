@@ -11,4 +11,6 @@ public interface FeaturePriceRepository extends JpaRepository<FeaturePrice, UUID
     List<FeaturePrice> findByActiveTrue();
 
     List<FeaturePrice> findByFeatureIdAndActiveTrue(UUID featureId);
+
+    boolean existsByFeatureIdAndKind(UUID featureId, String kind);
 }
