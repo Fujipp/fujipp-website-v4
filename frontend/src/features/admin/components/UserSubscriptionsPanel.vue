@@ -32,6 +32,12 @@ interface Draft {
 interface RuntimeRow { sub: AdminRuntimeSubscription; draft: Draft; extend: string }
 interface FeatureRow { sub: AdminFeatureSubscription; draft: Draft }
 
+// Only recurring rentals have an expiry + renewal; RENT_PERMANENT (and one-off
+// SOURCE_CODE) never lapse, so their period-end / renew / auto fields are N/A.
+function isRecurring(billingType: string): boolean {
+    return billingType === "RENT_MONTHLY";
+}
+
 // Quick-extend options for runtime. "permanent" maps to a far-future period end —
 // runtime current_period_end is NOT NULL, so permanent is expressed as a date far
 // enough out that it never lapses.
@@ -230,14 +236,23 @@ onMounted(load);
                         <tr v-for="row in featureRows" :key="row.sub.id">
                             <td :class="$style.td">{{ row.sub.externalSubjectId ?? row.sub.scope }}</td>
                             <td :class="$style.td">{{ row.sub.billingType }}</td>
-                            <td :class="$style.td"><input v-model="row.draft.periodEnd" :class="$style.input" type="date"></td>
-                            <td :class="$style.td"><input v-model.number="row.draft.renewBaht" :class="$style.input" type="number" min="0" step="0.01" placeholder="—"></td>
+                            <td :class="$style.td">
+                                <input v-if="isRecurring(row.sub.billingType)" v-model="row.draft.periodEnd" :class="$style.input" type="date">
+                                <span v-else :class="$style.muted">ถาวร</span>
+                            </td>
+                            <td :class="$style.td">
+                                <input v-if="isRecurring(row.sub.billingType)" v-model.number="row.draft.renewBaht" :class="$style.input" type="number" min="0" step="0.01" placeholder="—">
+                                <span v-else :class="$style.muted">—</span>
+                            </td>
                             <td :class="$style.td">
                                 <select v-model="row.draft.status" :class="$style.input">
                                     <option v-for="s in SUBSCRIPTION_STATUSES" :key="s" :value="s">{{ s }}</option>
                                 </select>
                             </td>
-                            <td :class="[$style.td, $style.center]"><input v-model="row.draft.autoRenew" type="checkbox"></td>
+                            <td :class="[$style.td, $style.center]">
+                                <input v-if="isRecurring(row.sub.billingType)" v-model="row.draft.autoRenew" type="checkbox">
+                                <span v-else :class="$style.muted">—</span>
+                            </td>
                             <td :class="$style.td">
                                 <button type="button" :class="$style.saveBtn" :disabled="savingId === row.sub.id" @click="saveFeature(row)">
                                     {{ savingId === row.sub.id ? "…" : "Save" }}
@@ -299,6 +314,8 @@ onMounted(load);
 }
 
 .input:focus-visible { outline: none; border-color: var(--color-input-border-focus); }
+
+.muted { color: var(--color-text-disabled); }
 
 .extendCell { display: flex; align-items: center; gap: 6px; }
 .extendSelect { width: 120px; }
