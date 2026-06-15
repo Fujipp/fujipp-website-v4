@@ -1,9 +1,10 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.16.1`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.16.2`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.16.2` | 2026-06-15 | central-bot review-credit: on startup, if the review channel has no counter row yet (first run, or after the web "recount" clears it), count every member message once so the counter starts from the real total instead of 0 |
 | `0.0.16.1` | 2026-06-15 | deploy-frontend: remove the "Pin index to last known good bundle" step — it rewrote `dist/index.html` to a hardcoded old bundle (`index-DviLTd3i.js`) every deploy, so no frontend change shipped. The `public/.htaccess` asset guard (serves `/assets/*` directly, 404 not text/html) is the real MIME fix; index.html now references the freshly-built hashed entry |
 | `0.0.16` | 2026-06-15 | central-bot: new `review-credit` feature (`src/features/review-credit/`) — ports legacy Aka Shop (bot-003): on each member message in `REVIEW_CHANNEL_ID` it counts (DB-backed `shop.review_credit_state`), reacts (`REVIEW_REACTIONS`), optionally grants `REVIEW_DEFAULT_ROLE_ID`, renames the channel to `REVIEW_CHANNEL_NAME_TEMPLATE` (2-per-10min limiter), and replies a random `REVIEW_REPLY_MESSAGES` (deleting the prior reply); plus admin `/checkcredit` (recount + sync) and `/recredit` (refresh latest). GuildMessages intent always, GuildMembers only when a role is configured |
 | `0.0.15.23` | 2026-06-14 | deploy-frontend: emergency-pin `dist/index.html` to the last known-good hosted Vite bundle while the shared host is serving freshly uploaded `/assets/index-*` files as SPA HTML |

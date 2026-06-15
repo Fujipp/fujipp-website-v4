@@ -22,6 +22,7 @@ type ToastStatus = "info" | "success" | "warning" | "error";
 // Feature codes that render through a bespoke form instead of the generic,
 // template-driven FeatureConfigForm.
 const ROBLOX_ROBUX_PAYOUT = "roblox-robux-payout";
+const REVIEW_CREDIT = "review-credit";
 
 const route = useRoute();
 const router = useRouter();
@@ -233,6 +234,75 @@ function openEmbedDesigner(): void {
     router.push({ name: "shop-bot-embeds", params: { botId: botId.value } });
 }
 
+// ── review-credit counter (shop.review_credit_state) ─────────────────────────
+const hasReviewCredit = computed(() => features.value.some((f) => f.code === REVIEW_CREDIT));
+const reviewCount = ref<number | null>(null);
+const reviewCounted = ref(false);
+const reviewCountInput = ref("");
+const reviewCountBusy = ref(false);
+
+async function loadReviewCount(): Promise<void> {
+    const headers = await authHeaders();
+    if (!headers) return;
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/bots/${botId.value}/review-credit/count`, { headers });
+        if (!res.ok) return;
+        const data = await res.json() as { count: number; counted: boolean };
+        reviewCount.value = data.count;
+        reviewCounted.value = data.counted;
+    } catch { /* non-blocking */ }
+}
+
+async function saveReviewCount(): Promise<void> {
+    const headers = await authHeaders();
+    if (!headers) return;
+    const n = Number(reviewCountInput.value);
+    if (!Number.isInteger(n) || n < 0) {
+        notify("error", "ใส่ตัวเลขให้ถูกต้อง", "ตัวเลข credit ต้องเป็นจำนวนเต็ม ≥ 0");
+        return;
+    }
+    reviewCountBusy.value = true;
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/bots/${botId.value}/review-credit/count`, {
+            method: "PUT",
+            headers: { ...headers, "Content-Type": "application/json" },
+            body: JSON.stringify({ count: n }),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json() as { count: number; counted: boolean };
+        reviewCount.value = data.count;
+        reviewCounted.value = data.counted;
+        reviewCountInput.value = "";
+        notify("success", "ตั้งตัวเลข credit แล้ว", "ชื่อห้องจะอัปเดตเมื่อมีรีวิวข้อความถัดไป");
+    } catch {
+        notify("error", "ตั้งตัวเลขไม่สำเร็จ", "ยังไม่ได้ตั้งห้องรีวิว หรือลองใหม่อีกครั้ง");
+    } finally {
+        reviewCountBusy.value = false;
+    }
+}
+
+async function recountReview(): Promise<void> {
+    const headers = await authHeaders();
+    if (!headers) return;
+    reviewCountBusy.value = true;
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/bots/${botId.value}/review-credit/recount`, {
+            method: "POST",
+            headers,
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        notify("success", "กำลังนับทั้งห้องใหม่…", "บอทกำลัง restart และนับข้อความทั้งหมด รอสักครู่แล้วรีเฟรช");
+        reviewCount.value = null;
+        reviewCounted.value = false;
+        // Give the bot a moment to restart + count, then refresh.
+        setTimeout(loadReviewCount, 6000);
+    } catch {
+        notify("error", "สั่งนับใหม่ไม่สำเร็จ", "กรุณาลองใหม่อีกครั้ง");
+    } finally {
+        reviewCountBusy.value = false;
+    }
+}
+
 onMounted(async () => {
     await userStore.initAuth();
     if (!userStore.isAuthenticated) {
@@ -240,6 +310,7 @@ onMounted(async () => {
         return;
     }
     await Promise.all([loadConfig(), loadBot(), loadRuntime()]);
+    if (hasReviewCredit.value) await loadReviewCount();
 });
 </script>
 
@@ -369,6 +440,38 @@ onMounted(async () => {
                         @submit="saveFeature"
                     />
                 </template>
+            </section>
+
+            <!-- ── Review Credit counter ───────────────────────────────────── -->
+            <section v-if="hasReviewCredit" :class="$style.block">
+                <h2 :class="$style.blockTitle" class="type-subtitle-sb">Review Credit — ตัวนับรีวิว</h2>
+                <div :class="$style.card">
+                    <p :class="$style.cardLead">
+                        ตัวนับปัจจุบัน: <strong :class="$style.countValue">{{ reviewCount ?? "—" }}</strong>
+                        <span v-if="reviewCount !== null && !reviewCounted"> · ยังไม่ได้นับทั้งห้อง</span>
+                    </p>
+                    <div :class="$style.cardDivider" />
+                    <div :class="$style.countRow">
+                        <input
+                            v-model="reviewCountInput"
+                            type="number"
+                            min="0"
+                            inputmode="numeric"
+                            :class="$style.countInput"
+                            placeholder="ตั้งตัวเลข credit"
+                            aria-label="ตั้งตัวเลข credit"
+                        >
+                        <button type="button" :class="$style.primaryAction" :disabled="reviewCountBusy" @click="saveReviewCount">
+                            ตั้งตัวเลข
+                        </button>
+                        <button type="button" :class="$style.secondaryAction" :disabled="reviewCountBusy" @click="recountReview">
+                            {{ reviewCountBusy ? "…" : "นับทั้งห้องใหม่" }}
+                        </button>
+                    </div>
+                    <p :class="$style.cardLead">
+                        "นับทั้งห้องใหม่" จะให้บอทนับข้อความสมาชิกทั้งห้องอีกครั้ง (บอทจะ restart สักครู่) — ใช้ตอนตั้งค่าครั้งแรก
+                    </p>
+                </div>
             </section>
 
             <!-- ── Embed Setting ───────────────────────────────────────────── -->
@@ -562,6 +665,46 @@ onMounted(async () => {
     cursor: not-allowed;
     opacity: 0.55;
 }
+
+.countValue { color: var(--color-text-primary); font-weight: 800; }
+
+.countRow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-space-3);
+}
+
+.countInput {
+    box-sizing: border-box;
+    width: 200px;
+    height: 44px;
+    padding: 0 var(--spacing-space-4);
+    border: 1px solid var(--color-input-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-main-background);
+    color: var(--color-text-primary);
+    font: inherit;
+}
+
+.countInput:focus-visible { outline: none; border-color: var(--color-main-primary); }
+
+.secondaryAction {
+    height: 44px;
+    padding: 0 var(--spacing-space-5);
+    border: 1px solid var(--color-input-border);
+    border-radius: var(--radius-xl);
+    background-color: var(--color-main-background);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 0.15s ease;
+}
+
+.secondaryAction:hover { border-color: var(--color-main-primary); }
+.secondaryAction:disabled { cursor: not-allowed; opacity: 0.55; }
 
 .runtimeHead {
     display: flex;
