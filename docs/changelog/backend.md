@@ -1,9 +1,10 @@
 # Changelog — Backend
 
-**Current version: `0.2.5.2`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.2.5.3`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.2.5.3` | 2026-06-15 | embeds: the Embed Designer slot list (`GET /api/bots/{id}/embeds`, admin too) now returns only slots whose `featureCode` is a feature the bot owns — filtered by the same `getBotConfig` feature set the config form uses. Previously it listed every catalog slot (e.g. roblox/wallet) on bots that don't have those features. Fails open if billing is unreachable |
 | `0.2.5.2` | 2026-06-15 | billing: admin runtime subscription update now accepts `runtimePlanId` (the current plan — drives the "X Month" label the customer sees), set alongside `renewPlanId`. Audited in `SUBSCRIPTION_OVERRIDE` |
 | `0.2.5.1` | 2026-06-15 | billing: expose `renewPlanId` in `RuntimeSubscriptionResponse` so the admin panel can show/set a runtime subscription's renewal term (the plan whose duration = months added per renewal). Update already accepted it; only the read side was missing |
 | `0.2.5` | 2026-06-15 | admin: create feature prices — new `POST /admin/catalog/feature-prices` (billing-service: validates kind/uniqueness, audits `CATALOG_PRICE_CREATE`) + `GET /admin/catalog/features` (all features incl. unpriced) proxied through the backend gateway; previously prices could only be seeded via migration |

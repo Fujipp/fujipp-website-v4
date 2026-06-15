@@ -1,5 +1,6 @@
 package fujipp.project.backend.service;
 
+import fujipp.project.backend.billing.BillingClient;
 import fujipp.project.backend.repository.BotInstanceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -13,7 +14,9 @@ import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 
 import java.sql.Array;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -28,6 +31,7 @@ public class EmbedConfigService {
 
     private final JdbcTemplate jdbc;
     private final BotInstanceRepository bots;
+    private final BillingClient billing;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /** Every slot with its effective embed (seeded default merged with any bot override). */
@@ -83,9 +87,38 @@ public class EmbedConfigService {
             },
             botId.toString());
 
+        // Only surface slots for features this bot actually owns — same feature set the
+        // config form shows. null = couldn't determine (billing hiccup) → don't hide any.
+        Set<String> enabled = enabledFeatureCodes(botId);
+
         ArrayNode out = objectMapper.createArrayNode();
-        rows.forEach(out::add);
+        for (ObjectNode row : rows) {
+            if (enabled == null || enabled.contains(row.get("featureCode").asText())) {
+                out.add(row);
+            }
+        }
         return out.toString();
+    }
+
+    /**
+     * Feature codes this subject owns, via the same billing source the config form uses
+     * ({@code getBotConfig}). Returns {@code null} if billing can't be reached, so a
+     * transient failure shows all slots rather than hiding the whole designer.
+     */
+    private Set<String> enabledFeatureCodes(UUID botId) {
+        try {
+            JsonNode root = objectMapper.readTree(billing.getBotConfig(botId.toString()));
+            JsonNode features = root.get("features");
+            if (features == null || !features.isArray()) return Set.of();
+            Set<String> codes = new HashSet<>();
+            for (JsonNode f : features) {
+                JsonNode code = f.get("code");
+                if (code != null && !code.isNull()) codes.add(code.asText());
+            }
+            return codes;
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 
     /** The effective embed JSON for one slot. */
