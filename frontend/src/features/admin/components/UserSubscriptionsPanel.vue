@@ -28,8 +28,41 @@ interface Draft {
 
 // Pair each subscription with its editable draft so the template iterates defined
 // objects (no Record index access — keeps noUncheckedIndexedAccess happy).
-interface RuntimeRow { sub: AdminRuntimeSubscription; draft: Draft }
+// `extend` is the per-row "extend by" choice (months 1–5, or permanent).
+interface RuntimeRow { sub: AdminRuntimeSubscription; draft: Draft; extend: string }
 interface FeatureRow { sub: AdminFeatureSubscription; draft: Draft }
+
+// Quick-extend options for runtime. "permanent" maps to a far-future period end —
+// runtime current_period_end is NOT NULL, so permanent is expressed as a date far
+// enough out that it never lapses.
+const MONTH_OPTIONS = [1, 2, 3, 4, 5] as const;
+const PERMANENT_PERIOD_END = "2099-12-31";
+
+function toIsoDate(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+}
+
+// Fill the period-end draft from the extend choice. Months extend from the later of
+// the current period end and today, so extending never shortens an active period.
+function applyExtend(row: RuntimeRow): void {
+    if (row.extend === "permanent") {
+        row.draft.periodEnd = PERMANENT_PERIOD_END;
+        return;
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    let base = today;
+    if (row.draft.periodEnd) {
+        const [year, month, day] = row.draft.periodEnd.split("-").map(Number);
+        const parsed = new Date(year ?? 0, (month ?? 1) - 1, day ?? 1);
+        if (parsed.getTime() > today.getTime()) base = parsed;
+    }
+    base.setMonth(base.getMonth() + Number(row.extend));
+    row.draft.periodEnd = toIsoDate(base);
+}
 
 const runtimeRows = ref<RuntimeRow[]>([]);
 const featureRows = ref<FeatureRow[]>([]);
@@ -65,7 +98,7 @@ async function load(): Promise<void> {
     loadError.value = "";
     try {
         const data = await adminStore.fetchUserSubscriptions(props.userId);
-        runtimeRows.value = data.runtime.map((sub) => ({ sub, draft: toDraft(sub) }));
+        runtimeRows.value = data.runtime.map((sub) => ({ sub, draft: toDraft(sub), extend: "1" }));
         featureRows.value = data.features.map((sub) => ({ sub, draft: toDraft(sub) }));
     } catch (cause) {
         loadError.value = cause instanceof Error ? cause.message : "Failed to load subscriptions";
@@ -141,6 +174,7 @@ onMounted(load);
                         <tr>
                             <th :class="$style.th">Subject (bot)</th>
                             <th :class="$style.th">Period end</th>
+                            <th :class="$style.th">Extend</th>
                             <th :class="$style.th">Renew ฿</th>
                             <th :class="$style.th">Status</th>
                             <th :class="$style.th">Auto</th>
@@ -151,6 +185,15 @@ onMounted(load);
                         <tr v-for="row in runtimeRows" :key="row.sub.id">
                             <td :class="$style.td">{{ row.sub.externalSubjectId }}</td>
                             <td :class="$style.td"><input v-model="row.draft.periodEnd" :class="$style.input" type="date"></td>
+                            <td :class="$style.td">
+                                <div :class="$style.extendCell">
+                                    <select v-model="row.extend" :class="[$style.input, $style.extendSelect]" aria-label="Extend by">
+                                        <option v-for="m in MONTH_OPTIONS" :key="m" :value="String(m)">+{{ m }} เดือน</option>
+                                        <option value="permanent">ถาวร</option>
+                                    </select>
+                                    <button type="button" :class="$style.extendBtn" @click="applyExtend(row)">ตั้ง</button>
+                                </div>
+                            </td>
                             <td :class="$style.td"><input v-model.number="row.draft.renewBaht" :class="$style.input" type="number" min="0" step="0.01" placeholder="—"></td>
                             <td :class="$style.td">
                                 <select v-model="row.draft.status" :class="$style.input">
@@ -164,7 +207,7 @@ onMounted(load);
                                 </button>
                             </td>
                         </tr>
-                        <tr v-if="runtimeRows.length === 0"><td :class="$style.empty" colspan="6">No runtime subscriptions.</td></tr>
+                        <tr v-if="runtimeRows.length === 0"><td :class="$style.empty" colspan="7">No runtime subscriptions.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -256,6 +299,22 @@ onMounted(load);
 }
 
 .input:focus-visible { outline: none; border-color: var(--color-input-border-focus); }
+
+.extendCell { display: flex; align-items: center; gap: 6px; }
+.extendSelect { width: 120px; }
+
+.extendBtn {
+    padding: 6px 10px;
+    border: 1px solid var(--color-main-divider);
+    border-radius: var(--radius-md);
+    background-color: var(--color-main-secondary);
+    color: var(--color-button-secondary-btn-text);
+    font: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.extendBtn:hover { border-color: var(--color-input-border-focus); }
 
 .saveBtn {
     padding: 6px 14px;

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useAdminStore } from "@/features/admin/stores";
 import {
     bahtToSatang,
@@ -8,6 +8,7 @@ import {
     type AdminWalletTransaction,
 } from "@/features/admin/config";
 import { StatusToast } from "@/shared/ui";
+import { TableNextBackButton } from "@/shared/ui/buttons";
 
 interface Props {
     userId: string;
@@ -28,6 +29,30 @@ const isSubmitting = ref(false);
 
 const toast = ref<{ status: "success" | "error"; title: string } | null>(null);
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
+
+// Paginate the ledger so long histories stay scannable (pattern: shop FeatureTable).
+const PAGE_SIZE = 10;
+const currentPage = ref(1);
+const pageCount = computed(() => Math.max(1, Math.ceil(transactions.value.length / PAGE_SIZE)));
+const paginatedTransactions = computed(() => {
+    const safePage = Math.min(currentPage.value, pageCount.value);
+    const start = (safePage - 1) * PAGE_SIZE;
+    return transactions.value.slice(start, start + PAGE_SIZE);
+});
+const visiblePageNumbers = computed(() => {
+    const pages = new Set<number>([currentPage.value]);
+    if (currentPage.value > 1) pages.add(currentPage.value - 1);
+    if (currentPage.value < pageCount.value) pages.add(currentPage.value + 1);
+    return [...pages].sort((left, right) => left - right);
+});
+
+function goToPage(page: number): void {
+    currentPage.value = Math.min(Math.max(page, 1), pageCount.value);
+}
+
+watch(pageCount, (count) => {
+    if (currentPage.value > count) currentPage.value = count;
+});
 
 const balanceBaht = computed(() => satangToBaht(wallet.value?.balanceSatang ?? 0) ?? 0);
 const canSubmit = computed(() => {
@@ -59,6 +84,7 @@ async function load(): Promise<void> {
         ]);
         wallet.value = w;
         transactions.value = tx;
+        currentPage.value = 1;
     } catch (cause) {
         loadError.value = cause instanceof Error ? cause.message : "Failed to load wallet";
     } finally {
@@ -77,6 +103,7 @@ async function submit(): Promise<void> {
             note: note.value.trim() || undefined,
         });
         transactions.value = await adminStore.fetchUserWalletTransactions(props.userId);
+        currentPage.value = 1;
         amountBaht.value = null;
         note.value = "";
         showToast("success", direction.value === "CREDIT" ? "Added credit" : "Subtracted credit");
@@ -125,7 +152,7 @@ onMounted(load);
                     </tr>
                 </thead>
                 <tbody>
-                    <tr v-for="tx in transactions" :key="tx.id">
+                    <tr v-for="tx in paginatedTransactions" :key="tx.id">
                         <td :class="$style.td">{{ formatDate(tx.createdAt) }}</td>
                         <td :class="$style.td">{{ tx.type }}</td>
                         <td :class="[$style.td, tx.direction === 'CREDIT' ? $style.credit : $style.debit]">
@@ -141,6 +168,23 @@ onMounted(load);
                 </tbody>
             </table>
         </div>
+
+        <footer v-if="pageCount > 1" :class="$style.tableFoot" aria-label="Transaction pagination">
+            <TableNextBackButton direction="previous" label="First page" step="double" :disabled="currentPage === 1" @click="goToPage(1)" />
+            <TableNextBackButton direction="previous" label="Previous page" :disabled="currentPage === 1" @click="goToPage(currentPage - 1)" />
+            <button
+                v-for="page in visiblePageNumbers"
+                :key="page"
+                type="button"
+                :class="[$style.pageButton, page === currentPage ? $style.currentPage : '']"
+                :aria-current="page === currentPage ? 'page' : undefined"
+                @click="goToPage(page)"
+            >
+                {{ page }}
+            </button>
+            <TableNextBackButton direction="next" label="Next page" :disabled="currentPage === pageCount" @click="goToPage(currentPage + 1)" />
+            <TableNextBackButton direction="next" label="Last page" step="double" :disabled="currentPage === pageCount" @click="goToPage(pageCount)" />
+        </footer>
 
         <StatusToast v-if="toast" :status="toast.status" :title="toast.title" />
     </section>
@@ -233,4 +277,36 @@ onMounted(load);
 
 .empty { padding: 16px 12px; color: var(--color-text-disabled); }
 .error { margin: 0; color: var(--color-status-error); }
+
+.tableFoot {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-space-3);
+}
+
+.pageButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--color-main-secondary);
+    border-radius: var(--radius-full);
+    background-color: var(--color-main-secondary);
+    color: var(--color-button-secondary-btn-text);
+    font: inherit;
+    cursor: pointer;
+}
+
+.currentPage {
+    border-color: var(--color-main-primary);
+    background-color: var(--color-main-primary);
+}
+
+.pageButton:focus-visible {
+    outline: 2px solid var(--color-main-primary);
+    outline-offset: 2px;
+}
 </style>
