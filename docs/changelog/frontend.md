@@ -1,9 +1,10 @@
 # Changelog — Frontend
 
-**Current version: `0.5.2.2`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.5.2.3`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.5.2.3` | 2026-06-15 | admin Runtime: the "Plan (เดือน)" selector now sets the subscription's current plan (`runtimePlanId`) — the field the customer's "X Month" card reads — as well as the renewal plan (`renewPlanId`), so changing it to 1 เดือน actually shows "1 Month" on the user side. (Previously only the renewal term changed) |
 | `0.5.2.2` | 2026-06-15 | admin Runtime subscription: replace the manual "Extend" control with a **Renew plan** selector — sets the renewal term (the runtime plan whose duration = months added each renewal), paired with the existing Renew ฿ price. This is what controls how much / how many months a user's runtime renews for |
 | `0.5.2.1` | 2026-06-15 | admin user detail: permanent feature subscriptions (`RENT_PERMANENT` / non-`RENT_MONTHLY`) no longer show editable Period end / Renew ฿ / Auto — they show ถาวร / — since they never lapse or renew. Recurring (`RENT_MONTHLY`) rows keep the inputs |
 | `0.5.2` | 2026-06-15 | admin user detail: (1) Runtime row gets a quick "Extend" control — +1..5 เดือน (extends from the later of current period end / today) or ถาวร (far-future period end, since runtime period end is NOT NULL), fills the date then Save persists it; (2) paginate the wallet transactions table (10/page, First/Prev/1·2·3/Next/Last) following the shop FeatureTable pager |

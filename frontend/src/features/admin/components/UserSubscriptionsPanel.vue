@@ -22,7 +22,7 @@ const adminStore = useAdminStore();
 
 interface Draft {
     renewBaht: number | null;
-    renewPlanId: string;
+    planId: string;
     periodEnd: string;
     status: string;
     autoRenew: boolean;
@@ -39,8 +39,9 @@ function isRecurring(billingType: string): boolean {
     return billingType === "RENT_MONTHLY";
 }
 
-// Runtime plans drive the renewal term: renewing charges Renew ฿ and extends the
-// period by the chosen plan's duration (months). Loaded for the renew-plan picker.
+// Runtime plans drive both the current-plan label the customer sees ("X Month") and
+// the renewal term (months added per renewal). The admin picks one plan; we set the
+// subscription's runtimePlanId (label) and renewPlanId (renewal) to it together.
 const runtimePlans = ref<AdminRuntimePlan[]>([]);
 
 function planLabel(plan: AdminRuntimePlan): string {
@@ -68,11 +69,11 @@ function toDraft(sub: {
     autoRenew: boolean;
     renewPriceSatang: number | null;
     currentPeriodEnd: string | null;
-    renewPlanId?: string | null;
+    runtimePlanId?: string | null;
 }): Draft {
     return {
         renewBaht: satangToBaht(sub.renewPriceSatang),
-        renewPlanId: sub.renewPlanId ?? "",
+        planId: sub.runtimePlanId ?? "",
         periodEnd: sub.currentPeriodEnd ?? "",
         status: sub.status,
         autoRenew: sub.autoRenew,
@@ -119,9 +120,11 @@ function buildPayload(
 
 async function saveRuntime(row: RuntimeRow): Promise<void> {
     const payload = buildPayload(row.draft, row.sub);
-    // Renew plan (= renewal term in months) is runtime-only; send when changed.
-    if (row.draft.renewPlanId && row.draft.renewPlanId !== (row.sub.renewPlanId ?? "")) {
-        payload.renewPlanId = row.draft.renewPlanId;
+    // One "Plan" choice drives both the current-plan label (runtimePlanId) and the
+    // renewal term (renewPlanId), so set them together when it changes.
+    if (row.draft.planId && row.draft.planId !== (row.sub.runtimePlanId ?? "")) {
+        payload.runtimePlanId = row.draft.planId;
+        payload.renewPlanId = row.draft.planId;
     }
     await save(row.sub.id, async () => {
         const updated = await adminStore.updateRuntimeSubscription(row.sub.id, payload);
@@ -168,7 +171,7 @@ onMounted(load);
                         <tr>
                             <th :class="$style.th">Subject (bot)</th>
                             <th :class="$style.th">Period end</th>
-                            <th :class="$style.th">Renew plan (เดือน)</th>
+                            <th :class="$style.th">Plan (เดือน)</th>
                             <th :class="$style.th">Renew ฿</th>
                             <th :class="$style.th">Status</th>
                             <th :class="$style.th">Auto</th>
@@ -180,8 +183,8 @@ onMounted(load);
                             <td :class="$style.td">{{ row.sub.externalSubjectId }}</td>
                             <td :class="$style.td"><input v-model="row.draft.periodEnd" :class="$style.input" type="date"></td>
                             <td :class="$style.td">
-                                <select v-model="row.draft.renewPlanId" :class="[$style.input, $style.planSelect]" aria-label="Renew plan">
-                                    <option value="">— (1 เดือน)</option>
+                                <select v-model="row.draft.planId" :class="[$style.input, $style.planSelect]" aria-label="Plan">
+                                    <option value="">—</option>
                                     <option v-for="plan in runtimePlans" :key="plan.id" :value="plan.id">{{ planLabel(plan) }}</option>
                                 </select>
                             </td>
