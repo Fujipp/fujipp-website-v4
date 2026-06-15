@@ -6,6 +6,7 @@ import {
     satangToBaht,
     SUBSCRIPTION_STATUSES,
     type AdminFeatureSubscription,
+    type AdminRuntimePlan,
     type AdminRuntimeSubscription,
     type UpdateFeatureSubscriptionPayload,
     type UpdateRuntimeSubscriptionPayload,
@@ -21,6 +22,7 @@ const adminStore = useAdminStore();
 
 interface Draft {
     renewBaht: number | null;
+    renewPlanId: string;
     periodEnd: string;
     status: string;
     autoRenew: boolean;
@@ -28,8 +30,7 @@ interface Draft {
 
 // Pair each subscription with its editable draft so the template iterates defined
 // objects (no Record index access — keeps noUncheckedIndexedAccess happy).
-// `extend` is the per-row "extend by" choice (months 1–5, or permanent).
-interface RuntimeRow { sub: AdminRuntimeSubscription; draft: Draft; extend: string }
+interface RuntimeRow { sub: AdminRuntimeSubscription; draft: Draft }
 interface FeatureRow { sub: AdminFeatureSubscription; draft: Draft }
 
 // Only recurring rentals have an expiry + renewal; RENT_PERMANENT (and one-off
@@ -38,36 +39,13 @@ function isRecurring(billingType: string): boolean {
     return billingType === "RENT_MONTHLY";
 }
 
-// Quick-extend options for runtime. "permanent" maps to a far-future period end —
-// runtime current_period_end is NOT NULL, so permanent is expressed as a date far
-// enough out that it never lapses.
-const MONTH_OPTIONS = [1, 2, 3, 4, 5] as const;
-const PERMANENT_PERIOD_END = "2099-12-31";
+// Runtime plans drive the renewal term: renewing charges Renew ฿ and extends the
+// period by the chosen plan's duration (months). Loaded for the renew-plan picker.
+const runtimePlans = ref<AdminRuntimePlan[]>([]);
 
-function toIsoDate(date: Date): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-}
-
-// Fill the period-end draft from the extend choice. Months extend from the later of
-// the current period end and today, so extending never shortens an active period.
-function applyExtend(row: RuntimeRow): void {
-    if (row.extend === "permanent") {
-        row.draft.periodEnd = PERMANENT_PERIOD_END;
-        return;
-    }
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    let base = today;
-    if (row.draft.periodEnd) {
-        const [year, month, day] = row.draft.periodEnd.split("-").map(Number);
-        const parsed = new Date(year ?? 0, (month ?? 1) - 1, day ?? 1);
-        if (parsed.getTime() > today.getTime()) base = parsed;
-    }
-    base.setMonth(base.getMonth() + Number(row.extend));
-    row.draft.periodEnd = toIsoDate(base);
+function planLabel(plan: AdminRuntimePlan): string {
+    const baht = satangToBaht(plan.priceSatang) ?? 0;
+    return `${plan.durationMonths} เดือน — ${plan.name} (${baht.toLocaleString()} ฿)`;
 }
 
 const runtimeRows = ref<RuntimeRow[]>([]);
@@ -90,9 +68,11 @@ function toDraft(sub: {
     autoRenew: boolean;
     renewPriceSatang: number | null;
     currentPeriodEnd: string | null;
+    renewPlanId?: string | null;
 }): Draft {
     return {
         renewBaht: satangToBaht(sub.renewPriceSatang),
+        renewPlanId: sub.renewPlanId ?? "",
         periodEnd: sub.currentPeriodEnd ?? "",
         status: sub.status,
         autoRenew: sub.autoRenew,
@@ -103,8 +83,12 @@ async function load(): Promise<void> {
     isLoading.value = true;
     loadError.value = "";
     try {
-        const data = await adminStore.fetchUserSubscriptions(props.userId);
-        runtimeRows.value = data.runtime.map((sub) => ({ sub, draft: toDraft(sub), extend: "1" }));
+        const [data, plans] = await Promise.all([
+            adminStore.fetchUserSubscriptions(props.userId),
+            adminStore.fetchRuntimePlans(),
+        ]);
+        runtimePlans.value = plans;
+        runtimeRows.value = data.runtime.map((sub) => ({ sub, draft: toDraft(sub) }));
         featureRows.value = data.features.map((sub) => ({ sub, draft: toDraft(sub) }));
     } catch (cause) {
         loadError.value = cause instanceof Error ? cause.message : "Failed to load subscriptions";
@@ -135,6 +119,10 @@ function buildPayload(
 
 async function saveRuntime(row: RuntimeRow): Promise<void> {
     const payload = buildPayload(row.draft, row.sub);
+    // Renew plan (= renewal term in months) is runtime-only; send when changed.
+    if (row.draft.renewPlanId && row.draft.renewPlanId !== (row.sub.renewPlanId ?? "")) {
+        payload.renewPlanId = row.draft.renewPlanId;
+    }
     await save(row.sub.id, async () => {
         const updated = await adminStore.updateRuntimeSubscription(row.sub.id, payload);
         row.sub = updated;
@@ -180,7 +168,7 @@ onMounted(load);
                         <tr>
                             <th :class="$style.th">Subject (bot)</th>
                             <th :class="$style.th">Period end</th>
-                            <th :class="$style.th">Extend</th>
+                            <th :class="$style.th">Renew plan (เดือน)</th>
                             <th :class="$style.th">Renew ฿</th>
                             <th :class="$style.th">Status</th>
                             <th :class="$style.th">Auto</th>
@@ -192,13 +180,10 @@ onMounted(load);
                             <td :class="$style.td">{{ row.sub.externalSubjectId }}</td>
                             <td :class="$style.td"><input v-model="row.draft.periodEnd" :class="$style.input" type="date"></td>
                             <td :class="$style.td">
-                                <div :class="$style.extendCell">
-                                    <select v-model="row.extend" :class="[$style.input, $style.extendSelect]" aria-label="Extend by">
-                                        <option v-for="m in MONTH_OPTIONS" :key="m" :value="String(m)">+{{ m }} เดือน</option>
-                                        <option value="permanent">ถาวร</option>
-                                    </select>
-                                    <button type="button" :class="$style.extendBtn" @click="applyExtend(row)">ตั้ง</button>
-                                </div>
+                                <select v-model="row.draft.renewPlanId" :class="[$style.input, $style.planSelect]" aria-label="Renew plan">
+                                    <option value="">— (1 เดือน)</option>
+                                    <option v-for="plan in runtimePlans" :key="plan.id" :value="plan.id">{{ planLabel(plan) }}</option>
+                                </select>
                             </td>
                             <td :class="$style.td"><input v-model.number="row.draft.renewBaht" :class="$style.input" type="number" min="0" step="0.01" placeholder="—"></td>
                             <td :class="$style.td">
@@ -317,21 +302,7 @@ onMounted(load);
 
 .muted { color: var(--color-text-disabled); }
 
-.extendCell { display: flex; align-items: center; gap: 6px; }
-.extendSelect { width: 120px; }
-
-.extendBtn {
-    padding: 6px 10px;
-    border: 1px solid var(--color-main-divider);
-    border-radius: var(--radius-md);
-    background-color: var(--color-main-secondary);
-    color: var(--color-button-secondary-btn-text);
-    font: inherit;
-    cursor: pointer;
-    white-space: nowrap;
-}
-
-.extendBtn:hover { border-color: var(--color-input-border-focus); }
+.planSelect { width: 220px; }
 
 .saveBtn {
     padding: 6px 14px;
