@@ -1,9 +1,10 @@
 # Changelog — Frontend
 
-**Current version: `0.5.2.4`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.5.3`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.5.3` | 2026-06-15 | bot config: new "Review Credit — ตัวนับรีวิว" panel (shown when the bot has review-credit) — see the current count, set it to any number, or "นับทั้งห้องใหม่" to recount the whole channel |
 | `0.5.2.4` | 2026-06-15 | bot config form: new `STRING_LIST` field type renders as a one-item-per-line textarea (converts ↔ JSON array under the hood), so list config like review-credit's reply messages / reactions no longer needs hand-written `["...","..."]` JSON |
 | `0.5.2.3` | 2026-06-15 | admin Runtime: the "Plan (เดือน)" selector now sets the subscription's current plan (`runtimePlanId`) — the field the customer's "X Month" card reads — as well as the renewal plan (`renewPlanId`), so changing it to 1 เดือน actually shows "1 Month" on the user side. (Previously only the renewal term changed) |
 | `0.5.2.2` | 2026-06-15 | admin Runtime subscription: replace the manual "Extend" control with a **Renew plan** selector — sets the renewal term (the runtime plan whose duration = months added each renewal), paired with the existing Renew ฿ price. This is what controls how much / how many months a user's runtime renews for |
