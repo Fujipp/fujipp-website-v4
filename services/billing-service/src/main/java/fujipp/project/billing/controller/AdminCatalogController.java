@@ -2,14 +2,17 @@ package fujipp.project.billing.controller;
 
 import fujipp.project.billing.dto.AdminFeaturePriceResponse;
 import fujipp.project.billing.dto.AdminRuntimePlanResponse;
+import fujipp.project.billing.dto.CreateFeaturePriceRequest;
 import fujipp.project.billing.dto.UpdateFeaturePriceRequest;
 import fujipp.project.billing.dto.UpdateRuntimePlanRequest;
 import fujipp.project.billing.service.AdminCatalogService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -46,6 +49,13 @@ public class AdminCatalogController {
     @GetMapping("/feature-prices")
     public ResponseEntity<List<AdminFeaturePriceResponse>> featurePrices() {
         return ResponseEntity.ok(catalog.listFeaturePrices());
+    }
+
+    @PostMapping("/feature-prices")
+    public ResponseEntity<AdminFeaturePriceResponse> createFeaturePrice(
+            @RequestHeader("X-Admin-Id") UUID adminId,
+            @RequestBody CreateFeaturePriceRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(catalog.createFeaturePrice(adminId, request));
     }
 
     @PatchMapping("/feature-prices/{id}")
