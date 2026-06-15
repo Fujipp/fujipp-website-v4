@@ -1,9 +1,10 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.15.23`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.16`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.16` | 2026-06-15 | central-bot: new `review-credit` feature (`src/features/review-credit/`) — ports legacy Aka Shop (bot-003): on each member message in `REVIEW_CHANNEL_ID` it counts (DB-backed `shop.review_credit_state`), reacts (`REVIEW_REACTIONS`), optionally grants `REVIEW_DEFAULT_ROLE_ID`, renames the channel to `REVIEW_CHANNEL_NAME_TEMPLATE` (2-per-10min limiter), and replies a random `REVIEW_REPLY_MESSAGES` (deleting the prior reply); plus admin `/checkcredit` (recount + sync) and `/recredit` (refresh latest). GuildMessages intent always, GuildMembers only when a role is configured |
 | `0.0.15.23` | 2026-06-14 | deploy-frontend: emergency-pin `dist/index.html` to the last known-good hosted Vite bundle while the shared host is serving freshly uploaded `/assets/index-*` files as SPA HTML |
 | `0.0.15.22` | 2026-06-14 | deploy-frontend: explicitly copy `frontend/public/assets/*.js` into `dist/assets/` after Vite build so restored legacy chunks are uploaded by the FTP mirror |
 | `0.0.15.21` | 2026-06-14 | deploy-frontend: stop deleting old hashed Vite assets during FTP mirror so cached index/main chunks can still load their previous lazy route chunks after a deploy |
