@@ -115,6 +115,7 @@ export interface AdminRuntimeSubscription {
     currentPeriodEnd: string | null;
     autoRenew: boolean;
     renewPriceSatang: number | null;
+    renewPlanId: string | null;
 }
 
 export interface AdminFeatureSubscription {

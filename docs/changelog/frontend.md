@@ -1,9 +1,10 @@
 # Changelog — Frontend
 
-**Current version: `0.5.2.1`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.5.2.2`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.5.2.2` | 2026-06-15 | admin Runtime subscription: replace the manual "Extend" control with a **Renew plan** selector — sets the renewal term (the runtime plan whose duration = months added each renewal), paired with the existing Renew ฿ price. This is what controls how much / how many months a user's runtime renews for |
 | `0.5.2.1` | 2026-06-15 | admin user detail: permanent feature subscriptions (`RENT_PERMANENT` / non-`RENT_MONTHLY`) no longer show editable Period end / Renew ฿ / Auto — they show ถาวร / — since they never lapse or renew. Recurring (`RENT_MONTHLY`) rows keep the inputs |
 | `0.5.2` | 2026-06-15 | admin user detail: (1) Runtime row gets a quick "Extend" control — +1..5 เดือน (extends from the later of current period end / today) or ถาวร (far-future period end, since runtime period end is NOT NULL), fills the date then Save persists it; (2) paginate the wallet transactions table (10/page, First/Prev/1·2·3/Next/Last) following the shop FeatureTable pager |
 | `0.5.1` | 2026-06-15 | admin Pricing: new "Add feature price" form — pick any catalog feature (incl. unpriced like review-credit), choose kind/price/months/active, and create the SKU; it then appears in the editable Feature prices table |
