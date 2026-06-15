@@ -109,14 +109,24 @@ async function deleteOldAndReply(channel, target, ctx) {
     }
   }
 
+  // Prefer a reply (shows under the review). message.reply() needs READ_MESSAGE_HISTORY,
+  // so if that's missing fall back to a plain channel.send — the thank-you still posts as
+  // long as the bot has Send Messages.
+  let sent = null;
   try {
-    const reply = await target.reply({ content });
-    if (reply) await st.setLastMessageId(channel.id, reply.id);
-    return true;
-  } catch (err) {
-    ctx.log(`review-credit reply failed: ${err.message}`);
-    return false;
+    sent = await target.reply({ content });
+  } catch (replyErr) {
+    try {
+      sent = await channel.send({ content });
+    } catch (sendErr) {
+      ctx.log(`review-credit reply failed (${replyErr.message}) and send failed (${sendErr.message}) — check the bot's Send Messages / Read Message History permission in the review channel`);
+    }
   }
+  if (sent) {
+    await st.setLastMessageId(channel.id, sent.id);
+    return true;
+  }
+  return false;
 }
 
 async function latestUserMessage(channel) {
