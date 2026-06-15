@@ -11,7 +11,9 @@ export type ConfigValueType =
     | "ROLE_ID"
     | "USER_ID"
     | "SECRET"
-    | "JSON";
+    | "JSON"
+    // Stored as a JSON string array, but edited as one item per line (no brackets/quotes).
+    | "STRING_LIST";
 
 export interface FeatureConfigField {
     variableKey: string;

@@ -38,6 +38,8 @@ const widget = computed(() => {
             return "textarea";
         case "JSON":
             return "json";
+        case "STRING_LIST":
+            return "lines";
         case "NUMBER":
             return "number";
         case "BOOLEAN":
@@ -53,12 +55,42 @@ const widget = computed(() => {
 });
 
 const textType = computed(() => (widget.value === "secret" ? "password" : widget.value === "number" ? "number" : "text"));
+
+// STRING_LIST is stored as a JSON string array but edited as one item per line.
+// Convert in both directions so the user never types brackets/quotes/commas.
+const linesValue = computed<string>({
+    get: () => {
+        const raw = props.modelValue?.trim();
+        if (!raw) return "";
+        try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) return parsed.map((item) => String(item)).join("\n");
+        } catch {
+            // not JSON yet (mid-edit / legacy plain value) — show as-is
+        }
+        return raw;
+    },
+    set: (text: string) => {
+        const items = text.split("\n").map((line) => line.trim()).filter(Boolean);
+        update(items.length ? JSON.stringify(items) : "");
+    },
+});
 </script>
 
 <template>
     <div :class="$style.field">
         <TextareaField
-            v-if="widget === 'textarea' || widget === 'json'"
+            v-if="widget === 'lines'"
+            :label="labelText"
+            :model-value="linesValue"
+            :rows="5"
+            :error="error"
+            placeholder="พิมพ์ทีละบรรทัด บรรทัดละ 1 อัน"
+            :disabled="disabled"
+            @update:model-value="(v: string) => (linesValue = v)"
+        />
+        <TextareaField
+            v-else-if="widget === 'textarea' || widget === 'json'"
             :label="labelText"
             :model-value="modelValue"
             :rows="widget === 'json' ? 6 : 4"
