@@ -75,6 +75,36 @@ export interface UpdateFeaturePricePayload {
     promotionPriceSatang?: number | null;
 }
 
+/** A price SKU as embedded in a catalog feature (`/api/admin/catalog/features`). */
+export interface AdminFeatureCatalogPrice {
+    id: string;
+    kind: string;
+    priceSatang: number;
+    durationMonths: number | null;
+}
+
+/** A catalog feature (incl. unpriced) for the add-price picker. */
+export interface AdminFeature {
+    id: string;
+    code: string;
+    name: string;
+    description: string | null;
+    category: string;
+    featured: boolean;
+    prices: AdminFeatureCatalogPrice[];
+}
+
+export interface CreateFeaturePricePayload {
+    featureId: string;
+    kind: string;
+    priceSatang: number;
+    durationMonths?: number | null;
+    active?: boolean;
+}
+
+/** Price kinds an admin can create — mirrors feature_prices_kind_chk. */
+export const FEATURE_PRICE_KINDS = ["RENT_MONTHLY", "RENT_PERMANENT", "SOURCE_CODE"] as const;
+
 // ── subscriptions (what a user already owns) ─────────────────────────────────
 export interface AdminRuntimeSubscription {
     id: string;
