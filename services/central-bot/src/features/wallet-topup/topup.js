@@ -4,7 +4,8 @@
 // - PromptPay: enter an amount → QR embed (promptpay.io) with a countdown → member
 //   pays and posts the slip in SLIP_CHECK_CHANNEL where slip.js verifies it.
 // Config keys (injected as env): TRUEMONEY_BASE, API_TRUEMONEY_KEY_ID, TRUEMONEY_PHONE,
-// PROMPTPAY_NUMBER, PROMPTPAY_ACCOUNT_NAME, MIN_TOPUP, TOPUP_QR_TIMEOUT, SLIP_CHECK_CHANNEL.
+// PROMPTPAY_NUMBER, PROMPTPAY_ACCOUNT_NAME, MIN_TOPUP, TOPUP_QR_TIMEOUT, SLIP_CHECK_CHANNEL,
+// SLIP_ACCESS_ROLE_ID.
 
 const {
   ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle,
@@ -19,6 +20,23 @@ const GIFT_RE = /^https:\/\/gift\.truemoney\.com\/campaign\/\?v=/;
 const COUNTDOWN_TICK_MS = 1000;
 const fmtCountdown = (secLeft) =>
   `${Math.floor(secLeft / 60)} นาที ${String(secLeft % 60).padStart(2, '0')} วินาที`;
+
+// Give the member a temporary "slip access" role so they can see SLIP_CHECK_CHANNEL
+// while paying, then strip it when the QR window (TOPUP_QR_TIMEOUT) closes. No-op when
+// SLIP_ACCESS_ROLE_ID is unset. Best-effort — never blocks the top-up flow.
+async function grantTempSlipRole(interaction, ctx, minutes) {
+  const roleId = ctx.config.get('SLIP_ACCESS_ROLE_ID');
+  if (!roleId || !interaction.guild) return;
+  try {
+    const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+    const role = await interaction.guild.roles.fetch(String(roleId)).catch(() => null);
+    if (!member || !role) return;
+    if (!member.roles.cache.has(role.id)) await member.roles.add(role);
+    setTimeout(() => { member.roles.remove(role).catch(() => {}); }, Math.max(1, minutes) * 60 * 1000);
+  } catch (err) {
+    console.error('[central-bot] slip access role grant failed:', err.message);
+  }
+}
 
 
 // Redeem a TrueMoney gift link through our voucher-service. Returns satang on success.
@@ -128,6 +146,9 @@ async function onPpModal(interaction, ctx) {
   }
 
   await interaction.editReply({ embeds: [await renderQr(minutes * 60)], components });
+
+  // Temp role so the member can see the slip channel; auto-removed after the QR window.
+  await grantTempSlipRole(interaction, ctx, minutes);
 
   const tick = setInterval(async () => {
     const left = Math.max(0, targetTs - Math.floor(Date.now() / 1000));
