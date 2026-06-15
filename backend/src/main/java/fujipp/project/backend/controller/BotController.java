@@ -6,10 +6,12 @@ import fujipp.project.backend.dto.CreateBotRequest;
 import fujipp.project.backend.dto.UpdateBotRequest;
 import fujipp.project.backend.runtime.RuntimeClient;
 import fujipp.project.backend.runtime.RuntimeRouter;
+import fujipp.project.backend.runtime.RuntimeTarget;
 import fujipp.project.backend.service.BotService;
 import fujipp.project.backend.service.PlacementService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import tools.jackson.databind.ObjectMapper;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -38,6 +40,7 @@ public class BotController {
     private final RuntimeClient runtime;
     private final RuntimeRouter runtimeRouter;
     private final PlacementService placement;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @GetMapping
     public ResponseEntity<List<BotResponse>> list(@AuthenticationPrincipal Jwt jwt) {
@@ -85,13 +88,33 @@ public class BotController {
         return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(billing.getBotConfig(botId.toString()));
     }
 
-    /** Save config values for a bot the caller owns. */
+    /**
+     * Save config values for a bot the caller owns. Config is injected as env at process
+     * start, so a running bot is restarted afterwards to pick up the new values (a stopped
+     * bot is left alone). Best-effort: a restart failure does not fail the save.
+     */
     @PutMapping("/{botId}/config")
     public ResponseEntity<String> updateConfig(
             @AuthenticationPrincipal Jwt jwt, @PathVariable UUID botId, @RequestBody String body) {
         UUID userId = UUID.fromString(jwt.getSubject());
         botService.assertOwnership(userId, botId);
-        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(billing.updateBotConfig(botId.toString(), body));
+        String saved = billing.updateBotConfig(botId.toString(), body);
+        restartIfRunning(botId);
+        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(saved);
+    }
+
+    /** Restart the bot so freshly-saved config takes effect — only when it is online. */
+    private void restartIfRunning(UUID botId) {
+        try {
+            RuntimeTarget target = runtimeRouter.targetFor(botId);
+            String statusJson = runtime.status(target, botId.toString());
+            if (objectMapper.readTree(statusJson).path("state").asText("").equalsIgnoreCase("online")) {
+                runtime.restart(target, botId.toString());
+            }
+        } catch (RuntimeException e) {
+            // Orchestrator unreachable or bot not placed — the save still succeeds; the
+            // owner can restart manually. Avoid throwing into the config-save response.
+        }
     }
 
     // ── runtime control (proxied to the orchestrator) ───────────────────────────
