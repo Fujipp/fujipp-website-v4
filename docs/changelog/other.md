@@ -1,9 +1,10 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.16.3`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.16.4`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.16.4` | 2026-06-15 | central-bot wallet-topup: actually apply the TrueMoney fee on voucher redeem — `fee = round(amount × TRUEMONEY_FEE%) + TRUEMONEY_FEE_FLAT฿`, credit the net (never < 0; refuses if fee ≥ amount). `topup_success` gets `amount` = net credited plus `fee`/`gross` vars. Was defined-but-unused before |
 | `0.0.16.3` | 2026-06-15 | central-bot review-credit: if `message.reply()` fails (it needs READ_MESSAGE_HISTORY, which a channel can deny while still allowing reactions — the "reacts but never replies" symptom), fall back to a plain `channel.send` so the thank-you still posts. Logs name the missing permission |
 | `0.0.16.2` | 2026-06-15 | central-bot review-credit: on startup, if the review channel has no counter row yet (first run, or after the web "recount" clears it), count every member message once so the counter starts from the real total instead of 0 |
 | `0.0.16.1` | 2026-06-15 | deploy-frontend: remove the "Pin index to last known good bundle" step — it rewrote `dist/index.html` to a hardcoded old bundle (`index-DviLTd3i.js`) every deploy, so no frontend change shipped. The `public/.htaccess` asset guard (serves `/assets/*` directly, 404 not text/html) is the real MIME fix; index.html now references the freshly-built hashed entry |

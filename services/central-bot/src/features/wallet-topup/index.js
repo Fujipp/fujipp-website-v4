@@ -5,7 +5,7 @@
 // Config keys (billing.feature_variable_templates): API_SLIPOK_KEY, SLIPOK_BRANCH_ID,
 // PROMPTPAY_NUMBER, PROMPTPAY_ACCOUNT_NAME, MIN_TOPUP, TOPUP_QR_TIMEOUT,
 // SLIP_CHECK_CHANNEL, TOPUP_NOTIFY_CHANNEL, API_TRUEMONEY_KEY_ID, TRUEMONEY_PHONE,
-// TRUEMONEY_BASE, TRUEMONEY_FEE
+// TRUEMONEY_BASE, TRUEMONEY_FEE (%), TRUEMONEY_FEE_FLAT (baht)
 //
 // Top-up paths: TrueMoney voucher + PromptPay QR with SlipOK slip verification
 // (slip.js), plus a manual admin credit (/wallet-add).
