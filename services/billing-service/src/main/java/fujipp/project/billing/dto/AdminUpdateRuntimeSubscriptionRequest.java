@@ -10,6 +10,7 @@ import java.util.UUID;
 public record AdminUpdateRuntimeSubscriptionRequest(
     Long renewPriceSatang,
     Boolean clearRenewPrice,
+    UUID runtimePlanId,
     UUID renewPlanId,
     String status,
     LocalDate currentPeriodEnd,

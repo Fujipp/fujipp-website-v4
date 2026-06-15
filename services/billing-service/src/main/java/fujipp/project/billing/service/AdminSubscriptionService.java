@@ -54,6 +54,10 @@ public class AdminSubscriptionService {
         Map<String, Object> changes = new LinkedHashMap<>();
         applyRenewPrice(req.clearRenewPrice(), req.renewPriceSatang(),
             sub.getRenewPriceSatang(), sub::setRenewPriceSatang, changes);
+        if (req.runtimePlanId() != null && !req.runtimePlanId().equals(sub.getRuntimePlanId())) {
+            changes.put("runtimePlanId", java.util.Arrays.asList(idText(sub.getRuntimePlanId()), req.runtimePlanId().toString()));
+            sub.setRuntimePlanId(req.runtimePlanId());
+        }
         if (req.renewPlanId() != null && !req.renewPlanId().equals(sub.getRenewPlanId())) {
             changes.put("renewPlanId", java.util.Arrays.asList(idText(sub.getRenewPlanId()), req.renewPlanId().toString()));
             sub.setRenewPlanId(req.renewPlanId());
