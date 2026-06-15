@@ -1,9 +1,10 @@
 # Changelog — Database
 
-**Current version: `0.2.0.2`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.2.0.3`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.2.0.3` | 2026-06-15 | reword review-credit STRING_LIST field hints (`20260615140000`) — edited as add/remove input boxes now, so drop the "บรรทัดละ" (per-line) wording |
 | `0.2.0.2` | 2026-06-15 | add `STRING_LIST` to `feature_variable_templates_type_chk` and switch review-credit's `REVIEW_REPLY_MESSAGES` + `REVIEW_REACTIONS` to it (`20260615130000`) — stored as JSON arrays still, but edited one-item-per-line in the form; labels/descriptions updated. Existing values stay valid |
 | `0.2.0.1` | 2026-06-15 | seed review-credit price (`20260615120200`) — RENT_PERMANENT 190 THB (no monthly); makes it purchasable + visible in the admin Pricing page. Editable there afterwards |
 | `0.2.0` | 2026-06-15 | review-credit: new `shop.review_credit_state` table (`20260615120000`, per-bot/channel counter + last reply id, RLS service_role only) + seed the `review-credit` feature into `billing.feature_catalog` (ENGAGEMENT) with 6 config templates (`20260615120100`); ports the legacy Aka Shop review counter — no price yet (visible, not purchasable) |
