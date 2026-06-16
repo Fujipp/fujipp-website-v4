@@ -93,6 +93,15 @@ async function buildEnv(subjectId) {
     env[row.config_key] = row.is_secret ? decrypt(row.config_value) : (row.config_value ?? '');
   }
 
+  // Platform-managed voucher endpoint: each VPS node points bots at a voucher-service it
+  // can reach (loopback on the main host; a private URL on other nodes). The shop's
+  // TRUEMONEY_BASE config is only an override — when it's blank we fall back to this
+  // node's VOUCHER_BASE_URL so a bot keeps working no matter which VPS it lands on.
+  // If VOUCHER_BASE_URL is unset, behaviour is unchanged (the shop value stands).
+  if (!env.TRUEMONEY_BASE && process.env.VOUCHER_BASE_URL) {
+    env.TRUEMONEY_BASE = process.env.VOUCHER_BASE_URL;
+  }
+
   return { env, codes };
 }
 
