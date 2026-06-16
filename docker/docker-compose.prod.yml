@@ -87,6 +87,12 @@ services:
       # The orchestrator reads SERVICE_TOKEN; the .env carries RUNTIME_SERVICE_TOKEN.
       SERVICE_TOKEN: ${RUNTIME_SERVICE_TOKEN:-}
       DB_SSL_NO_VERIFY: "true"
+      # Default voucher endpoint injected into every bot this node launches (used when the
+      # shop leaves TRUEMONEY_BASE blank). Bots run inside this container, so they reach
+      # voucher over the compose network by name — NOT the host's 127.0.0.1:3611. On a
+      # separate VPS, set VOUCHER_BASE_URL in that node's .env to the main host's voucher
+      # over a private network.
+      VOUCHER_BASE_URL: ${VOUCHER_BASE_URL:-http://voucher:8082}
     expose:
       - "8090"
     mem_limit: 640m

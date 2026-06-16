@@ -158,7 +158,11 @@ refused with a clear "all hosts are full" error. To add capacity on a new Thai V
 2. **Run the orchestrator** (`services/bot-runtime-service`) on it with `SERVICE_TOKEN`
    (a fresh `openssl rand -hex 32`) and a `PORT`. Make sure the backend can reach that
    `host:port` privately (VPN / private network / firewall allowlist — never expose it
-   publicly). Confirm `GET /healthz` returns `{"status":"healthy"}`.
+   publicly). Confirm `GET /healthz` returns `{"status":"healthy"}`. Also set
+   **`VOUCHER_BASE_URL`** on this node to the main host's voucher-service over the private
+   network (e.g. `http://10.x.x.x:3611`) — bots default to it for TrueMoney redeem, and
+   the loopback `127.0.0.1:3611` only exists on the main host. (Run one shared
+   voucher-service on the main host; other nodes just need to reach it.)
 3. **Register** it from the admin UI (or `POST /api/admin/vps-nodes`) with `orchestratorUrl`,
    `serviceToken`, and `maxSlots`. The backend **health-probes the orchestrator before it
    will accept the node as `ACTIVE`** — if it's not up yet, register it as `OFFLINE`, bring
