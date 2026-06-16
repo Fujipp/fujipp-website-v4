@@ -12,8 +12,10 @@ TrueMoney gift-voucher redeem (top-up) service. Java Spring Boot, mirrors
 ## API
 
 `POST /v1/redeem`
-- Headers: `x-api-key: <VOUCHER_SERVICE_TOKEN>` (required), `X-Client-Id: kanom-001`
-  (optional, for attribution; defaults to `kanom-001`).
+- Headers: `x-api-key: <VOUCHER_SERVICE_TOKEN>` (required), `X-Client-Id`
+  (the caller's id — a central-bot shop sends its subject id, the legacy PM2 bot sends
+  `kanom-001`). Optional only when the allowlist is off; when it's on the id is required
+  (see *Restricting to your network* below).
 - Body: `{ "phone": "08XXXXXXXX", "gift_url": "https://gift.truemoney.com/campaign/?v=...",
   "idempotencyKey": "optional" }`
 - Returns the redeem record: `status`, `amount` (baht), `currency`, `issuer`,
@@ -27,6 +29,20 @@ TrueMoney gift-voucher redeem (top-up) service. Java Spring Boot, mirrors
 A single shared token (`VOUCHER_SERVICE_TOKEN`) — no per-client keys, no MASTER_KEY.
 To rotate: change the `VOUCHER_SERVICE_TOKEN` GitHub secret + the bots' token value,
 then redeploy.
+
+## Restricting to your network
+
+Set `VOUCHER_ALLOWED_CLIENT_IDS` (comma-separated) to lock the service to your own
+clients. When set, a redeem is accepted only if `X-Client-Id` is in the list — a missing
+or unknown id is rejected with `403 {"error":"client not allowed"}`, so a leaked token
+alone can't be used by an outside shop. Each id can be revoked independently by removing
+it from the list and redeploying.
+
+- central-bot shops send their **subject id** as `X-Client-Id`.
+- the legacy PM2 bot sends `kanom-001`.
+
+Example: `VOUCHER_ALLOWED_CLIENT_IDS=kanom-001,<your-shop-subject-id>`. Leave the var
+empty to disable the allowlist (any caller with a valid token is accepted).
 
 ## Config (`.env`, see `.env.example`)
 
