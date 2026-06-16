@@ -46,11 +46,17 @@ async function redeemVoucher(ctx, giftUrl) {
   const phone = ctx.config.get('TRUEMONEY_PHONE');
   if (!base || !key || !phone) return { ok: false, message: 'ร้านยังไม่ได้ตั้งค่า TrueMoney' };
 
+  // Identify this shop to the voucher-service. When that service is locked to an
+  // allowlist (VOUCHER_ALLOWED_CLIENT_IDS), only known subject ids are allowed to redeem.
+  const headers = { 'Content-Type': 'application/json', 'x-api-key': key };
+  const clientId = ctx.config.subjectId;
+  if (clientId) headers['X-Client-Id'] = String(clientId);
+
   let res;
   try {
     res = await fetch(`${base}/v1/redeem`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': key },
+      headers,
       body: JSON.stringify({
         phone,
         gift_url: giftUrl,

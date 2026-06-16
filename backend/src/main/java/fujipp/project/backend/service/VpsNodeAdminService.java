@@ -18,7 +18,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -63,6 +65,9 @@ public class VpsNodeAdminService {
         node.setMaxSlots(req.maxSlots());
         node.setStatus(normalizeStatus(req.status(), "ACTIVE"));
         node.setNotes(blankToNull(req.notes()));
+        // An externally-registered host that is ACTIVE must be reachable, or placements
+        // onto it would fail. Register it as OFFLINE first if the orchestrator isn't up yet.
+        requireReachableIfActive(node);
         VpsNode saved = nodes.save(node);
         return VpsNodeResponse.from(saved, 0);
     }
@@ -89,8 +94,50 @@ public class VpsNodeAdminService {
         }
         if (req.status() != null) node.setStatus(normalizeStatus(req.status(), node.getStatus()));
         if (req.notes() != null) node.setNotes(blankToNull(req.notes()));
+        // Re-probe only when the change could affect reachability (endpoint/token swap,
+        // or bringing the node ACTIVE) — an unrelated edit (e.g. notes) shouldn't be
+        // blocked by a transient blip.
+        if (req.orchestratorUrl() != null || req.serviceToken() != null
+                || "ACTIVE".equalsIgnoreCase(req.status())) {
+            requireReachableIfActive(node);
+        }
         VpsNode saved = nodes.save(node);
         return VpsNodeResponse.from(saved, bots.countByVpsNodeId(nodeId));
+    }
+
+    /**
+     * On-demand health + capacity probe for a node: is the orchestrator reachable, and
+     * how many slots are free. Lets the admin verify a host before relying on it.
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> checkNode(UUID adminId, UUID nodeId) {
+        requireAdmin(adminId);
+        VpsNode node = nodes.findById(nodeId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "VPS not found"));
+        long used = bots.countByVpsNodeId(nodeId);
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("reachable", runtime.isReachable(runtimeRouter.targetForNode(node)));
+        result.put("status", node.getStatus());
+        result.put("maxSlots", node.getMaxSlots());
+        result.put("usedSlots", used);
+        result.put("freeSlots", Math.max(0, node.getMaxSlots() - used));
+        return result;
+    }
+
+    /**
+     * Refuse to mark an externally-registered host ACTIVE unless its orchestrator answers
+     * a health probe. Nodes with no orchestratorUrl use the backend's default runtime and
+     * are not probed here (the default is the platform's own concern).
+     */
+    private void requireReachableIfActive(VpsNode node) {
+        if (node.getOrchestratorUrl() == null || !"ACTIVE".equals(node.getStatus())) {
+            return;
+        }
+        if (!runtime.isReachable(runtimeRouter.targetForNode(node))) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                "VPS orchestrator at " + node.getOrchestratorUrl() + " is not reachable — "
+                + "start it (or register the node as OFFLINE) before setting it ACTIVE");
+        }
     }
 
     /**

@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /** Admin-only VPS host management + bot placement moves (role checked in the service). */
@@ -44,6 +45,13 @@ public class AdminVpsController {
     public ResponseEntity<VpsNodeResponse> update(
             @AuthenticationPrincipal Jwt jwt, @PathVariable UUID nodeId, @RequestBody UpdateVpsNodeRequest request) {
         return ResponseEntity.ok(admin.updateNode(UUID.fromString(jwt.getSubject()), nodeId, request));
+    }
+
+    /** On-demand reachability + free-slot probe for a single VPS host. */
+    @GetMapping("/vps-nodes/{nodeId}/health")
+    public ResponseEntity<Map<String, Object>> health(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable UUID nodeId) {
+        return ResponseEntity.ok(admin.checkNode(UUID.fromString(jwt.getSubject()), nodeId));
     }
 
     @PostMapping("/bots/{botId}/move")

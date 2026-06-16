@@ -2,6 +2,7 @@ package fujipp.project.backend.runtime;
 
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.client.ClientHttpResponse;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.server.ResponseStatusException;
@@ -19,6 +20,31 @@ import java.nio.charset.StandardCharsets;
 public class RuntimeClient {
 
     private final RestClient http = RestClient.create();
+
+    /** Short-timeout client for the reachability probe so a dead host fails fast. */
+    private final RestClient healthHttp = buildHealthClient();
+
+    private static RestClient buildHealthClient() {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(3000);
+        factory.setReadTimeout(3000);
+        return RestClient.builder().requestFactory(factory).build();
+    }
+
+    /**
+     * True if the orchestrator answers {@code GET /healthz} with a 2xx. Lets the admin
+     * verify a VPS node is actually up before it is set ACTIVE / accepts placements.
+     */
+    public boolean isReachable(RuntimeTarget target) {
+        try {
+            healthHttp.get().uri(target.baseUrl() + "/healthz")
+                .retrieve()
+                .toBodilessEntity();
+            return true;
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
 
     public String start(RuntimeTarget target, String subjectId) {
         return post(target, subjectId, "start");

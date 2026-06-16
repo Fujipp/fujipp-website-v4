@@ -150,6 +150,25 @@ bootstraps the `kanom-001` client and writes the reusable full key to
 PM2 process `bot-kanom-roblox` at `http://127.0.0.1:3611` when that bot directory
 exists on the VPS.
 
+**Adding another bot-host VPS** (manual register flow). A bot consumes one *slot* on a
+VPS node (`bots.vps_nodes.max_slots`); when every ACTIVE node is full a purchase is
+refused with a clear "all hosts are full" error. To add capacity on a new Thai VPS:
+
+1. **Provision** the VPS and install Docker (reuse `vps-bootstrap.sh`, or just install Docker).
+2. **Run the orchestrator** (`services/bot-runtime-service`) on it with `SERVICE_TOKEN`
+   (a fresh `openssl rand -hex 32`) and a `PORT`. Make sure the backend can reach that
+   `host:port` privately (VPN / private network / firewall allowlist — never expose it
+   publicly). Confirm `GET /healthz` returns `{"status":"healthy"}`.
+3. **Register** it from the admin UI (or `POST /api/admin/vps-nodes`) with `orchestratorUrl`,
+   `serviceToken`, and `maxSlots`. The backend **health-probes the orchestrator before it
+   will accept the node as `ACTIVE`** — if it's not up yet, register it as `OFFLINE`, bring
+   it up, then `PATCH` it to `ACTIVE`.
+4. **Verify** with `GET /api/admin/vps-nodes/{id}/health` — returns `reachable` plus
+   `maxSlots` / `usedSlots` / `freeSlots` for that host.
+
+> The primary shared VPS leaves `orchestratorUrl`/`serviceToken` NULL and uses the
+> backend's default `runtime.*` env — it isn't health-probed by the register flow.
+
 **Logs:** `docker compose -p fujipp logs -f backend` (or `billing`).
 
 **Renew TLS:** automatic via the certbot systemd timer; force with `certbot renew`.

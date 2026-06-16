@@ -1,9 +1,11 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.16.5`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.17.1`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.17.1` | 2026-06-16 | infra docs: documented the manual "add another bot-host VPS" register flow (provision → run orchestrator → register → `/health` verify) in `infrastructure/README.md` |
+| `0.0.17` | 2026-06-16 | voucher-service: optional `VOUCHER_ALLOWED_CLIENT_IDS` allowlist — when set, only those `X-Client-Id`s may redeem (missing/unknown → 403), locking the service to your own network even if the token leaks. central-bot wallet-topup now sends its shop subject id as `X-Client-Id` so each shop is allow-listable / revocable individually |
 | `0.0.16.5` | 2026-06-16 | central-bot wallet-topup: on a PromptPay top-up, grant `SLIP_ACCESS_ROLE_ID` (if set) so the member can see the slip channel, then auto-remove it after `TOPUP_QR_TIMEOUT` minutes. Best-effort, never blocks the flow |
 | `0.0.16.4` | 2026-06-15 | central-bot wallet-topup: actually apply the TrueMoney fee on voucher redeem — `fee = round(amount × TRUEMONEY_FEE%) + TRUEMONEY_FEE_FLAT฿`, credit the net (never < 0; refuses if fee ≥ amount). `topup_success` gets `amount` = net credited plus `fee`/`gross` vars. Was defined-but-unused before |
 | `0.0.16.3` | 2026-06-15 | central-bot review-credit: if `message.reply()` fails (it needs READ_MESSAGE_HISTORY, which a channel can deny while still allowing reactions — the "reacts but never replies" symptom), fall back to a plain `channel.send` so the thank-you still posts. Logs name the missing permission |
