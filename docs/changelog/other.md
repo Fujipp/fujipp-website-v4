@@ -1,9 +1,10 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.17.1`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.18`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.18` | 2026-06-16 | voucher-service: redeem is now locked to bots we run on the platform — `VOUCHER_CLIENT_CHECK_ENABLED` (default true) requires `X-Client-Id` to be a real `bots.bot_instances` subject id (new `PlatformClientValidator` reads the shared DB), so every shop that buys the top-up feature works automatically with no list to maintain, and an outside caller is rejected (403) even with the token. `VOUCHER_ALLOWED_CLIENT_IDS` demoted to an optional additive escape hatch; dropped the legacy `kanom-001` reliance |
 | `0.0.17.1` | 2026-06-16 | infra docs: documented the manual "add another bot-host VPS" register flow (provision → run orchestrator → register → `/health` verify) in `infrastructure/README.md` |
 | `0.0.17` | 2026-06-16 | voucher-service: optional `VOUCHER_ALLOWED_CLIENT_IDS` allowlist — when set, only those `X-Client-Id`s may redeem (missing/unknown → 403), locking the service to your own network even if the token leaks. central-bot wallet-topup now sends its shop subject id as `X-Client-Id` so each shop is allow-listable / revocable individually |
 | `0.0.16.5` | 2026-06-16 | central-bot wallet-topup: on a PromptPay top-up, grant `SLIP_ACCESS_ROLE_ID` (if set) so the member can see the slip channel, then auto-remove it after `TOPUP_QR_TIMEOUT` minutes. Best-effort, never blocks the flow |
