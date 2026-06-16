@@ -46,7 +46,15 @@ public class RuntimeRouter {
         if (bot.getVpsNodeId() == null) {
             return defaultTarget();
         }
-        VpsNode node = nodes.findById(bot.getVpsNodeId()).orElse(null);
+        return targetForNode(nodes.findById(bot.getVpsNodeId()).orElse(null));
+    }
+
+    /**
+     * Resolve the orchestrator target for a node directly (no bot needed). A node that
+     * leaves url/token NULL falls back to the default runtime.* env config. Used by the
+     * admin VPS health check so a node can be probed before any bot is placed on it.
+     */
+    public RuntimeTarget targetForNode(VpsNode node) {
         if (node == null) {
             return defaultTarget();
         }
