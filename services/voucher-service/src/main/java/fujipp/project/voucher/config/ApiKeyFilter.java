@@ -16,15 +16,16 @@ import java.util.stream.Collectors;
 
 /**
  * This service is internal: the bots call it over host loopback. Every request must
- * carry the shared secret in {@code x-api-key} (the same header the legacy bot already
- * sends) matching {@code voucher.service-token}. The caller identifies itself with
- * {@code X-Client-Id} (e.g. a shop's subject id, or {@code kanom-001} for the legacy bot).
+ * carry the shared secret in {@code x-api-key} matching {@code voucher.service-token},
+ * and identify itself with {@code X-Client-Id} — the bot's subject id (central-bot
+ * sends {@code ctx.config.subjectId}).
  *
- * <p>When {@code voucher.allowed-client-ids} is set, the service is locked to that
- * allowlist: only those client ids may redeem and a missing/unknown id is rejected
- * (403), so a leaked token alone can't be used by an outside shop. When the allowlist
- * is empty, any caller with a valid token is accepted and a missing id defaults to
- * {@code kanom-001} (the pre-allowlist behaviour).
+ * <p>When {@code voucher.client-check.enabled} is true (the default), redeem is locked
+ * to <b>bots we run on the platform</b>: the {@code X-Client-Id} must be a real row in
+ * {@code bots.bot_instances} (or an entry in the optional {@code voucher.allowed-client-ids}
+ * escape hatch). So any shop that buys the top-up feature works automatically, while an
+ * outside caller — even one holding the token — is rejected (403). Set the flag to false
+ * for local/dev runs that have no bot rows.
  *
  * The actuator health endpoint is left open so the container healthcheck works.
  */
@@ -39,11 +40,20 @@ public class ApiKeyFilter extends OncePerRequestFilter {
     @Value("${voucher.service-token:}")
     private String serviceToken;
 
+    @Value("${voucher.client-check.enabled:true}")
+    private boolean clientCheckEnabled;
+
     @Value("${voucher.allowed-client-ids:}")
     private String allowedClientIdsRaw;
 
-    /** Empty = allowlist disabled (accept any client with a valid token). */
+    /** Optional always-allow ids (non-bot internal callers); additive to the platform check. */
     private Set<String> allowedClientIds = Set.of();
+
+    private final PlatformClientValidator platformClients;
+
+    public ApiKeyFilter(PlatformClientValidator platformClients) {
+        this.platformClients = platformClients;
+    }
 
     @PostConstruct
     void initAllowlist() {
@@ -74,10 +84,13 @@ public class ApiKeyFilter extends OncePerRequestFilter {
         String header = request.getHeader(CLIENT_ID_HEADER);
         String clientId = (header == null || header.isBlank()) ? null : header.trim();
 
-        if (!allowedClientIds.isEmpty()) {
-            // Allowlist enforced: only known clients may redeem. A missing id is
-            // rejected (no implicit default) so the token alone is not enough.
-            if (clientId == null || !allowedClientIds.contains(clientId)) {
+        if (clientCheckEnabled) {
+            // Lock to our own platform: the caller must be a bot we run (a row in
+            // bots.bot_instances) or an explicitly allow-listed internal client. A
+            // missing id is rejected, so the token alone is not enough.
+            boolean allowed = clientId != null
+                    && (allowedClientIds.contains(clientId) || platformClients.isPlatformBot(clientId));
+            if (!allowed) {
                 response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                 response.setContentType("application/json");
                 response.getWriter().write("{\"error\":\"client not allowed\"}");

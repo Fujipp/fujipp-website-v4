@@ -12,10 +12,9 @@ TrueMoney gift-voucher redeem (top-up) service. Java Spring Boot, mirrors
 ## API
 
 `POST /v1/redeem`
-- Headers: `x-api-key: <VOUCHER_SERVICE_TOKEN>` (required), `X-Client-Id`
-  (the caller's id — a central-bot shop sends its subject id, the legacy PM2 bot sends
-  `kanom-001`). Optional only when the allowlist is off; when it's on the id is required
-  (see *Restricting to your network* below).
+- Headers: `x-api-key: <VOUCHER_SERVICE_TOKEN>` (required), `X-Client-Id` — the bot's
+  subject id (central-bot sends `ctx.config.subjectId`). Required when the platform check
+  is on (the default; see *Restricting to your network* below).
 - Body: `{ "phone": "08XXXXXXXX", "gift_url": "https://gift.truemoney.com/campaign/?v=...",
   "idempotencyKey": "optional" }`
 - Returns the redeem record: `status`, `amount` (baht), `currency`, `issuer`,
@@ -32,17 +31,20 @@ then redeploy.
 
 ## Restricting to your network
 
-Set `VOUCHER_ALLOWED_CLIENT_IDS` (comma-separated) to lock the service to your own
-clients. When set, a redeem is accepted only if `X-Client-Id` is in the list — a missing
-or unknown id is rejected with `403 {"error":"client not allowed"}`, so a leaked token
-alone can't be used by an outside shop. Each id can be revoked independently by removing
-it from the list and redeploying.
+Redeem is locked to **bots we run on the platform**. With `VOUCHER_CLIENT_CHECK_ENABLED=true`
+(the default), a redeem is accepted only if `X-Client-Id` is a real subject id in
+`bots.bot_instances` — so every shop that buys the top-up feature works automatically as
+new shops appear, with no list to maintain. An unknown or missing id is rejected with
+`403 {"error":"client not allowed"}`, so a leaked token alone can't be used by an outside
+caller. (The service reads `bots.bot_instances` over the shared Supabase datasource.)
 
-- central-bot shops send their **subject id** as `X-Client-Id`.
-- the legacy PM2 bot sends `kanom-001`.
+- central-bot sends each shop's **subject id** as `X-Client-Id`.
+- To revoke a shop, remove/disable its bot in the platform — the redeem stops working.
+- `VOUCHER_ALLOWED_CLIENT_IDS` is an optional, additive always-allow list for non-bot
+  internal callers; usually left empty.
 
-Example: `VOUCHER_ALLOWED_CLIENT_IDS=kanom-001,<your-shop-subject-id>`. Leave the var
-empty to disable the allowlist (any caller with a valid token is accepted).
+Set `VOUCHER_CLIENT_CHECK_ENABLED=false` only for local/dev runs that have no bot rows
+(then any caller with a valid token is accepted, id defaults to `kanom-001`).
 
 ## Config (`.env`, see `.env.example`)
 
