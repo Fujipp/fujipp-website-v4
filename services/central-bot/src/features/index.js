@@ -18,9 +18,10 @@ const walletTopup = require('./wallet-topup');
 const walletHistory = require('./wallet-history');
 const topSpenderRank = require('./top-spender-rank');
 const reviewCredit = require('./review-credit');
+const voiceKeeper = require('./voice-keeper');
 
 // wallet-topup first so its ctx.services.wallet exists before features that use it.
-const ALL = [walletTopup, robloxRobuxPayout, walletHistory, topSpenderRank, reviewCredit];
+const ALL = [walletTopup, robloxRobuxPayout, walletHistory, topSpenderRank, reviewCredit, voiceKeeper];
 
 function loadEnabled(config) {
   return ALL.filter((f) => config.isFeatureEnabled(f.code));
