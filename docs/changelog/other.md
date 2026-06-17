@@ -1,9 +1,13 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.20`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.20.4`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.20.4` | 2026-06-18 | project management: add `docs/feature-status-map.md` summarizing current portfolio/shop/admin/backend/service/bot feature status, known risks, stale docs, and recommended Sprint 1 priorities |
+| `0.0.20.3` | 2026-06-18 | agent skills: add `fujipp-platform` project skill with token-efficient repo routing, workflow, frontend, backend/service, and Supabase database references for AI agents |
+| `0.0.20.2` | 2026-06-18 | agent rules: add product direction, task intake template, AI handoff protocol, and stronger Spring Boot/Supabase architecture guidance for backend/database work |
+| `0.0.20.1` | 2026-06-17 | agent rules: add project-manager operating mode, clarify split-vs-combined GitHub pushes, and sync frontend AI instructions with the Vue/TypeScript/Bun shared+features architecture |
 | `0.0.20` | 2026-06-17 | central-bot: new `voice-keeper` feature (`src/features/voice-keeper/`) — ports legacy IDAXD Shop (bot-002): keeps the bot in a voice channel 24/7. Joins on startup when `VOICE_KEEP_ENABLED` + `VOICE_CHANNEL_ID` are set, rejoins automatically on kick/move/disconnect (5s-throttled) with a 30-min heartbeat repair, and admin `/join [channel]` / `/leave` drive it live (in-memory override, resets to settings on restart). Adds `@discordjs/voice` + `libsodium-wrappers` (pure-JS, no native build); `GuildVoiceStates` intent (not privileged) |
 | `0.0.19` | 2026-06-16 | bot-runtime: orchestrator injects `VOUCHER_BASE_URL` as each bot's default `TRUEMONEY_BASE` (shop config becomes an optional override; blank falls back to the node default). compose sets it to `http://voucher:8082` so container bots reach voucher over the compose network instead of the host's `127.0.0.1:3611` — and a bot on another VPS points at the main host's voucher privately. Unset = unchanged behaviour |
 | `0.0.18` | 2026-06-16 | voucher-service: redeem is now locked to bots we run on the platform — `VOUCHER_CLIENT_CHECK_ENABLED` (default true) requires `X-Client-Id` to be a real `bots.bot_instances` subject id (new `PlatformClientValidator` reads the shared DB), so every shop that buys the top-up feature works automatically with no list to maintain, and an outside caller is rejected (403) even with the token. `VOUCHER_ALLOWED_CLIENT_IDS` demoted to an optional additive escape hatch; dropped the legacy `kanom-001` reliance |

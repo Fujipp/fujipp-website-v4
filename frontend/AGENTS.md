@@ -12,11 +12,12 @@ Read `.agents/frontend.md` first, then read:
 
 ## Stack
 
-- Vue Single File Components with `<script setup lang="ts">`.
+- Vue 3 Single File Components with `<script setup lang="ts">`.
 - TypeScript.
 - Vue Router.
 - Vite.
 - Tailwind CSS v4 configured through CSS `@theme`.
+- Bun for frontend package scripts.
 
 ## Design Source Of Truth
 
@@ -39,20 +40,25 @@ Read `.agents/frontend.md` first, then read:
 ## Component Rules
 
 - UI rendered in the browser belongs in `.vue` files.
-- Reusable primitives belong in `src/components/ui/`.
-- Reusable page structure belongs in `src/components/layout/`.
-- Reusable composed page blocks belong in `src/components/sections/`.
-- Route-level pages belong in `src/views/`.
+- Reusable primitives belong in `src/shared/ui/<category>/`.
+- Reusable page structure belongs in `src/shared/layout/`.
+- Feature-owned views belong in `src/features/<feature>/views/`.
+- Feature-owned components belong in `src/features/<feature>/components/`.
+- Feature config and stores belong in `src/features/<feature>/config/` and `src/features/<feature>/stores/`.
+- Cross-cutting config and stores belong in `src/config/` and `src/stores/`.
 - Type definitions, composables, helpers, constants, and barrel exports belong in `.ts` files.
-- Prefer one folder per reusable component with an `index.ts` export.
+- Shared code must not import from `features/*`.
+- Choose `shared/` only for genuinely reusable UI; otherwise keep code inside the owning feature.
 
 Example:
 
 ```text
-src/components/ui/Button/
-  Button.vue
+src/shared/ui/buttons/
+  PrimaryButton.vue
   index.ts
 ```
+
+Views are lazy-loaded by route in `src/router/index.ts` and are not exported through barrels.
 
 ## Vue Conventions
 
@@ -61,6 +67,7 @@ src/components/ui/Button/
 - Prefer slots for visible labels/content when a component is reusable.
 - Keep variant/state mappings readable and typed; do not scatter duplicated class strings across views.
 - Use the `@/` alias for imports from `src/`.
+- Read API config from `@/config` via `API_BASE_URL`; do not hardcode local or production backend URLs in components, stores, or views.
 
 ## Interaction And Accessibility
 
@@ -82,6 +89,11 @@ src/components/ui/Button/
 - Do not automatically run tests, type checks, builds, or browser verification after implementation changes.
 - Run verification commands such as `npm run build` only when the user explicitly asks for them.
 - When verification was not requested, finish the requested edits and state that no test or build was run by instruction.
+
+## Changelog
+
+- After frontend changes, add a dated row to `docs/changelog/frontend.md`.
+- If the task spans multiple areas, update each matching changelog under `docs/changelog/`.
 
 ## Prompt Handoff
 

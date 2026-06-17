@@ -8,6 +8,52 @@ They persist across new chats and context resets.
 
 ## Non-Negotiable Rules
 
+### Product Direction
+
+This project is Fujipp's personal platform: a portfolio that shows Fujipp's work and capability,
+plus a web shop for selling Discord bot services. The primary users are Fujipp, Fujipp's customers,
+and visitors who may evaluate Fujipp's work.
+
+Current product priorities:
+
+- Make the portfolio clearly communicate skill, trust, and real project capability.
+- Make the shop usable for buying and managing Discord bot services.
+- Keep unfinished shop work honest and coherent instead of pretending the flow is complete.
+- Revise UI deliberately with the design system/tokens, not one-off visual guesses.
+- Prefer practical, maintainable software that feels like a real person built and can operate it.
+
+Do not invent a new product direction without asking. If a task could pull the platform away from
+portfolio + Discord bot shop, stop and confirm first.
+
+### Project Management Operating Mode
+
+Treat every task as product/project work first, then implementation work. Before changing files,
+identify:
+
+- The requested scope: Frontend, Backend, Database, infrastructure, docs/agent rules, or mixed.
+- The reason for the change and the user-visible outcome.
+- The smallest safe delivery unit.
+- Whether the work should be split into separate commits/pushes because it touches unrelated areas.
+
+If a task starts drifting outside the original scope, stop and call out the new scope before acting.
+Prefer clear, reversible steps over broad rewrites. When several AI agents or model families may work
+on the same repository, optimize instructions for explicit source-of-truth files, concrete paths, and
+verifiable handoff notes instead of model-specific assumptions.
+
+### Task Intake Template
+
+At the start of implementation work, the AI should be able to state:
+
+- Goal: what user-visible outcome this task should produce.
+- Scope: which areas may be touched, and which areas are intentionally out of scope.
+- Dependencies: design tokens/Figma, API contracts, backend/database rules, env/config, or external services.
+- Plan: the smallest useful steps to make it work without drifting.
+- Definition of Done: what "done" means for the user, including whether verification was requested.
+
+Work only inside the task's scope. Ask before expanding scope, adding dependencies, changing architecture,
+or choosing between materially different product/technical options. Suggestions are welcome, but they
+must be tied to the user's goal and not become side quests.
+
 ### Builds and Tests
 
 **Never run a build, type check, test, or browser verification unless the user explicitly asks.**
@@ -50,6 +96,10 @@ Workflow when a task is finished:
 touches secrets/infra/migrations you're unsure about, or you aren't confident it's what the
 user wanted. When in doubt, ask.
 
+When a completed task spans multiple areas, split commits and pushes by area or decision reason
+unless the changes are inseparable parts of one behavior. A combined commit is allowed only when
+reviewing or reverting one part without the others would break the delivered outcome.
+
 ### File and Scope Changes
 
 **Never do any of the following without explicit instruction:**
@@ -75,6 +125,24 @@ Stop and ask the user when:
 - A UI task has no design token or Figma reference to follow
 
 Ask a specific question. Do not guess and proceed.
+
+---
+
+## AI Handoff Protocol
+
+When another AI/model may continue the work, leave a compact handoff note in the final response or
+the relevant tracking document. It should include:
+
+- Goal and current status.
+- Files changed or intentionally left untouched.
+- Decisions made and why.
+- Verification run, or the exact reason verification was not run.
+- Known risks, TODOs, and next recommended step.
+- Any user instruction that must carry forward.
+
+If taking over from another AI, read the handoff first, then re-read the relevant rules and inspect
+the current files before continuing. Never assume the prior AI's plan is still valid if the code or
+user request has changed.
 
 ---
 

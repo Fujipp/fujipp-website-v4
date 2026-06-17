@@ -19,6 +19,9 @@ For detailed token tables and component workflow, also read:
 | Package manager | Bun |
 | Routing | Vue Router |
 
+Install libraries only when the feature truly needs them and the user has approved the dependency
+change. Prefer existing Vue, TypeScript, Vite, Tailwind, and project helpers before adding a package.
+
 ---
 
 ## Design Source of Truth
@@ -83,6 +86,12 @@ Current features: `portfolio` · `projects` · `shop` · `auth`.
 **Dependency rule:** `features/*` may import from `shared/*`, `config/`, `stores/`.
 `shared/*` must **never** import from `features/*` (no backwards dependency).
 
+Choose placement by reuse:
+
+- Put a component in `shared/` only when at least two features can reasonably use it without feature copy.
+- Put it in `features/<feature>/components/` when the language, data shape, or behavior belongs to one feature.
+- Keep feature-specific config, constants, and store logic inside that feature unless it is a deliberate cross-cutting concern.
+
 ### Component & file naming
 
 - Group by **category** (plural, lowercase folder): `buttons/`, `fields/`, `tags/`, `modals/`, `toasts/`, `sections/`.
@@ -119,6 +128,9 @@ src/shared/ui/buttons/
   (`bun run dev` = local, `bun run dev:host` = host). `VITE_API_BASE_URL`, if set, is a hard
   override that wins (used by CI / production builds).
 
+When changing API config, preserve the ability to test against both local backend and production-like
+host backend without editing source code.
+
 ---
 
 ## Vue Conventions
@@ -128,6 +140,12 @@ src/shared/ui/buttons/
 - Use `@/` alias for all imports from `src/`.
 - Use slots for visible labels/content in reusable components; do not bake copy into them.
 - Keep variant/state class mappings typed and readable; do not scatter duplicated class strings across views.
+
+## Changelog
+
+After any frontend change, add one dated row to `docs/changelog/frontend.md` using the versioning
+scheme in `docs/changelog/README.md`. If the same task also changes backend, database, infra, or
+agent rules, add a matching row to each affected area changelog.
 
 ---
 

@@ -16,7 +16,14 @@ git remote -v
 git log --oneline -5
 ```
 
-2. Stage only changes belonging to the completed task. Never commit secrets, local environment files, build output, dependency directories, logs, or IDE state.
+2. Decide the delivery grouping before staging. Use a project-manager lens:
+
+- Split by area when changes can be reviewed, deployed, or reverted independently.
+- Split by reason when one task contains unrelated outcomes in the same area.
+- Keep a cross-area change together only when the pieces are one inseparable behavior.
+- If a scope contains both implementation and AI-agent/rule updates, commit those separately.
+
+3. Stage only changes belonging to the completed task. Never commit secrets, local environment files, build output, dependency directories, logs, or IDE state.
 
 Do not stage:
 
@@ -34,7 +41,7 @@ Do not stage:
 *.log
 ```
 
-3. Group related changes by scope. Split unrelated folder work into separate commits; keep cross-folder files together only when they are inseparable parts of one behavior.
+4. Group related changes by scope. Split unrelated folder work into separate commits; keep cross-folder files together only when they are inseparable parts of one behavior.
 
 If the worktree contains both feature code and a skill or instruction update, commit them separately so each change is easy to review and revert.
 
@@ -43,7 +50,8 @@ When the user asks to "push" changes, prefer this order:
 1. Inspect the working tree and identify each scope.
 2. Stage only one scope at a time.
 3. Commit each scope with a Conventional Commit message that matches the folder or purpose.
-4. Push after every logical commit, or after the final grouped commit if multiple scopes are intentionally part of one change request.
+4. Push after every logical commit when the work was intentionally split, or after the final grouped commit if multiple scopes are intentionally part of one change request.
+5. Report why each commit was split or why a combined commit was necessary.
 
 | Path | Scope | Example |
 | --- | --- | --- |
@@ -56,7 +64,7 @@ When the user asks to "push" changes, prefer this order:
 | `.github/` | `ci` or `github` | `ci(github): add build workflow` |
 | root config files | `root` | `chore(root): update ignore rules` |
 
-4. Use Conventional Commits:
+5. Use Conventional Commits:
 
 ```text
 feat(scope): add a user-facing capability
@@ -71,7 +79,7 @@ ci(scope): update automation workflows
 
 Prefer messages describing the result, not file mechanics.
 
-5. Run checks appropriate to the staged scope before committing when feasible:
+6. Run checks appropriate to the staged scope before committing when the user explicitly asked for verification:
 
 ```bash
 # frontend/
@@ -83,7 +91,7 @@ bun run build
 
 For database/schema changes, review migrations and do not run destructive SQL without explicit user approval.
 
-6. Commit each logical group, then push to the current branch. Detect the branch instead of assuming its name.
+7. Commit each logical group, then push to the current branch. Detect the branch instead of assuming its name.
 
 ```bash
 git branch --show-current

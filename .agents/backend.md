@@ -23,6 +23,29 @@ calls over HTTP for credit/wallet operations).
 
 ---
 
+## Architecture
+
+- Keep controllers thin: request validation, auth context, calling services, and returning DTOs.
+- Put business rules in `service/`, not in controllers or repositories.
+- Use `repository/` for JPA persistence and focused database access only.
+- Keep JPA entities in `model/` aligned with Supabase migrations. Do not expose entities directly as API contracts.
+- Use `dto/` request/response classes for the API surface, with validation annotations where input is user-controlled.
+- Keep integration clients isolated (`billing/`, `runtime/`, external payment clients) so service code has a clear boundary.
+- Preserve stateless JWT auth. Do not introduce server sessions unless the product explicitly changes.
+- Prefer small, named methods over large procedural flows, especially around billing, bot runtime, and admin actions.
+- If a change affects the frontend contract, update the API DTOs and frontend usage deliberately in the same task scope.
+- When a backend change requires a schema change, update the Supabase migration and matching entity together.
+
+## Error Handling & Operations
+
+- Return useful API errors without leaking secrets, tokens, connection strings, or internal stack traces.
+- Treat billing, payment, Supabase, and bot-runtime calls as operationally sensitive: handle timeouts, failed responses,
+  and partial completion deliberately.
+- Keep customer money, wallet balance, subscription, and bot runtime state transitions auditable and reversible where possible.
+- Do not silently swallow errors unless the operation is explicitly best-effort and the log/message makes that clear.
+
+---
+
 ## Configuration & secrets
 
 - Runtime config lives in `backend/src/main/resources/application.properties`.

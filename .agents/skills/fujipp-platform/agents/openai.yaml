@@ -1,0 +1,4 @@
+interface:
+  display_name: "Fujipp Platform"
+  short_description: "Work efficiently in Fujipp's platform repo"
+  default_prompt: "Use $fujipp-platform to plan and implement a scoped change in the Fujipp personal platform."
