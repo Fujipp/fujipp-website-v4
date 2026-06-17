@@ -1,9 +1,10 @@
 # Changelog — Backend
 
-**Current version: `0.2.8`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.2.8.1`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.2.8.1` | 2026-06-18 | backend config docs: align `application.properties` comments with the Supabase transaction pooler requirement (`6543`, `sslmode=require`, `prepareThreshold=0`) |
 | `0.2.8` | 2026-06-16 | VPS slots: registering/updating an externally-hosted VPS node now health-probes its orchestrator (`GET /healthz`, 3s timeout) before it's accepted as `ACTIVE` (502 otherwise — register it `OFFLINE` first) so a dead host can't silently swallow placements. New `GET /api/admin/vps-nodes/{id}/health` returns `reachable` + `maxSlots`/`usedSlots`/`freeSlots`. The default-runtime node (NULL `orchestratorUrl`) is not probed |
 | `0.2.7` | 2026-06-15 | review-credit counter API: `GET/PUT /api/bots/{id}/review-credit/count` (read / set the `shop.review_credit_state` count, channel from `REVIEW_CHANNEL_ID`) and `POST .../recount` (clears the row + restarts the bot so it re-counts the whole channel on start). Extracted shared `BotRuntimeOps.restartIfRunning` (also used by config save) |
 | `0.2.6` | 2026-06-15 | bots: saving feature config (`PUT /api/bots/{id}/config`) now restarts the bot if it's online, so new config (injected as env at start) applies immediately — previously a save did nothing until a manual restart (e.g. review-credit reply messages never took effect). Best-effort; a stopped bot is left stopped |
