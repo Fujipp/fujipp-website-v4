@@ -50,8 +50,13 @@ When the user asks to "push" changes, prefer this order:
 1. Inspect the working tree and identify each scope.
 2. Stage only one scope at a time.
 3. Commit each scope with a Conventional Commit message that matches the folder or purpose.
-4. Push after every logical commit when the work was intentionally split, or after the final grouped commit if multiple scopes are intentionally part of one change request.
-5. Report why each commit was split or why a combined commit was necessary.
+4. Check which GitHub Actions path filters will run from the staged/pushed paths. Avoid mixing
+   frontend-only work with backend, service, database/Supabase, docker, or workflow files unless
+   the user explicitly asked to ship those scopes together.
+5. Push to `main` when the current branch is `main` and the user explicitly asked to push/publish.
+   If on another branch, push that branch unless the user specifically asked for `main`.
+6. Push after every logical commit when the work was intentionally split, or after the final grouped commit if multiple scopes are intentionally part of one change request.
+7. Report why each commit was split or why a combined commit was necessary.
 
 | Path | Scope | Example |
 | --- | --- | --- |

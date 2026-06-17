@@ -85,6 +85,13 @@ as far as the user asked), you have standing approval to commit it and get it on
 you do **not** need to ask again each time. Squash-merging a PR to `main` auto-deploys, so
 "done" means done-and-deployed.
 
+When Fujipp explicitly says "push", "push เข้า main", or otherwise asks to publish completed
+work, treat that as approval to commit the completed changes and push `main` directly unless the
+change is risky enough to require the stop-and-confirm rule below. Before pushing, identify which
+CI/CD path filters will run from the files being pushed. Keep frontend-only, backend, service,
+database/Supabase, and agent/docs work in separate commits, and never include a backend/service/
+database path in a frontend-only push unless Fujipp explicitly asked for that scope too.
+
 Workflow when a task is finished:
 
 1. Branch from `main`, commit in clean Conventional Commit groups
