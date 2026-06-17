@@ -12,7 +12,7 @@ type ToastStatus = "info" | "success" | "warning" | "error";
 type BotAction = "start" | "stop" | "restart" | "edit";
 type NextAction =
     | { description: string; label: string; title: string; type: "create" }
-    | { description: string; label: string; title: string; type: "route"; to: "shop-dashboard" | "shop-package" | "shop-wallet" };
+    | { description: string; label: string; title: string; type: "route"; to: "shop-dashboard" | "shop-guide" | "shop-package" | "shop-wallet" };
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -91,29 +91,6 @@ const featureSubscriptions = ref<FeatureSubscriptionResponse[]>([]);
 const runtimeSubscriptions = ref<RuntimeSubscriptionResponse[]>([]);
 const availableSlots = ref<number | null>(null);
 
-const setupSteps = [
-    {
-        label: "01",
-        title: "Create bot",
-        description: "เพิ่ม token จาก Discord Developer Portal และเลือก runtime เริ่มต้น",
-    },
-    {
-        label: "02",
-        title: "Buy package",
-        description: "ซื้อฟีเจอร์ถาวรต่อบอท หรือเติม runtime ให้บอทตัวที่เลือก",
-    },
-    {
-        label: "03",
-        title: "Configure",
-        description: "ตั้งค่า channel, role, wallet, Roblox, review และ embed ของบอท",
-    },
-    {
-        label: "04",
-        title: "Start",
-        description: "กด start แล้วเช็กสถานะบอทกับ Discord ก่อนใช้งานจริง",
-    },
-] as const;
-
 const nextActions = computed(() => {
     if (isLoading.value) return [];
 
@@ -160,10 +137,10 @@ const nextActions = computed(() => {
 
     actions.push({
         type: "route",
-        title: "Keep wallet ready",
-        description: "เติมเครดิตไว้สำหรับ runtime renewal และซื้อ feature เพิ่ม",
-        label: "Open wallet",
-        to: "shop-wallet",
+        title: "Need the full flow?",
+        description: "เปิดคู่มือสำหรับลำดับสร้างบอท ซื้อแพ็กเกจ ตั้งค่า และดูแล runtime",
+        label: "Open guide",
+        to: "shop-guide",
     });
 
     return actions.slice(0, 4);
@@ -223,6 +200,32 @@ const overviewMetrics = computed<OverviewMetric[]>(() => {
         { label: "Offline Bot", value: offlineBotCount },
         { label: "Features", value: features.value.length },
         { label: "Runtime", value: runtimes.value.length },
+    ];
+});
+
+const operationCards = computed(() => {
+    const totalBots = botRecords.value.length;
+    const runningBots = bots.value.filter((bot) => bot.status === "online").length;
+    const offlineBots = bots.value.filter((bot) => bot.status === "offline").length;
+    const runtimeReady = runtimeSubscriptions.value.length;
+    const featureReady = featureSubscriptions.value.length;
+
+    return [
+        {
+            label: "Bot capacity",
+            value: availableSlots.value == null ? `${totalBots} bots` : `${availableSlots.value} slots free`,
+            detail: totalBots === 0 ? "ยังไม่มีบอทในระบบ" : `${runningBots} online / ${offlineBots} offline`,
+        },
+        {
+            label: "Runtime coverage",
+            value: `${runtimeReady} active`,
+            detail: runtimeReady === 0 ? "ซื้อ runtime ก่อน start บอท" : "มี runtime ที่ผูกกับบอทแล้ว",
+        },
+        {
+            label: "Feature coverage",
+            value: `${featureReady} enabled`,
+            detail: featureReady === 0 ? "ยังไม่มี feature ที่เปิดใช้" : "feature subscription พร้อมใช้งาน",
+        },
     ];
 });
 
@@ -441,26 +444,27 @@ onUnmounted(clearToast);
                     </article>
                 </div>
 
-                <section :class="$style.flowPanel" aria-labelledby="shop-flow-title">
-                    <div :class="$style.flowHeader">
-                        <h2 id="shop-flow-title" :class="$style.flowTitle">Bot service flow</h2>
-                        <p :class="$style.flowText">
-                            เริ่มจากสร้างบอท ซื้อ runtime/feature ตั้งค่า แล้วค่อย start เพื่อให้ลูกค้าเห็นลำดับเดียวกันทุกครั้ง
-                        </p>
+                <section :class="$style.operatorPanel" aria-labelledby="shop-operator-title">
+                    <div :class="$style.operatorHeader">
+                        <div>
+                            <h2 id="shop-operator-title" :class="$style.panelTitle">Operator snapshot</h2>
+                            <p :class="$style.panelText">ภาพรวมสำหรับตัดสินใจว่าต้องสร้าง ซื้อ ตั้งค่า หรือเติมเครดิตก่อน</p>
+                        </div>
+                        <RouterLink :class="$style.secondaryLink" :to="{ name: 'shop-guide' }">คู่มือการใช้งาน</RouterLink>
                     </div>
-                    <ol :class="$style.stepList">
-                        <li v-for="step in setupSteps" :key="step.label" :class="$style.stepItem">
-                            <span :class="$style.stepLabel">{{ step.label }}</span>
-                            <strong :class="$style.stepTitle">{{ step.title }}</strong>
-                            <span :class="$style.stepText">{{ step.description }}</span>
-                        </li>
-                    </ol>
+                    <div :class="$style.operatorGrid">
+                        <article v-for="card in operationCards" :key="card.label" :class="$style.operatorCard">
+                            <span :class="$style.operatorLabel">{{ card.label }}</span>
+                            <strong :class="$style.operatorValue">{{ card.value }}</strong>
+                            <span :class="$style.operatorDetail">{{ card.detail }}</span>
+                        </article>
+                    </div>
                 </section>
 
                 <section :class="$style.nextPanel" aria-labelledby="shop-next-title">
                     <div :class="$style.nextHeader">
-                        <h2 id="shop-next-title" :class="$style.flowTitle">Next actions</h2>
-                        <p :class="$style.flowText">งานที่ควรทำต่อจากสถานะร้านตอนนี้</p>
+                        <h2 id="shop-next-title" :class="$style.panelTitle">Next actions</h2>
+                        <p :class="$style.panelText">งานที่ควรทำต่อจากสถานะร้านตอนนี้</p>
                     </div>
                     <div :class="$style.nextGrid">
                         <article v-for="action in nextActions" :key="action.title" :class="$style.nextItem">
@@ -680,18 +684,7 @@ onUnmounted(clearToast);
     text-transform: uppercase;
 }
 
-.flowPanel {
-    display: grid;
-    grid-template-columns: minmax(220px, 0.75fr) minmax(0, 1.25fr);
-    gap: var(--spacing-space-5);
-    margin-inline: var(--spacing-space-5);
-    padding: var(--spacing-space-5);
-    border: 1px solid var(--color-main-border);
-    border-radius: var(--radius-2xl);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
-}
-
+.operatorPanel,
 .nextPanel {
     display: flex;
     flex-direction: column;
@@ -704,12 +697,51 @@ onUnmounted(clearToast);
     color: var(--color-text-secondary);
 }
 
+.operatorHeader,
 .nextHeader {
     display: flex;
     align-items: flex-end;
     justify-content: space-between;
     flex-wrap: wrap;
     gap: var(--spacing-space-3);
+}
+
+.operatorGrid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--spacing-space-3);
+}
+
+.operatorCard {
+    display: flex;
+    min-width: 0;
+    min-height: 112px;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--spacing-space-2);
+    padding: var(--spacing-space-4);
+    border: 1px solid var(--color-main-divider);
+    border-radius: var(--radius-xl);
+    background-color: color-mix(in srgb, var(--color-main-background) 72%, var(--color-main-surface) 28%);
+}
+
+.operatorLabel,
+.operatorDetail {
+    color: color-mix(in srgb, var(--color-text-secondary) 72%, transparent);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.operatorLabel {
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.operatorValue {
+    color: var(--color-text-secondary);
+    font-size: 24px;
+    font-weight: 800;
+    line-height: 1.1;
 }
 
 .nextGrid {
@@ -767,66 +799,45 @@ onUnmounted(clearToast);
     outline-offset: 2px;
 }
 
-.flowHeader {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-space-2);
-}
-
-.flowTitle,
-.flowText {
+.panelTitle,
+.panelText {
     margin: 0;
 }
 
-.flowTitle {
+.panelTitle {
     color: var(--color-text-secondary);
     font-size: 24px;
     font-weight: 700;
     line-height: 1.15;
 }
 
-.flowText {
+.panelText {
     color: color-mix(in srgb, var(--color-text-secondary) 76%, transparent);
     font-size: 15px;
     line-height: 1.55;
 }
 
-.stepList {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: var(--spacing-space-3);
-    margin: 0;
-    padding: 0;
-    list-style: none;
-}
-
-.stepItem {
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
-    gap: var(--spacing-space-2);
-    padding: var(--spacing-space-4);
+.secondaryLink {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 38px;
+    padding: 0 var(--spacing-space-4);
     border: 1px solid var(--color-main-divider);
-    border-radius: var(--radius-xl);
-    background-color: color-mix(in srgb, var(--color-main-surface) 82%, var(--color-main-primary) 18%);
-}
-
-.stepLabel {
-    color: var(--color-main-primary);
-    font-size: 13px;
-    font-weight: 800;
-}
-
-.stepTitle {
+    border-radius: var(--radius-lg);
     color: var(--color-text-secondary);
-    font-size: 17px;
-    line-height: 1.2;
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: none;
 }
 
-.stepText {
-    color: color-mix(in srgb, var(--color-text-secondary) 72%, transparent);
-    font-size: 13px;
-    line-height: 1.45;
+.secondaryLink:hover {
+    border-color: var(--color-main-primary);
+}
+
+.secondaryLink:focus-visible {
+    outline: 2px solid var(--color-main-primary);
+    outline-offset: 2px;
 }
 
 .botGrid,
@@ -908,7 +919,7 @@ onUnmounted(clearToast);
 
 @media (max-width: 920px) {
     .overviewGrid,
-    .flowPanel,
+    .operatorPanel,
     .nextPanel,
     .botGrid,
     .runtimeGrid,
@@ -917,14 +928,7 @@ onUnmounted(clearToast);
         margin-inline: 0;
     }
 
-    .flowPanel {
-        grid-template-columns: 1fr;
-    }
-
-    .stepList {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
+    .operatorGrid,
     .nextGrid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -946,10 +950,7 @@ onUnmounted(clearToast);
         width: calc(100vw - var(--spacing-space-6));
     }
 
-    .stepList {
-        grid-template-columns: 1fr;
-    }
-
+    .operatorGrid,
     .nextGrid {
         grid-template-columns: 1fr;
     }

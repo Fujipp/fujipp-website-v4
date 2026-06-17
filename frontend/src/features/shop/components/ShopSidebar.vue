@@ -2,9 +2,11 @@
 import { computed, onMounted, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useRoute, useRouter, type RouteLocationRaw } from "vue-router";
+import { ThemeApp } from "@/config";
 import PrimaryButton from "@/shared/ui/buttons/PrimaryButton.vue";
 import ThemeButton from "@/shared/ui/buttons/ThemeButton.vue";
-import { useUserStore } from "@/stores";
+import { useThemeStore, useUserStore } from "@/stores";
+import type { ThemeMode } from "@/config/theme";
 
 const SHOP_SIDEBAR_STORAGE_KEY = "fujipp:shop-sidebar-open";
 
@@ -25,6 +27,7 @@ const props = withDefaults(defineProps<Props>(), {
         { label: "Dashboard", icon: "/images/icons/sidebar/home.svg", to: { name: "shop-dashboard" } },
         { label: "Package", icon: "/images/icons/sidebar/package.svg", to: { name: "shop-package" } },
         { label: "Wallet", icon: "/images/icons/sidebar/wallet.svg", to: { name: "shop-wallet" } },
+        { label: "Guide", icon: "/images/icons/sidebar/privacy.svg", to: { name: "shop-guide" } },
         { label: "History", icon: "/images/icons/sidebar/history.svg" },
     ],
 });
@@ -37,7 +40,9 @@ const emit = defineEmits<{
 const route = useRoute();
 const router = useRouter();
 const userStore = useUserStore();
+const themeStore = useThemeStore();
 const { isAuthenticated, isAdmin, profile, user } = storeToRefs(userStore);
+const { selectedTheme } = storeToRefs(themeStore);
 
 // Admins get an extra entry into the admin area, appended to the shop nav.
 const ADMIN_ITEM: ShopSidebarItem = {
@@ -88,6 +93,10 @@ function selectItem(item: ShopSidebarItem): void {
     if (typeof window !== "undefined" && window.innerWidth <= 760) {
         emit("update:modelValue", false);
     }
+}
+
+function selectTheme(theme: ThemeMode): void {
+    themeStore.setTheme(theme);
 }
 
 function isRouteActive(item: ShopSidebarItem): boolean {
@@ -209,20 +218,101 @@ watch(isOpen, (value) => {
             </div>
         </template>
 
-        <button
-            v-else
-            type="button"
-            :class="$style.collapsedToggle"
-            aria-label="Expand shop sidebar"
-            @click="toggleSidebar"
-        >
-            <img
-                src="/images/icons/sidebar/sidebar-open.svg"
-                alt=""
-                aria-hidden="true"
-                :class="$style.toggleIcon"
-            >
-        </button>
+        <template v-else>
+            <div :class="$style.collapsedMain">
+                <RouterLink to="/" :class="$style.collapsedBrand" aria-label="Fujipp home">
+                    <img
+                        src="/images/icons/navbar/fujipp.svg"
+                        alt=""
+                        aria-hidden="true"
+                        :class="$style.collapsedBrandIcon"
+                        draggable="false"
+                    >
+                </RouterLink>
+
+                <button
+                    type="button"
+                    :class="$style.collapsedToggle"
+                    aria-label="Expand shop sidebar"
+                    @click="toggleSidebar"
+                >
+                    <img
+                        src="/images/icons/sidebar/sidebar-open.svg"
+                        alt=""
+                        aria-hidden="true"
+                        :class="$style.toggleIcon"
+                    >
+                </button>
+
+                <nav :class="$style.collapsedNavigation" aria-label="Collapsed shop navigation">
+                    <component
+                        :is="item.to ? 'RouterLink' : 'button'"
+                        v-for="item in displayItems"
+                        :key="item.label"
+                        :to="item.to"
+                        :type="item.to ? undefined : 'button'"
+                        :class="[$style.collapsedNavItem, isRouteActive(item) ? $style.collapsedNavItemActive : '']"
+                        :aria-label="item.label"
+                        :aria-current="isRouteActive(item) ? 'page' : undefined"
+                        :title="item.label"
+                        @click="selectItem(item)"
+                    >
+                        <img :src="item.icon" alt="" aria-hidden="true" :class="$style.navIcon">
+                    </component>
+                </nav>
+            </div>
+
+            <div :class="$style.collapsedUtility">
+                <div :class="$style.collapsedThemeGroup" role="group" aria-label="Theme mode">
+                    <button
+                        v-for="theme in ThemeApp"
+                        :key="theme.mode"
+                        type="button"
+                        :class="[$style.collapsedThemeButton, selectedTheme === theme.mode ? $style.collapsedThemeActive : '']"
+                        :aria-label="`Use ${theme.mode.toLowerCase()} theme`"
+                        :aria-pressed="selectedTheme === theme.mode"
+                        :title="theme.mode"
+                        @click="selectTheme(theme.mode)"
+                    >
+                        <span
+                            :class="$style.collapsedThemeIcon"
+                            :style="{ '--theme-icon': `url(${theme.src})` }"
+                            aria-hidden="true"
+                        />
+                    </button>
+                </div>
+                <button
+                    v-if="isAuthenticated"
+                    type="button"
+                    :class="$style.collapsedNavItem"
+                    aria-label="Sign out"
+                    title="Sign out"
+                    :disabled="userStore.isLoading"
+                    @click="handleLogOut"
+                >
+                    <img
+                        src="/images/icons/sidebar/logout.svg"
+                        alt=""
+                        aria-hidden="true"
+                        :class="$style.logoutIcon"
+                    >
+                </button>
+                <RouterLink
+                    v-else
+                    :to="signInRoute"
+                    :class="$style.collapsedNavItem"
+                    aria-label="Sign in"
+                    title="Sign in"
+                >
+                    <img
+                        src="/images/icons/sidebar/contact.svg"
+                        alt=""
+                        aria-hidden="true"
+                        :class="$style.logoutIcon"
+                    >
+                </RouterLink>
+            </div>
+        </template>
     </aside>
 
     <button
@@ -264,6 +354,8 @@ watch(isOpen, (value) => {
 
 .closed {
     width: 44px;
+    align-items: center;
+    justify-content: space-between;
 }
 
 .mainGroup,
@@ -324,6 +416,53 @@ watch(isOpen, (value) => {
     cursor: pointer;
 }
 
+.collapsedMain,
+.collapsedUtility,
+.collapsedNavigation {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.collapsedMain {
+    align-self: stretch;
+    gap: var(--spacing-space-3);
+}
+
+.collapsedUtility {
+    align-self: stretch;
+    gap: var(--spacing-space-3);
+}
+
+.collapsedBrand,
+.collapsedNavItem {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: var(--radius-lg);
+    background: transparent;
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.collapsedBrand:hover,
+.collapsedNavItem:hover {
+    background-color: var(--color-button-secondary-btn-hover);
+}
+
+.collapsedBrandIcon {
+    display: block;
+    width: 24px;
+    max-width: 100%;
+    height: 24px;
+    object-fit: contain;
+}
+
 .toggleButton {
     width: var(--spacing-icon-md);
     height: var(--spacing-icon-md);
@@ -331,16 +470,23 @@ watch(isOpen, (value) => {
 }
 
 .collapsedToggle {
-    align-self: stretch;
-    height: 38px;
+    width: 32px;
+    height: 32px;
     justify-content: center;
+    border-radius: var(--radius-lg);
+}
+
+.collapsedToggle:hover {
+    background-color: var(--color-button-secondary-btn-hover);
 }
 
 .toggleButton:focus-visible,
 .collapsedToggle:focus-visible,
 .logoutButton:focus-visible,
 .navItem:focus-visible,
-.brand:focus-visible {
+.brand:focus-visible,
+.collapsedBrand:focus-visible,
+.collapsedNavItem:focus-visible {
     border-radius: var(--radius-sm);
     outline: 2px solid var(--color-main-primary);
     outline-offset: 2px;
@@ -356,6 +502,56 @@ watch(isOpen, (value) => {
 
 .navigation {
     font-size: 16px;
+}
+
+.collapsedNavigation {
+    gap: var(--spacing-space-2);
+}
+
+.collapsedThemeGroup {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-space-2);
+}
+
+.collapsedThemeButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-lg);
+    background-color: var(--color-main-secondary);
+    color: var(--color-input-placeholder);
+    cursor: pointer;
+}
+
+.collapsedThemeButton:hover {
+    background-color: var(--color-button-secondary-btn-hover);
+}
+
+.collapsedThemeButton:focus-visible {
+    outline: 2px solid var(--color-main-primary);
+    outline-offset: 2px;
+}
+
+.collapsedThemeActive {
+    color: var(--color-text-secondary);
+}
+
+.collapsedThemeIcon {
+    width: var(--spacing-icon-sm);
+    height: var(--spacing-icon-sm);
+    background-color: currentColor;
+    mask: var(--theme-icon) center / contain no-repeat;
+    -webkit-mask: var(--theme-icon) center / contain no-repeat;
+}
+
+.collapsedNavItemActive {
+    background-color: var(--color-button-secondary-btn-active);
 }
 
 .navItem {

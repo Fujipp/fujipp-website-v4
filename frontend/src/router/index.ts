@@ -14,6 +14,7 @@ const NewProjectView = () => import('@/features/projects/views/NewProjectView.vu
 const ShopDashboardView = () => import('@/features/shop/views/ShopDashboardView.vue')
 const ShopWalletView = () => import('@/features/shop/views/ShopWalletView.vue')
 const ShopPackageView = () => import('@/features/shop/views/ShopPackageView.vue')
+const ShopGuideView = () => import('@/features/shop/views/ShopGuideView.vue')
 const BotConfigView = () => import('@/features/shop/views/BotConfigView.vue')
 const EmbedDesignerView = () => import('@/features/shop/views/EmbedDesignerView.vue')
 const AuthView = () => import('@/features/auth/views/AuthView.vue')
@@ -76,6 +77,7 @@ const router = createRouter({
     { path: '/shop', name: 'shop-dashboard', component: ShopDashboardView },
     { path: '/shop/wallet', name: 'shop-wallet', component: ShopWalletView },
     { path: '/shop/package', name: 'shop-package', component: ShopPackageView },
+    { path: '/shop/guide', name: 'shop-guide', component: ShopGuideView },
     { path: '/shop/bots/:botId/config', name: 'shop-bot-config', component: BotConfigView },
     { path: '/shop/bots/:botId/embeds', name: 'shop-bot-embeds', component: EmbedDesignerView },
 

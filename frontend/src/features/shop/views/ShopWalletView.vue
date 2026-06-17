@@ -81,6 +81,23 @@ const canVerifySlip = computed(() => (
 ));
 const walletBalance = computed(() => formatMoney(balanceSatang.value));
 const topupAmount = computed(() => formatMoney(topup.value?.amountSatang ?? amountThb.value * 100));
+const walletSummary = computed(() => [
+    {
+        label: "Balance",
+        value: `${walletBalance.value} บาท`,
+        detail: isLoadingWallet.value ? "กำลังโหลดเครดิตล่าสุด" : "เครดิตพร้อมใช้ซื้อแพ็กเกจ",
+    },
+    {
+        label: "Top-up amount",
+        value: `${topupAmount.value} บาท`,
+        detail: topup.value ? `Reference ${topup.value.reference}` : "เลือกยอดแล้วสร้าง QR",
+    },
+    {
+        label: "Slip status",
+        value: slipFile.value ? "Selected" : "Waiting",
+        detail: slipFile.value?.name ?? "อัปโหลดสลิปหลังโอนเงิน",
+    },
+]);
 const walletUsername = computed(() => (
     userStore.profile?.username
     ?? userStore.profile?.displayName
@@ -416,9 +433,21 @@ onUnmounted(() => {
             <section :class="$style.titleSection">
                 <h1 :class="$style.pageTitle" class="type-h1-page-title-sb">Wallet</h1>
                 <p :class="$style.pageLead">
-                    เติมเครดิตเข้ากระเป๋าก่อนซื้อ runtime หรือ feature ระบบจะให้สร้าง QR แล้วอัปโหลดสลิปเพื่อยืนยันยอด
+                    จัดการเครดิตสำหรับ runtime และ feature เติมเงินด้วย QR แล้วอัปโหลดสลิปเพื่อยืนยันยอด
                 </p>
                 <div :class="$style.divider" aria-hidden="true" />
+            </section>
+
+            <section :class="$style.walletSummaryGrid" aria-label="Wallet operation summary">
+                <article v-for="item in walletSummary" :key="item.label" :class="$style.summaryCard">
+                    <span :class="$style.summaryLabel">{{ item.label }}</span>
+                    <strong :class="$style.summaryValue">{{ item.value }}</strong>
+                    <span :class="$style.summaryDetail">{{ item.detail }}</span>
+                </article>
+                <div :class="$style.summaryActions">
+                    <RouterLink :class="$style.summaryButton" :to="{ name: 'shop-package' }">ไป Package</RouterLink>
+                    <RouterLink :class="$style.summaryButtonSecondary" :to="{ name: 'shop-guide' }">ดูคู่มือ</RouterLink>
+                </div>
             </section>
 
             <section v-if="walletError" :class="$style.statePanel" aria-live="polite">
@@ -527,6 +556,75 @@ onUnmounted(() => {
     background-color: var(--color-main-divider);
 }
 
+.walletSummaryGrid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+    gap: var(--spacing-space-3);
+}
+
+.summaryCard,
+.summaryActions {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--spacing-space-2);
+    padding: var(--spacing-space-4);
+    border: 1px solid var(--color-main-border);
+    border-radius: var(--radius-xl);
+    background-color: var(--color-main-surface);
+    color: var(--color-text-secondary);
+}
+
+.summaryLabel,
+.summaryDetail {
+    color: color-mix(in srgb, var(--color-text-secondary) 72%, transparent);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.summaryLabel {
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.summaryValue {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    color: var(--color-text-secondary);
+    font-size: 22px;
+    font-weight: 800;
+    line-height: 1.1;
+}
+
+.summaryActions {
+    min-width: 156px;
+}
+
+.summaryButton,
+.summaryButtonSecondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 38px;
+    padding: 0 var(--spacing-space-4);
+    border-radius: var(--radius-lg);
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.summaryButton {
+    border: 0;
+    background-color: var(--color-main-primary);
+    color: var(--color-button-primary-btn-text-active);
+}
+
+.summaryButtonSecondary {
+    border: 1px solid var(--color-main-divider);
+    color: var(--color-text-secondary);
+}
+
 .walletGrid {
     display: flex;
     align-items: flex-start;
@@ -598,6 +696,12 @@ onUnmounted(() => {
     width: min(360px, calc(100vw - var(--spacing-space-10)));
 }
 
+@media (max-width: 920px) {
+    .walletSummaryGrid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
 @media (max-width: 760px) {
     .content {
         padding: var(--spacing-space-5) var(--spacing-space-3) var(--spacing-space-10);
@@ -610,6 +714,10 @@ onUnmounted(() => {
 
     .walletGrid {
         justify-content: center;
+    }
+
+    .walletSummaryGrid {
+        grid-template-columns: 1fr;
     }
 
     .toastRegion {

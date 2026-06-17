@@ -84,6 +84,24 @@ const dialogProps = computed(() => {
     };
 });
 
+const packageSummary = computed(() => [
+    {
+        label: "Credit",
+        value: `${(balanceSatang.value / 100).toLocaleString("th-TH")} บาท`,
+        detail: "ใช้สำหรับ runtime และ feature",
+    },
+    {
+        label: "Bot targets",
+        value: `${bots.value.length.toLocaleString("th-TH")} bot`,
+        detail: bots.value.length === 0 ? "สร้างบอทก่อนซื้อรายการที่ผูกบอท" : "พร้อมเลือกตอนยืนยันซื้อ",
+    },
+    {
+        label: "Catalog",
+        value: `${featureCards.value.length + runtimeCards.value.length} items`,
+        detail: "แสดงเฉพาะรายการที่ backend เปิดขาย",
+    },
+]);
+
 const featureCards = computed(() =>
     features.value.flatMap((feature) =>
         featureOptions(feature).map((option) => ({
@@ -204,10 +222,16 @@ onUnmounted(clearToast);
                         <span :class="$style.balanceLabel">บาท</span>
                     </div>
                 </div>
-                <div :class="$style.divider" />
-                <div :class="$style.helperBar" role="note">
-                    <span :class="$style.helperBadge">Flow</span>
-                    <span>เลือกบอทก่อนซื้อ feature, เติม wallet ก่อนถ้าเครดิตไม่พอ, แล้วกลับไปตั้งค่าที่ Bot Config</span>
+                <div :class="$style.packageSummaryGrid" aria-label="Package buying summary">
+                    <article v-for="item in packageSummary" :key="item.label" :class="$style.summaryCard">
+                        <span :class="$style.summaryLabel">{{ item.label }}</span>
+                        <strong :class="$style.summaryValue">{{ item.value }}</strong>
+                        <span :class="$style.summaryDetail">{{ item.detail }}</span>
+                    </article>
+                    <div :class="$style.summaryActions">
+                        <RouterLink :class="$style.summaryButton" :to="{ name: 'shop-wallet' }">เติม Wallet</RouterLink>
+                        <RouterLink :class="$style.summaryButtonSecondary" :to="{ name: 'shop-guide' }">ดูคู่มือ</RouterLink>
+                    </div>
                 </div>
             </section>
 
@@ -435,29 +459,72 @@ onUnmounted(clearToast);
     line-height: 1.5;
 }
 
-.helperBar {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
+.packageSummaryGrid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+    align-items: stretch;
     gap: var(--spacing-space-3);
-    padding: var(--spacing-space-4) var(--spacing-space-5);
+}
+
+.summaryCard,
+.summaryActions {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--spacing-space-2);
+    padding: var(--spacing-space-4);
     border: 1px solid var(--color-main-border);
     border-radius: var(--radius-xl);
     background-color: var(--color-main-surface);
     color: var(--color-text-secondary);
-    font-size: 15px;
+}
+
+.summaryLabel,
+.summaryDetail {
+    color: color-mix(in srgb, var(--color-text-secondary) 72%, transparent);
+    font-size: 13px;
     line-height: 1.45;
 }
 
-.helperBadge {
+.summaryLabel {
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.summaryValue {
+    color: var(--color-text-secondary);
+    font-size: 22px;
+    font-weight: 800;
+    line-height: 1.1;
+}
+
+.summaryActions {
+    min-width: 156px;
+}
+
+.summaryButton,
+.summaryButtonSecondary {
     display: inline-flex;
     align-items: center;
-    min-height: 28px;
-    padding: 0 var(--spacing-space-3);
-    border-radius: var(--radius-full);
+    justify-content: center;
+    min-height: 38px;
+    padding: 0 var(--spacing-space-4);
+    border-radius: var(--radius-lg);
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.summaryButton {
+    border: 0;
     background-color: var(--color-main-primary);
     color: var(--color-button-primary-btn-text-active);
-    font-weight: 700;
+}
+
+.summaryButtonSecondary {
+    border: 1px solid var(--color-main-divider);
+    color: var(--color-text-secondary);
 }
 
 .balancePill {
@@ -523,8 +590,13 @@ onUnmounted(clearToast);
 }
 
 @media (max-width: 920px) {
-    .packageGrid {
+    .packageGrid,
+    .packageSummaryGrid {
         padding-inline: 0;
+    }
+
+    .packageSummaryGrid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 
@@ -550,6 +622,10 @@ onUnmounted(clearToast);
 
     .packageGrid {
         justify-content: center;
+    }
+
+    .packageSummaryGrid {
+        grid-template-columns: 1fr;
     }
 
     .toastRegion {
