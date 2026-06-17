@@ -39,8 +39,17 @@ watch(
 
 const botOptions = computed<SelectFieldOption[]>(() => props.bots.map((b) => ({ label: b.name, value: b.id })));
 const insufficient = computed(() => props.balanceSatang < props.priceSatang);
+const hasNoBotTarget = computed(() => props.requiresSubject && props.bots.length === 0);
+const confirmDisabled = computed(() => props.submitting || hasNoBotTarget.value);
+const purchaseNote = computed(() => props.requiresSubject
+    ? "รายการนี้จะผูกกับบอทที่เลือกเท่านั้น ถ้ามีหลายบอทต้องซื้อแยกต่อบอท"
+    : "รายการนี้จะเพิ่มสิทธิ์ให้บัญชีของคุณทันทีหลังตัดเครดิต");
 
 function confirm(): void {
+    if (hasNoBotTarget.value) {
+        error.value = "กรุณาสร้างบอทก่อนซื้อรายการนี้";
+        return;
+    }
     if (props.requiresSubject && !selectedBotId.value) {
         error.value = "กรุณาเลือกบอทปลายทาง";
         return;
@@ -83,8 +92,13 @@ function confirm(): void {
                         </div>
                     </dl>
 
+                    <p :class="$style.notice">{{ purchaseNote }}</p>
+                    <p v-if="hasNoBotTarget" :class="$style.warning">
+                        ยังไม่มีบอทให้เลือก กลับไปหน้า Dashboard เพื่อสร้างบอทก่อน
+                    </p>
+
                     <SelectField
-                        v-if="requiresSubject"
+                        v-if="requiresSubject && !hasNoBotTarget"
                         v-model="selectedBotId"
                         label="เลือกบอทปลายทาง"
                         placeholder="เลือกบอท…"
@@ -95,7 +109,7 @@ function confirm(): void {
 
                     <div :class="$style.actions">
                         <button type="button" :class="[$style.button, $style.cancel]" @click="emit('cancel')">ยกเลิก</button>
-                        <button type="button" :class="[$style.button, $style.confirm]" :disabled="submitting" @click="confirm">
+                        <button type="button" :class="[$style.button, $style.confirm]" :disabled="confirmDisabled" @click="confirm">
                             {{ submitting ? "กำลังสั่งซื้อ…" : "ยืนยันซื้อ" }}
                         </button>
                     </div>
@@ -201,6 +215,25 @@ function confirm(): void {
 
 .insufficient {
     color: var(--color-status-error);
+}
+
+.notice,
+.warning {
+    margin: 0;
+    padding: var(--spacing-space-3);
+    border-radius: var(--radius-lg);
+    font-size: 14px;
+    line-height: 1.45;
+}
+
+.notice {
+    border: 1px solid var(--color-main-divider);
+    color: color-mix(in srgb, var(--color-text-secondary) 82%, transparent);
+}
+
+.warning {
+    border: 1px solid var(--color-status-warning);
+    color: var(--color-status-warning);
 }
 
 .error {

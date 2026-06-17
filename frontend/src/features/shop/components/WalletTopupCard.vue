@@ -316,7 +316,7 @@ const emit = defineEmits<{
 }
 
 .input::placeholder {
-    color: var(--color-text-disabled);
+    color: var(--color-input-placeholder);
 }
 
 .input:hover {

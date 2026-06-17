@@ -16,6 +16,9 @@ interface Props {
     title?: string;
     description?: string;
     option?: PackageOption | null;
+    eyebrow?: string;
+    helper?: string;
+    meta?: string;
     mode?: PackageCardMode;
     disabled?: boolean;
     buttonLabel?: string;
@@ -25,6 +28,9 @@ const props = withDefaults(defineProps<Props>(), {
     title: "",
     description: "",
     option: null,
+    eyebrow: "Feature",
+    helper: "",
+    meta: "",
     mode: "default",
     disabled: false,
     buttonLabel: "ซื้อ",
@@ -55,6 +61,11 @@ function selectOption(): void {
         :aria-label="title"
     >
         <div :class="$style.body">
+            <div :class="$style.metaRow">
+                <span :class="$style.eyebrow">{{ eyebrow }}</span>
+                <span v-if="meta" :class="$style.meta">{{ meta }}</span>
+            </div>
+
             <div :class="$style.titleWrap">
                 <h3 :class="$style.title">{{ title }}</h3>
             </div>
@@ -66,6 +77,8 @@ function selectOption(): void {
             <div :class="$style.descriptionWrap">
                 <p :class="$style.description">{{ description }}</p>
             </div>
+
+            <p v-if="helper" :class="$style.helper">{{ helper }}</p>
         </div>
 
         <div :class="$style.actionWrap">
@@ -135,6 +148,35 @@ function selectOption(): void {
     text-align: left;
 }
 
+.metaRow {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--spacing-space-2);
+}
+
+.eyebrow,
+.meta {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 0 var(--spacing-space-3);
+    border-radius: var(--radius-full);
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.eyebrow {
+    background-color: var(--color-main-primary);
+    color: var(--color-button-primary-btn-text-active);
+}
+
+.meta {
+    border: 1px solid var(--color-main-divider);
+    color: var(--color-text-secondary);
+}
+
 .title {
     margin: 0;
     font-family: var(--font-sans);
@@ -150,7 +192,7 @@ function selectOption(): void {
     font-size: 34px;
     font-weight: 800;
     line-height: 1.1;
-    letter-spacing: -0.5px;
+    letter-spacing: 0;
     color: var(--color-main-primary);
 }
 
@@ -162,6 +204,14 @@ function selectOption(): void {
     line-height: 1.6;
     letter-spacing: 0;
     color: color-mix(in srgb, var(--color-text-secondary) 78%, transparent);
+}
+
+.helper {
+    margin: auto 0 0;
+    color: color-mix(in srgb, var(--color-text-secondary) 70%, transparent);
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.45;
 }
 
 .actionWrap {

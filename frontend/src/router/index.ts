@@ -79,13 +79,21 @@ const router = createRouter({
     { path: '/shop/bots/:botId/config', name: 'shop-bot-config', component: BotConfigView },
     { path: '/shop/bots/:botId/embeds', name: 'shop-bot-embeds', component: EmbedDesignerView },
 
-    // Admin routes (role-gated)
-    { path: '/admin', name: 'admin-dashboard', component: AdminDashboardView, beforeEnter: requireAdmin },
-    { path: '/admin/users', name: 'admin-users', component: AdminUsersView, beforeEnter: requireAdmin },
-    { path: '/admin/users/:userId', name: 'admin-user-detail', component: AdminUserDetailView, beforeEnter: requireAdmin },
-    { path: '/admin/pricing', name: 'admin-pricing', component: AdminPricingView, beforeEnter: requireAdmin },
-    { path: '/admin/bots', name: 'admin-bots', component: AdminBotsView, beforeEnter: requireAdmin },
-    { path: '/admin/bots/:botId/config', name: 'admin-bot-config', component: AdminBotConfigView, beforeEnter: requireAdmin },
+    // Admin routes live inside the shop section because they operate the shop.
+    { path: '/shop/admin', name: 'admin-dashboard', component: AdminDashboardView, beforeEnter: requireAdmin },
+    { path: '/shop/admin/users', name: 'admin-users', component: AdminUsersView, beforeEnter: requireAdmin },
+    { path: '/shop/admin/users/:userId', name: 'admin-user-detail', component: AdminUserDetailView, beforeEnter: requireAdmin },
+    { path: '/shop/admin/pricing', name: 'admin-pricing', component: AdminPricingView, beforeEnter: requireAdmin },
+    { path: '/shop/admin/bots', name: 'admin-bots', component: AdminBotsView, beforeEnter: requireAdmin },
+    { path: '/shop/admin/bots/:botId/config', name: 'admin-bot-config', component: AdminBotConfigView, beforeEnter: requireAdmin },
+
+    // Legacy admin URLs redirect into the shop admin namespace.
+    { path: '/admin', redirect: { name: 'admin-dashboard' } },
+    { path: '/admin/users', redirect: { name: 'admin-users' } },
+    { path: '/admin/users/:userId', redirect: to => ({ name: 'admin-user-detail', params: to.params }) },
+    { path: '/admin/pricing', redirect: { name: 'admin-pricing' } },
+    { path: '/admin/bots', redirect: { name: 'admin-bots' } },
+    { path: '/admin/bots/:botId/config', redirect: to => ({ name: 'admin-bot-config', params: to.params }) },
 
     // Auth routes
     { path: '/login',    name: 'login',    component: AuthView },

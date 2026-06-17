@@ -1,9 +1,12 @@
 # Changelog — Frontend
 
-**Current version: `0.5.3.1`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.5.3.4`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.5.3.4` | 2026-06-18 | shop UI revise: add dashboard next-action cards based on current bot/runtime/feature state, clarify feature/runtime package cards, and improve purchase confirmation copy for per-bot purchases and no-bot cases |
+| `0.5.3.3` | 2026-06-18 | shop/admin UX: move admin routes under `/shop/admin`, keep legacy `/admin` redirects, and reuse the Shop sidebar with an in-page admin tab bar so admin feels like part of the shop operator flow |
+| `0.5.3.2` | 2026-06-18 | shop UX: add lifecycle guidance across dashboard/package/wallet/bot config so customers see create → buy → configure → start, and add dark-mode input text/background/border token overrides for readable form fields |
 | `0.5.3.1` | 2026-06-15 | STRING_LIST config fields now render as separate input boxes with add/remove per item (was a one-per-line textarea) — clearer for editing reply messages / reactions individually |
 | `0.5.3` | 2026-06-15 | bot config: new "Review Credit — ตัวนับรีวิว" panel (shown when the bot has review-credit) — see the current count, set it to any number, or "นับทั้งห้องใหม่" to recount the whole channel |
 | `0.5.2.4` | 2026-06-15 | bot config form: new `STRING_LIST` field type renders as a one-item-per-line textarea (converts ↔ JSON array under the hood), so list config like review-credit's reply messages / reactions no longer needs hand-written `["...","..."]` JSON |

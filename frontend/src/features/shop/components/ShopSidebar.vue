@@ -91,6 +91,7 @@ function selectItem(item: ShopSidebarItem): void {
 }
 
 function isRouteActive(item: ShopSidebarItem): boolean {
+    if (item.label === "Admin" && route.path.startsWith("/shop/admin")) return true;
     if (!item.to || typeof item.to === "string") return false;
     if ("name" in item.to && item.to.name) return route.name === item.to.name;
 

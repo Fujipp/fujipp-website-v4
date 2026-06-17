@@ -415,6 +415,9 @@ onUnmounted(() => {
         <main :class="[$style.content, isSidebarOpen ? $style.sidebarOpen : $style.sidebarClosed]">
             <section :class="$style.titleSection">
                 <h1 :class="$style.pageTitle" class="type-h1-page-title-sb">Wallet</h1>
+                <p :class="$style.pageLead">
+                    เติมเครดิตเข้ากระเป๋าก่อนซื้อ runtime หรือ feature ระบบจะให้สร้าง QR แล้วอัปโหลดสลิปเพื่อยืนยันยอด
+                </p>
                 <div :class="$style.divider" aria-hidden="true" />
             </section>
 
@@ -497,6 +500,7 @@ onUnmounted(() => {
 .titleSection {
     display: flex;
     flex-direction: column;
+    gap: var(--spacing-space-2);
 }
 
 .pageTitle {
@@ -508,6 +512,14 @@ onUnmounted(() => {
     font-size: 32px;
     font-weight: 600;
     line-height: 1.15;
+}
+
+.pageLead {
+    max-width: 760px;
+    margin: 0;
+    color: var(--color-text-disabled);
+    font-size: 16px;
+    line-height: 1.5;
 }
 
 .divider {

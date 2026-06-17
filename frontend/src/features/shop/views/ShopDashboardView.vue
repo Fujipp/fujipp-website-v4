@@ -10,6 +10,9 @@ import type { CatalogFeature, RuntimePlan } from "@/features/shop/config/catalog
 
 type ToastStatus = "info" | "success" | "warning" | "error";
 type BotAction = "start" | "stop" | "restart" | "edit";
+type NextAction =
+    | { description: string; label: string; title: string; type: "create" }
+    | { description: string; label: string; title: string; type: "route"; to: "shop-dashboard" | "shop-package" | "shop-wallet" };
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -87,6 +90,84 @@ const runtimePlans = ref<RuntimePlan[]>([]);
 const featureSubscriptions = ref<FeatureSubscriptionResponse[]>([]);
 const runtimeSubscriptions = ref<RuntimeSubscriptionResponse[]>([]);
 const availableSlots = ref<number | null>(null);
+
+const setupSteps = [
+    {
+        label: "01",
+        title: "Create bot",
+        description: "เพิ่ม token จาก Discord Developer Portal และเลือก runtime เริ่มต้น",
+    },
+    {
+        label: "02",
+        title: "Buy package",
+        description: "ซื้อฟีเจอร์ถาวรต่อบอท หรือเติม runtime ให้บอทตัวที่เลือก",
+    },
+    {
+        label: "03",
+        title: "Configure",
+        description: "ตั้งค่า channel, role, wallet, Roblox, review และ embed ของบอท",
+    },
+    {
+        label: "04",
+        title: "Start",
+        description: "กด start แล้วเช็กสถานะบอทกับ Discord ก่อนใช้งานจริง",
+    },
+] as const;
+
+const nextActions = computed(() => {
+    if (isLoading.value) return [];
+
+    const actions: NextAction[] = [];
+
+    if (botRecords.value.length === 0) {
+        actions.push({
+            type: "create",
+            title: "Create your first bot",
+            description: "เพิ่ม token และ runtime เริ่มต้น เพื่อให้เริ่มขายบริการได้",
+            label: "Create bot",
+        });
+    }
+
+    if (runtimeSubscriptions.value.length === 0) {
+        actions.push({
+            type: "route",
+            title: "Buy runtime",
+            description: "Runtime คือเวลาออนไลน์ของบอท ต้องมีก่อน start ใช้งานจริง",
+            label: "Go Package",
+            to: "shop-package",
+        });
+    }
+
+    if (featureSubscriptions.value.length === 0) {
+        actions.push({
+            type: "route",
+            title: "Add a feature",
+            description: "เลือกความสามารถ เช่น Roblox, wallet, review หรือ voice keeper ให้บอท",
+            label: "Choose feature",
+            to: "shop-package",
+        });
+    }
+
+    if (bots.value.some((bot) => bot.status === "offline")) {
+        actions.push({
+            type: "route",
+            title: "Configure then start",
+            description: "ตรวจ config ของบอท offline ก่อนกด start เพื่อกัน Discord error",
+            label: "Open bots",
+            to: "shop-dashboard",
+        });
+    }
+
+    actions.push({
+        type: "route",
+        title: "Keep wallet ready",
+        description: "เติมเครดิตไว้สำหรับ runtime renewal และซื้อ feature เพิ่ม",
+        label: "Open wallet",
+        to: "shop-wallet",
+    });
+
+    return actions.slice(0, 4);
+});
 
 const featureById = computed(() => new Map(catalogFeatures.value.map((feature) => [feature.id, feature])));
 const runtimePlanById = computed(() => new Map(runtimePlans.value.map((plan) => [plan.id, plan])));
@@ -359,6 +440,50 @@ onUnmounted(clearToast);
                         <span :class="$style.metricLabel">{{ metric.label }}</span>
                     </article>
                 </div>
+
+                <section :class="$style.flowPanel" aria-labelledby="shop-flow-title">
+                    <div :class="$style.flowHeader">
+                        <h2 id="shop-flow-title" :class="$style.flowTitle">Bot service flow</h2>
+                        <p :class="$style.flowText">
+                            เริ่มจากสร้างบอท ซื้อ runtime/feature ตั้งค่า แล้วค่อย start เพื่อให้ลูกค้าเห็นลำดับเดียวกันทุกครั้ง
+                        </p>
+                    </div>
+                    <ol :class="$style.stepList">
+                        <li v-for="step in setupSteps" :key="step.label" :class="$style.stepItem">
+                            <span :class="$style.stepLabel">{{ step.label }}</span>
+                            <strong :class="$style.stepTitle">{{ step.title }}</strong>
+                            <span :class="$style.stepText">{{ step.description }}</span>
+                        </li>
+                    </ol>
+                </section>
+
+                <section :class="$style.nextPanel" aria-labelledby="shop-next-title">
+                    <div :class="$style.nextHeader">
+                        <h2 id="shop-next-title" :class="$style.flowTitle">Next actions</h2>
+                        <p :class="$style.flowText">งานที่ควรทำต่อจากสถานะร้านตอนนี้</p>
+                    </div>
+                    <div :class="$style.nextGrid">
+                        <article v-for="action in nextActions" :key="action.title" :class="$style.nextItem">
+                            <strong :class="$style.nextTitle">{{ action.title }}</strong>
+                            <span :class="$style.nextText">{{ action.description }}</span>
+                            <button
+                                v-if="action.type === 'create'"
+                                type="button"
+                                :class="$style.nextButton"
+                                @click="handleAddBot"
+                            >
+                                {{ action.label }}
+                            </button>
+                            <RouterLink
+                                v-else
+                                :to="{ name: action.to }"
+                                :class="$style.nextButton"
+                            >
+                                {{ action.label }}
+                            </RouterLink>
+                        </article>
+                    </div>
+                </section>
             </section>
 
             <section :class="$style.sectionGroup" aria-labelledby="shop-bot-title">
@@ -555,6 +680,155 @@ onUnmounted(clearToast);
     text-transform: uppercase;
 }
 
+.flowPanel {
+    display: grid;
+    grid-template-columns: minmax(220px, 0.75fr) minmax(0, 1.25fr);
+    gap: var(--spacing-space-5);
+    margin-inline: var(--spacing-space-5);
+    padding: var(--spacing-space-5);
+    border: 1px solid var(--color-main-border);
+    border-radius: var(--radius-2xl);
+    background-color: var(--color-main-surface);
+    color: var(--color-text-secondary);
+}
+
+.nextPanel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-space-4);
+    margin-inline: var(--spacing-space-5);
+    padding: var(--spacing-space-5);
+    border: 1px solid var(--color-main-border);
+    border-radius: var(--radius-2xl);
+    background-color: var(--color-main-surface);
+    color: var(--color-text-secondary);
+}
+
+.nextHeader {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--spacing-space-3);
+}
+
+.nextGrid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--spacing-space-3);
+}
+
+.nextItem {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: var(--spacing-space-3);
+    padding: var(--spacing-space-4);
+    border: 1px solid var(--color-main-divider);
+    border-radius: var(--radius-xl);
+    background-color: color-mix(in srgb, var(--color-main-surface) 88%, var(--color-main-primary) 12%);
+}
+
+.nextTitle {
+    color: var(--color-text-secondary);
+    font-size: 17px;
+    line-height: 1.2;
+}
+
+.nextText {
+    flex: 1;
+    color: color-mix(in srgb, var(--color-text-secondary) 72%, transparent);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.nextButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 38px;
+    padding: 0 var(--spacing-space-4);
+    border: 0;
+    border-radius: var(--radius-lg);
+    background-color: var(--color-button-primary-btn-bg);
+    color: var(--color-button-primary-btn-text-active);
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.nextButton:hover {
+    background-color: var(--color-button-primary-btn-hover);
+}
+
+.nextButton:focus-visible {
+    outline: 2px solid var(--color-main-primary);
+    outline-offset: 2px;
+}
+
+.flowHeader {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-space-2);
+}
+
+.flowTitle,
+.flowText {
+    margin: 0;
+}
+
+.flowTitle {
+    color: var(--color-text-secondary);
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.15;
+}
+
+.flowText {
+    color: color-mix(in srgb, var(--color-text-secondary) 76%, transparent);
+    font-size: 15px;
+    line-height: 1.55;
+}
+
+.stepList {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--spacing-space-3);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.stepItem {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: var(--spacing-space-2);
+    padding: var(--spacing-space-4);
+    border: 1px solid var(--color-main-divider);
+    border-radius: var(--radius-xl);
+    background-color: color-mix(in srgb, var(--color-main-surface) 82%, var(--color-main-primary) 18%);
+}
+
+.stepLabel {
+    color: var(--color-main-primary);
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.stepTitle {
+    color: var(--color-text-secondary);
+    font-size: 17px;
+    line-height: 1.2;
+}
+
+.stepText {
+    color: color-mix(in srgb, var(--color-text-secondary) 72%, transparent);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
 .botGrid,
 .runtimeGrid {
     display: flex;
@@ -634,11 +908,25 @@ onUnmounted(clearToast);
 
 @media (max-width: 920px) {
     .overviewGrid,
+    .flowPanel,
+    .nextPanel,
     .botGrid,
     .runtimeGrid,
     .statePanel {
         padding-inline: 0;
         margin-inline: 0;
+    }
+
+    .flowPanel {
+        grid-template-columns: 1fr;
+    }
+
+    .stepList {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .nextGrid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 
@@ -656,6 +944,14 @@ onUnmounted(clearToast);
         right: var(--spacing-space-3);
         bottom: var(--spacing-space-3);
         width: calc(100vw - var(--spacing-space-6));
+    }
+
+    .stepList {
+        grid-template-columns: 1fr;
+    }
+
+    .nextGrid {
+        grid-template-columns: 1fr;
     }
 }
 </style>

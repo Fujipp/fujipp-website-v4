@@ -321,8 +321,33 @@ onMounted(async () => {
         <main :class="[$style.content, isSidebarOpen ? $style.sidebarOpen : $style.sidebarClosed]">
             <section :class="$style.titleSection">
                 <h1 :class="$style.pageTitle" class="type-h1-page-title-sb">BOT CONFIG</h1>
-                <p :class="$style.subtitle" class="type-body-small-r">ตั้งค่าฟีเจอร์ของบอท · {{ botName || botId || "—" }}</p>
+                <p :class="$style.subtitle" class="type-body-small-r">
+                    ตั้งค่าข้อมูลบอท, runtime, feature และ embed ก่อนกด start · {{ botName || botId || "—" }}
+                </p>
                 <div :class="$style.divider" />
+            </section>
+
+            <section :class="$style.setupPanel" aria-label="Bot setup checklist">
+                <article :class="$style.setupItem">
+                    <span :class="$style.setupKicker">Step 1</span>
+                    <strong>Bot identity</strong>
+                    <span>Token, application id และ guild id ต้องถูกต้องก่อนเริ่มรัน</span>
+                </article>
+                <article :class="$style.setupItem">
+                    <span :class="$style.setupKicker">Step 2</span>
+                    <strong>Runtime</strong>
+                    <span>บอทต้องมี runtime active ไม่อย่างนั้นเปิดออนไลน์ไม่ได้</span>
+                </article>
+                <article :class="$style.setupItem">
+                    <span :class="$style.setupKicker">Step 3</span>
+                    <strong>Features</strong>
+                    <span>ตั้งค่า channel, role, package และข้อความตาม feature ที่ซื้อ</span>
+                </article>
+                <article :class="$style.setupItem">
+                    <span :class="$style.setupKicker">Step 4</span>
+                    <strong>Embed</strong>
+                    <span>ปรับหน้าตา panel/แจ้งเตือนให้ตรงร้านก่อนใช้งานจริง</span>
+                </article>
             </section>
 
             <!-- ── Bot Setting ─────────────────────────────────────────────── -->
@@ -559,6 +584,45 @@ onMounted(async () => {
     background-color: var(--color-input-border);
 }
 
+.setupPanel {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--spacing-space-3);
+    width: 100%;
+    max-width: 1180px;
+}
+
+.setupItem {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: var(--spacing-space-2);
+    padding: var(--spacing-space-4);
+    border: 1px solid var(--color-input-border);
+    border-radius: var(--radius-xl);
+    background: color-mix(in srgb, var(--color-main-background) 92%, var(--color-main-primary) 8%);
+    color: var(--color-text-primary);
+}
+
+.setupItem strong {
+    font-size: 17px;
+    line-height: 1.2;
+}
+
+.setupItem span:last-child {
+    color: var(--color-text-disabled);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.setupKicker {
+    color: var(--color-main-primary);
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1;
+    text-transform: uppercase;
+}
+
 .block {
     display: flex;
     flex-direction: column;
@@ -682,8 +746,8 @@ onMounted(async () => {
     padding: 0 var(--spacing-space-4);
     border: 1px solid var(--color-input-border);
     border-radius: var(--radius-lg);
-    background: var(--color-main-background);
-    color: var(--color-text-primary);
+    background: var(--color-input-bg);
+    color: var(--color-text-input);
     font: inherit;
 }
 
@@ -870,6 +934,18 @@ onMounted(async () => {
         bottom: var(--spacing-space-3);
         right: var(--spacing-space-3);
         width: calc(100vw - var(--spacing-space-6));
+    }
+}
+
+@media (max-width: 980px) {
+    .setupPanel {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 560px) {
+    .setupPanel {
+        grid-template-columns: 1fr;
     }
 }
 </style>

@@ -90,6 +90,9 @@ const featureCards = computed(() =>
             id: option.id,
             title: feature.name,
             description: feature.description,
+            helper: option.requiresSubject
+                ? "ต้องเลือกบอทปลายทางตอนซื้อ ฟีเจอร์นี้จะติดกับบอทตัวนั้น"
+                : "ซื้อแล้วใช้กับบัญชีนี้",
             option,
         })),
     ),
@@ -101,6 +104,7 @@ const runtimeCards = computed(() =>
         title: `Runtime ${plan.durationMonths} month`,
         option: planOption(plan),
         name: plan.name,
+        helper: "เติมเวลาออนไลน์ให้บอท เลือกบอทปลายทางตอนซื้อ",
     })),
 );
 
@@ -188,7 +192,12 @@ onUnmounted(clearToast);
         <main :class="[$style.content, isSidebarOpen ? $style.sidebarOpen : $style.sidebarClosed]">
             <section :class="$style.packageSection" aria-labelledby="shop-package-title">
                 <div :class="$style.titleRow">
-                    <h1 id="shop-package-title" :class="$style.pageTitle">PACKAGE</h1>
+                    <div :class="$style.titleCopy">
+                        <h1 id="shop-package-title" :class="$style.pageTitle">PACKAGE</h1>
+                        <p :class="$style.pageLead">
+                            Runtime คือเวลาออนไลน์ของบอท ส่วน Feature คือความสามารถที่ซื้อถาวรต่อบอทหนึ่งตัว
+                        </p>
+                    </div>
                     <div :class="$style.balancePill" aria-label="เครดิตคงเหลือ">
                         <span :class="$style.balanceLabel">เครดิตคงเหลือ</span>
                         <span :class="$style.balanceValue">{{ (balanceSatang / 100).toLocaleString("th-TH") }}</span>
@@ -196,6 +205,10 @@ onUnmounted(clearToast);
                     </div>
                 </div>
                 <div :class="$style.divider" />
+                <div :class="$style.helperBar" role="note">
+                    <span :class="$style.helperBadge">Flow</span>
+                    <span>เลือกบอทก่อนซื้อ feature, เติม wallet ก่อนถ้าเครดิตไม่พอ, แล้วกลับไปตั้งค่าที่ Bot Config</span>
+                </div>
             </section>
 
             <template v-if="isLoading">
@@ -235,9 +248,13 @@ onUnmounted(clearToast);
                         <PackageCard
                             v-for="card in featureCards"
                             :key="card.id"
+                            eyebrow="Feature"
                             :title="card.title"
                             :description="card.description"
+                            :meta="card.option.label"
+                            :helper="card.helper"
                             :option="card.option"
+                            button-label="ซื้อ Feature"
                             @select="(option) => openBuy(card.title, option)"
                         />
                     </div>
@@ -253,8 +270,12 @@ onUnmounted(clearToast);
                         <PackageRuntimeCard
                             v-for="card in runtimeCards"
                             :key="card.id"
+                            eyebrow="Runtime"
                             :title="card.title"
+                            :meta="card.option.label"
+                            :helper="card.helper"
                             :option="card.option"
+                            button-label="ซื้อ Runtime"
                             @select="(option) => openBuy(card.name, option)"
                         />
                     </div>
@@ -389,6 +410,13 @@ onUnmounted(clearToast);
     gap: var(--spacing-space-5);
 }
 
+.titleCopy {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: var(--spacing-space-2);
+}
+
 .pageTitle {
     margin: 0;
     color: var(--color-text-primary);
@@ -397,6 +425,39 @@ onUnmounted(clearToast);
     font-weight: 600;
     line-height: 1;
     letter-spacing: 0;
+}
+
+.pageLead {
+    max-width: 680px;
+    margin: 0;
+    color: var(--color-text-disabled);
+    font-size: 16px;
+    line-height: 1.5;
+}
+
+.helperBar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--spacing-space-3);
+    padding: var(--spacing-space-4) var(--spacing-space-5);
+    border: 1px solid var(--color-main-border);
+    border-radius: var(--radius-xl);
+    background-color: var(--color-main-surface);
+    color: var(--color-text-secondary);
+    font-size: 15px;
+    line-height: 1.45;
+}
+
+.helperBadge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 0 var(--spacing-space-3);
+    border-radius: var(--radius-full);
+    background-color: var(--color-main-primary);
+    color: var(--color-button-primary-btn-text-active);
+    font-weight: 700;
 }
 
 .balancePill {

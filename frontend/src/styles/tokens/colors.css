@@ -88,8 +88,17 @@
   --color-main-border: #adadad;
   --color-text-primary: #ffffff;
   --color-text-secondary: #ffffff;
+  --color-text-input: #f8f9fb;
   --color-status-success: #40d59c;
   --color-status-warning: #ffbc3d;
   --color-status-error: #ff5858;
   --color-status-info: #4088ff;
+  --color-input-bg: #242424;
+  --color-input-border: #505050;
+  --color-input-border-hover: #7987ac;
+  --color-input-border-focus: #a7b8e8;
+  --color-input-placeholder: #b6bdcc;
+  --color-input-placeholder-bg: #303030;
+  --color-input-bg-disabled: #303030;
+  --color-input-border-disabled: #505050;
 }

@@ -69,7 +69,7 @@ const emit = defineEmits<{
 }
 
 .field::placeholder {
-    color: var(--color-text-disabled);
+    color: var(--color-input-placeholder);
 }
 
 .field:hover {
