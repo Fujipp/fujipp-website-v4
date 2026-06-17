@@ -1,9 +1,10 @@
 # Changelog — Database
 
-**Current version: `0.2.0.5`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.2.1`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.2.1` | 2026-06-17 | seed the `voice-keeper` feature into `billing.feature_catalog` (AUTOMATION) with 2 config templates — `VOICE_CHANNEL_ID` (CHANNEL_ID) + `VOICE_KEEP_ENABLED` (BOOLEAN) (`20260617120000`); ports the legacy IDAXD Shop 24/7 voice presence — no price yet (visible, not purchasable until priced in the admin Pricing page) |
 | `0.2.0.5` | 2026-06-16 | wallet-topup: add `SLIP_ACCESS_ROLE_ID` config (`20260616120000`) — a temporary role granted on a PromptPay top-up so the member can see the slip channel, removed when the QR window closes |
 | `0.2.0.4` | 2026-06-15 | wallet-topup: add `TRUEMONEY_FEE_FLAT` (flat baht) alongside `TRUEMONEY_FEE` (%) and reword both (`20260615150000`); expose `{{fee}}`/`{{gross}}` on the `topup_success` embed. The bot now actually applies these (was defined-but-unused) |
 | `0.2.0.3` | 2026-06-15 | reword review-credit STRING_LIST field hints (`20260615140000`) — edited as add/remove input boxes now, so drop the "บรรทัดละ" (per-line) wording |
