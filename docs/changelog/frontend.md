@@ -1,9 +1,10 @@
 # Changelog — Frontend
 
-**Current version: `0.5.3.5`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.5.3.6`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.5.3.6` | 2026-06-18 | shop UI polish: remove floating summary action cards from Package/Wallet headers, hide Dashboard next-actions when there is no real action, and make feature package cards equal-height within the grid |
 | `0.5.3.5` | 2026-06-18 | shop UI revise: move the service flow into a dedicated `/shop/guide` page, convert Dashboard into an operator snapshot with next actions, add buying/payment summaries to Package and Wallet, and keep the collapsed Shop sidebar usable with icon navigation |
 | `0.5.3.4` | 2026-06-18 | shop UI revise: add dashboard next-action cards based on current bot/runtime/feature state, clarify feature/runtime package cards, and improve purchase confirmation copy for per-bot purchases and no-bot cases |
 | `0.5.3.3` | 2026-06-18 | shop/admin UX: move admin routes under `/shop/admin`, keep legacy `/admin` redirects, and reuse the Shop sidebar with an in-page admin tab bar so admin feels like part of the shop operator flow |

@@ -98,11 +98,11 @@ function selectOption(): void {
 .card {
     position: relative;
     display: flex;
-    flex-shrink: 0;
     flex-direction: column;
     box-sizing: border-box;
-    width: min(100%, 300px);
-    min-height: 340px;
+    width: 100%;
+    height: 100%;
+    min-height: 430px;
     padding: var(--spacing-space-6);
     gap: var(--spacing-space-5);
     overflow: hidden;
@@ -121,7 +121,7 @@ function selectOption(): void {
 }
 
 .skeletonCard {
-    min-height: 340px;
+    min-height: 430px;
     border-color: transparent;
     background: linear-gradient(262.31deg, #ffffff 0%, var(--color-main-surface) 100%);
 }
@@ -261,6 +261,7 @@ function selectOption(): void {
 @media (max-width: 520px) {
     .card {
         width: 100%;
+        min-height: 0;
     }
 
     .title {

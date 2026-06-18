@@ -431,10 +431,18 @@ onUnmounted(() => {
 
         <main :class="[$style.content, isSidebarOpen ? $style.sidebarOpen : $style.sidebarClosed]">
             <section :class="$style.titleSection">
-                <h1 :class="$style.pageTitle" class="type-h1-page-title-sb">Wallet</h1>
-                <p :class="$style.pageLead">
-                    จัดการเครดิตสำหรับ runtime และ feature เติมเงินด้วย QR แล้วอัปโหลดสลิปเพื่อยืนยันยอด
-                </p>
+                <div :class="$style.titleRow">
+                    <div :class="$style.titleCopy">
+                        <h1 :class="$style.pageTitle" class="type-h1-page-title-sb">Wallet</h1>
+                        <p :class="$style.pageLead">
+                            จัดการเครดิตสำหรับ runtime และ feature เติมเงินด้วย QR แล้วอัปโหลดสลิปเพื่อยืนยันยอด
+                        </p>
+                    </div>
+                    <div :class="$style.titleActions">
+                        <RouterLink :class="$style.summaryButton" :to="{ name: 'shop-package' }">ไป Package</RouterLink>
+                        <RouterLink :class="$style.summaryButtonSecondary" :to="{ name: 'shop-guide' }">ดูคู่มือ</RouterLink>
+                    </div>
+                </div>
                 <div :class="$style.divider" aria-hidden="true" />
             </section>
 
@@ -444,10 +452,6 @@ onUnmounted(() => {
                     <strong :class="$style.summaryValue">{{ item.value }}</strong>
                     <span :class="$style.summaryDetail">{{ item.detail }}</span>
                 </article>
-                <div :class="$style.summaryActions">
-                    <RouterLink :class="$style.summaryButton" :to="{ name: 'shop-package' }">ไป Package</RouterLink>
-                    <RouterLink :class="$style.summaryButtonSecondary" :to="{ name: 'shop-guide' }">ดูคู่มือ</RouterLink>
-                </div>
             </section>
 
             <section v-if="walletError" :class="$style.statePanel" aria-live="polite">
@@ -532,6 +536,28 @@ onUnmounted(() => {
     gap: var(--spacing-space-2);
 }
 
+.titleRow {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-space-5);
+}
+
+.titleCopy {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: var(--spacing-space-2);
+}
+
+.titleActions {
+    display: flex;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--spacing-space-2);
+}
+
 .pageTitle {
     margin: 0;
 }
@@ -558,12 +584,11 @@ onUnmounted(() => {
 
 .walletSummaryGrid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: var(--spacing-space-3);
 }
 
-.summaryCard,
-.summaryActions {
+.summaryCard {
     display: flex;
     min-width: 0;
     flex-direction: column;
@@ -595,10 +620,6 @@ onUnmounted(() => {
     font-size: 22px;
     font-weight: 800;
     line-height: 1.1;
-}
-
-.summaryActions {
-    min-width: 156px;
 }
 
 .summaryButton,
@@ -714,6 +735,15 @@ onUnmounted(() => {
 
     .walletGrid {
         justify-content: center;
+    }
+
+    .titleRow {
+        flex-direction: column;
+        gap: var(--spacing-space-3);
+    }
+
+    .titleActions {
+        justify-content: flex-start;
     }
 
     .walletSummaryGrid {

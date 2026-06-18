@@ -12,7 +12,7 @@ type ToastStatus = "info" | "success" | "warning" | "error";
 type BotAction = "start" | "stop" | "restart" | "edit";
 type NextAction =
     | { description: string; label: string; title: string; type: "create" }
-    | { description: string; label: string; title: string; type: "route"; to: "shop-dashboard" | "shop-guide" | "shop-package" | "shop-wallet" };
+    | { description: string; label: string; title: string; type: "route"; to: "shop-dashboard" | "shop-package" | "shop-wallet" };
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -134,14 +134,6 @@ const nextActions = computed(() => {
             to: "shop-dashboard",
         });
     }
-
-    actions.push({
-        type: "route",
-        title: "Need the full flow?",
-        description: "เปิดคู่มือสำหรับลำดับสร้างบอท ซื้อแพ็กเกจ ตั้งค่า และดูแล runtime",
-        label: "Open guide",
-        to: "shop-guide",
-    });
 
     return actions.slice(0, 4);
 });
@@ -461,7 +453,7 @@ onUnmounted(clearToast);
                     </div>
                 </section>
 
-                <section :class="$style.nextPanel" aria-labelledby="shop-next-title">
+                <section v-if="nextActions.length > 0" :class="$style.nextPanel" aria-labelledby="shop-next-title">
                     <div :class="$style.nextHeader">
                         <h2 id="shop-next-title" :class="$style.panelTitle">Next actions</h2>
                         <p :class="$style.panelText">งานที่ควรทำต่อจากสถานะร้านตอนนี้</p>

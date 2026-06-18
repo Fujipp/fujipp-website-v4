@@ -221,6 +221,10 @@ onUnmounted(clearToast);
                         <span :class="$style.balanceValue">{{ (balanceSatang / 100).toLocaleString("th-TH") }}</span>
                         <span :class="$style.balanceLabel">บาท</span>
                     </div>
+                    <div :class="$style.titleActions">
+                        <RouterLink :class="$style.summaryButton" :to="{ name: 'shop-wallet' }">เติม Wallet</RouterLink>
+                        <RouterLink :class="$style.summaryButtonSecondary" :to="{ name: 'shop-guide' }">ดูคู่มือ</RouterLink>
+                    </div>
                 </div>
                 <div :class="$style.packageSummaryGrid" aria-label="Package buying summary">
                     <article v-for="item in packageSummary" :key="item.label" :class="$style.summaryCard">
@@ -228,10 +232,6 @@ onUnmounted(clearToast);
                         <strong :class="$style.summaryValue">{{ item.value }}</strong>
                         <span :class="$style.summaryDetail">{{ item.detail }}</span>
                     </article>
-                    <div :class="$style.summaryActions">
-                        <RouterLink :class="$style.summaryButton" :to="{ name: 'shop-wallet' }">เติม Wallet</RouterLink>
-                        <RouterLink :class="$style.summaryButtonSecondary" :to="{ name: 'shop-guide' }">ดูคู่มือ</RouterLink>
-                    </div>
                 </div>
             </section>
 
@@ -434,6 +434,14 @@ onUnmounted(clearToast);
     gap: var(--spacing-space-5);
 }
 
+.titleActions {
+    display: flex;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--spacing-space-2);
+}
+
 .titleCopy {
     display: flex;
     min-width: 0;
@@ -461,13 +469,12 @@ onUnmounted(clearToast);
 
 .packageSummaryGrid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     align-items: stretch;
     gap: var(--spacing-space-3);
 }
 
-.summaryCard,
-.summaryActions {
+.summaryCard {
     display: flex;
     min-width: 0;
     flex-direction: column;
@@ -497,10 +504,6 @@ onUnmounted(clearToast);
     font-size: 22px;
     font-weight: 800;
     line-height: 1.1;
-}
-
-.summaryActions {
-    min-width: 156px;
 }
 
 .summaryButton,
@@ -573,10 +576,9 @@ onUnmounted(clearToast);
 }
 
 .packageGrid {
-    display: flex;
-    align-items: flex-start;
-    flex-wrap: wrap;
-    align-content: flex-start;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 300px));
+    align-items: stretch;
     gap: var(--spacing-space-5);
     padding-inline: var(--spacing-space-5);
 }
@@ -615,13 +617,17 @@ onUnmounted(clearToast);
         gap: var(--spacing-space-3);
     }
 
+    .titleActions {
+        justify-content: flex-start;
+    }
+
     .balancePill {
         align-self: flex-start;
         flex-wrap: wrap;
     }
 
     .packageGrid {
-        justify-content: center;
+        grid-template-columns: 1fr;
     }
 
     .packageSummaryGrid {
