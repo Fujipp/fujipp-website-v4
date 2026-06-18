@@ -22,6 +22,7 @@ import type {
     AdminBot,
     BotConfig,
     AdminDashboard,
+    GrantBotFeaturePayload,
 } from "@/features/admin/config";
 
 /**
@@ -190,6 +191,34 @@ export const useAdminStore = defineStore("admin", () => {
         });
     }
 
+    // ── per-bot runtime control (proxied to the orchestrator) ────────────────────
+    function botRuntimeAction(botId: string, action: "start" | "stop" | "restart"): Promise<unknown> {
+        return adminFetch<unknown>(`/api/admin/bots/${botId}/${action}`, { method: "POST" });
+    }
+
+    function botStatus(botId: string): Promise<{ state?: string }> {
+        return adminFetch<{ state?: string }>(`/api/admin/bots/${botId}/status`);
+    }
+
+    // ── per-bot subscriptions (runtime + features for this bot) ──────────────────
+    function fetchBotSubscriptions(botId: string): Promise<AdminUserSubscriptions> {
+        return adminFetch<AdminUserSubscriptions>(`/api/admin/bots/${botId}/subscriptions`);
+    }
+
+    function grantBotRuntime(botId: string, runtimePlanId: string): Promise<AdminRuntimeSubscription> {
+        return adminFetch<AdminRuntimeSubscription>(`/api/admin/bots/${botId}/runtime`, {
+            method: "POST",
+            body: { runtimePlanId },
+        });
+    }
+
+    function grantBotFeature(botId: string, payload: GrantBotFeaturePayload): Promise<AdminFeatureSubscription> {
+        return adminFetch<AdminFeatureSubscription>(`/api/admin/bots/${botId}/feature`, {
+            method: "POST",
+            body: payload,
+        });
+    }
+
     return {
         users, isLoading, error, adminFetch,
         fetchUsers, fetchUser, updateUser,
@@ -198,6 +227,7 @@ export const useAdminStore = defineStore("admin", () => {
         fetchUserSubscriptions, updateRuntimeSubscription, updateFeatureSubscription,
         fetchUserWallet, fetchUserWalletTransactions, adjustUserWallet,
         fetchBots, fetchBotConfig, updateBotConfig, transferBot,
+        botRuntimeAction, botStatus, fetchBotSubscriptions, grantBotRuntime, grantBotFeature,
         fetchDashboard,
     };
 });

@@ -34,6 +34,9 @@ const filteredUsers = computed<AdminUser[]>(() => {
     return matched.slice(0, 8);
 });
 
+// Per-row runtime action in flight (botId), so its buttons disable while it runs.
+const runtimeBusyId = ref<string | null>(null);
+
 const toast = ref<{ status: "success" | "error"; title: string } | null>(null);
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -91,6 +94,18 @@ async function confirmTransfer(): Promise<void> {
     }
 }
 
+async function runRuntimeAction(bot: AdminBot, action: "start" | "stop" | "restart"): Promise<void> {
+    runtimeBusyId.value = bot.id;
+    try {
+        await adminStore.botRuntimeAction(bot.id, action);
+        showToast("success", `${bot.name}: ${action} sent`);
+    } catch (cause) {
+        showToast("error", cause instanceof Error ? cause.message : `${action} failed`);
+    } finally {
+        runtimeBusyId.value = null;
+    }
+}
+
 function formatDate(iso: string): string {
     return new Date(iso).toLocaleDateString();
 }
@@ -125,6 +140,9 @@ onMounted(load);
                         <td :class="$style.td">{{ formatDate(bot.createdAt) }}</td>
                         <td :class="$style.td">
                             <span :class="$style.rowActions">
+                                <button type="button" :class="$style.ghostBtn" :disabled="runtimeBusyId === bot.id" @click="runRuntimeAction(bot, 'start')">Start</button>
+                                <button type="button" :class="$style.ghostBtn" :disabled="runtimeBusyId === bot.id" @click="runRuntimeAction(bot, 'stop')">Stop</button>
+                                <button type="button" :class="$style.ghostBtn" :disabled="runtimeBusyId === bot.id" @click="runRuntimeAction(bot, 'restart')">Restart</button>
                                 <button type="button" :class="$style.ghostBtn" @click="openConfig(bot)">Config</button>
                                 <button type="button" :class="$style.ghostBtn" @click="openTransfer(bot)">Transfer</button>
                             </span>
@@ -216,6 +234,7 @@ onMounted(load);
     transition: background-color 140ms ease;
 }
 .ghostBtn:hover { background-color: var(--color-table-row-hover); }
+.ghostBtn:disabled { cursor: not-allowed; opacity: 0.5; }
 
 .primaryBtn {
     padding: 6px 16px;

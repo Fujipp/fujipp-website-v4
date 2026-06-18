@@ -3,10 +3,19 @@ import { computed, onMounted, reactive, ref } from "vue";
 import { useRoute } from "vue-router";
 import { AdminLayout } from "@/features/admin/components";
 import { useAdminStore } from "@/features/admin/stores";
-import type { BotConfig } from "@/features/admin/config";
+import type {
+    BotConfig,
+    AdminRuntimePlan,
+    AdminFeature,
+    AdminFeaturePrice,
+    AdminRuntimeSubscription,
+    AdminFeatureSubscription,
+} from "@/features/admin/config";
+import { SUBSCRIPTION_STATUSES, FEATURE_BILLING_TYPES } from "@/features/admin/config";
 import { EmbedEditor, StatusToast } from "@/shared/ui";
 
 const EMBEDS_KEY = "__embeds__";
+const RUNTIME_KEY = "__runtime__";
 
 const route = useRoute();
 const adminStore = useAdminStore();
@@ -26,6 +35,35 @@ const botId = computed(() => String(route.params.botId));
 const features = computed(() => config.value?.features ?? []);
 const selectedFeature = computed(() => features.value.find((f) => f.code === selectedKey.value) ?? null);
 const showEmbeds = computed(() => selectedKey.value === EMBEDS_KEY);
+const showRuntime = computed(() => selectedKey.value === RUNTIME_KEY);
+
+// ── Runtime & Features panel state ───────────────────────────────────────────
+const runtimeState = ref<string>("");          // live orchestrator state (online/offline/…)
+const runtimeBusy = ref(false);                 // start/stop/restart in flight
+const subsLoading = ref(false);
+const runtimeSub = ref<AdminRuntimeSubscription | null>(null);
+const featureSubs = ref<AdminFeatureSubscription[]>([]);
+const runtimePlans = ref<AdminRuntimePlan[]>([]);
+const catalogFeatures = ref<AdminFeature[]>([]);
+const featurePrices = ref<AdminFeaturePrice[]>([]);
+const grantPlanId = ref("");                    // runtime plan picked for grant/extend
+const grantFeatureId = ref("");                 // feature picked for grant
+const grantPriceId = ref("");                   // price SKU picked for grant
+const grantBillingType = ref<(typeof FEATURE_BILLING_TYPES)[number]>("RENT_MONTHLY");
+const granting = ref(false);
+
+// Per-subscription edit drafts (period end + status), keyed by subscription id.
+const subEdits = reactive<Record<string, { currentPeriodEnd: string; status: string }>>({});
+const savingSubId = ref<string | null>(null);
+
+const featureNameById = computed(() => {
+    const map: Record<string, string> = {};
+    for (const f of catalogFeatures.value) map[f.id] = f.name;
+    return map;
+});
+
+const pricesForGrantFeature = computed<AdminFeaturePrice[]>(() =>
+    featurePrices.value.filter((p) => p.featureId === grantFeatureId.value));
 
 function showToast(status: "success" | "error", title: string): void {
     toast.value = { status, title };
@@ -79,7 +117,145 @@ async function save(): Promise<void> {
     }
 }
 
-onMounted(load);
+// ── Runtime & Features panel ─────────────────────────────────────────────────
+
+async function loadRuntimePanel(): Promise<void> {
+    subsLoading.value = true;
+    try {
+        const [subs, plans, feats, prices] = await Promise.all([
+            adminStore.fetchBotSubscriptions(botId.value),
+            runtimePlans.value.length ? Promise.resolve(runtimePlans.value) : adminStore.fetchRuntimePlans(),
+            catalogFeatures.value.length ? Promise.resolve(catalogFeatures.value) : adminStore.fetchFeatures(),
+            featurePrices.value.length ? Promise.resolve(featurePrices.value) : adminStore.fetchFeaturePrices(),
+        ]);
+        runtimePlans.value = plans;
+        catalogFeatures.value = feats;
+        featurePrices.value = prices;
+        // Subscriptions for the owner, narrowed to this bot (subject = bot id).
+        runtimeSub.value = subs.runtime.find((r) => r.externalSubjectId === botId.value) ?? null;
+        featureSubs.value = subs.features.filter((f) => f.externalSubjectId === botId.value);
+        seedSubEdits();
+    } catch (cause) {
+        showToast("error", cause instanceof Error ? cause.message : "Failed to load subscriptions");
+    } finally {
+        subsLoading.value = false;
+    }
+    void refreshStatus();
+}
+
+function seedSubEdits(): void {
+    if (runtimeSub.value) {
+        subEdits[runtimeSub.value.id] = {
+            currentPeriodEnd: runtimeSub.value.currentPeriodEnd ?? "",
+            status: runtimeSub.value.status,
+        };
+    }
+    for (const sub of featureSubs.value) {
+        subEdits[sub.id] = { currentPeriodEnd: sub.currentPeriodEnd ?? "", status: sub.status };
+    }
+}
+
+async function refreshStatus(): Promise<void> {
+    try {
+        const res = await adminStore.botStatus(botId.value);
+        runtimeState.value = res.state ?? "unknown";
+    } catch {
+        runtimeState.value = "unreachable";
+    }
+}
+
+async function runRuntime(action: "start" | "stop" | "restart"): Promise<void> {
+    runtimeBusy.value = true;
+    try {
+        await adminStore.botRuntimeAction(botId.value, action);
+        showToast("success", `${action} sent`);
+        await refreshStatus();
+    } catch (cause) {
+        showToast("error", cause instanceof Error ? cause.message : `${action} failed`);
+    } finally {
+        runtimeBusy.value = false;
+    }
+}
+
+async function grantRuntime(): Promise<void> {
+    if (!grantPlanId.value) return;
+    granting.value = true;
+    try {
+        runtimeSub.value = await adminStore.grantBotRuntime(botId.value, grantPlanId.value);
+        seedSubEdits();
+        grantPlanId.value = "";
+        showToast("success", "Runtime granted");
+    } catch (cause) {
+        showToast("error", cause instanceof Error ? cause.message : "Grant failed");
+    } finally {
+        granting.value = false;
+    }
+}
+
+async function grantFeature(): Promise<void> {
+    if (!grantFeatureId.value) return;
+    granting.value = true;
+    try {
+        const sub = await adminStore.grantBotFeature(botId.value, {
+            featureId: grantFeatureId.value,
+            priceId: grantPriceId.value || null,
+            billingType: grantBillingType.value,
+        });
+        featureSubs.value = [...featureSubs.value, sub];
+        seedSubEdits();
+        grantFeatureId.value = "";
+        grantPriceId.value = "";
+        showToast("success", "Feature granted");
+    } catch (cause) {
+        showToast("error", cause instanceof Error ? cause.message : "Grant failed");
+    } finally {
+        granting.value = false;
+    }
+}
+
+async function saveRuntimeSub(): Promise<void> {
+    const sub = runtimeSub.value;
+    if (!sub) return;
+    const draft = subEdits[sub.id];
+    if (!draft) return;
+    savingSubId.value = sub.id;
+    try {
+        runtimeSub.value = await adminStore.updateRuntimeSubscription(sub.id, {
+            status: draft.status,
+            currentPeriodEnd: draft.currentPeriodEnd || undefined,
+        });
+        seedSubEdits();
+        showToast("success", "Runtime updated");
+    } catch (cause) {
+        showToast("error", cause instanceof Error ? cause.message : "Update failed");
+    } finally {
+        savingSubId.value = null;
+    }
+}
+
+async function saveFeatureSub(sub: AdminFeatureSubscription): Promise<void> {
+    const draft = subEdits[sub.id];
+    if (!draft) return;
+    savingSubId.value = sub.id;
+    try {
+        const updated = await adminStore.updateFeatureSubscription(sub.id, {
+            status: draft.status,
+            currentPeriodEnd: draft.currentPeriodEnd || undefined,
+        });
+        featureSubs.value = featureSubs.value.map((f) => (f.id === updated.id ? updated : f));
+        seedSubEdits();
+        showToast("success", "Feature updated");
+    } catch (cause) {
+        showToast("error", cause instanceof Error ? cause.message : "Update failed");
+    } finally {
+        savingSubId.value = null;
+    }
+}
+
+onMounted(async () => {
+    await load();
+    await loadRuntimePanel();
+});
 </script>
 
 <template>
@@ -105,6 +281,13 @@ onMounted(load);
                 </button>
                 <button
                     type="button"
+                    :class="[$style.navItem, showRuntime ? $style.navActive : '']"
+                    @click="selectedKey = RUNTIME_KEY"
+                >
+                    Runtime &amp; Features
+                </button>
+                <button
+                    type="button"
                     :class="[$style.navItem, showEmbeds ? $style.navActive : '']"
                     @click="selectedKey = EMBEDS_KEY"
                 >
@@ -114,12 +297,121 @@ onMounted(load);
 
             <!-- content -->
             <div :class="$style.content">
-                <p v-if="features.length === 0 && !showEmbeds" :class="$style.note">
+                <p v-if="features.length === 0 && !showEmbeds && !showRuntime" :class="$style.note">
                     This bot has no active features to configure.
                 </p>
 
+                <!-- runtime control + subscriptions -->
+                <div v-if="showRuntime" :class="$style.stack">
+                    <!-- runtime control -->
+                    <section :class="$style.feature">
+                        <div :class="$style.cardHead">
+                            <h2 :class="$style.featureName">Runtime control</h2>
+                            <span :class="$style.stateTag">{{ runtimeState || "…" }}</span>
+                        </div>
+                        <div :class="$style.btnRow">
+                            <button type="button" :class="$style.ghostBtn" :disabled="runtimeBusy" @click="runRuntime('start')">Start</button>
+                            <button type="button" :class="$style.ghostBtn" :disabled="runtimeBusy" @click="runRuntime('stop')">Stop</button>
+                            <button type="button" :class="$style.ghostBtn" :disabled="runtimeBusy" @click="runRuntime('restart')">Restart</button>
+                            <button type="button" :class="$style.ghostBtn" @click="refreshStatus">Refresh</button>
+                        </div>
+                    </section>
+
+                    <!-- runtime subscription -->
+                    <section :class="$style.feature">
+                        <h2 :class="$style.featureName">Runtime subscription</h2>
+                        <p v-if="subsLoading" :class="$style.note">Loading…</p>
+                        <template v-else-if="runtimeSub">
+                            <div :class="$style.editRow">
+                                <label :class="$style.field">
+                                    <span :class="$style.label">Status</span>
+                                    <select v-model="subEdits[runtimeSub.id]!.status" :class="$style.input">
+                                        <option v-for="s in SUBSCRIPTION_STATUSES" :key="s" :value="s">{{ s }}</option>
+                                    </select>
+                                </label>
+                                <label :class="$style.field">
+                                    <span :class="$style.label">Period end</span>
+                                    <input v-model="subEdits[runtimeSub.id]!.currentPeriodEnd" type="date" :class="$style.input">
+                                </label>
+                                <button type="button" :class="$style.saveBtn" :disabled="savingSubId === runtimeSub.id" @click="saveRuntimeSub">
+                                    {{ savingSubId === runtimeSub.id ? "Saving…" : "Save" }}
+                                </button>
+                            </div>
+                        </template>
+                        <template v-else>
+                            <p :class="$style.note">No runtime yet — grant a plan to start the clock.</p>
+                        </template>
+                        <!-- grant / extend runtime -->
+                        <div :class="$style.editRow">
+                            <label :class="$style.field">
+                                <span :class="$style.label">{{ runtimeSub ? "Extend with plan" : "Grant plan" }}</span>
+                                <select v-model="grantPlanId" :class="$style.input">
+                                    <option value="">Select a plan…</option>
+                                    <option v-for="p in runtimePlans" :key="p.id" :value="p.id">
+                                        {{ p.name }} ({{ p.durationMonths }}m)
+                                    </option>
+                                </select>
+                            </label>
+                            <button type="button" :class="$style.saveBtn" :disabled="!grantPlanId || granting" @click="grantRuntime">
+                                {{ runtimeSub ? "Extend" : "Grant" }}
+                            </button>
+                        </div>
+                    </section>
+
+                    <!-- feature subscriptions -->
+                    <section :class="$style.feature">
+                        <h2 :class="$style.featureName">Features</h2>
+                        <p v-if="!subsLoading && featureSubs.length === 0" :class="$style.note">No features granted to this bot.</p>
+                        <div v-for="sub in featureSubs" :key="sub.id" :class="$style.editRow">
+                            <span :class="$style.subName">{{ featureNameById[sub.featureId] ?? sub.featureId.slice(0, 8) }}<span :class="$style.subMeta"> · {{ sub.billingType }}</span></span>
+                            <label :class="$style.field">
+                                <span :class="$style.label">Status</span>
+                                <select v-model="subEdits[sub.id]!.status" :class="$style.input">
+                                    <option v-for="s in SUBSCRIPTION_STATUSES" :key="s" :value="s">{{ s }}</option>
+                                </select>
+                            </label>
+                            <label :class="$style.field">
+                                <span :class="$style.label">Period end</span>
+                                <input v-model="subEdits[sub.id]!.currentPeriodEnd" type="date" :class="$style.input">
+                            </label>
+                            <button type="button" :class="$style.saveBtn" :disabled="savingSubId === sub.id" @click="saveFeatureSub(sub)">
+                                {{ savingSubId === sub.id ? "Saving…" : "Save" }}
+                            </button>
+                        </div>
+
+                        <!-- add feature -->
+                        <div :class="$style.editRow">
+                            <label :class="$style.field">
+                                <span :class="$style.label">Add feature</span>
+                                <select v-model="grantFeatureId" :class="$style.input">
+                                    <option value="">Select a feature…</option>
+                                    <option v-for="f in catalogFeatures" :key="f.id" :value="f.id">{{ f.name }}</option>
+                                </select>
+                            </label>
+                            <label :class="$style.field">
+                                <span :class="$style.label">Billing</span>
+                                <select v-model="grantBillingType" :class="$style.input">
+                                    <option v-for="t in FEATURE_BILLING_TYPES" :key="t" :value="t">{{ t }}</option>
+                                </select>
+                            </label>
+                            <label :class="$style.field">
+                                <span :class="$style.label">Price SKU (optional)</span>
+                                <select v-model="grantPriceId" :class="$style.input">
+                                    <option value="">— none —</option>
+                                    <option v-for="p in pricesForGrantFeature" :key="p.id" :value="p.id">
+                                        {{ p.kind }}{{ p.durationMonths ? ` · ${p.durationMonths}m` : "" }}
+                                    </option>
+                                </select>
+                            </label>
+                            <button type="button" :class="$style.saveBtn" :disabled="!grantFeatureId || granting" @click="grantFeature">
+                                Grant
+                            </button>
+                        </div>
+                    </section>
+                </div>
+
                 <!-- embed editor -->
-                <EmbedEditor v-if="showEmbeds" :bot-id="botId" base-path="/api/admin/bots" />
+                <EmbedEditor v-else-if="showEmbeds" :bot-id="botId" base-path="/api/admin/bots" />
 
                 <!-- feature fields -->
                 <form v-else-if="selectedFeature" @submit.prevent="save">
@@ -224,6 +516,52 @@ onMounted(load);
 
 .note { margin: 0; color: var(--color-text-disabled); }
 .error { margin: 0; color: var(--color-status-error); }
+
+/* Runtime & Features panel */
+.stack { display: flex; flex-direction: column; gap: 16px; }
+
+.cardHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.cardHead .featureName { margin: 0; }
+
+.stateTag {
+    padding: 3px 10px;
+    border: 1px solid var(--color-main-divider);
+    border-radius: var(--radius-full);
+    font-size: 12px;
+    text-transform: uppercase;
+    color: var(--color-text-disabled);
+}
+
+.btnRow { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.ghostBtn {
+    padding: 8px 16px;
+    border: 1px solid var(--color-main-border);
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    cursor: pointer;
+    transition: background-color 140ms ease;
+}
+.ghostBtn:hover { background-color: var(--color-table-row-hover); }
+.ghostBtn:disabled { cursor: not-allowed; opacity: 0.5; }
+
+.editRow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+    padding-top: 14px;
+    margin-top: 14px;
+    border-top: 1px solid var(--color-main-divider);
+}
+.editRow:first-of-type { border-top: 0; margin-top: 0; padding-top: 0; }
+.editRow .field { flex: 1 1 140px; max-width: 220px; }
+.editRow .saveBtn { padding: 9px 18px; }
+
+.subName { flex: 1 1 100%; font-size: 14px; font-weight: 500; }
+.subMeta { color: var(--color-text-disabled); font-weight: 400; }
 
 @media (max-width: 760px) {
     .layout { grid-template-columns: 1fr; }

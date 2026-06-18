@@ -157,6 +157,16 @@ export interface UpdateFeatureSubscriptionPayload {
 /** Subscription lifecycle states an admin can set. */
 export const SUBSCRIPTION_STATUSES = ["ACTIVE", "PAST_DUE", "SUSPENDED", "CANCELED"] as const;
 
+/** Billing types an admin can grant a feature under (mirrors feature_subscriptions billing_type). */
+export const FEATURE_BILLING_TYPES = ["RENT_MONTHLY", "RENT_PERMANENT"] as const;
+
+/** Body for granting a feature to a bot (`POST /api/admin/bots/{id}/feature`). */
+export interface GrantBotFeaturePayload {
+    featureId: string;
+    priceId?: string | null;
+    billingType: (typeof FEATURE_BILLING_TYPES)[number];
+}
+
 // ── wallet ───────────────────────────────────────────────────────────────────
 export interface AdminWallet {
     balanceSatang: number;
