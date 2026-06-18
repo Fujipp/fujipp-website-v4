@@ -313,6 +313,41 @@ public class BillingClient {
             .body(String.class);
     }
 
+    /** Grant runtime to a bot (subject) for free, on behalf of its owner. */
+    public String adminGrantRuntime(UUID adminId, UUID userId, String subjectId, UUID runtimePlanId) {
+        Map<String, Object> body = new java.util.HashMap<>();
+        body.put("userId", userId == null ? null : userId.toString());
+        body.put("subjectId", subjectId);
+        body.put("runtimePlanId", runtimePlanId == null ? null : runtimePlanId.toString());
+        return http.post().uri("/api/billing/admin/subscriptions/runtime")
+            .header("X-Service-Token", serviceToken)
+            .header("X-Admin-Id", adminId.toString())
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(body)
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raiseWithReason(res))
+            .body(String.class);
+    }
+
+    /** Grant a feature to a bot (subject) for free, on behalf of its owner. */
+    public String adminGrantFeature(UUID adminId, UUID userId, String subjectId,
+                                    UUID featureId, UUID priceId, String billingType) {
+        Map<String, Object> body = new java.util.HashMap<>();
+        body.put("userId", userId == null ? null : userId.toString());
+        body.put("subjectId", subjectId);
+        body.put("featureId", featureId == null ? null : featureId.toString());
+        body.put("priceId", priceId == null ? null : priceId.toString());
+        body.put("billingType", billingType);
+        return http.post().uri("/api/billing/admin/subscriptions/features")
+            .header("X-Service-Token", serviceToken)
+            .header("X-Admin-Id", adminId.toString())
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(body)
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raiseWithReason(res))
+            .body(String.class);
+    }
+
     /** Override a runtime subscription. {@code body} is the AdminUpdateRuntimeSubscriptionRequest JSON. */
     public String adminUpdateRuntimeSubscription(UUID adminId, UUID subId, String body) {
         return http.patch().uri("/api/billing/admin/subscriptions/runtime/{id}", subId)

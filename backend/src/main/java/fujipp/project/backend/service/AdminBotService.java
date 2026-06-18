@@ -43,6 +43,15 @@ public class AdminBotService {
             .toList();
     }
 
+    /** Admin-gate then return the bot's current owner id (used for per-bot billing actions). */
+    @Transactional(readOnly = true)
+    public UUID requireBotOwner(UUID adminId, UUID botId) {
+        adminAccess.requireAdmin(adminId);
+        return bots.findById(botId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Bot not found"))
+            .getUserId();
+    }
+
     /**
      * Transfer a bot to another user: the bot row (here) plus its billing rows
      * (subscriptions + config, via billing-service). Wallets are not moved.
