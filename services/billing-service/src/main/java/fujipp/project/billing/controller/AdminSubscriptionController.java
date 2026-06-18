@@ -1,5 +1,7 @@
 package fujipp.project.billing.controller;
 
+import fujipp.project.billing.dto.AdminGrantFeatureRequest;
+import fujipp.project.billing.dto.AdminGrantRuntimeRequest;
 import fujipp.project.billing.dto.AdminUpdateFeatureSubscriptionRequest;
 import fujipp.project.billing.dto.AdminUpdateRuntimeSubscriptionRequest;
 import fujipp.project.billing.dto.AdminUserSubscriptionsResponse;
@@ -11,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -33,6 +36,20 @@ public class AdminSubscriptionController {
     @GetMapping
     public ResponseEntity<AdminUserSubscriptionsResponse> forUser(@RequestParam("userId") UUID userId) {
         return ResponseEntity.ok(subscriptions.listForUser(userId));
+    }
+
+    @PostMapping("/runtime")
+    public ResponseEntity<RuntimeSubscriptionResponse> grantRuntime(
+            @RequestHeader("X-Admin-Id") UUID adminId,
+            @RequestBody AdminGrantRuntimeRequest request) {
+        return ResponseEntity.ok(subscriptions.grantRuntime(adminId, request));
+    }
+
+    @PostMapping("/features")
+    public ResponseEntity<FeatureSubscriptionResponse> grantFeature(
+            @RequestHeader("X-Admin-Id") UUID adminId,
+            @RequestBody AdminGrantFeatureRequest request) {
+        return ResponseEntity.ok(subscriptions.grantFeature(adminId, request));
     }
 
     @PatchMapping("/runtime/{id}")
