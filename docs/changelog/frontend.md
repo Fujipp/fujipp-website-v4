@@ -1,9 +1,23 @@
 # Changelog — Frontend
 
-**Current version: `0.5.8.19`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.5.8.33`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.5.8.33` | 2026-06-20 | align the Projects page top offset with the fixed navbar height so section bands start directly below it |
+| `0.5.8.32` | 2026-06-20 | lower the global button click sound volume to 20 percent |
+| `0.5.8.31` | 2026-06-20 | restore the Projects AI Skills marquee to full-bleed width inside its section band |
+| `0.5.8.30` | 2026-06-20 | switch shared section headers to secondary text color and remove gaps between Projects page section bands |
+| `0.5.8.29` | 2026-06-20 | add a global click sound for enabled button-style controls using the bundled click audio |
+| `0.5.8.28` | 2026-06-20 | widen the Projects table layout, add full-width Projects section bands, and restyle filter plus pagination controls with glass buttons |
+| `0.5.8.27` | 2026-06-20 | align Projects page section widths with the About page container |
+| `0.5.8.26` | 2026-06-20 | route Contact card actions through the shared glass secondary button with external link support |
+| `0.5.8.25` | 2026-06-20 | restyle the shared secondary button with the same glass treatment as the language switch |
+| `0.5.8.24` | 2026-06-20 | remove the About page bottom container padding so the Gallery section sits flush against the footer |
+| `0.5.8.23` | 2026-06-20 | scope the About Gallery header title color to text-secondary without affecting shared HeaderSection usage elsewhere |
+| `0.5.8.22` | 2026-06-20 | give the About Gallery section the same full-width surface band treatment as the About hero section |
+| `0.5.8.21` | 2026-06-20 | restyle shared image next/back controls with the same glass treatment as the language switch |
+| `0.5.8.20` | 2026-06-20 | reorganize About skill categories for runtime, build tools, and external services with matching public icon paths |
 | `0.5.8.19` | 2026-06-20 | apply the About skill rack text-secondary icon filter across all row layouts instead of only the mobile icon strip |
 | `0.5.8.18` | 2026-06-20 | map additional About skill rack icons to the mobile text-secondary icon treatment |
 | `0.5.8.17` | 2026-06-20 | constrain mobile About skill rack cards so their horizontal icon tracks scroll inside the card instead of protruding past the viewport |

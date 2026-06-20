@@ -329,7 +329,6 @@ onUnmounted(() => {
     display: flex;
     flex-direction: column;
     width: 100%;
-    max-width: 1060px;
     gap: 10px;
     color: var(--color-text-secondary);
     font-family: var(--font-sans);
@@ -443,8 +442,9 @@ onUnmounted(() => {
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
+    width: 100%;
     height: 528px;
-    padding: 10px;
+    padding: var(--spacing-space-4);
     gap: 10px;
     overflow: hidden;
     border-radius: var(--radius-xl);
@@ -454,10 +454,16 @@ onUnmounted(() => {
 .tableHeader,
 .tableRow {
     display: grid;
-    grid-template-columns: 80px minmax(150px, 250px) minmax(170px, 250px) minmax(120px, 150px) minmax(125px, 160px) minmax(143px, 150px);
+    grid-template-columns:
+        minmax(48px, 0.34fr)
+        minmax(190px, 1.25fr)
+        minmax(280px, 1.7fr)
+        minmax(180px, 1.05fr)
+        minmax(170px, 0.95fr)
+        minmax(150px, 0.85fr);
     align-items: start;
     width: 100%;
-    gap: 0;
+    gap: var(--spacing-space-4);
 }
 
 .tableHeader {
@@ -586,6 +592,7 @@ onUnmounted(() => {
 }
 
 .pageButton {
+    position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -593,19 +600,81 @@ onUnmounted(() => {
     width: 32px;
     height: 32px;
     padding: 10px;
+    overflow: hidden;
+    isolation: isolate;
+    border: 1px solid color-mix(in srgb, var(--color-neutral-50) 16%, transparent);
     border-radius: var(--radius-full);
-    background-color: var(--color-main-surface);
+    background:
+        linear-gradient(
+            150deg,
+            color-mix(in srgb, var(--color-neutral-50) 14%, transparent) 0%,
+            color-mix(in srgb, var(--color-neutral-50) 4%, transparent) 42%,
+            color-mix(in srgb, var(--color-neutral-900) 28%, transparent) 100%
+        );
+    box-shadow:
+        inset 0 1px 1px color-mix(in srgb, var(--color-neutral-50) 45%, transparent),
+        inset 0 -8px 16px color-mix(in srgb, var(--color-neutral-900) 30%, transparent),
+        0 6px 18px color-mix(in srgb, var(--color-neutral-900) 35%, transparent);
+    backdrop-filter: blur(24px) saturate(180%) brightness(1.1);
+    -webkit-backdrop-filter: blur(24px) saturate(180%) brightness(1.1);
+    color: var(--color-neutral-50);
+    cursor: pointer;
+    transition:
+        border-color 220ms ease,
+        box-shadow 220ms ease,
+        transform 220ms ease;
+}
+
+.pageButton::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background:
+        radial-gradient(
+            120% 80% at 50% -20%,
+            color-mix(in srgb, var(--color-neutral-50) 38%, transparent) 0%,
+            transparent 60%
+        );
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.pageButton:hover {
+    border-color: color-mix(in srgb, var(--color-neutral-50) 26%, transparent);
+    box-shadow:
+        inset 0 1px 1px color-mix(in srgb, var(--color-neutral-50) 55%, transparent),
+        inset 0 -8px 16px color-mix(in srgb, var(--color-neutral-900) 30%, transparent),
+        0 8px 22px color-mix(in srgb, var(--color-neutral-900) 40%, transparent);
+}
+
+.pageButton:active {
+    transform: scale(0.97);
+}
+
+.pageButton:focus-visible {
+    outline: 2px solid var(--color-main-primary);
+    outline-offset: 2px;
 }
 
 .currentPage {
     width: 45px;
     color: var(--color-button-primary-btn-text-active);
+    border-color: color-mix(in srgb, var(--color-neutral-50) 28%, transparent);
 }
 
 @media (min-width: 768px) and (max-width: 1023px) {
     .tableHeader,
     .tableRow {
-        grid-template-columns: 64px minmax(135px, 1fr) minmax(150px, 1.15fr) minmax(120px, 0.8fr) minmax(120px, 0.8fr) 143px;
+        grid-template-columns:
+            minmax(44px, 0.32fr)
+            minmax(150px, 1.2fr)
+            minmax(170px, 1.2fr)
+            minmax(130px, 0.9fr)
+            minmax(120px, 0.8fr)
+            minmax(132px, 0.8fr);
+        gap: var(--spacing-space-3);
     }
 
     .tableRow {

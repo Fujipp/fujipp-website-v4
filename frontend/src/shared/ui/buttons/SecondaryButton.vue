@@ -5,7 +5,10 @@ import type { RouteLocationRaw } from "vue-router";
 interface Props {
     ariaLabel?: string;
     disabled?: boolean;
+    href?: string;
     icon?: string;
+    rel?: string;
+    target?: string;
     to?: RouteLocationRaw;
     type?: "button" | "submit" | "reset";
     variant?: "text" | "icon";
@@ -38,6 +41,24 @@ const variantClass = computed(() => (props.variant === "icon" ? "iconButton" : "
         >
         <slot v-else />
     </RouterLink>
+    <a
+        v-else-if="href"
+        :href="href"
+        :class="[$style.secondaryButton, $style[variantClass]]"
+        :aria-label="ariaLabel"
+        :target="target"
+        :rel="rel"
+    >
+        <img
+            v-if="variant === 'icon'"
+            :class="$style.buttonIcon"
+            :src="icon"
+            alt=""
+            aria-hidden="true"
+            draggable="false"
+        >
+        <slot v-else />
+    </a>
     <button
         v-else
         :type="type"
@@ -59,28 +80,69 @@ const variantClass = computed(() => (props.variant === "icon" ? "iconButton" : "
 
 <style module>
 .secondaryButton {
+    position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     box-sizing: border-box;
     flex-shrink: 0;
-    border: 1.5px solid var(--color-main-primary);
-    color: var(--color-main-primary);
+    overflow: hidden;
+    isolation: isolate;
+    border: 1px solid color-mix(in srgb, var(--color-neutral-50) 16%, transparent);
+    background:
+        linear-gradient(
+            150deg,
+            color-mix(in srgb, var(--color-neutral-50) 14%, transparent) 0%,
+            color-mix(in srgb, var(--color-neutral-50) 4%, transparent) 42%,
+            color-mix(in srgb, var(--color-neutral-900) 28%, transparent) 100%
+        );
+    box-shadow:
+        inset 0 1px 1px color-mix(in srgb, var(--color-neutral-50) 45%, transparent),
+        inset 0 -8px 16px color-mix(in srgb, var(--color-neutral-900) 30%, transparent),
+        0 6px 18px color-mix(in srgb, var(--color-neutral-900) 35%, transparent);
+    backdrop-filter: blur(24px) saturate(180%) brightness(1.1);
+    -webkit-backdrop-filter: blur(24px) saturate(180%) brightness(1.1);
+    color: var(--color-neutral-50);
     font-family: var(--font-sans);
     font-weight: 300;
     line-height: normal;
     letter-spacing: 0;
     text-decoration: none;
     cursor: pointer;
-    transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+    transition:
+        background 220ms ease,
+        border-color 220ms ease,
+        box-shadow 220ms ease,
+        opacity 220ms ease,
+        transform 220ms ease;
 }
 
-.secondaryButton:hover {
-    background-color: rgb(121 135 172 / 12%);
+.secondaryButton::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background:
+        radial-gradient(
+            120% 80% at 50% -20%,
+            color-mix(in srgb, var(--color-neutral-50) 38%, transparent) 0%,
+            transparent 60%
+        );
+    opacity: 0.7;
+    pointer-events: none;
+    z-index: -1;
 }
 
-.secondaryButton:active {
-    background-color: rgb(121 135 172 / 20%);
+.secondaryButton:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--color-neutral-50) 26%, transparent);
+    box-shadow:
+        inset 0 1px 1px color-mix(in srgb, var(--color-neutral-50) 55%, transparent),
+        inset 0 -8px 16px color-mix(in srgb, var(--color-neutral-900) 30%, transparent),
+        0 8px 22px color-mix(in srgb, var(--color-neutral-900) 40%, transparent);
+}
+
+.secondaryButton:active:not(:disabled) {
+    transform: scale(0.97);
 }
 
 .secondaryButton:focus-visible {
@@ -97,14 +159,14 @@ const variantClass = computed(() => (props.variant === "icon" ? "iconButton" : "
     width: 160px;
     height: 48px;
     padding: 12px 16px;
-    border-radius: 12px;
-    background-color: transparent;
+    border-radius: 999px;
     font-size: 1rem;
 }
 
 .buttonIcon {
     width: 6px;
     height: 9px;
+    filter: drop-shadow(0 0 10px color-mix(in srgb, var(--color-neutral-50) 30%, transparent));
     transform: rotate(180deg);
     user-select: none;
     -webkit-user-drag: none;
@@ -114,19 +176,7 @@ const variantClass = computed(() => (props.variant === "icon" ? "iconButton" : "
     width: 32px;
     height: 32px;
     padding: 0;
-    border-color: var(--color-button-secondary-btn-bg);
     border-radius: var(--radius-full);
-    background-color: var(--color-button-secondary-btn-bg);
-}
-
-.iconButton:hover {
-    border-color: var(--color-button-secondary-btn-hover);
-    background-color: var(--color-button-secondary-btn-hover);
-}
-
-.iconButton:active {
-    border-color: var(--color-button-secondary-btn-active);
-    background-color: var(--color-button-secondary-btn-active);
 }
 
 .iconButton .buttonIcon {

@@ -479,8 +479,10 @@ onUnmounted(() => {
                 </div>
             </section>
             <section :class="$style.gallerySection" aria-label="Gallery">
-                <HeaderSection title="Gallery" />
-                <Gallery :images="galleryImages" />
+                <div :class="$style.galleryStage">
+                    <HeaderSection :class="$style.galleryHeader" title="Gallery" />
+                    <Gallery :images="galleryImages" />
+                </div>
             </section>
         </div>
         <AppFooter />
@@ -513,7 +515,7 @@ onUnmounted(() => {
     width: 100%;
     max-width: none;
     margin: 0 auto;
-    padding: 0 0 var(--spacing-space-5);
+    padding: 0;
     gap: var(--spacing-space-5);
 }
 
@@ -789,6 +791,19 @@ onUnmounted(() => {
 }
 
 .gallerySection {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    width: 100%;
+    margin: 0 auto;
+    padding: var(--spacing-space-8) 0;
+    overflow: hidden;
+    background: var(--color-main-surface);
+}
+
+.galleryStage {
+    position: relative;
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
@@ -796,6 +811,29 @@ onUnmounted(() => {
     margin: 0 auto;
     padding: 0 var(--spacing-space-5);
     gap: var(--spacing-space-5);
+}
+
+/* .galleryStage::before,
+.galleryStage::after {
+    position: absolute;
+    left: var(--spacing-space-5);
+    right: var(--spacing-space-5);
+    height: 1px;
+    background: var(--color-main-divider);
+    content: "";
+    opacity: 0.72;
+} */
+
+/* .galleryStage::before {
+    top: calc(var(--spacing-space-8) * -1);
+}
+
+.galleryStage::after {
+    bottom: calc(var(--spacing-space-8) * -1);
+} */
+
+.galleryHeader h2 {
+    color: var(--color-text-secondary);
 }
 
 .educationPicker {
@@ -874,7 +912,7 @@ onUnmounted(() => {
     }
 
     .heroContainer {
-        padding: 0 0 var(--spacing-space-5);
+        padding: 0;
     }
 
     .heroStage {

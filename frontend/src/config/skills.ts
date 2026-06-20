@@ -26,13 +26,11 @@ export const frontend = [
   { label: "FLUTTER", icon: "/images/icons/stacks/frontend/flutter.svg" },
   { label: "REACT", icon: "/images/icons/stacks/frontend/react.svg" },
   { label: "TAILWIND CSS", icon: "/images/icons/stacks/frontend/tailwind.svg" },
-  { label: "BUN", icon: "/images/icons/stacks/frontend/bun.svg" },
-  { label: "NODE.JS", icon: "/images/icons/stacks/frontend/node.svg" },
-
 ] satisfies readonly Skills[];
 
 export const backend = [
   { label: "BACKEND", icon: "/images/icons/stacks/backend/backend.svg" },
+  { label: "NODE.JS", icon: "/images/icons/stacks/backend/node.svg" },
   { label: "SPRING BOOT", icon: "/images/icons/stacks/backend/spring.svg" },
   { label: "JWT", icon: "/images/icons/stacks/backend/jwt.svg" },
   { label: "SOCKET.IO", icon: "/images/icons/stacks/backend/socketio.svg" },
@@ -44,7 +42,6 @@ export const database = [
   { label: "POSTGRESQL", icon: "/images/icons/stacks/database/postgresql.svg" },
   { label: "MONGODB", icon: "/images/icons/stacks/database/mongodb.svg" },
   { label: "ORACLE", icon: "/images/icons/stacks/database/oracle.svg" },
-  { label: "FIREBASE", icon: "/images/icons/stacks/database/firebase.svg" },
   { label: "REDIS", icon: "/images/icons/stacks/database/redis.svg" },
 ] satisfies readonly Skills[];
 
@@ -57,13 +54,14 @@ export const devops = [
   { label: "LINUX SERVER", icon: "/images/icons/stacks/devops/linux-server.svg" },
   { label: "NIFI", icon: "/images/icons/stacks/devops/nifi.svg" },
   { label: "LINUX", icon: "/images/icons/stacks/devops/linux.svg" },
-  { label: "MAVEN", icon: "/images/icons/stacks/devops/maven.svg" },
 ] satisfies readonly Skills[];
 
 export const tools = [
   { label: "TOOLS", icon: "/images/icons/stacks/tools/tools.svg" },
   { label: "VISUAL STUDIO CODE", icon: "/images/icons/stacks/tools/vscode.svg" },
   { label: "INTELLIJ IDEA", icon: "/images/icons/stacks/tools/intellij.svg" },
+  { label: "BUN", icon: "/images/icons/stacks/tools/bun.svg" },
+  { label: "MAVEN", icon: "/images/icons/stacks/tools/maven.svg" },
   { label: "MYSQL", icon: "/images/icons/stacks/tools/mysql.svg" },
   { label: "POSTMAN", icon: "/images/icons/stacks/tools/postman.svg" },
   { label: "GITHUB", icon: "/images/icons/stacks/tools/github.svg" },
@@ -90,6 +88,7 @@ export const externalService = [
   { label: "EXTERNAL SERVICE", icon: "/images/icons/stacks/service/service.svg" },
   { label: "GOOGLE AUTH", icon: "/images/icons/stacks/service/google.svg" },
   { label: "CLOUDINARY", icon: "/images/icons/stacks/service/cloudinary.svg" },
+  { label: "FIREBASE", icon: "/images/icons/stacks/service/firebase.svg" },
   { label: "GEMINI API", icon: "/images/icons/stacks/ai/gemini.svg" },
   { label: "OPEN ROUTER", icon: "/images/icons/stacks/service/openrouter.svg" },
   { label: "EMAIL SERVICE", icon: "/images/icons/stacks/service/email-service.svg" },

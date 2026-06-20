@@ -8,7 +8,7 @@ defineProps<Props>();
 
 <template>
     <header :class="$style.titleSection">
-        <h2 :class="$style.title" class="font-sans font-semibold text-text-primary">
+        <h2 :class="$style.title" class="font-sans font-semibold text-text-secondary">
             {{ title }}
         </h2>
         <hr :class="$style.divider" class="border-main-divider">

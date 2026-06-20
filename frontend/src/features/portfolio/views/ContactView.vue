@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { AppFooter } from "@/shared/layout";
+import { SecondaryButton } from "@/shared/ui/buttons";
 
 type ContactId = "gmail" | "instagram" | "discord";
 type DiscordStatus = "online" | "idle" | "dnd" | "offline";
@@ -207,7 +208,7 @@ onUnmounted(() => {
                         </template>
                     </button>
 
-                    <a
+                    <SecondaryButton
                         v-if="openCardId === card.id"
                         :class="$style.contactAction"
                         :href="card.href"
@@ -215,6 +216,7 @@ onUnmounted(() => {
                         :rel="card.id === 'gmail' ? undefined : 'noreferrer'"
                     >
                         <img
+                            :class="$style.contactActionIcon"
                             :src="card.id === 'gmail'
                                 ? `${CONTACT_ICON_PATH}/mail-send.svg`
                                 : `${CONTACT_ICON_PATH}/mail-open.svg`"
@@ -222,7 +224,7 @@ onUnmounted(() => {
                             aria-hidden="true"
                         >
                         <span>{{ card.action }}</span>
-                    </a>
+                    </SecondaryButton>
                 </article>
             </div>
         </section>
@@ -407,23 +409,10 @@ onUnmounted(() => {
 }
 
 .contactAction {
-    display: inline-flex;
-    width: 160px;
-    height: 48px;
-    flex-shrink: 0;
-    align-items: center;
-    justify-content: center;
     gap: var(--spacing-space-2);
-    border-radius: var(--radius-xl);
-    background: var(--color-button-secondary-btn-bg);
-    color: var(--color-button-secondary-btn-text);
-    font-size: 1rem;
-    font-weight: 400;
-    line-height: normal;
-    text-decoration: none;
 }
 
-.contactAction img {
+.contactActionIcon {
     width: var(--spacing-icon-xs);
     height: var(--spacing-icon-xs);
     object-fit: contain;
@@ -443,9 +432,6 @@ onUnmounted(() => {
         transform: scale(1.08);
     }
 
-    .contactAction:hover {
-        background: var(--color-button-secondary-btn-hover);
-    }
 }
 
 @media (max-width: 767px) {
