@@ -6,6 +6,7 @@ import {
     backend,
     database,
     devops,
+    externalService,
     frontend as frontendSkills,
     language,
     media_document,
@@ -13,32 +14,44 @@ import {
     ux_ui,
 } from "@/config";
 import { galleryImages } from "@/features/portfolio/config";
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, onBeforeMount, onMounted, onUnmounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { SupportedLocale } from "@/i18n";
+
+interface ModelViewerAnimationElement extends HTMLElement {
+    currentTime: number;
+    pause: () => void;
+    play: (options?: { repetitions: number; pingpong: boolean }) => void;
+}
 
 const { t } = useI18n();
 const heroSection = ref<HTMLElement | null>(null);
 const heroMusic = ref<HTMLAudioElement | null>(null);
+const heroMascotModel = ref<ModelViewerAnimationElement | null>(null);
+const heroMascotVisible = ref(false);
 const heroLocale = ref<SupportedLocale>("en");
 const educationLocale = ref<SupportedLocale>("en");
 
 const hiddenScrollbarClass = "about-scrollbar-hidden";
-const heroMusicVolume = 0.35;
+const heroMusicVolume = 0.14;
 const musicFadeDuration = 1200;
+const birthTimestamp = new Date("2003-11-26T00:00:00+07:00").getTime();
+const livedElapsedMs = ref(Math.max(Date.now() - birthTimestamp, 0));
+const heroFactFields = ["birthday", "lived", "nickname", "height", "weight", "nationality"] as const;
+const heroMascotAnimationLoops = false;
+const heroMascotModelSrc = "/models/fujipp/fujipp-spiderman.glb";
+const criticalAboutAssets = [
+    { href: heroMascotModelSrc, as: "fetch", type: "model/gltf-binary", fetchPriority: "high" },
+    { href: "/images/education/kmutt.jpeg", as: "image", type: "image/jpeg", fetchPriority: "high" },
+    { href: galleryImages[0]?.src, as: "image", type: "image/jpeg", fetchPriority: "low" },
+] as const;
 
+let livedTimer: number | undefined;
 let isHeroVisible = true;
 let isMusicStarted = false;
 let musicObserver: IntersectionObserver | undefined;
 let volumeAnimationFrame: number | undefined;
-
-const heroParagraphs = [
-    "about.hero.paragraph_1",
-    "about.hero.paragraph_2",
-    "about.hero.paragraph_3",
-    "about.hero.paragraph_4",
-    "about.hero.paragraph_5",
-];
+let preloadLinks: HTMLLinkElement[] = [];
 
 const skillGroups = [
     language,
@@ -46,6 +59,7 @@ const skillGroups = [
     backend,
     database,
     devops,
+    externalService,
     tools,
     ux_ui,
     media_document,
@@ -76,13 +90,47 @@ const selectedEducation = computed(() => (
     educationEntries.find((entry) => entry.key === selectedEducationKey.value) ?? educationEntries[0]
 ));
 
-function heroTranslation(key: string): string {
-    return t(key, {}, { locale: heroLocale.value });
-}
-
 function educationTranslation(field: "institution" | "degree" | "field" | "years"): string {
     return t(`about.education.${selectedEducation.value.key}.${field}`, {}, { locale: educationLocale.value });
 }
+
+function playHeroMascotAnimation(): void {
+    const model = heroMascotModel.value;
+
+    if (!model) {
+        return;
+    }
+
+    heroMascotVisible.value = false;
+    model.currentTime = 0;
+    model.play({
+        repetitions: heroMascotAnimationLoops ? Infinity : 1,
+        pingpong: false,
+    });
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            heroMascotVisible.value = true;
+        });
+    });
+}
+
+function handleHeroMascotAnimationFinished(): void {
+    if (heroMascotAnimationLoops) {
+        return;
+    }
+
+    heroMascotModel.value?.pause();
+}
+
+const livedClock = computed(() => {
+    const totalMilliseconds = Math.max(livedElapsedMs.value, 0);
+    const totalHours = Math.floor(totalMilliseconds / 3_600_000);
+    const minutes = Math.floor((totalMilliseconds % 3_600_000) / 60_000);
+    const seconds = Math.floor((totalMilliseconds % 60_000) / 1000);
+    const centiseconds = Math.floor((totalMilliseconds % 1000) / 10);
+
+    return `${totalHours.toLocaleString("en-US")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}:${centiseconds.toString().padStart(2, "0")}`;
+});
 
 function fadeMusicTo(targetVolume: number): void {
     const audio = heroMusic.value;
@@ -135,7 +183,7 @@ async function playHeroMusic(): Promise<void> {
         removeMusicUnlockListeners();
         fadeMusicTo(isHeroVisible ? heroMusicVolume : 0);
     } catch {
-        // Browsers may require the first click or key press before audio starts.
+        addMusicUnlockListeners();
     }
 }
 
@@ -152,7 +200,7 @@ function updateMusicForHeroVisibility(visible: boolean): void {
         void audio.play()
             .then(() => fadeMusicTo(heroMusicVolume))
             .catch(() => {
-                // The next user interaction can re-enable playback if needed.
+                addMusicUnlockListeners();
             });
         return;
     }
@@ -174,9 +222,46 @@ function removeMusicUnlockListeners(): void {
     document.removeEventListener("keydown", unlockMusic);
 }
 
+function preloadAboutAssets(): void {
+    preloadLinks = criticalAboutAssets.flatMap((asset) => {
+        if (!asset.href || document.head.querySelector(`link[rel="preload"][href="${asset.href}"]`)) {
+            return [];
+        }
+
+        const link = document.createElement("link");
+        link.rel = "preload";
+        link.href = asset.href;
+        link.as = asset.as;
+        link.type = asset.type;
+        link.setAttribute("fetchpriority", asset.fetchPriority);
+
+        if (asset.as === "fetch") {
+            link.crossOrigin = "anonymous";
+        }
+
+        document.head.append(link);
+        return [link];
+    });
+}
+
+function removeAboutPreloads(): void {
+    for (const link of preloadLinks) {
+        link.remove();
+    }
+
+    preloadLinks = [];
+}
+
+onBeforeMount(() => {
+    preloadAboutAssets();
+});
+
 onMounted(() => {
     document.documentElement.classList.add(hiddenScrollbarClass);
     document.body.classList.add(hiddenScrollbarClass);
+    livedTimer = window.setInterval(() => {
+        livedElapsedMs.value = Math.max(Date.now() - birthTimestamp, 0);
+    }, 43);
 
     if (!heroSection.value || !heroMusic.value) {
         return;
@@ -188,14 +273,19 @@ onMounted(() => {
         { threshold: 0.5 },
     );
     musicObserver.observe(heroSection.value);
-    addMusicUnlockListeners();
     void playHeroMusic();
 });
 
 onUnmounted(() => {
     document.documentElement.classList.remove(hiddenScrollbarClass);
     document.body.classList.remove(hiddenScrollbarClass);
+
+    if (livedTimer !== undefined) {
+        window.clearInterval(livedTimer);
+    }
+
     removeMusicUnlockListeners();
+    removeAboutPreloads();
     musicObserver?.disconnect();
 
     if (volumeAnimationFrame !== undefined) {
@@ -217,33 +307,104 @@ onUnmounted(() => {
             >
                 <audio
                     ref="heroMusic"
-                    src="/music/beauty-and-a-beat-justin-bieber-nicki-minaj.mp3"
+                    src="/music/shall-we-sped-up-instrumental.mp3"
                     preload="metadata"
                     loop
                 />
-                <div :class="$style.modelSpace">
-                    <model-viewer
-                        :class="$style.modelViewer"
-                        src="/models/fujipp/fujipp-dancing.glb"
-                        alt="Animated 3D model of Fujipp"
-                        autoplay
-                        camera-controls
-                        interaction-prompt="none"
-                    />
-                </div>
-                <div :class="$style.heroContent" class="bg-main-surface">
-                    <header :class="$style.heroHeader">
-                        <h1 class="type-subtitle-sb">Anawat Grudtoop</h1>
+                <div :class="$style.heroStage" :lang="heroLocale">
+                    <div :class="$style.heroTopbar">
+                        <p class="type-overline-sb text-text-muted">
+                            ABOUT ME
+                        </p>
                         <LanguageButton v-model="heroLocale" :class="$style.languageButton" />
-                    </header>
-                    <hr :class="$style.divider" class="border-main-divider">
-                    <p
-                        v-for="paragraph in heroParagraphs"
-                        :key="paragraph"
-                        class="type-body-main-r"
+                    </div>
+                    <Transition
+                        mode="out-in"
+                        :enter-active-class="$style.heroLanguageEnterActive"
+                        :leave-active-class="$style.heroLanguageLeaveActive"
+                        :enter-from-class="$style.heroLanguageEnterFrom"
+                        :leave-to-class="$style.heroLanguageLeaveTo"
                     >
-                        {{ heroTranslation(paragraph) }}
-                    </p>
+                        <header :key="`hero-title-${heroLocale}`" :class="$style.heroTitle">
+                            <h1 class="type-h1-page-title-sb text-text-primary-text">
+                                {{ t("about.hero.name", {}, { locale: heroLocale }) }}
+                            </h1>
+                            <div :class="$style.heroRole" class="text-text-primary-text">
+                                <span :class="$style.heroRoleBadge" class="type-caption-sb">
+                                    {{ t("about.hero.role_title", {}, { locale: heroLocale }) }}
+                                </span>
+                                <span :class="$style.heroRoleInterest" class="type-caption-r">
+                                    {{ t("about.hero.role_interest", {}, { locale: heroLocale }) }}
+                                </span>
+                            </div>
+                        </header>
+                    </Transition>
+                    <div :class="$style.modelSpace">
+                        <model-viewer
+                            ref="heroMascotModel"
+                            :class="[
+                                $style.modelViewer,
+                                { [$style.modelViewerReady]: heroMascotVisible },
+                            ]"
+                            :src="heroMascotModelSrc"
+                            alt="Animated 3D model of Fujipp"
+                            camera-controls
+                            interaction-prompt="none"
+                            loading="eager"
+                            reveal="auto"
+                            @load="playHeroMascotAnimation"
+                            @finished="handleHeroMascotAnimationFinished"
+                        />
+                    </div>
+                    <Transition
+                        mode="out-in"
+                        :enter-active-class="$style.heroLanguageEnterActive"
+                        :leave-active-class="$style.heroLanguageLeaveActive"
+                        :enter-from-class="$style.heroLanguageEnterFrom"
+                        :leave-to-class="$style.heroLanguageLeaveTo"
+                    >
+                        <div :key="`hero-copy-${heroLocale}`" :class="$style.heroCopy">
+                            <p :class="$style.heroIntro" class="type-body-small-r">
+                                {{ t("about.hero.intro_1", {}, { locale: heroLocale }) }}
+                            </p>
+                            <dl :class="$style.heroFacts" class="type-body-small-r">
+                                <div
+                                    v-for="fact in heroFactFields"
+                                    :key="fact"
+                                    :class="$style.heroFact"
+                                >
+                                    <dt>{{ t(`about.hero.facts.${fact}.label`, {}, { locale: heroLocale }) }}</dt>
+                                    <dd>
+                                        <span
+                                            v-if="fact === 'lived'"
+                                            :class="$style.livedClock"
+                                            :aria-label="t('about.hero.lived_format', {}, { locale: heroLocale })"
+                                        >
+                                            {{ livedClock }}
+                                        </span>
+                                        <span v-else>
+                                            {{ t(`about.hero.facts.${fact}.value`, {}, { locale: heroLocale }) }}
+                                        </span>
+                                    </dd>
+                                </div>
+                            </dl>
+                        </div>
+                    </Transition>
+                    <Transition
+                        mode="out-in"
+                        :enter-active-class="$style.heroLanguageEnterActive"
+                        :leave-active-class="$style.heroLanguageLeaveActive"
+                        :enter-from-class="$style.heroLanguageEnterFrom"
+                        :leave-to-class="$style.heroLanguageLeaveTo"
+                    >
+                        <p
+                            :key="`hero-status-${heroLocale}`"
+                            :class="$style.heroStatus"
+                            class="type-caption-sb text-text-primary-text"
+                        >
+                            {{ t("about.hero.status", {}, { locale: heroLocale }) }}
+                        </p>
+                    </Transition>
                 </div>
             </section>
             <section :class="$style.skillsSection" aria-label="Skills">
@@ -263,6 +424,9 @@ onUnmounted(() => {
                         :class="$style.educationImage"
                         :src="selectedEducation.image"
                         :alt="educationTranslation('institution')"
+                        loading="eager"
+                        decoding="async"
+                        fetchpriority="high"
                     >
                     <div :class="$style.educationContent" class="bg-main-surface">
                         <header :class="$style.heroHeader">
@@ -347,38 +511,229 @@ onUnmounted(() => {
     display: flex;
     flex-direction: column;
     width: 100%;
-    max-width: var(--container-7xl);
+    max-width: none;
     margin: 0 auto;
-    padding: var(--spacing-space-5);
+    padding: 0 0 var(--spacing-space-5);
     gap: var(--spacing-space-5);
 }
 
 .hero {
+    --about-hero-height: clamp(720px, calc(100svh - var(--spacing-space-16)), 860px);
+
     box-sizing: border-box;
-    width: min(100%, 1133px);
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    width: 100%;
+    min-height: var(--about-hero-height);
     margin: 0 auto;
     overflow: hidden;
-    border-radius: var(--radius-2xl);
+    border-radius: 0;
+}
+
+.heroStage {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 0.78fr) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    box-sizing: border-box;
+    width: min(100%, var(--container-7xl));
+    min-height: var(--about-hero-height);
+    margin: 0 auto;
+    padding: var(--spacing-space-8) var(--spacing-space-5);
+    gap: var(--spacing-space-6);
+}
+
+.heroStage::before,
+.heroStage::after {
+    position: absolute;
+    left: var(--spacing-space-5);
+    right: var(--spacing-space-5);
+    height: 1px;
+    background: var(--color-main-divider);
+    content: "";
+    opacity: 0.72;
+}
+
+.heroStage::before {
+    top: var(--spacing-space-20);
+}
+
+.heroStage::after {
+    bottom: var(--spacing-space-20);
+}
+
+.heroTopbar {
+    position: relative;
+    z-index: 3;
+    display: flex;
+    grid-column: 1 / -1;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-space-4);
+}
+
+.heroTopbar p {
+    margin: 0;
+}
+
+.heroTitle {
+    z-index: 2;
+    display: flex;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    flex-direction: column;
+    align-self: start;
+    max-width: 560px;
+    margin-top: var(--spacing-space-10);
+    gap: var(--spacing-space-2);
+}
+
+.heroTitle h1 {
+    margin: 0;
+}
+
+.heroRole {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    width: fit-content;
+    gap: var(--spacing-space-1);
+}
+
+.heroRoleBadge {
+    display: block;
+    color: var(--color-main-primary);
+}
+
+.heroRoleInterest {
+    display: block;
+    color: var(--color-text-secondary);
+    font-style: italic;
 }
 
 .modelSpace {
-    height: 296px;
+    z-index: 1;
+    grid-column: 2;
+    grid-row: 2;
+    align-self: center;
+    height: min(68svh, 640px);
+    min-height: 420px;
+    overflow: visible;
+    animation: mascotFloat 5600ms ease-in-out infinite;
 }
 
 .modelViewer {
     display: block;
-    width: 100%;
+    width: 132%;
     height: 100%;
+    margin-left: -16%;
+    overflow: visible;
+    opacity: 0;
+    transition: opacity 180ms ease;
 }
 
-.heroContent {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
+.modelViewerReady {
+    opacity: 1;
+}
+
+.heroCopy {
+    z-index: 2;
+    display: grid;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    grid-template-columns: minmax(0, 340px) minmax(300px, 1fr) minmax(0, 340px);
+    align-self: center;
+    gap: var(--spacing-space-6);
+    pointer-events: none;
+}
+
+.heroIntro,
+.heroFacts {
     box-sizing: border-box;
-    padding: 16px;
-    gap: 10px;
-    border-radius: 0 0 var(--radius-2xl) var(--radius-2xl);
+    margin: 0;
+    padding: var(--spacing-space-4) 0;
+    border-top: 1px solid var(--color-main-divider);
+    border-bottom: 1px solid var(--color-main-divider);
+}
+
+.heroIntro {
+    grid-column: 1;
+    align-self: start;
+}
+
+.heroFacts {
+    grid-column: 3;
+    align-self: end;
+    display: grid;
+    gap: var(--spacing-space-2);
+}
+
+.heroFact {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    align-items: baseline;
+    gap: var(--spacing-space-2);
+}
+
+.heroFact dt {
+    color: var(--color-text-secondary);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.heroFact dt::after {
+    content: ":";
+}
+
+.heroFact dd {
+    min-width: 0;
+    margin: 0;
+    color: var(--color-text-secondary);
+}
+
+.livedClock {
+    display: inline-block;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.heroStatus {
+    z-index: 2;
+    grid-column: 1 / -1;
+    grid-row: 3;
+    justify-self: center;
+    max-width: 680px;
+    margin: 0;
+    padding-top: var(--spacing-space-5);
+    text-align: center;
+}
+
+.heroLanguageEnterActive {
+    transition:
+        opacity 420ms ease,
+        transform 420ms ease,
+        filter 420ms ease;
+    transition-delay: 90ms;
+}
+
+.heroLanguageLeaveActive {
+    transition:
+        opacity 180ms ease,
+        transform 180ms ease,
+        filter 180ms ease;
+}
+
+.heroLanguageEnterFrom {
+    opacity: 0;
+    filter: blur(6px);
+    transform: translateY(var(--spacing-space-3));
+}
+
+.heroLanguageLeaveTo {
+    opacity: 0;
+    filter: blur(4px);
+    transform: translateY(calc(var(--spacing-space-2) * -1));
 }
 
 .heroHeader {
@@ -389,13 +744,13 @@ onUnmounted(() => {
     gap: 20px;
 }
 
-.heroHeader h1,
 .heroHeader h3 {
     margin: 0;
 }
 
 .languageButton {
-    border-radius: var(--radius-3xl);
+    z-index: 3;
+    border-radius: var(--radius-xl);
 }
 
 .divider {
@@ -406,40 +761,40 @@ onUnmounted(() => {
     border-width: 1px 0 0;
 }
 
-.heroContent p {
-    width: 100%;
-    margin: 0;
-}
-
 .skillsSection {
     display: flex;
     flex-direction: column;
-    width: min(100%, 1133px);
+    box-sizing: border-box;
+    width: min(100%, var(--container-7xl));
     margin: 0 auto;
+    padding: 0 var(--spacing-space-5);
     gap: var(--spacing-space-5);
 }
 
 .skillGrid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 256px));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     grid-auto-rows: 1fr;
-    justify-content: center;
-    gap: 36px;
+    gap: var(--spacing-space-5);
 }
 
 .educationSection {
     display: flex;
     flex-direction: column;
-    width: min(100%, 1133.5px);
+    box-sizing: border-box;
+    width: min(100%, var(--container-7xl));
     margin: 0 auto;
+    padding: 0 var(--spacing-space-5);
     gap: var(--spacing-space-5);
 }
 
 .gallerySection {
     display: flex;
     flex-direction: column;
-    width: min(100%, 1133.5px);
+    box-sizing: border-box;
+    width: min(100%, var(--container-7xl));
     margin: 0 auto;
+    padding: 0 var(--spacing-space-5);
     gap: var(--spacing-space-5);
 }
 
@@ -514,14 +869,80 @@ onUnmounted(() => {
 }
 
 @media (max-width: 767px) {
+    .hero {
+        --about-hero-height: calc(100svh - var(--spacing-space-16));
+    }
+
     .heroContainer {
+        padding: 0 0 var(--spacing-space-5);
+    }
+
+    .heroStage {
+        display: flex;
+        flex-direction: column;
+        min-height: var(--about-hero-height);
         padding: var(--spacing-space-5);
+        gap: var(--spacing-space-5);
+    }
+
+    .heroStage::before {
+        top: var(--spacing-space-16);
+    }
+
+    .heroStage::after {
+        bottom: var(--spacing-space-16);
+    }
+
+    .heroTopbar {
+        align-items: flex-start;
+    }
+
+    .heroTitle {
+        align-items: center;
+        max-width: none;
+        margin-top: var(--spacing-space-2);
+        text-align: center;
+    }
+
+    .heroRole {
+        align-items: center;
+    }
+
+    .modelSpace {
+        width: 100%;
+        height: 36svh;
+        min-height: 260px;
+    }
+
+    .modelViewer {
+        width: 116%;
+        margin-left: -8%;
+    }
+
+    .heroCopy {
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-space-4);
+    }
+
+    .heroIntro,
+    .heroFacts {
+        align-self: stretch;
+    }
+
+    .heroFact {
+        grid-template-columns: max-content minmax(0, 1fr);
+    }
+
+    .heroStatus {
+        padding-top: 0;
     }
 
     .skillGrid {
+        min-width: 0;
         grid-template-columns: 1fr;
         grid-auto-rows: auto;
-        gap: var(--spacing-space-5);
+        gap: var(--spacing-space-4);
     }
 
     .educationCard {
@@ -572,8 +993,73 @@ onUnmounted(() => {
 }
 
 @media (min-width: 768px) and (max-width: 1023px) {
+    .heroStage {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+    }
+
+    .heroTitle {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        justify-self: center;
+        margin-top: var(--spacing-space-4);
+        text-align: center;
+    }
+
+    .modelSpace {
+        grid-column: 1 / -1;
+        grid-row: 3;
+        height: 44svh;
+        min-height: 340px;
+    }
+
+    .modelViewer {
+        width: 116%;
+        margin-left: -8%;
+    }
+
+    .heroCopy {
+        grid-column: 1 / -1;
+        grid-row: 4;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .heroIntro {
+        grid-column: 1;
+    }
+
+    .heroFacts {
+        grid-column: 2;
+    }
+
+    .heroStatus {
+        grid-row: 5;
+    }
+
     .skillGrid {
-        grid-template-columns: repeat(2, minmax(0, 256px));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
+
+@media (prefers-reduced-motion: reduce) {
+    .heroLanguageEnterActive,
+    .heroLanguageLeaveActive,
+    .modelViewer,
+    .modelSpace {
+        transition: none;
+        animation: none;
+    }
+}
+
+@keyframes mascotFloat {
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(calc(var(--spacing-space-3) * -1));
+    }
+}
+
 </style>

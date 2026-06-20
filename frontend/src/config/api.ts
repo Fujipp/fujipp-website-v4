@@ -8,5 +8,6 @@ const HOST_URL = (import.meta.env.VITE_API_HOST_URL as string | undefined)?.trim
 
 const override = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim();
 const target = (import.meta.env.VITE_API_TARGET as string | undefined)?.trim().toLowerCase();
+const devHostProxyUrl = import.meta.env.DEV && target === "host" ? "/host-api" : "";
 
-export const API_BASE_URL = override || (target === "host" ? HOST_URL : LOCAL_URL);
+export const API_BASE_URL = override || devHostProxyUrl || (target === "host" ? HOST_URL : LOCAL_URL);

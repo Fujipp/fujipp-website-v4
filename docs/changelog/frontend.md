@@ -1,9 +1,42 @@
 # Changelog — Frontend
 
-**Current version: `0.5.4`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.5.8.19`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.5.8.19` | 2026-06-20 | apply the About skill rack text-secondary icon filter across all row layouts instead of only the mobile icon strip |
+| `0.5.8.18` | 2026-06-20 | map additional About skill rack icons to the mobile text-secondary icon treatment |
+| `0.5.8.17` | 2026-06-20 | constrain mobile About skill rack cards so their horizontal icon tracks scroll inside the card instead of protruding past the viewport |
+| `0.5.8.16` | 2026-06-20 | hide the About hero 3D model until its animation starts so the rest pose does not flash on load |
+| `0.5.8.15` | 2026-06-20 | preload critical About assets and prioritize the hero model plus first education image while keeping gallery images lazy |
+| `0.5.8.14` | 2026-06-20 | align the About Education and Gallery sections to the same full-width container as Hero and Skills |
+| `0.5.8.13` | 2026-06-20 | redesign the About Skills section as full-width server rack cards and include the existing external service category |
+| `0.5.8.12` | 2026-06-20 | reduce the About hero music playback volume by half |
+| `0.5.8.11` | 2026-06-20 | format the About hero lived-time counter as hours:minutes:seconds:centiseconds |
+| `0.5.8.10` | 2026-06-20 | change the About hero lived-time counter from hours-based to minutes:seconds:centiseconds |
+| `0.5.8.9` | 2026-06-20 | add a configurable About hero mascot animation loop flag and stop the current mascot animation after one playthrough |
+| `0.5.8.8` | 2026-06-20 | restore About hero music playback using the shall-we sped-up instrumental track with visibility fade handling |
+| `0.5.8.7` | 2026-06-20 | format the About hero lived-time counter as a compact hours:seconds:centiseconds clock |
+| `0.5.8.6` | 2026-06-20 | make the About hero birthday static and add a live lived-time counter in hours, seconds, and milliseconds |
+| `0.5.8.5` | 2026-06-20 | update the About hero side copy with internship context and replace the right paragraph with localized personal facts plus animated birthday digits |
+| `0.5.8.4` | 2026-06-20 | remove the frame from the About hero role label while keeping the System Architecture interest line |
+| `0.5.8.3` | 2026-06-20 | switch the About hero role badge from error coloring to the primary brand color |
+| `0.5.8.2` | 2026-06-20 | refine the About hero role line into a Junior Full Stack Developer badge with a separate System Architecture interest line |
+| `0.5.8.1` | 2026-06-20 | refine the About hero intro copy to emphasize maintainable code in English and Thai |
+| `0.5.8` | 2026-06-20 | clarify the About hero Fujipp/Fuji status copy in English and Thai |
+| `0.5.7.9` | 2026-06-20 | remove clipping from the About hero 3D mascot area so animated hands and edges are not cut off |
+| `0.5.7.8` | 2026-06-20 | simplify the About hero eyebrow label to "ABOUT ME" without showing the active locale |
+| `0.5.7.7` | 2026-06-20 | add the Figma glass effect to the shared language switch while preserving the compact EN/TH variant layout |
+| `0.5.7.6` | 2026-06-20 | implement the shared language switch EN/TH variants from the Figma component specs |
+| `0.5.7.5` | 2026-06-20 | cap the desktop About hero height so the full-screen composition stays fixed when browser zoom is below 100% |
+| `0.5.7.4` | 2026-06-20 | simplify the About hero status line so it focuses on the Fujipp/Fuji name without repeating role metadata |
+| `0.5.7.3` | 2026-06-20 | update the About hero status line to include the Fujipp/Fuji personal brand |
+| `0.5.7.2` | 2026-06-20 | refine About language switching with a 12px language button radius and smoother fade-slide transitions for hero copy |
+| `0.5.7.1` | 2026-06-20 | refine the About hero into a full-screen section with a centered animated mascot, language toggle, animated profile copy, and responsive text placement |
+| `0.5.7` | 2026-06-20 | redesign the About hero with the 3D mascot centered between English and Thai profile copy, and remove the hero music playback |
+| `0.5.6` | 2026-06-19 | add a public `/changelog` page that imports the repository changelog markdown, summarizes area counts/latest date, and lets visitors filter release history by frontend, backend, database, or other work |
+| `0.5.5.1` | 2026-06-19 | frontend dev host API: route `VITE_API_TARGET=host` through a Vite `/host-api` proxy so local development can call the hosted backend without browser CORS failures |
+| `0.5.5` | 2026-06-19 | navigation guard: centralize route meta checks for authenticated shop pages, admin/project edit pages, guest-only auth pages, and add a routed 404 fallback page |
 | `0.5.4` | 2026-06-18 | admin bot control: Start/Stop/Restart buttons per row in Bots list, and a new "Runtime & Features" section in Bot config — live runtime status + lifecycle buttons, grant/extend the bot's runtime plan, and grant features (RENT_MONTHLY/PERMANENT) + adjust existing runtime/feature subscriptions (status, period end) |
 | `0.5.3.7` | 2026-06-18 | frontend dev config: add `bun run dev:local` alongside `dev:host` so local UI can explicitly choose local backend or VPS backend without editing `.env` |
 | `0.5.3.6` | 2026-06-18 | shop UI polish: remove floating summary action cards from Package/Wallet headers, hide Dashboard next-actions when there is no real action, and make feature package cards equal-height within the grid |

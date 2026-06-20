@@ -94,6 +94,9 @@ function handleKeydown(event: KeyboardEvent): void {
                 :class="$style.featuredImage"
                 :src="selectedImage.src"
                 :alt="selectedImage.alt"
+                loading="lazy"
+                decoding="async"
+                fetchpriority="low"
             >
             <div
                 v-else
@@ -125,6 +128,8 @@ function handleKeydown(event: KeyboardEvent): void {
                             :src="image.src"
                             :alt="image.alt"
                             loading="lazy"
+                            decoding="async"
+                            fetchpriority="low"
                         >
                         <span v-else :class="$style.placeholder">
                             <img src="/images/icons/common/gallery.svg" alt="" aria-hidden="true">

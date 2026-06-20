@@ -9,6 +9,7 @@ export const navbarLinks = [
   { label: "PROJECTS", path: "/projects", icon: "/images/icons/sidebar/projects.svg" },
   { label: "ABOUT", path: "/about", icon: "/images/icons/sidebar/about.svg" },
   { label: "CONTACT", path: "/contact", icon: "/images/icons/sidebar/contact.svg" },
+  { label: "CHANGELOG", path: "/changelog", icon: "/images/icons/sidebar/history.svg" },
 ] satisfies readonly NavbarLink[];
 
 export const mobileNavbarLinks = [

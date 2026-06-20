@@ -2,12 +2,22 @@ import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteLocationNormalized } from 'vue-router'
 import { useUserStore } from '@/stores'
 
+declare module 'vue-router' {
+  interface RouteMeta {
+    guestOnly?: boolean
+    requiresAdmin?: boolean
+    requiresAuth?: boolean
+  }
+}
+
 // Views are lazy-loaded so each route ships as its own chunk (smaller initial bundle).
 const HomeView = () => import('@/features/portfolio/views/HomeView.vue')
 const AboutView = () => import('@/features/portfolio/views/AboutView.vue')
 const ContactView = () => import('@/features/portfolio/views/ContactView.vue')
+const ChangelogView = () => import('@/features/portfolio/views/ChangelogView.vue')
 const PerformanceView = () => import('@/features/portfolio/views/PerformanceView.vue')
 const PrivacyView = () => import('@/features/portfolio/views/PrivacyView.vue')
+const NotFoundView = () => import('@/features/portfolio/views/NotFoundView.vue')
 const ProjectsView = () => import('@/features/projects/views/ProjectsView.vue')
 const ProjectDetailView = () => import('@/features/projects/views/ProjectDetailView.vue')
 const NewProjectView = () => import('@/features/projects/views/NewProjectView.vue')
@@ -46,48 +56,35 @@ function getCleanAuthCallbackLocation(to: RouteLocationNormalized) {
   }
 }
 
-async function requireAdmin(to: RouteLocationNormalized) {
-  const store = useUserStore()
-
-  await store.initAuth()
-
-  if (!store.isAuthenticated) {
-    return { name: 'login', query: { redirect: to.fullPath } }
-  }
-
-  if (!store.isAdmin) {
-    return { name: 'projects' }
-  }
-}
-
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: '/',            name: 'home',        component: HomeView },
     { path: '/projects',    name: 'projects',    component: ProjectsView },
-    { path: '/projects/new', name: 'project-new', component: NewProjectView, beforeEnter: requireAdmin },
-    { path: '/projects/:projectId/edit', name: 'project-edit', component: NewProjectView, beforeEnter: requireAdmin },
+    { path: '/projects/new', name: 'project-new', component: NewProjectView, meta: { requiresAuth: true, requiresAdmin: true } },
+    { path: '/projects/:projectId/edit', name: 'project-edit', component: NewProjectView, meta: { requiresAuth: true, requiresAdmin: true } },
     { path: '/projects/:projectId', name: 'project-detail', component: ProjectDetailView },
     { path: '/about',       name: 'about',       component: AboutView },
     { path: '/contact',     name: 'contact',     component: ContactView },
+    { path: '/changelog',   name: 'changelog',   component: ChangelogView },
     { path: '/performance', name: 'performance', component: PerformanceView },
     { path: '/privacy',     name: 'privacy',     component: PrivacyView },
 
     // Shop routes
-    { path: '/shop', name: 'shop-dashboard', component: ShopDashboardView },
-    { path: '/shop/wallet', name: 'shop-wallet', component: ShopWalletView },
-    { path: '/shop/package', name: 'shop-package', component: ShopPackageView },
+    { path: '/shop', name: 'shop-dashboard', component: ShopDashboardView, meta: { requiresAuth: true } },
+    { path: '/shop/wallet', name: 'shop-wallet', component: ShopWalletView, meta: { requiresAuth: true } },
+    { path: '/shop/package', name: 'shop-package', component: ShopPackageView, meta: { requiresAuth: true } },
     { path: '/shop/guide', name: 'shop-guide', component: ShopGuideView },
-    { path: '/shop/bots/:botId/config', name: 'shop-bot-config', component: BotConfigView },
-    { path: '/shop/bots/:botId/embeds', name: 'shop-bot-embeds', component: EmbedDesignerView },
+    { path: '/shop/bots/:botId/config', name: 'shop-bot-config', component: BotConfigView, meta: { requiresAuth: true } },
+    { path: '/shop/bots/:botId/embeds', name: 'shop-bot-embeds', component: EmbedDesignerView, meta: { requiresAuth: true } },
 
     // Admin routes live inside the shop section because they operate the shop.
-    { path: '/shop/admin', name: 'admin-dashboard', component: AdminDashboardView, beforeEnter: requireAdmin },
-    { path: '/shop/admin/users', name: 'admin-users', component: AdminUsersView, beforeEnter: requireAdmin },
-    { path: '/shop/admin/users/:userId', name: 'admin-user-detail', component: AdminUserDetailView, beforeEnter: requireAdmin },
-    { path: '/shop/admin/pricing', name: 'admin-pricing', component: AdminPricingView, beforeEnter: requireAdmin },
-    { path: '/shop/admin/bots', name: 'admin-bots', component: AdminBotsView, beforeEnter: requireAdmin },
-    { path: '/shop/admin/bots/:botId/config', name: 'admin-bot-config', component: AdminBotConfigView, beforeEnter: requireAdmin },
+    { path: '/shop/admin', name: 'admin-dashboard', component: AdminDashboardView, meta: { requiresAuth: true, requiresAdmin: true } },
+    { path: '/shop/admin/users', name: 'admin-users', component: AdminUsersView, meta: { requiresAuth: true, requiresAdmin: true } },
+    { path: '/shop/admin/users/:userId', name: 'admin-user-detail', component: AdminUserDetailView, meta: { requiresAuth: true, requiresAdmin: true } },
+    { path: '/shop/admin/pricing', name: 'admin-pricing', component: AdminPricingView, meta: { requiresAuth: true, requiresAdmin: true } },
+    { path: '/shop/admin/bots', name: 'admin-bots', component: AdminBotsView, meta: { requiresAuth: true, requiresAdmin: true } },
+    { path: '/shop/admin/bots/:botId/config', name: 'admin-bot-config', component: AdminBotConfigView, meta: { requiresAuth: true, requiresAdmin: true } },
 
     // Legacy admin URLs redirect into the shop admin namespace.
     { path: '/admin', redirect: { name: 'admin-dashboard' } },
@@ -98,8 +95,11 @@ const router = createRouter({
     { path: '/admin/bots/:botId/config', redirect: to => ({ name: 'admin-bot-config', params: to.params }) },
 
     // Auth routes
-    { path: '/login',    name: 'login',    component: AuthView },
-    { path: '/register', name: 'register', component: AuthView },
+    { path: '/login',    name: 'login',    component: AuthView, meta: { guestOnly: true } },
+    { path: '/register', name: 'register', component: AuthView, meta: { guestOnly: true } },
+
+    // 404 fallback must stay last.
+    { path: '/:pathMatch(.*)*', name: 'not-found', component: NotFoundView },
   ],
 })
 
@@ -112,8 +112,15 @@ router.beforeEach(async (to) => {
   const cleanAuthCallbackLocation = getCleanAuthCallbackLocation(to)
   if (cleanAuthCallbackLocation) return cleanAuthCallbackLocation
 
-  const authRoutes = ['login', 'register']
-  if (authRoutes.includes(to.name as string) && store.isAuthenticated) {
+  if ((to.meta.requiresAuth || to.meta.requiresAdmin) && !store.isAuthenticated) {
+    return { name: 'login', query: { redirect: to.fullPath } }
+  }
+
+  if (to.meta.requiresAdmin && !store.isAdmin) {
+    return { name: 'projects' }
+  }
+
+  if (to.meta.guestOnly && store.isAuthenticated) {
     return { name: 'home' }
   }
 })
