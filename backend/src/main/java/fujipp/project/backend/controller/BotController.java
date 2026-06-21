@@ -2,6 +2,7 @@ package fujipp.project.backend.controller;
 
 import fujipp.project.backend.billing.BillingClient;
 import fujipp.project.backend.dto.BotResponse;
+import fujipp.project.backend.dto.BotSlotInfo;
 import fujipp.project.backend.dto.CreateBotRequest;
 import fujipp.project.backend.dto.UpdateBotRequest;
 import fujipp.project.backend.runtime.RuntimeClient;
@@ -52,6 +53,20 @@ public class BotController {
     public ResponseEntity<Map<String, Long>> capacity() {
         long free = placement.availableSlots();
         return ResponseEntity.ok(Map.of("availableSlots", free));
+    }
+
+    /** The user's permanent bot-slot standing (used vs free+paid allowance, price of one more). */
+    @GetMapping("/slots")
+    public ResponseEntity<BotSlotInfo> slots(@AuthenticationPrincipal Jwt jwt) {
+        UUID userId = UUID.fromString(jwt.getSubject());
+        return ResponseEntity.ok(botService.botSlots(userId));
+    }
+
+    /** Buy one permanent bot slot (50 THB from wallet). Returns the updated standing. */
+    @PostMapping("/slots/purchase")
+    public ResponseEntity<BotSlotInfo> purchaseSlot(@AuthenticationPrincipal Jwt jwt) {
+        UUID userId = UUID.fromString(jwt.getSubject());
+        return ResponseEntity.ok(botService.purchaseSlot(userId));
     }
 
     @PostMapping

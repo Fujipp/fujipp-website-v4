@@ -18,6 +18,9 @@ public interface BotInstanceRepository extends JpaRepository<BotInstance, UUID> 
 
     boolean existsByUserIdAndName(UUID userId, String name);
 
+    /** How many bots a user owns — checked against their slot allowance on create. */
+    long countByUserId(UUID userId);
+
     /** Reassign a bot to a new owner (user_id is updatable=false on the entity, so bulk-update it). */
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update BotInstance b set b.userId = :newUserId where b.id = :botId")
