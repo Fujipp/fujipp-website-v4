@@ -1,48 +1,49 @@
 # Changelog — Database
 
-**Current version: `0.2.2`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.2.3`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
-| `0.2.2` | 2026-06-21 | add the `monitoring` schema with `metric_snapshots` (periodic CPU/RAM/disk/network/latency history, `double precision` to match the backend's Double fields) and `incidents` (open/resolved service incidents) for the `/performance` dashboard (`20260621120000`); both RLS-enabled with no policies (deny-all to API roles) — the schema is not PostgREST-exposed and only the backend's privileged role reads/writes them |
-| `0.2.1` | 2026-06-17 | seed the `voice-keeper` feature into `billing.feature_catalog` (AUTOMATION) with 2 config templates — `VOICE_CHANNEL_ID` (CHANNEL_ID) + `VOICE_KEEP_ENABLED` (BOOLEAN) (`20260617120000`); ports the legacy IDAXD Shop 24/7 voice presence — no price yet (visible, not purchasable until priced in the admin Pricing page) |
-| `0.2.0.5` | 2026-06-16 | wallet-topup: add `SLIP_ACCESS_ROLE_ID` config (`20260616120000`) — a temporary role granted on a PromptPay top-up so the member can see the slip channel, removed when the QR window closes |
-| `0.2.0.4` | 2026-06-15 | wallet-topup: add `TRUEMONEY_FEE_FLAT` (flat baht) alongside `TRUEMONEY_FEE` (%) and reword both (`20260615150000`); expose `{{fee}}`/`{{gross}}` on the `topup_success` embed. The bot now actually applies these (was defined-but-unused) |
-| `0.2.0.3` | 2026-06-15 | reword review-credit STRING_LIST field hints (`20260615140000`) — edited as add/remove input boxes now, so drop the "บรรทัดละ" (per-line) wording |
-| `0.2.0.2` | 2026-06-15 | add `STRING_LIST` to `feature_variable_templates_type_chk` and switch review-credit's `REVIEW_REPLY_MESSAGES` + `REVIEW_REACTIONS` to it (`20260615130000`) — stored as JSON arrays still, but edited one-item-per-line in the form; labels/descriptions updated. Existing values stay valid |
-| `0.2.0.1` | 2026-06-15 | seed review-credit price (`20260615120200`) — RENT_PERMANENT 190 THB (no monthly); makes it purchasable + visible in the admin Pricing page. Editable there afterwards |
-| `0.2.0` | 2026-06-15 | review-credit: new `shop.review_credit_state` table (`20260615120000`, per-bot/channel counter + last reply id, RLS service_role only) + seed the `review-credit` feature into `billing.feature_catalog` (ENGAGEMENT) with 6 config templates (`20260615120100`); ports the legacy Aka Shop review counter — no price yet (visible, not purchasable) |
-| `0.1.9.1` | 2026-06-13 | `admin_audit_log.payload` jsonb → text (`20260613173500`) — billing runs on Jackson 3, which Hibernate's auto jsonb mapper can't use; the app serializes payload to JSON text itself |
-| `0.1.9` | 2026-06-13 | admin: new append-only `billing.admin_audit_log` table (`20260613163224`) — actor/action/target + jsonb payload, RLS-enabled (service_role only), indexed on actor/target-user/created; trail for admin price/wallet/user/bot actions |
-| `0.1.8.7` | 2026-06-13 | wallet-topup: seed config template `TOPUP_ROLE_ID` (`20260613160000`) — a dedicated "top-up role" given to anyone who tops up, shown in the Shop Wallet & Top-up tab (separate from the Top Spender rank/milestone roles) |
-| `0.1.8.6` | 2026-06-13 | seed the `top-spender-rank` embed slot `top_leaderboard` (`20260613150000`) with a default mirroring the previously hardcoded /top embed (`{{updated}}`, `{{board}}`) — the /top leaderboard is now editable in the Embed Designer |
-| `0.1.8.5` | 2026-06-13 | fix the wallet-history/top-spender seed (`20260610170000`): category UTILITY violated `feature_catalog_category_chk` so the migration had never applied — now ENGAGEMENT; applied to the shared DB and wallet-history subscribed to Test-001 |
-| `0.1.8.4` | 2026-06-13 | promote the shop owner's Test-001 embed designs to the seeded defaults for all 18 customized slots (roblox-robux-payout + wallet-topup); previously seeded component roles (pkg_select, group_select, method_select, btn_*) preserved via merge |
-| `0.1.8.3` | 2026-06-13 | roblox-robux-payout: seed the 6 remaining embed slots (`check_result`, `group_balance`, `payout_admin_success`, `buy_queued`, `notify_success`, `notify_error`) with defaults mirroring the previously hardcoded embeds |
-| `0.1.8.2` | 2026-06-13 | roblox-robux-payout: seed `pkg_select` component role on the `buy_eligible` slot (placeholder, emoji, `option_label` template with `{{robux}}`/`{{price}}`, ok/insufficient descriptions) so the package dropdown is Embed-Designer-editable |
-| `0.1.8.1` | 2026-06-12 | roblox-robux-payout: add `ROBUX_PACKAGES` JSON config template — lets a shop define its own {robux, price} package list instead of deriving from the rate |
-| `0.1.8` | 2026-06-10 | seed wallet-history + top-spender-rank features with config templates (history limit, rank/milestone roles, leaderboard channel) |
-| `0.1.7.1` | 2026-06-10 | roblox-robux-payout: add PAYMENT_REFRESH_INTERVAL template + PAYMENT_COUNTDOWN_TARGET accepts ISO date or seconds |
-| `0.1.7` | 2026-06-10 | wallet-topup slip flow templates: PROMPTPAY_ACCOUNT_NAME, TOPUP_QR_TIMEOUT, SLIP_CHECK_CHANNEL, TOPUP_NOTIFY_CHANNEL |
-| `0.1.6` | 2026-06-10 | roblox-robux-payout: add numbered group config templates (ROBLOX_*_1/_2/_3), make legacy single keys optional, clarify ROBUX_RATE = Robux per baht |
-| `0.1.5.1` | 2026-06-10 | seed Kanom button/dropdown component appearance defaults under embed slot JSON components |
-| `0.1.5` | 2026-06-10 | seed real Kanom embed designs as slot defaults (panel + top-up flow visuals, dynamic {{vars}}, custom emoji) |
-| `0.1.4` | 2026-06-09 | add embed designer: `bots.embed_slots` (registry + defaults) + `bots.bot_embeds` (per-bot overrides); seed Kanom slots |
-| `0.1.3` | 2026-06-09 | add `bots.vps_nodes` (host registry + max_slots) + `bot_instances.vps_node_id`; seed primary VPS at 5 slots |
-| `0.1.2.1` | 2026-06-08 | add bot credential columns (discord public key + encrypted client secret) |
-| `0.1.2` | 2026-06-08 | add `shop` schema: member_wallets + wallet_ledger (in-bot shop wallet, layer B) |
-| `0.1.1.1` | 2026-06-08 | features sold permanent per-bot: drop monthly SKUs, reprice (roblox 490 / wallet 290) |
-| `0.1.1` | 2026-06-07 | add `voucher` schema: redeem (top-up) history + phone_summary view |
-| `0.1.0` | 2026-06-05 | add `bots` schema + bot_instances registry (encrypted Discord token) |
-| `0.0.9.2` | 2026-06-05 | seed prices for Roblox + wallet-topup features (rent/permanent) |
-| `0.0.9.1` | 2026-06-05 | seed Roblox + wallet-topup features and their config schema |
-| `0.0.9` | 2026-06-05 | allow `live` and `website` project link types |
-| `0.0.8` | 2026-06-03 | add billing service schema |
-| `0.0.7` | 2026-06-02 | allow project certificate PDFs |
-| `0.0.6` | 2026-06-02 | extend project portfolio schema |
-| `0.0.5.1` | 2026-06-02 | update supabase config |
-| `0.0.5` | 2026-06-01 | add auth profiles and admin roles |
-| `0.0.4` | 2026-05-28 | add project translations |
-| `0.0.3` | 2026-05-28 | add profiles auth schema |
-| `0.0.2` | 2026-05-28 | add project portfolio schema |
-| `0.0.1` | 2026-05-24 | add initial supabase baseline |
+| `0.2.3` | 2026-06-22 | Added the Server Log feature definition and configurable log embed for customer bots |
+| `0.2.2` | 2026-06-21 | Added secure monitoring data storage for Performance history and incident tracking |
+| `0.2.1` | 2026-06-17 | Added the voice-keeper feature definition for 24/7 Discord voice presence |
+| `0.2.0.5` | 2026-06-16 | Added a temporary slip-access role setting for PromptPay top-up flows |
+| `0.2.0.4` | 2026-06-15 | Added flexible TrueMoney fee settings and top-up success variables |
+| `0.2.0.3` | 2026-06-15 | Updated review-credit field guidance to match the new add/remove input UI |
+| `0.2.0.2` | 2026-06-15 | Improved review-credit message and reaction settings for easier list editing |
+| `0.2.0.1` | 2026-06-15 | Added the first review-credit price so it can be sold from the shop |
+| `0.2.0` | 2026-06-15 | Added review-credit data storage and feature settings for customer bots |
+| `0.1.9.1` | 2026-06-13 | Adjusted audit log storage for better billing-service compatibility |
+| `0.1.9` | 2026-06-13 | Added admin audit history for pricing, wallet, user, and bot actions |
+| `0.1.8.7` | 2026-06-13 | Added a top-up role setting for rewarding members after payment |
+| `0.1.8.6` | 2026-06-13 | Made the top-spender leaderboard embed editable |
+| `0.1.8.5` | 2026-06-13 | Corrected wallet-history and top-spender feature setup |
+| `0.1.8.4` | 2026-06-13 | Promoted tested shop embed designs as default bot templates |
+| `0.1.8.3` | 2026-06-13 | Added remaining Robux payout embed templates |
+| `0.1.8.2` | 2026-06-13 | Made the Robux package dropdown configurable in the Embed Designer |
+| `0.1.8.1` | 2026-06-12 | Added custom Robux package settings per shop |
+| `0.1.8` | 2026-06-10 | Added wallet-history and top-spender-rank feature settings |
+| `0.1.7.1` | 2026-06-10 | Added payment refresh and countdown settings for Robux panels |
+| `0.1.7` | 2026-06-10 | Added PromptPay slip flow settings for wallet top-ups |
+| `0.1.6` | 2026-06-10 | Added multi-group Robux payout settings and clearer rate configuration |
+| `0.1.5.1` | 2026-06-10 | Added default button and dropdown appearance settings for embeds |
+| `0.1.5` | 2026-06-10 | Added polished default embed designs for the Kanom shop flow |
+| `0.1.4` | 2026-06-09 | Added database support for editable bot embeds |
+| `0.1.3` | 2026-06-09 | Added bot host registry and capacity tracking |
+| `0.1.2.1` | 2026-06-08 | Added secure bot credential fields |
+| `0.1.2` | 2026-06-08 | Added in-bot shop wallets and wallet ledger history |
+| `0.1.1.1` | 2026-06-08 | Updated feature pricing to permanent per-bot purchases |
+| `0.1.1` | 2026-06-07 | Added voucher redemption history and phone summary reporting |
+| `0.1.0` | 2026-06-05 | Added bot registry storage with encrypted Discord tokens |
+| `0.0.9.2` | 2026-06-05 | Added starter prices for Roblox and wallet top-up features |
+| `0.0.9.1` | 2026-06-05 | Added Roblox and wallet top-up feature definitions |
+| `0.0.9` | 2026-06-05 | Added live demo and website link types for projects |
+| `0.0.8` | 2026-06-03 | Added the billing service database foundation |
+| `0.0.7` | 2026-06-02 | Added support for project certificate PDFs |
+| `0.0.6` | 2026-06-02 | Expanded the project portfolio data model |
+| `0.0.5.1` | 2026-06-02 | Updated Supabase project configuration |
+| `0.0.5` | 2026-06-01 | Added user profiles and admin roles |
+| `0.0.4` | 2026-05-28 | Added project translation storage |
+| `0.0.3` | 2026-05-28 | Added profile authentication storage |
+| `0.0.2` | 2026-05-28 | Added the project portfolio schema |
+| `0.0.1` | 2026-05-24 | Added the initial Supabase baseline |

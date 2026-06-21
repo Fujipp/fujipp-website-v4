@@ -1,106 +1,108 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.20.4`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.21`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
-| `0.0.20.4` | 2026-06-18 | project management: add `docs/feature-status-map.md` summarizing current portfolio/shop/admin/backend/service/bot feature status, known risks, stale docs, and recommended Sprint 1 priorities |
-| `0.0.20.3` | 2026-06-18 | agent skills: add `fujipp-platform` project skill with token-efficient repo routing, workflow, frontend, backend/service, and Supabase database references for AI agents |
-| `0.0.20.2` | 2026-06-18 | agent rules: add product direction, task intake template, AI handoff protocol, and stronger Spring Boot/Supabase architecture guidance for backend/database work |
-| `0.0.20.1` | 2026-06-17 | agent rules: add project-manager operating mode, clarify split-vs-combined GitHub pushes, and sync frontend AI instructions with the Vue/TypeScript/Bun shared+features architecture |
-| `0.0.20` | 2026-06-17 | central-bot: new `voice-keeper` feature (`src/features/voice-keeper/`) — ports legacy IDAXD Shop (bot-002): keeps the bot in a voice channel 24/7. Joins on startup when `VOICE_KEEP_ENABLED` + `VOICE_CHANNEL_ID` are set, rejoins automatically on kick/move/disconnect (5s-throttled) with a 30-min heartbeat repair, and admin `/join [channel]` / `/leave` drive it live (in-memory override, resets to settings on restart). Adds `@discordjs/voice` + `libsodium-wrappers` (pure-JS, no native build); `GuildVoiceStates` intent (not privileged) |
-| `0.0.19` | 2026-06-16 | bot-runtime: orchestrator injects `VOUCHER_BASE_URL` as each bot's default `TRUEMONEY_BASE` (shop config becomes an optional override; blank falls back to the node default). compose sets it to `http://voucher:8082` so container bots reach voucher over the compose network instead of the host's `127.0.0.1:3611` — and a bot on another VPS points at the main host's voucher privately. Unset = unchanged behaviour |
-| `0.0.18` | 2026-06-16 | voucher-service: redeem is now locked to bots we run on the platform — `VOUCHER_CLIENT_CHECK_ENABLED` (default true) requires `X-Client-Id` to be a real `bots.bot_instances` subject id (new `PlatformClientValidator` reads the shared DB), so every shop that buys the top-up feature works automatically with no list to maintain, and an outside caller is rejected (403) even with the token. `VOUCHER_ALLOWED_CLIENT_IDS` demoted to an optional additive escape hatch; dropped the legacy `kanom-001` reliance |
-| `0.0.17.1` | 2026-06-16 | infra docs: documented the manual "add another bot-host VPS" register flow (provision → run orchestrator → register → `/health` verify) in `infrastructure/README.md` |
-| `0.0.17` | 2026-06-16 | voucher-service: optional `VOUCHER_ALLOWED_CLIENT_IDS` allowlist — when set, only those `X-Client-Id`s may redeem (missing/unknown → 403), locking the service to your own network even if the token leaks. central-bot wallet-topup now sends its shop subject id as `X-Client-Id` so each shop is allow-listable / revocable individually |
-| `0.0.16.5` | 2026-06-16 | central-bot wallet-topup: on a PromptPay top-up, grant `SLIP_ACCESS_ROLE_ID` (if set) so the member can see the slip channel, then auto-remove it after `TOPUP_QR_TIMEOUT` minutes. Best-effort, never blocks the flow |
-| `0.0.16.4` | 2026-06-15 | central-bot wallet-topup: actually apply the TrueMoney fee on voucher redeem — `fee = round(amount × TRUEMONEY_FEE%) + TRUEMONEY_FEE_FLAT฿`, credit the net (never < 0; refuses if fee ≥ amount). `topup_success` gets `amount` = net credited plus `fee`/`gross` vars. Was defined-but-unused before |
-| `0.0.16.3` | 2026-06-15 | central-bot review-credit: if `message.reply()` fails (it needs READ_MESSAGE_HISTORY, which a channel can deny while still allowing reactions — the "reacts but never replies" symptom), fall back to a plain `channel.send` so the thank-you still posts. Logs name the missing permission |
-| `0.0.16.2` | 2026-06-15 | central-bot review-credit: on startup, if the review channel has no counter row yet (first run, or after the web "recount" clears it), count every member message once so the counter starts from the real total instead of 0 |
-| `0.0.16.1` | 2026-06-15 | deploy-frontend: remove the "Pin index to last known good bundle" step — it rewrote `dist/index.html` to a hardcoded old bundle (`index-DviLTd3i.js`) every deploy, so no frontend change shipped. The `public/.htaccess` asset guard (serves `/assets/*` directly, 404 not text/html) is the real MIME fix; index.html now references the freshly-built hashed entry |
-| `0.0.16` | 2026-06-15 | central-bot: new `review-credit` feature (`src/features/review-credit/`) — ports legacy Aka Shop (bot-003): on each member message in `REVIEW_CHANNEL_ID` it counts (DB-backed `shop.review_credit_state`), reacts (`REVIEW_REACTIONS`), optionally grants `REVIEW_DEFAULT_ROLE_ID`, renames the channel to `REVIEW_CHANNEL_NAME_TEMPLATE` (2-per-10min limiter), and replies a random `REVIEW_REPLY_MESSAGES` (deleting the prior reply); plus admin `/checkcredit` (recount + sync) and `/recredit` (refresh latest). GuildMessages intent always, GuildMembers only when a role is configured |
-| `0.0.15.23` | 2026-06-14 | deploy-frontend: emergency-pin `dist/index.html` to the last known-good hosted Vite bundle while the shared host is serving freshly uploaded `/assets/index-*` files as SPA HTML |
-| `0.0.15.22` | 2026-06-14 | deploy-frontend: explicitly copy `frontend/public/assets/*.js` into `dist/assets/` after Vite build so restored legacy chunks are uploaded by the FTP mirror |
-| `0.0.15.21` | 2026-06-14 | deploy-frontend: stop deleting old hashed Vite assets during FTP mirror so cached index/main chunks can still load their previous lazy route chunks after a deploy |
-| `0.0.15.20` | 2026-06-13 | `.agents/README.md`: standing approval to commit + squash-merge finished work to `main` without asking each time (stop only when risky/irreversible/uncertain); WIP is still never committed |
-| `0.0.15.19` | 2026-06-13 | central-bot: grant the configured `TOPUP_ROLE_ID` to a member on every successful top-up (SlipOK / TrueMoney / /wallet-add) via new `topup-role.js` — fetches the single member by id so no GuildMembers intent is needed; best-effort, never throws into the top-up flow |
-| `0.0.15.18` | 2026-06-13 | central-bot wallet/rank fixes: (1) ranks now resync automatically on every top-up (SlipOK / TrueMoney / /wallet-add) via a new `ctx.services.rankSync` (per-guild serialized sweep) instead of only on manual /top; (2) /wallet-add and the TrueMoney-voucher top-up now also post the success embed to `TOPUP_NOTIFY_CHANNEL` like a SlipOK top-up; (3) fix /wallet-set crash — `setBalance` wrote ledger type `ADJUST` which violates the `ADJUSTMENT` CHECK constraint; (4) /top embed now renders from the `top_leaderboard` Embed Designer slot instead of a hardcoded EmbedBuilder |
-| `0.0.15.17` | 2026-06-13 | central-bot: shop panel remembers the last good Robux stock per group — when Roblox rate-limits/errors a poll the panel keeps showing the previous number instead of flipping to "—" every few refreshes |
-| `0.0.15.16` | 2026-06-13 | central-bot: retire the robux-check / robux-balance / robux-payout / robux-redeem slash commands — the feature now exposes only /panel; all member flows run through the shop panel components (commands.set overwrites the registered set, so the old commands disappear from Discord on the next bot restart) |
-| `0.0.15.15` | 2026-06-13 | central-bot: remove the ซื้อสินค้า button from the shop panel — buying goes through the group select; buttons are now เติมเงิน / เช็คยอดคงเหลือ (+ optional link). Stale panels keep working until their auto-refresh rebuilds the components |
-| `0.0.15.14` | 2026-06-13 | central-bot: last hardcoded Robux embeds now render from Embed Designer slots — buy-queue (`buy_queued`), notify channel (`notify_success`/`notify_error`), /robux-check (`check_result`, green/red by result unless template sets a color), /robux-balance (`group_balance`), /robux-payout (`payout_admin_success`), /robux-redeem (reuses seeded `redeem_success`) — every embed the feature sends is editable now |
-| `0.0.15.13` | 2026-06-13 | central-bot: Robux package dropdown reads the `buy_eligible` slot's `pkg_select` component role (placeholder / per-option emoji / `option_label` template `{{robux}}`/`{{price}}` / ok/insufficient descriptions) instead of hardcoded text — frontend designer fields pending |
-| `0.0.15.12` | 2026-06-13 | central-bot: Robux payout review fixes — claim pending purchase before validation so a double-click on confirm can't double-debit; select value carries robux+price (not index) so config edits mid-flow can't swap the package; /robux-redeem reuses redeem.js core + eligibility check before debit; panel refresh timers keyed per channel (re-posting /panel stops the old poller); payout queue falls back to DM when the interaction token (15 min) has expired |
-| `0.0.15.11` | 2026-06-12 | central-bot: PromptPay countdown back to the precise "X นาที YY วินาที" text, but now ticking every 1s (was a live Discord timestamp / 15s edits); `topup_qr` `{{countdown}}` restored to the code-block style |
-| `0.0.15.10` | 2026-06-12 | central-bot: top-up method picker is now two buttons (PromptPay / TrueMoney) instead of a select menu, so a member can pick, finish, and pick again without the dropdown sticking on the last choice; labels/emoji read optional `btn_promptpay`/`btn_truemoney` component roles |
-| `0.0.15.9` | 2026-06-12 | central-bot: PromptPay top-up countdown is now a live Discord relative timestamp (`<t:…:R>`, ticks down realtime client-side) instead of a 15s message-edit loop; `topup_qr` default moves `{{countdown}}` out of the code block so the timestamp renders |
-| `0.0.15.8` | 2026-06-12 | central-bot: Roblox buy-flow eligibility + loading embeds are now configurable Embed Designer slots (`buy_eligible`, `buy_loading`); Robux packages can be customized per-shop via the new `ROBUX_PACKAGES` JSON config (overrides the rate tables when set) |
-| `0.0.15.7` | 2026-06-12 | central-bot: Roblox buy-flow confirm + payout-success embeds are now configurable Embed Designer slots (`buy_confirm` vars `{{roblox_id}}/{{robux}}/{{price}}/{{balance_after}}/{{avatar}}`; `buy_success` vars `{{roblox_id}}/{{robux}}/{{price}}/{{balance}}/{{avatar}}`) instead of hardcoded |
-| `0.0.15.6` | 2026-06-12 | central-bot: Roblox buy-flow error embed is now a configurable Embed Designer slot (`buy_error`, vars `{{reason}}/{{username}}/{{datetime}}/{{avatar}}`) instead of hardcoded — first step of making the buy embeds editable |
-| `0.0.15.5` | 2026-06-11 | dev tooling: `docs/secrets-inventory.md` (full env/secret map), root `Makefile` (`make dev` / `dev-full` + per-service targets), and `scripts/check-secrets.sh` (verify shared secrets match across `.env` files via fingerprints, no values printed) |
-| `0.0.15.4` | 2026-06-11 | deploy-backend: optional `SHOP_DATABASE_URL` secret appended as `DATABASE_URL` after the env blob, so the runtime + bots can use the Supabase transaction pooler without editing `BACKEND_ENV_FILE` |
-| `0.0.15.3` | 2026-06-10 | bot-runtime: document Supabase transaction pooler (port 6543, `?pgbouncer=true`) as the prod DATABASE_URL recommendation in `.env.example`, so the shared shop-wallet DB stays under the connection ceiling as bot count grows |
-| `0.0.15.1` | 2026-06-10 | bot-runtime: include PM2 status and central-bot error-log tail when `/readyz` never opens, so start failures show the real boot error instead of only ECONNREFUSED |
-| `0.0.15` | 2026-06-10 | central-bot: new wallet-history (/history, /wallet-get, /wallet-set with ADJUST ledger) and top-spender-rank (/top leaderboard + rank/milestone roles) features |
-| `0.0.14` | 2026-06-10 | central-bot: /panel auto-refreshes live group stock + optional countdown (PAYMENT_COUNTDOWN_TARGET = ISO date or seconds-from-post, PAYMENT_REFRESH_INTERVAL ms) |
-| `0.0.13` | 2026-06-10 | central-bot: full Robux buy flow (eligibility check → package select by rate w/ Kanom price tables → confirm → payout queue with cooldown + refund on failure + Roblox-avatar notifications) replacing the free-amount buy modal |
-| `0.0.12` | 2026-06-10 | central-bot: PromptPay QR top-up (promptpay.io, countdown → timeout) + SlipOK slip verification in SLIP_CHECK_CHANNEL crediting the shop wallet; bot.js supports per-feature gateway intents + events |
-| `0.0.11.6` | 2026-06-10 | central-bot: fix Robux redeem cost — ROBUX_RATE is Robux-per-baht, so cost = ceil(robux / rate * 100) (was robux × rate) |
-| `0.0.11.5` | 2026-06-10 | bot-runtime trims decrypted Discord credentials before injecting central-bot env |
-| `0.0.11.4` | 2026-06-10 | central-bot/runtime: expose boot failure reasons through `/readyz` so Start returns the real Discord/login error |
-| `0.0.11.3` | 2026-06-10 | bot-runtime: wait for central-bot `/readyz` before marking a bot RUNNING, and clean up failed PM2 starts |
-| `0.0.11.2` | 2026-06-10 | central-bot: embed renderer merges seeded component roles into per-bot overrides while preserving edited embed body fields |
-| `0.0.11.1` | 2026-06-10 | docs: clarify Kanom test-bot handoff and fixed component-role model for Embed Designer continuation |
-| `0.0.11` | 2026-06-10 | central-bot: panel/top-up components read configurable label/emoji/style/placeholder/url appearance from embed JSON roles |
-| `0.0.10` | 2026-06-10 | central-bot: panel injects per-group Robux stock fields + select option stock descriptions (matches Kanom layout); posts to channel |
-| `0.0.9.9` | 2026-06-10 | central-bot: admin gate uses server Administrator permission (or AUTHORIZED_USER_IDS) for /panel, /wallet-add, /robux-payout |
-| `0.0.9.8` | 2026-06-10 | central-bot: TrueMoney voucher top-up (F3) — เติมเงิน→method→modal→voucher-service /v1/redeem→credit→topup_success/failed |
-| `0.0.9.7` | 2026-06-10 | central-bot: panel buy flow (F4) — group select → modal (username + Robux) → shared redeem (debit→payout→refund) → redeem_success |
-| `0.0.9.6` | 2026-06-10 | central-bot: component interaction routing (buttons/selects/modals) + `/panel` shop panel (group select + topup/buy/balance/link); balance wired, payment/payout stubbed (F1) |
-| `0.0.9.5` | 2026-06-09 | central-bot: configurable embed renderer (loads slot template, substitutes {{vars}}); wallet `/wallet` + `/wallet-add` render from config |
-| `0.0.9.4` | 2026-06-09 | add Embed Designer plan (configurable bot embeds: slots, JSON templates, live preview, custom-emoji render) |
-| `0.0.9.3` | 2026-06-09 | add Kanom onboarding/migration plan (NEON → shop ETL, multi-group config, cutover) |
-| `0.0.9.2` | 2026-06-08 | document legacy TrueMoney voucher deployment variables and local service endpoint |
-| `0.0.9.1` | 2026-06-08 | billing SecretCipher boot-safe; orchestrator passes bot public key + client secret to bot env |
-| `0.0.9` | 2026-06-08 | central-bot wallet-topup feature (shop wallet store) + Roblox `/robux-redeem` debits it |
-| `0.0.8.1` | 2026-06-08 | billing: expose `priceId` in FeaturePriceResponse so the shop can purchase a SKU |
-| `0.0.8` | 2026-06-08 | billing: per-bot feature config endpoints (`/api/billing/bots/{id}/config` GET/PUT, AES-GCM secrets) |
-| `0.0.7.6` | 2026-06-08 | billing OrderService: permanent feature purchase is now per-bot (scope=BOT) |
-| `0.0.7.5` | 2026-06-07 | remove the retired Node true-wallet-voucher service (replaced by voucher-service) |
-| `0.0.7.4` | 2026-06-07 | fix voucher Accept header (parseMediaTypes) — invalid mime crashed boot |
-| `0.0.7.3` | 2026-06-07 | fix .env newline so VOUCHER_SERVICE_TOKEN reaches the container (voucher boot failure) |
-| `0.0.7.2` | 2026-06-07 | smoke-test the voucher service (health + auth) on deploy before repointing the bot |
-| `0.0.7.1` | 2026-06-07 | point the PM2 bot at the voucher service via VOUCHER_SERVICE_TOKEN on deploy |
-| `0.0.7` | 2026-06-07 | rewrite voucher service in Java/Supabase (mirrors billing); drop SQLite/MASTER_KEY/bootstrap from deploy |
-| `0.0.6.1` | 2026-06-07 | add on-demand truemoney key rotation (workflow_dispatch input; revokes the old key) |
-| `0.0.6` | 2026-06-07 | stop bootstrap from printing the full API key when writing it to a file (CI log leak) |
-| `0.0.5.9` | 2026-06-07 | inject MASTER_KEY directly into the bootstrap container + guard against an empty key |
-| `0.0.5.8` | 2026-06-07 | inject truemoney MASTER_KEY from its own secret into the rendered .env |
-| `0.0.5.7` | 2026-06-07 | raise truemoney mem_limit to 512m (argon2 + ts-node bootstrap OOM at 256m) |
-| `0.0.5.6` | 2026-06-07 | point truemoney DATABASE_URL at /app/data (absolute) and migrate before bootstrap |
-| `0.0.5.5` | 2026-06-07 | install OpenSSL in the truemoney image so the Prisma query engine loads |
-| `0.0.5.4` | 2026-06-07 | ship truemoney src + scripts + tsconfig in prod image so the ts-node bootstrap can run |
-| `0.0.5.3` | 2026-06-07 | set truemoney NODE_ENV after npm ci so prod image keeps prisma CLI + ts-node (migrate/bootstrap work) |
-| `0.0.5.2` | 2026-06-07 | export image vars in deploy so docker compose interpolation resolves them |
-| `0.0.5.1` | 2026-06-07 | backend deploy rolls only the changed service(s) (paths-filter + targeted compose up) |
-| `0.0.5` | 2026-06-07 | wire TrueMoney voucher service into backend CI/CD and production compose |
-| `0.0.4.1` | 2026-06-07 | add bootstrap migration command for TrueMoney voucher service |
-| `0.0.4` | 2026-06-07 | add TrueMoney voucher redeem service scaffold |
-| `0.0.3` | 2026-06-05 | scaffold bot-runtime-service orchestrator (PM2 runner, AES-GCM secret decrypt) |
-| `0.0.2` | 2026-06-05 | scaffold central-bot service (feature-module system + Roblox feature) |
-| `0.0.1.6` | 2026-06-05 | add Feature Bot platform design doc (sell/config/run flow) |
-| `0.0.1.5` | 2026-06-05 | add backend & database agent rules and per-area changelog |
-| `0.0.1.4` | 2026-06-04 | deploy frontend over FTP (shared host has no SSH) |
-| `0.0.1.3` | 2026-06-04 | drop --frozen-lockfile for frontend (bun.lock drifts from package.json) |
-| `0.0.1.2` | 2026-06-04 | add main-only deploy pipelines for frontend and backend |
-| `0.0.1.1` | 2026-06-04 | add VPS bootstrap script and deployment guide |
-| `0.0.1` | 2026-06-04 | containerize backend and billing for the shared VPS |
-| `0.0.0.9` | 2026-06-04 | add SlipOK API guide |
-| `0.0.0.8` | 2026-06-03 | add Supabase CLI dependency |
-| `0.0.0.7` | 2026-06-03 | add repository workflow guidance |
-| `0.0.0.6` | 2026-06-02 | update README |
-| `0.0.0.5` | 2026-05-26 | refine push workflow grouping |
-| `0.0.0.4` | 2026-05-26 | sync work and push |
-| `0.0.0.3` | 2026-05-23 | push current project-setup changes |
-| `0.0.0.2` | 2026-05-23 | add repository setup guide |
+| `0.0.21` | 2026-06-22 | Added the Server Log bot feature: webhook-based audit logging of server activity with per-category toggles |
+| `0.0.20.5` | 2026-06-22 | Added public changelog writing rules and refreshed release notes for clearer website presentation |
+| `0.0.20.4` | 2026-06-18 | Added a project status map covering current features, risks, and next priorities |
+| `0.0.20.3` | 2026-06-18 | Added a project-specific AI assistant guide for faster, safer repository work |
+| `0.0.20.2` | 2026-06-18 | Strengthened project rules for product direction, handoff quality, and backend/database work |
+| `0.0.20.1` | 2026-06-17 | Clarified project management, push grouping, and frontend architecture instructions |
+| `0.0.20` | 2026-06-17 | Added the voice-keeper bot feature for 24/7 Discord voice presence |
+| `0.0.19` | 2026-06-16 | Improved voucher service routing so managed bots can reach the correct top-up service |
+| `0.0.18` | 2026-06-16 | Protected voucher redemption so only platform-managed bots can use it by default |
+| `0.0.17.1` | 2026-06-16 | Documented the flow for adding another bot-host server |
+| `0.0.17` | 2026-06-16 | Added optional voucher access controls for shop-specific redemption security |
+| `0.0.16.5` | 2026-06-16 | Let PromptPay top-ups temporarily grant slip-channel access and remove it later |
+| `0.0.16.4` | 2026-06-15 | Applied TrueMoney fees correctly and exposed fee details in top-up messages |
+| `0.0.16.3` | 2026-06-15 | Improved review-credit replies when Discord channel permissions are limited |
+| `0.0.16.2` | 2026-06-15 | Made review-credit counters initialize from existing review messages |
+| `0.0.16.1` | 2026-06-15 | Fixed frontend deployment so new builds publish the latest app bundle |
+| `0.0.16` | 2026-06-15 | Added the review-credit bot feature for counting reviews, reactions, roles, and admin recounts |
+| `0.0.15.23` | 2026-06-14 | Temporarily protected the hosted frontend while static asset serving was corrected |
+| `0.0.15.22` | 2026-06-14 | Ensured restored legacy frontend assets are included during deployment |
+| `0.0.15.21` | 2026-06-14 | Preserved older frontend assets so visitors with cached pages can continue loading the app |
+| `0.0.15.20` | 2026-06-13 | Clarified when completed work can be committed and merged without another approval step |
+| `0.0.15.19` | 2026-06-13 | Added automatic top-up role rewards after successful wallet credits |
+| `0.0.15.18` | 2026-06-13 | Improved wallet rank syncing, top-up notifications, balance updates, and leaderboard embeds |
+| `0.0.15.17` | 2026-06-13 | Kept the last known Robux stock visible when a live stock check is temporarily unavailable |
+| `0.0.15.16` | 2026-06-13 | Simplified Robux member actions so purchases run through the shop panel |
+| `0.0.15.15` | 2026-06-13 | Refined the shop panel actions around top-up, balance check, and group selection |
+| `0.0.15.14` | 2026-06-13 | Made remaining Robux flow messages editable in the Embed Designer |
+| `0.0.15.13` | 2026-06-13 | Made Robux package dropdown text and options configurable |
+| `0.0.15.12` | 2026-06-13 | Hardened the Robux payout flow against duplicate clicks and stale panel refreshes |
+| `0.0.15.11` | 2026-06-12 | Restored a precise PromptPay countdown that updates every second |
+| `0.0.15.10` | 2026-06-12 | Changed top-up method selection to clear PromptPay and TrueMoney buttons |
+| `0.0.15.9` | 2026-06-12 | Added live Discord countdown rendering for PromptPay top-ups |
+| `0.0.15.8` | 2026-06-12 | Made Robux eligibility, loading states, and packages configurable per shop |
+| `0.0.15.7` | 2026-06-12 | Made Robux confirmation and success messages editable |
+| `0.0.15.6` | 2026-06-12 | Made Robux error messages editable as the first step toward fully configurable buying flows |
+| `0.0.15.5` | 2026-06-11 | Added developer tools for local startup and secret consistency checks |
+| `0.0.15.4` | 2026-06-11 | Improved backend deployment configuration for shared shop database access |
+| `0.0.15.3` | 2026-06-10 | Documented the recommended production database connection for bot runtime scaling |
+| `0.0.15.1` | 2026-06-10 | Improved bot startup diagnostics when a managed bot fails to become ready |
+| `0.0.15` | 2026-06-10 | Added wallet history and top-spender ranking features for Discord shops |
+| `0.0.14` | 2026-06-10 | Added automatic shop panel refresh for live stock and payment countdowns |
+| `0.0.13` | 2026-06-10 | Added the full Robux purchase flow with package selection, confirmation, payout, and refund handling |
+| `0.0.12` | 2026-06-10 | Added PromptPay QR and SlipOK wallet top-up support for Discord shops |
+| `0.0.11.6` | 2026-06-10 | Corrected Robux redemption pricing calculations |
+| `0.0.11.5` | 2026-06-10 | Cleaned Discord credentials before passing them to managed bots |
+| `0.0.11.4` | 2026-06-10 | Exposed clearer bot startup failure reasons to the admin runtime flow |
+| `0.0.11.3` | 2026-06-10 | Waited for managed bots to be ready before marking them as running |
+| `0.0.11.2` | 2026-06-10 | Preserved edited embed content while adding new component controls |
+| `0.0.11.1` | 2026-06-10 | Clarified bot handoff notes for continuing Embed Designer work |
+| `0.0.11` | 2026-06-10 | Made shop panel and top-up component labels, styles, and links configurable |
+| `0.0.10` | 2026-06-10 | Added live Robux stock details to the shop panel |
+| `0.0.9.9` | 2026-06-10 | Restricted bot admin commands to authorized Discord admins |
+| `0.0.9.8` | 2026-06-10 | Added TrueMoney voucher top-up support for shop wallets |
+| `0.0.9.7` | 2026-06-10 | Added the first shop panel Robux buying flow |
+| `0.0.9.6` | 2026-06-10 | Added interactive shop panel routing for buttons, selections, modals, and balance checks |
+| `0.0.9.5` | 2026-06-09 | Added configurable embed rendering for wallet bot messages |
+| `0.0.9.4` | 2026-06-09 | Planned the configurable Embed Designer system for bot messages |
+| `0.0.9.3` | 2026-06-09 | Planned the Kanom shop onboarding and migration flow |
+| `0.0.9.2` | 2026-06-08 | Documented legacy TrueMoney voucher deployment settings |
+| `0.0.9.1` | 2026-06-08 | Improved billing secret startup safety and bot credential handoff |
+| `0.0.9` | 2026-06-08 | Added wallet top-up storage and Robux redemption debit support |
+| `0.0.8.1` | 2026-06-08 | Exposed feature price identifiers so the shop can purchase selected packages |
+| `0.0.8` | 2026-06-08 | Added secure per-bot feature configuration in billing |
+| `0.0.7.6` | 2026-06-08 | Made permanent feature purchases attach to a specific bot |
+| `0.0.7.5` | 2026-06-07 | Removed the retired Node voucher service after replacing it |
+| `0.0.7.4` | 2026-06-07 | Fixed voucher service startup with safer request header handling |
+| `0.0.7.3` | 2026-06-07 | Fixed voucher service token loading during deployment |
+| `0.0.7.2` | 2026-06-07 | Added deployment checks before routing traffic to the voucher service |
+| `0.0.7.1` | 2026-06-07 | Connected the production bot process to the voucher service |
+| `0.0.7` | 2026-06-07 | Rebuilt the voucher service on the Java and Supabase stack |
+| `0.0.6.1` | 2026-06-07 | Added an on-demand key rotation workflow for voucher access |
+| `0.0.6` | 2026-06-07 | Prevented sensitive voucher keys from being printed in deployment logs |
+| `0.0.5.9` | 2026-06-07 | Strengthened voucher bootstrap secret handling |
+| `0.0.5.8` | 2026-06-07 | Separated voucher master-key deployment from other environment settings |
+| `0.0.5.7` | 2026-06-07 | Increased voucher service memory for reliable production startup |
+| `0.0.5.6` | 2026-06-07 | Corrected voucher database pathing during production startup |
+| `0.0.5.5` | 2026-06-07 | Added missing runtime dependencies for the voucher service image |
+| `0.0.5.4` | 2026-06-07 | Included voucher service source and scripts in the production image |
+| `0.0.5.3` | 2026-06-07 | Adjusted voucher image setup so database tasks can run in production |
+| `0.0.5.2` | 2026-06-07 | Fixed deployment variable export for composed service images |
+| `0.0.5.1` | 2026-06-07 | Made backend deployment update only the services that changed |
+| `0.0.5` | 2026-06-07 | Connected the TrueMoney voucher service to production deployment |
+| `0.0.4.1` | 2026-06-07 | Added voucher database bootstrap support |
+| `0.0.4` | 2026-06-07 | Added the first TrueMoney voucher redemption service |
+| `0.0.3` | 2026-06-05 | Added the bot runtime orchestrator foundation |
+| `0.0.2` | 2026-06-05 | Added the central bot service foundation with feature modules |
+| `0.0.1.6` | 2026-06-05 | Documented the Feature Bot platform design |
+| `0.0.1.5` | 2026-06-05 | Added backend, database, and changelog operating rules |
+| `0.0.1.4` | 2026-06-04 | Added shared-host frontend deployment over FTP |
+| `0.0.1.3` | 2026-06-04 | Relaxed frontend install strictness for deploy compatibility |
+| `0.0.1.2` | 2026-06-04 | Added main-branch deployment pipelines for frontend and backend |
+| `0.0.1.1` | 2026-06-04 | Added VPS bootstrap and deployment documentation |
+| `0.0.1` | 2026-06-04 | Containerized the backend and billing services for the shared VPS |
+| `0.0.0.9` | 2026-06-04 | Added the SlipOK API guide |
+| `0.0.0.8` | 2026-06-03 | Added Supabase CLI support |
+| `0.0.0.7` | 2026-06-03 | Added repository workflow guidance |
+| `0.0.0.6` | 2026-06-02 | Updated the project README |
+| `0.0.0.5` | 2026-05-26 | Refined push workflow grouping |
+| `0.0.0.4` | 2026-05-26 | Synced project work for the repository |
+| `0.0.0.3` | 2026-05-23 | Published the current project setup |
+| `0.0.0.2` | 2026-05-23 | Added the repository setup guide |
 | `0.0.0.1` | 2026-05-23 | Initial commit |
