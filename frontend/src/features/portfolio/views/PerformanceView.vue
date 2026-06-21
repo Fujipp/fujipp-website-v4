@@ -327,13 +327,6 @@ const frontendUptime = [
     { label: "Last incident", value: "12d ago", detail: "sample last degraded window" },
 ];
 
-const pageLoadMetrics = [
-    { label: "p50 load", value: "1.24 s", detail: "sample median full page load" },
-    { label: "p75 load", value: "1.91 s", detail: "sample 75th percentile" },
-    { label: "p95 load", value: "3.12 s", detail: "sample 95th percentile" },
-    { label: "Error rate", value: "0.04%", detail: "sample 5xx / failed responses" },
-];
-
 const uptimeRibbon: ServiceTone[] = (() => {
     const dots = makeSeries(90, 2207, 50, 100, 0, 100).map((): ServiceTone => "up");
     [21, 53, 78].forEach((index) => (dots[index] = "warn"));
@@ -573,6 +566,60 @@ const backendBadge = computed(() => {
     if (healthLive.value) return "restricted";
     return "sample";
 });
+
+// ── Frontend (Rukcom) monitoring — live from the backend's HTTP uptime probe ──
+const frontendLive = computed(() => healthLive.value && monitoring.health?.frontend?.status !== "unknown");
+
+const frontendStats = computed(() => {
+    const f = monitoring.health?.frontend;
+    if (frontendLive.value && f) {
+        const latencies = f.responseHistory.filter((v): v is number => typeof v === "number");
+        const avg = latencies.length ? Math.round(average(latencies)) : f.latencyMs ?? 0;
+        return [
+            {
+                label: "Uptime (recent)",
+                value: f.uptimePercent === null ? "--" : `${f.uptimePercent.toFixed(2)}%`,
+                detail: "operational checks in the recent window",
+            },
+            {
+                label: "Response now",
+                value: f.latencyMs === null ? "--" : `${f.latencyMs} ms`,
+                detail: "latest HTTP probe from the backend",
+            },
+            { label: "Avg response", value: `${avg} ms`, detail: "average across recent probes" },
+            { label: "Status", value: statusLabel(f.status), detail: "current frontend probe result" },
+        ];
+    }
+    return frontendUptime;
+});
+
+const frontendResponse = computed<number[]>(() => {
+    const f = monitoring.health?.frontend;
+    if (frontendLive.value && f && f.responseHistory.length) {
+        return f.responseHistory.map((v) => (typeof v === "number" ? v : 0));
+    }
+    return responseSeries.value;
+});
+
+const frontendResponseMax = computed(() => Math.max(...frontendResponse.value, 1));
+
+const frontendRibbon = computed<ServiceTone[]>(() => {
+    const f = monitoring.health?.frontend;
+    if (frontendLive.value && f && f.statusHistory.length) {
+        return f.statusHistory.map((status) => statusTone(status));
+    }
+    return uptimeRibbon;
+});
+
+// Real page-load metrics from THIS browser session (always live, no backend needed).
+const pageLoadStats = computed(() => [
+    { label: "Full load", value: formatMs(loadTime.value), detail: "this session · window load" },
+    { label: "DOM ready", value: formatMs(domReadyTime.value), detail: "this session · DOMContentLoaded" },
+    { label: "First contentful", value: formatMs(firstContentfulPaintTime.value), detail: "this session · FCP" },
+    { label: "First paint", value: formatMs(firstPaintTime.value), detail: "this session · FP" },
+]);
+
+const frontendBadge = computed(() => (frontendLive.value ? "live" : "sample"));
 
 onMounted(() => {
     refreshPerformanceMetrics();
@@ -818,11 +865,16 @@ const toneText: Record<ServiceTone, string> = {
                         <p class="type-overline-sb text-main-primary">Frontend Monitoring</p>
                         <h2 id="frontend-heading" class="type-h3-card-title-sb">Rukcom hosting &amp; delivery</h2>
                     </div>
-                    <span :class="[$style.tag, $style.tagSample]" class="type-overline-sb">Sample data</span>
+                    <span
+                        :class="[$style.tag, frontendBadge === 'live' ? $style.tagLive : $style.tagSample]"
+                        class="type-overline-sb"
+                    >
+                        {{ frontendBadge === "live" ? "Live data" : "Sample data" }}
+                    </span>
                 </header>
 
                 <div :class="$style.statGrid">
-                    <article v-for="stat in frontendUptime" :key="stat.label" :class="$style.statCard">
+                    <article v-for="stat in frontendStats" :key="stat.label" :class="$style.statCard">
                         <span class="type-overline-r">{{ stat.label }}</span>
                         <strong class="type-h3-card-title-sb">{{ stat.value }}</strong>
                         <p class="type-overline-r">{{ stat.detail }}</p>
@@ -833,14 +885,16 @@ const toneText: Record<ServiceTone, string> = {
                     <header :class="$style.panelHeader">
                         <div>
                             <p class="type-overline-sb text-main-primary">Response time</p>
-                            <h3 class="type-subtitle-sb">Edge response (sample)</h3>
+                            <h3 class="type-subtitle-sb">
+                                {{ frontendLive ? "Edge response (live probe)" : "Edge response (sample)" }}
+                            </h3>
                         </div>
-                        <strong class="type-caption-sb">{{ Math.round(last(responseSeries)) }} ms</strong>
+                        <strong class="type-caption-sb">{{ Math.round(last(frontendResponse)) }} ms</strong>
                     </header>
                     <svg :class="$style.spark" viewBox="0 0 100 36" preserveAspectRatio="none" role="img"
-                        aria-label="Sample response time over recent checks">
-                        <polygon :class="$style.sparkArea" :points="sparkArea(responseSeries, 320)" />
-                        <polyline :class="$style.sparkLine" :points="sparkPoints(responseSeries, 320)" />
+                        aria-label="Frontend response time over recent checks">
+                        <polygon :class="$style.sparkArea" :points="sparkArea(frontendResponse, frontendResponseMax)" />
+                        <polyline :class="$style.sparkLine" :points="sparkPoints(frontendResponse, frontendResponseMax)" />
                     </svg>
                 </section>
 
@@ -848,25 +902,36 @@ const toneText: Record<ServiceTone, string> = {
                     <header :class="$style.panelHeader">
                         <div>
                             <p class="type-overline-sb text-main-primary">Recent uptime</p>
-                            <h3 class="type-subtitle-sb">Last 90 days (sample)</h3>
+                            <h3 class="type-subtitle-sb">
+                                {{ frontendLive ? "Recent checks" : "Recent checks (sample)" }}
+                            </h3>
                         </div>
                     </header>
-                    <div :class="$style.ribbon" aria-label="Sample daily uptime, last 90 days">
+                    <div :class="$style.ribbon" aria-label="Frontend uptime across recent checks">
                         <span
-                            v-for="(day, index) in uptimeRibbon"
+                            v-for="(day, index) in frontendRibbon"
                             :key="index"
                             :class="[$style.ribbonDot, $style[toneDot[day]]]"
                         />
                     </div>
                 </section>
 
-                <div :class="$style.statGrid">
-                    <article v-for="stat in pageLoadMetrics" :key="stat.label" :class="$style.statCard">
-                        <span class="type-overline-r">{{ stat.label }}</span>
-                        <strong class="type-h3-card-title-sb">{{ stat.value }}</strong>
-                        <p class="type-overline-r">{{ stat.detail }}</p>
-                    </article>
-                </div>
+                <section :class="$style.chartPanel">
+                    <header :class="$style.panelHeader">
+                        <div>
+                            <p class="type-overline-sb text-main-primary">Page load</p>
+                            <h3 class="type-subtitle-sb">Your session (live)</h3>
+                        </div>
+                        <span :class="[$style.tag, $style.tagLive]" class="type-overline-sb">Live browser data</span>
+                    </header>
+                    <div :class="$style.statGrid">
+                        <article v-for="stat in pageLoadStats" :key="stat.label" :class="$style.statCard">
+                            <span class="type-overline-r">{{ stat.label }}</span>
+                            <strong class="type-h3-card-title-sb">{{ stat.value }}</strong>
+                            <p class="type-overline-r">{{ stat.detail }}</p>
+                        </article>
+                    </div>
+                </section>
             </section>
 
             <!-- BACKEND MONITORING (LIVE for admins, status-only for public, sample if offline) -->
