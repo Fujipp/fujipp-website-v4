@@ -1,9 +1,12 @@
 # Changelog — Database
 
-**Current version: `0.2.3`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.2.6`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.2.6` | 2026-06-22 | Prepared runtime hosting to be moved between bots and tracked per server seat |
+| `0.2.5` | 2026-06-22 | Added permanent bot slots so members can own more bots beyond the free three |
+| `0.2.4` | 2026-06-22 | Added addressable server seats with reserved and maintenance support for hosting |
 | `0.2.3` | 2026-06-22 | Added the Server Log feature definition and configurable log embed for customer bots |
 | `0.2.2` | 2026-06-21 | Added secure monitoring data storage for Performance history and incident tracking |
 | `0.2.1` | 2026-06-17 | Added the voice-keeper feature definition for 24/7 Discord voice presence |
