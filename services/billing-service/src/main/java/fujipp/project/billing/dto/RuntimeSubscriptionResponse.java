@@ -8,6 +8,7 @@ import java.util.UUID;
 public record RuntimeSubscriptionResponse(
     UUID id,
     String externalSubjectId,
+    UUID vpsSlotId,
     UUID runtimePlanId,
     String status,
     LocalDate currentPeriodStart,
@@ -18,7 +19,7 @@ public record RuntimeSubscriptionResponse(
 ) {
     public static RuntimeSubscriptionResponse from(RuntimeSubscription s) {
         return new RuntimeSubscriptionResponse(
-            s.getId(), s.getExternalSubjectId(), s.getRuntimePlanId(), s.getStatus(),
+            s.getId(), s.getExternalSubjectId(), s.getVpsSlotId(), s.getRuntimePlanId(), s.getStatus(),
             s.getCurrentPeriodStart(), s.getCurrentPeriodEnd(), s.isAutoRenew(),
             s.getRenewPriceSatang(), s.getRenewPlanId());
     }
