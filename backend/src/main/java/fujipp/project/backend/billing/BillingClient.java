@@ -531,6 +531,26 @@ public class BillingClient {
         return arr == null ? java.util.Set.of() : new java.util.HashSet<>(java.util.Arrays.asList(arr));
     }
 
+    /** Raw JSON of every seat across the fleet with its occupant — the admin cabinet table. */
+    public String adminRuntimeCabinet() {
+        return http.get().uri("/api/billing/admin/runtime/cabinet")
+            .header("X-Service-Token", serviceToken)
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raise(res.getStatusCode()))
+            .body(String.class);
+    }
+
+    /** Relocate a runtime to a different free seat. {@code body} is the AdminMoveSeatRequest JSON. */
+    public String adminMoveRuntimeSeat(UUID runtimeId, String body) {
+        return http.post().uri("/api/billing/admin/runtime/{runtimeId}/move-seat", runtimeId)
+            .header("X-Service-Token", serviceToken)
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(body)
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raiseWithReason(res))
+            .body(String.class);
+    }
+
     /** Money-side dashboard metrics (top-up revenue, total balances, recent audit). */
     public AdminMetrics adminMetrics() {
         return http.get().uri("/api/billing/admin/metrics")

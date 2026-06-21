@@ -1,9 +1,10 @@
 # Changelog — Backend
 
-**Current version: `0.4.5`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.4.6`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.4.6` | 2026-06-22 | Admins can review every hosting seat with its owner and relocate a runtime to another seat |
 | `0.4.5` | 2026-06-22 | Admins can set VPS capacity and reserved seats, and put individual seats into maintenance |
 | `0.4.4` | 2026-06-22 | Bots now show a live Online / Offline / Expired badge based on their real runtime |
 | `0.4.3` | 2026-06-22 | Added the server-seat runtime flow: buy hosting for a chosen VPS seat and move it between bots |

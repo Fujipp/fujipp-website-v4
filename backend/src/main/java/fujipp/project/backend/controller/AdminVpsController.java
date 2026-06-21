@@ -9,6 +9,7 @@ import fujipp.project.backend.dto.VpsSlotResponse;
 import fujipp.project.backend.service.VpsNodeAdminService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -77,5 +78,22 @@ public class AdminVpsController {
             @AuthenticationPrincipal Jwt jwt, @PathVariable UUID botId, @RequestBody @Valid MoveBotRequest request) {
         admin.moveBot(UUID.fromString(jwt.getSubject()), botId, request.targetNodeId());
         return ResponseEntity.noContent().build();
+    }
+
+    /** Every seat across the fleet with its occupant (owner/bot/runtime/expiry). */
+    @GetMapping("/runtime/cabinet")
+    public ResponseEntity<String> runtimeCabinet(@AuthenticationPrincipal Jwt jwt) {
+        return json(admin.runtimeCabinet(UUID.fromString(jwt.getSubject())));
+    }
+
+    /** Relocate a runtime to a different free seat (e.g. draining a problem VPS). */
+    @PostMapping("/runtime/{runtimeId}/move-seat")
+    public ResponseEntity<String> moveRuntimeSeat(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable UUID runtimeId, @RequestBody String body) {
+        return json(admin.moveRuntimeSeat(UUID.fromString(jwt.getSubject()), runtimeId, body));
+    }
+
+    private static ResponseEntity<String> json(String body) {
+        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(body);
     }
 }
