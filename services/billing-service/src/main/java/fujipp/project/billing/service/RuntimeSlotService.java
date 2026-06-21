@@ -99,6 +99,15 @@ public class RuntimeSlotService {
         return out;
     }
 
+    /** Seat ids currently held by an active runtime — the admin uses this to avoid
+     *  shrinking/reserving/maintenancing a seat that's in use. */
+    @Transactional(readOnly = true)
+    public List<UUID> occupiedSlotIds() {
+        return runtimeSubs.findByStatusAndVpsSlotIdIsNotNull(ACTIVE).stream()
+            .map(RuntimeSubscription::getVpsSlotId)
+            .toList();
+    }
+
     // ── buy a seat ────────────────────────────────────────────────────────────
 
     @Transactional
