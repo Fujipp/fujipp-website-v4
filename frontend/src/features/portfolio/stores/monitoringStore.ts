@@ -34,7 +34,14 @@ export interface PublicHealth {
     status: HealthStatus;
     checkedAt: string;
     backend: { status: string; uptimeSeconds: number; latencyMs: number | null; version: string };
-    frontend: { status: string; note: string };
+    frontend: {
+        status: string;
+        latencyMs: number | null;
+        uptimePercent: number | null;
+        responseHistory: (number | null)[];
+        statusHistory: string[];
+        note: string;
+    };
     shop: { status: HealthStatus; services: ServiceHealth[] };
 }
 
