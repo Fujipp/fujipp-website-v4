@@ -1,6 +1,7 @@
 package fujipp.project.backend.service;
 
 import fujipp.project.backend.billing.BillingClient;
+import fujipp.project.backend.discord.DiscordBotClient;
 import fujipp.project.backend.dto.BotResponse;
 import fujipp.project.backend.dto.CreateBotRequest;
 import fujipp.project.backend.dto.UpdateBotRequest;
@@ -28,6 +29,7 @@ public class BotService {
     private final SecretCipher cipher;
     private final PlacementService placement;
     private final BillingClient billing;
+    private final DiscordBotClient discord;
 
     @Transactional(readOnly = true)
     public List<BotResponse> listBots(UUID userId) {
@@ -60,6 +62,8 @@ public class BotService {
         String discordToken = cleanSecret(request.discordToken());
         if (discordToken != null) {
             bot.setDiscordTokenCipher(cipher.encrypt(discordToken));
+            // Token changed — refresh the cached avatar (best-effort, may be null).
+            bot.setDiscordAvatarUrl(discord.fetchAvatarUrl(discordToken));
         }
         String discordClientSecret = cleanSecret(request.discordClientSecret());
         if (discordClientSecret != null) {
@@ -115,7 +119,9 @@ public class BotService {
         bot.setName(request.name());
         bot.setDiscordApplicationId(request.discordApplicationId());
         bot.setDiscordGuildId(request.discordGuildId());
-        bot.setDiscordTokenCipher(cipher.encrypt(cleanSecret(request.discordToken())));
+        String discordToken = cleanSecret(request.discordToken());
+        bot.setDiscordTokenCipher(cipher.encrypt(discordToken));
+        bot.setDiscordAvatarUrl(discord.fetchAvatarUrl(discordToken));
         bot.setDiscordPublicKey(request.discordPublicKey());
         String discordClientSecret = cleanSecret(request.discordClientSecret());
         if (discordClientSecret != null) {
