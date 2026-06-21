@@ -33,8 +33,13 @@ public class RuntimeSubscription {
     @Column(name = "user_id", columnDefinition = "uuid", nullable = false)
     private UUID userId;
 
-    @Column(name = "external_subject_id", nullable = false)
+    /** The bot this runtime powers, or NULL if bought-but-unassigned. Movable. */
+    @Column(name = "external_subject_id")
     private String externalSubjectId;
+
+    /** The VPS seat (bots.vps_slots) this runtime occupies. NULL only for legacy/unparked rows. */
+    @Column(name = "vps_slot_id", columnDefinition = "uuid")
+    private UUID vpsSlotId;
 
     @Column(name = "runtime_plan_id", columnDefinition = "uuid")
     private UUID runtimePlanId;

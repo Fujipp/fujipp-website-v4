@@ -15,6 +15,15 @@ public interface RuntimeSubscriptionRepository extends JpaRepository<RuntimeSubs
 
     Optional<RuntimeSubscription> findByExternalSubjectId(String externalSubjectId);
 
+    /** Active runtimes that occupy a seat — used to render the cabinet (slot → runtime). */
+    List<RuntimeSubscription> findByStatusAndVpsSlotIdIsNotNull(String status);
+
+    /** The active runtime on a given seat, if any (the seat's current occupant). */
+    Optional<RuntimeSubscription> findByVpsSlotIdAndStatus(UUID vpsSlotId, String status);
+
+    /** The active runtime powering a given bot, if any (one per bot, enforced in DB). */
+    Optional<RuntimeSubscription> findByExternalSubjectIdAndStatus(String externalSubjectId, String status);
+
     /** Reassign all runtime subs for a subject (bot) to a new owner. Returns rows changed. */
     @Modifying
     @Query("update RuntimeSubscription r set r.userId = :newUserId where r.externalSubjectId = :subjectId")

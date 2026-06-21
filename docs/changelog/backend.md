@@ -1,9 +1,10 @@
 # Changelog — Backend
 
-**Current version: `0.4.2`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.4.3`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.4.3` | 2026-06-22 | Added the server-seat runtime flow: buy hosting for a chosen VPS seat and move it between bots |
 | `0.4.2` | 2026-06-22 | Added permanent bot slots: members get three free bots and can buy more to create additional bots |
 | `0.4.1` | 2026-06-21 | Connected the public website status to real uptime checks for the Performance page |
 | `0.4.0` | 2026-06-21 | Added platform health monitoring for public status views and deeper admin diagnostics |

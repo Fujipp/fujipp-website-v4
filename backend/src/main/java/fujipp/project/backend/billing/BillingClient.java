@@ -203,6 +203,42 @@ public class BillingClient {
             .body(String.class);
     }
 
+    // ── runtime seats / server cabinet (user-scoped) ────────────────────────────
+
+    /** Raw JSON list of VPS cabinets + seats with live occupancy for this user. */
+    public String listVps(UUID userId) {
+        return http.get().uri("/api/billing/runtime/vps")
+            .header("X-Service-Token", serviceToken)
+            .header("X-User-Id", userId.toString())
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raise(res.getStatusCode()))
+            .body(String.class);
+    }
+
+    /** Buy runtime for a seat. {@code body} is the PurchaseRuntimeSlotRequest JSON. Surfaces billing's reason. */
+    public String purchaseRuntimeSlot(UUID userId, UUID slotId, String body) {
+        return http.post().uri("/api/billing/runtime/slots/{slotId}/purchase", slotId)
+            .header("X-Service-Token", serviceToken)
+            .header("X-User-Id", userId.toString())
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(body)
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raiseWithReason(res))
+            .body(String.class);
+    }
+
+    /** Assign / move / unassign a runtime. {@code body} is the AssignRuntimeRequest JSON. */
+    public String assignRuntime(UUID userId, UUID runtimeId, String body) {
+        return http.post().uri("/api/billing/runtime/{runtimeId}/assign", runtimeId)
+            .header("X-Service-Token", serviceToken)
+            .header("X-User-Id", userId.toString())
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(body)
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raiseWithReason(res))
+            .body(String.class);
+    }
+
     /** Raw JSON list of the user's runtime subscriptions. */
     public String listRuntimeSubscriptions(UUID userId) {
         return http.get().uri("/api/billing/subscriptions/runtime")
