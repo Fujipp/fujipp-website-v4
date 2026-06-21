@@ -1,6 +1,9 @@
 # Runtime / Slot Redesign — แผนงาน
 
-> สถานะ: **DB model เสร็จ (merged #103) · เหลือ wiring + frontend**
+> สถานะ: **Backend Phase 1–4 เสร็จ (merged #103, #105–#108) · เหลือ frontend + orchestrator start/stop**
+>
+> Progress: DB model #103 · Bot Slot #105 · Runtime cabinet #106 · derived bot status #107 · admin VPS seats #108.
+> ยังเหลือ: frontend (หน้า Bot badge+modal ซื้อ slot, หน้า Runtime ตู้ Server), admin 4b (cabinet view + manual move-runtime), และเฟสท้ายสุด start/stop จริง.
 > ขอบเขต: แยกของ user เป็น 3 อย่างให้ชัด — Bot Slot, Runtime, Feature
 > เกี่ยวข้อง: `services/billing-service/`, `backend/`, `frontend/src/features/shop/`,
 > `supabase/migrations/20260622150000..150200`, ต่อยอดจาก [feature-bot-platform.md](./feature-bot-platform.md)
