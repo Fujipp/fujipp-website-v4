@@ -13,83 +13,150 @@ withDefaults(defineProps<Props>(), {
 </script>
 
 <template>
-    <article :class="$style.balanceCard" aria-live="polite">
-        <div :class="$style.identity">
-            <img
-                :class="$style.avatar"
-                :src="avatarUrl"
-                alt=""
-                aria-hidden="true"
-                draggable="false"
-            >
-            <div :class="$style.username">{{ username }}</div>
-        </div>
+    <article :class="$style.card" aria-live="polite">
+        <!-- Soft diagonal sheen so the card reads as a glossy credit card. -->
+        <span :class="$style.sheen" aria-hidden="true" />
 
-        <div :class="$style.balancePanel">
+        <header :class="$style.top">
+            <div :class="$style.brand">
+                <img
+                    :class="$style.brandAvatar"
+                    :src="avatarUrl"
+                    alt=""
+                    aria-hidden="true"
+                    draggable="false"
+                >
+                <span :class="$style.brandName">Fujipp Wallet</span>
+            </div>
+            <span :class="$style.network">CREDIT</span>
+        </header>
+
+        <span :class="$style.chip" aria-hidden="true" />
+
+        <div :class="$style.balanceBlock">
             <span :class="$style.creditLabel">เครดิตของคุณ</span>
             <div :class="$style.balanceLine">
-                <span :class="$style.balanceValue">{{ loading ? "..." : balance }}</span>
+                <span :class="$style.balanceValue">{{ loading ? "•••" : balance }}</span>
                 <span :class="$style.balanceUnit">บาท</span>
             </div>
         </div>
+
+        <footer :class="$style.bottom">
+            <div :class="$style.holder">
+                <span :class="$style.holderLabel">CARD HOLDER</span>
+                <span :class="$style.holderName">{{ username }}</span>
+            </div>
+            <span :class="$style.mark" aria-hidden="true">
+                <span :class="$style.markRing" />
+                <span :class="[$style.markRing, $style.markRingOffset]" />
+            </span>
+        </footer>
     </article>
 </template>
 
 <style module>
-.balanceCard {
+.card {
+    position: relative;
     display: flex;
-    width: 380px;
-    min-height: 450px;
-    max-width: 100%;
     flex-direction: column;
-    align-items: center;
     box-sizing: border-box;
-    padding: var(--spacing-space-6);
-    gap: var(--spacing-space-5);
-    border: 1px solid var(--color-main-border);
-    border-radius: var(--radius-2xl);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
-    text-align: center;
-}
-
-.identity {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--spacing-space-4);
-}
-
-.avatar {
     width: 100%;
-    max-width: 240px;
-    aspect-ratio: 1 / 1;
+    max-width: 420px;
+    aspect-ratio: 1.586 / 1;
+    min-height: 240px;
+    padding: var(--spacing-space-6);
+    overflow: hidden;
     border-radius: var(--radius-2xl);
+    /* Fixed dark gradient (token) — text stays light in BOTH themes. */
+    background: var(--gradient-card-highlight);
+    color: var(--color-text-secondary);
+    box-shadow: 0 18px 44px color-mix(in srgb, var(--color-main-primary) 30%, transparent);
+    transition: box-shadow 200ms ease, transform 200ms ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 24px 56px color-mix(in srgb, var(--color-main-primary) 42%, transparent);
+}
+
+.sheen {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        125deg,
+        color-mix(in srgb, #ffffff 16%, transparent) 0%,
+        transparent 38%,
+        transparent 100%
+    );
+    pointer-events: none;
+}
+
+.top {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-space-3);
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-space-3);
+    min-width: 0;
+}
+
+.brandAvatar {
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    border-radius: var(--radius-full);
     object-fit: cover;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-text-secondary) 35%, transparent);
 }
 
-.username {
-    font-size: 22px;
+.brandName {
+    overflow: hidden;
+    font-size: 15px;
     font-weight: 600;
-    line-height: 1.2;
+    letter-spacing: 0.2px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.balancePanel {
-    align-self: stretch;
+.network {
+    flex-shrink: 0;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: color-mix(in srgb, var(--color-text-secondary) 78%, transparent);
+}
+
+/* Gold EMV-style chip. */
+.chip {
+    position: relative;
+    width: 44px;
+    height: 32px;
+    margin-top: var(--spacing-space-5);
+    border-radius: 7px;
+    background: linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--color-status-warning) 88%, white) 0%,
+        var(--color-status-warning) 55%,
+        color-mix(in srgb, var(--color-status-warning) 70%, black) 100%
+    );
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, black 18%, transparent);
+}
+
+.balanceBlock {
     margin-top: auto;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: var(--spacing-space-1);
-    box-sizing: border-box;
-    padding: var(--spacing-space-5);
-    border-radius: var(--radius-xl);
-    background-color: color-mix(in srgb, var(--color-main-primary) 10%, var(--color-main-surface));
+    gap: 2px;
 }
 
 .creditLabel {
-    font-size: 14px;
-    font-weight: 400;
+    font-size: 13px;
     letter-spacing: 0.2px;
     color: color-mix(in srgb, var(--color-text-secondary) 72%, transparent);
 }
@@ -101,33 +168,75 @@ withDefaults(defineProps<Props>(), {
 }
 
 .balanceValue {
-    font-size: 40px;
+    font-size: 38px;
     font-weight: 800;
-    line-height: 1.1;
+    line-height: 1.05;
     letter-spacing: -0.5px;
-    color: var(--color-main-primary);
     overflow-wrap: anywhere;
 }
 
 .balanceUnit {
     font-size: 16px;
     font-weight: 600;
-    color: color-mix(in srgb, var(--color-text-secondary) 72%, transparent);
+    color: color-mix(in srgb, var(--color-text-secondary) 80%, transparent);
 }
 
-@media (max-width: 1024px) {
-    .balanceCard {
-        width: 100%;
-    }
+.bottom {
+    margin-top: var(--spacing-space-5);
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--spacing-space-3);
+}
+
+.holder {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.holderLabel {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    color: color-mix(in srgb, var(--color-text-secondary) 60%, transparent);
+}
+
+.holderName {
+    overflow: hidden;
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Interlocking-rings payment mark. */
+.mark {
+    position: relative;
+    flex-shrink: 0;
+    width: 46px;
+    height: 28px;
+}
+
+.markRing {
+    position: absolute;
+    top: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-full);
+    background: color-mix(in srgb, var(--color-text-secondary) 55%, transparent);
+}
+
+.markRing.markRingOffset {
+    left: 18px;
+    background: color-mix(in srgb, var(--color-main-primary) 80%, white);
+    mix-blend-mode: screen;
 }
 
 @media (max-width: 520px) {
-    .balanceCard {
-        width: min(100%, 326px);
-    }
-
-    .balanceValue {
-        font-size: 34px;
-    }
+    .card { max-width: 100%; }
+    .balanceValue { font-size: 32px; }
 }
 </style>

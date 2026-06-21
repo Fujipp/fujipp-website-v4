@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { FilterButton, TableNextBackButton } from "@/shared/ui/buttons";
+import { SearchField } from "@/shared/ui/fields";
 
 export type FeatureCategory = "Permanent Feature" | "Rental Feature";
 
@@ -93,6 +94,22 @@ function clearFilters(): void {
     goToPage(1);
 }
 
+// Glass page-button pointer glow — identical behaviour to the Projects table.
+function updateGlassPointer(event: PointerEvent): void {
+    const target = event.currentTarget as HTMLElement | null;
+    if (!target) return;
+    const rect = target.getBoundingClientRect();
+    target.style.setProperty("--glass-pointer-x", `${event.clientX - rect.left}px`);
+    target.style.setProperty("--glass-pointer-y", `${event.clientY - rect.top}px`);
+}
+
+function resetGlassPointer(event: PointerEvent): void {
+    const target = event.currentTarget as HTMLElement | null;
+    if (!target) return;
+    target.style.removeProperty("--glass-pointer-x");
+    target.style.removeProperty("--glass-pointer-y");
+}
+
 function closeFilterOnOutsideClick(event: MouseEvent): void {
     if (!isFilterOpen.value || !filterWrap.value) return;
 
@@ -171,22 +188,7 @@ onUnmounted(() => {
                 </div>
             </div>
 
-            <label :class="$style.searchField">
-                <img
-                    src="/images/icons/common/search.svg"
-                    alt=""
-                    aria-hidden="true"
-                    :class="$style.searchIcon"
-                    draggable="false"
-                >
-                <input
-                    v-model="searchQuery"
-                    :class="$style.searchInput"
-                    type="search"
-                    placeholder="Search"
-                    autocomplete="off"
-                >
-            </label>
+            <SearchField v-model="searchQuery" placeholder="Search" />
         </nav>
 
         <div :class="$style.tablePanel">
@@ -248,6 +250,8 @@ onUnmounted(() => {
                     page === currentPage ? 'type-button-sb' : 'type-button-r',
                 ]"
                 :aria-current="page === currentPage ? 'page' : undefined"
+                @pointermove="updateGlassPointer"
+                @pointerleave="resetGlassPointer"
                 @click="goToPage(page)"
             >
                 {{ page }}
@@ -372,44 +376,6 @@ onUnmounted(() => {
     cursor: pointer;
 }
 
-.searchField {
-    display: flex;
-    align-items: center;
-    box-sizing: border-box;
-    width: min(100%, 311px);
-    height: 42px;
-    padding: 12px 16px;
-    gap: 16px;
-    border: 1px solid var(--color-input-border);
-    border-radius: var(--radius-full);
-    background-color: var(--color-input-bg);
-}
-
-.searchIcon {
-    width: 16px;
-    height: 16px;
-    flex-shrink: 0;
-    opacity: 0.72;
-}
-
-.searchInput {
-    min-width: 0;
-    flex: 1;
-    padding: 0;
-    border: 0;
-    outline: 0;
-    background: transparent;
-    color: var(--color-text-input);
-    font: inherit;
-    font-size: 18px;
-    font-weight: 300;
-    line-height: 1;
-}
-
-.searchInput::placeholder {
-    color: var(--color-input-placeholder);
-}
-
 .tablePanel {
     display: flex;
     flex-direction: column;
@@ -477,28 +443,131 @@ onUnmounted(() => {
     gap: var(--spacing-space-3);
 }
 
+/* Glass page buttons — identical to the Projects table pagination. */
 .pageButton {
+    --glass-foreground: var(--color-neutral-700);
+    --glass-border: color-mix(in srgb, var(--color-neutral-600) 24%, transparent);
+    --glass-border-hover: color-mix(in srgb, var(--color-neutral-700) 34%, transparent);
+    --glass-highlight: color-mix(in srgb, var(--color-neutral-50) 82%, transparent);
+    --glass-highlight-soft: color-mix(in srgb, var(--color-neutral-50) 48%, transparent);
+    --glass-lowlight: color-mix(in srgb, var(--color-neutral-400) 40%, transparent);
+    --glass-shadow: color-mix(in srgb, var(--color-neutral-900) 22%, transparent);
+    --glass-shadow-hover: color-mix(in srgb, var(--color-neutral-900) 26%, transparent);
+    --glass-pointer-color: color-mix(in srgb, var(--color-main-primary) 24%, var(--color-neutral-50) 54%);
+    --glass-pointer-x: 50%;
+    --glass-pointer-y: 50%;
+
+    position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     box-sizing: border-box;
     width: 32px;
     height: 32px;
-    border: 1px solid var(--color-main-secondary);
+    padding: 10px;
+    overflow: hidden;
+    isolation: isolate;
+    border: 1px solid var(--glass-border);
     border-radius: var(--radius-full);
-    background-color: var(--color-main-secondary);
-    color: var(--color-button-secondary-btn-text);
+    background:
+        linear-gradient(
+            150deg,
+            var(--glass-highlight) 0%,
+            var(--glass-highlight-soft) 42%,
+            var(--glass-lowlight) 100%
+        );
+    box-shadow:
+        inset 0 1px 1px color-mix(in srgb, var(--color-neutral-50) 72%, transparent),
+        inset 0 -8px 16px var(--glass-lowlight),
+        0 6px 18px var(--glass-shadow);
+    backdrop-filter: blur(24px) saturate(180%) brightness(1.1);
+    -webkit-backdrop-filter: blur(24px) saturate(180%) brightness(1.1);
+    color: var(--glass-foreground);
     cursor: pointer;
+    transition:
+        border-color 220ms ease,
+        box-shadow 220ms ease,
+        transform 220ms ease;
 }
 
-.currentPage {
-    border-color: var(--color-main-primary);
-    background-color: var(--color-main-primary);
+:global(.dark) .pageButton,
+:global([data-theme="dark"]) .pageButton {
+    --glass-foreground: var(--color-neutral-50);
+    --glass-border: color-mix(in srgb, var(--color-neutral-50) 16%, transparent);
+    --glass-border-hover: color-mix(in srgb, var(--color-neutral-50) 26%, transparent);
+    --glass-highlight: color-mix(in srgb, var(--color-neutral-50) 14%, transparent);
+    --glass-highlight-soft: color-mix(in srgb, var(--color-neutral-50) 4%, transparent);
+    --glass-lowlight: color-mix(in srgb, var(--color-neutral-900) 28%, transparent);
+    --glass-shadow: color-mix(in srgb, var(--color-neutral-900) 35%, transparent);
+    --glass-shadow-hover: color-mix(in srgb, var(--color-neutral-900) 40%, transparent);
+    --glass-pointer-color: color-mix(in srgb, var(--color-neutral-50) 36%, var(--color-main-primary) 24%);
+}
+
+.pageButton::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background:
+        radial-gradient(
+            120% 80% at 50% -20%,
+            color-mix(in srgb, var(--color-neutral-50) 62%, transparent) 0%,
+            transparent 60%
+        );
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.pageButton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background:
+        radial-gradient(
+            circle 34px at var(--glass-pointer-x) var(--glass-pointer-y),
+            var(--glass-pointer-color) 0%,
+            transparent 70%
+        );
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 180ms ease;
+}
+
+.pageButton:hover::after,
+.pageButton:focus-visible::after {
+    opacity: 0.82;
+}
+
+.pageButton:hover {
+    border-color: var(--glass-border-hover);
+    box-shadow:
+        inset 0 1px 1px color-mix(in srgb, var(--color-neutral-50) 78%, transparent),
+        inset 0 -8px 16px var(--glass-lowlight),
+        0 8px 22px var(--glass-shadow-hover);
+}
+
+.pageButton:active {
+    transform: scale(0.97);
 }
 
 .pageButton:focus-visible {
     outline: 2px solid var(--color-main-primary);
     outline-offset: 2px;
+}
+
+.currentPage {
+    width: 45px;
+    color: var(--color-button-primary-btn-text-active);
+    border-color: color-mix(in srgb, var(--color-main-primary) 60%, transparent);
+    background:
+        linear-gradient(
+            150deg,
+            color-mix(in srgb, var(--color-main-primary) 88%, var(--color-neutral-50) 12%) 0%,
+            color-mix(in srgb, var(--color-main-primary) 68%, var(--color-neutral-900) 32%) 100%
+        );
 }
 
 @media (max-width: 760px) {

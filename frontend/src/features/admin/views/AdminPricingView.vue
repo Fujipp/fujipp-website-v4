@@ -325,7 +325,9 @@ onMounted(load);
             </div>
         </section>
 
-        <StatusToast v-if="toast" :status="toast.status" :title="toast.title" />
+        <div v-if="toast" :class="$style.toastRegion" aria-live="polite">
+            <StatusToast :status="toast.status" :title="toast.title" @close="toast = null" />
+        </div>
     </AdminLayout>
 </template>
 
@@ -413,4 +415,13 @@ onMounted(load);
 
 .note { margin: 0; color: var(--color-text-disabled); }
 .error { margin: 0; color: var(--color-status-error); }
+
+/* Float feedback so Add/Save result is always visible, not pushed below the fold. */
+.toastRegion {
+    position: fixed;
+    bottom: var(--spacing-space-5);
+    right: var(--spacing-space-5);
+    z-index: 60;
+    width: min(360px, calc(100vw - var(--spacing-space-10)));
+}
 </style>

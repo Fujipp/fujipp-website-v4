@@ -36,6 +36,11 @@ export const useThemeStore = defineStore('theme', () => {
   function setTheme(theme: ThemeMode) {
     selectedTheme.value = theme
     window.localStorage.setItem(themeStorageKey, theme)
+    // Enable cross-fade only from the first deliberate toggle, so the initial
+    // paint isn't animated (see .theme-anim in styles/base.css).
+    if (typeof document !== 'undefined') {
+      document.documentElement.classList.add('theme-anim')
+    }
     applyTheme()
   }
 
