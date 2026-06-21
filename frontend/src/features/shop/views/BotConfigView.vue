@@ -549,7 +549,7 @@ onMounted(async () => {
     box-sizing: border-box;
     padding: var(--spacing-space-6);
     gap: var(--spacing-space-6);
-    transition: margin-left 180ms ease;
+    transition: margin-left 260ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .sidebarOpen {

@@ -82,23 +82,6 @@ const canVerifySlip = computed(() => (
 ));
 const walletBalance = computed(() => formatMoney(balanceSatang.value));
 const topupAmount = computed(() => formatMoney(topup.value?.amountSatang ?? amountThb.value * 100));
-const walletSummary = computed(() => [
-    {
-        label: "Balance",
-        value: `${walletBalance.value} บาท`,
-        detail: isLoadingWallet.value ? "กำลังโหลดเครดิตล่าสุด" : "เครดิตพร้อมใช้ซื้อแพ็กเกจ",
-    },
-    {
-        label: "Top-up amount",
-        value: `${topupAmount.value} บาท`,
-        detail: topup.value ? `Reference ${topup.value.reference}` : "เลือกยอดแล้วสร้าง QR",
-    },
-    {
-        label: "Slip status",
-        value: slipFile.value ? "Selected" : "Waiting",
-        detail: slipFile.value?.name ?? "อัปโหลดสลิปหลังโอนเงิน",
-    },
-]);
 const walletUsername = computed(() => (
     userStore.profile?.username
     ?? userStore.profile?.displayName
@@ -433,26 +416,13 @@ onUnmounted(() => {
         <main :class="[$style.content, isSidebarOpen ? $style.sidebarOpen : $style.sidebarClosed]">
             <section :class="$style.titleSection">
                 <div :class="$style.titleRow">
-                    <div :class="$style.titleCopy">
-                        <h1 :class="$style.pageTitle" class="type-h1-page-title-sb">Wallet</h1>
-                        <p :class="$style.pageLead">
-                            จัดการเครดิตสำหรับ runtime และ feature เติมเงินด้วย QR แล้วอัปโหลดสลิปเพื่อยืนยันยอด
-                        </p>
-                    </div>
+                    <h1 :class="$style.pageTitle" class="type-h1-page-title-sb">Wallet</h1>
                     <div :class="$style.titleActions">
                         <PrimaryButton :to="{ name: 'shop-package' }">ไป Package</PrimaryButton>
                         <SecondaryButton :to="{ name: 'shop-guide' }">ดูคู่มือ</SecondaryButton>
                     </div>
                 </div>
                 <div :class="$style.divider" aria-hidden="true" />
-            </section>
-
-            <section :class="$style.walletSummaryGrid" aria-label="Wallet operation summary">
-                <article v-for="item in walletSummary" :key="item.label" :class="$style.summaryCard">
-                    <span :class="$style.summaryLabel">{{ item.label }}</span>
-                    <strong :class="$style.summaryValue">{{ item.value }}</strong>
-                    <span :class="$style.summaryDetail">{{ item.detail }}</span>
-                </article>
             </section>
 
             <section v-if="walletError" :class="$style.statePanel" aria-live="polite">
@@ -506,10 +476,25 @@ onUnmounted(() => {
 
 <style module>
 .shopWallet {
+    /* Page-scoped card theme (mirrors the Dashboard/Package) — light in light mode.
+       The credit card (WalletBalanceCard) intentionally stays a dark gradient hero. */
+    --shop-card-bg: var(--color-neutral-50);
+    --shop-card-border: var(--color-input-border);
+    --shop-card-text: var(--color-text-primary);
+    --shop-card-muted: var(--color-neutral-600);
+
     display: flex;
     min-height: 100vh;
     background-color: var(--color-main-background);
     color: var(--color-text-primary);
+}
+
+:global(.dark) .shopWallet,
+:global([data-theme="dark"]) .shopWallet {
+    --shop-card-bg: var(--color-main-surface);
+    --shop-card-border: var(--color-main-border);
+    --shop-card-text: var(--color-text-secondary);
+    --shop-card-muted: var(--color-text-secondary);
 }
 
 .content {
@@ -520,7 +505,7 @@ onUnmounted(() => {
     box-sizing: border-box;
     padding: var(--spacing-space-6);
     gap: var(--spacing-space-6);
-    transition: margin-left 180ms ease;
+    transition: margin-left 260ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .sidebarOpen {
@@ -539,88 +524,32 @@ onUnmounted(() => {
 
 .titleRow {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
-    gap: var(--spacing-space-5);
-}
-
-.titleCopy {
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
-    gap: var(--spacing-space-2);
+    flex-wrap: wrap;
+    gap: var(--spacing-space-4);
 }
 
 .titleActions {
     display: flex;
+    align-items: center;
     flex-shrink: 0;
     flex-wrap: wrap;
     justify-content: flex-end;
-    gap: var(--spacing-space-2);
+    gap: var(--spacing-space-3);
 }
 
 .pageTitle {
     margin: 0;
-}
-
-.pageTitle {
     color: var(--color-text-primary);
     font-size: 32px;
     font-weight: 600;
     line-height: 1.15;
 }
 
-.pageLead {
-    max-width: 760px;
-    margin: 0;
-    color: var(--color-text-disabled);
-    font-size: 16px;
-    line-height: 1.5;
-}
-
 .divider {
     height: 1px;
     background-color: var(--color-main-divider);
-}
-
-.walletSummaryGrid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: var(--spacing-space-3);
-}
-
-.summaryCard {
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
-    justify-content: center;
-    gap: var(--spacing-space-2);
-    padding: var(--spacing-space-4);
-    border: 1px solid var(--color-main-border);
-    border-radius: var(--radius-xl);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
-}
-
-.summaryLabel,
-.summaryDetail {
-    color: color-mix(in srgb, var(--color-text-secondary) 72%, transparent);
-    font-size: 13px;
-    line-height: 1.45;
-}
-
-.summaryLabel {
-    font-weight: 700;
-    text-transform: uppercase;
-}
-
-.summaryValue {
-    min-width: 0;
-    overflow-wrap: anywhere;
-    color: var(--color-text-secondary);
-    font-size: 22px;
-    font-weight: 800;
-    line-height: 1.1;
 }
 
 .walletGrid {
@@ -637,10 +566,10 @@ onUnmounted(() => {
     flex-direction: column;
     padding: var(--spacing-space-6);
     gap: var(--spacing-space-4);
-    border: 1px solid var(--color-main-border);
+    border: 1px solid var(--shop-card-border, var(--color-main-border));
     border-radius: var(--radius-xl);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
+    background-color: var(--shop-card-bg, var(--color-main-surface));
+    color: var(--shop-card-text, var(--color-text-secondary));
 }
 
 .stateTitle,
@@ -655,7 +584,7 @@ onUnmounted(() => {
 }
 
 .stateText {
-    color: var(--color-text-secondary);
+    color: var(--shop-card-muted, var(--color-text-secondary));
     font-size: 18px;
     line-height: 1.4;
 }
@@ -666,12 +595,6 @@ onUnmounted(() => {
     right: var(--spacing-space-5);
     z-index: 60;
     width: min(360px, calc(100vw - var(--spacing-space-10)));
-}
-
-@media (max-width: 920px) {
-    .walletSummaryGrid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
 }
 
 @media (max-width: 760px) {
@@ -695,10 +618,6 @@ onUnmounted(() => {
 
     .titleActions {
         justify-content: flex-start;
-    }
-
-    .walletSummaryGrid {
-        grid-template-columns: 1fr;
     }
 
     .toastRegion {

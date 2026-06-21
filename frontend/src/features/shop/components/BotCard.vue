@@ -63,14 +63,13 @@ const statusLabel = computed(() => props.status === "online" ? "Online" : "Offli
         />
 
         <template v-else>
-            <img
-                v-if="image"
-                :class="$style.botImage"
-                :src="image"
-                :alt="name"
-                draggable="false"
-            >
-            <div v-else :class="$style.botImageFallback" aria-hidden="true" />
+            <div :class="$style.botHero">
+                <template v-if="image">
+                    <img :class="$style.botHeroBg" :src="image" alt="" aria-hidden="true" draggable="false">
+                    <span :class="$style.botHeroScrim" aria-hidden="true" />
+                    <img :class="$style.botAvatar" :src="image" :alt="name" draggable="false">
+                </template>
+            </div>
 
             <div :class="$style.titleRow">
                 <h3 :class="$style.botName" class="type-h3-card-title-sb">{{ name }}</h3>
@@ -119,14 +118,14 @@ const statusLabel = computed(() => props.status === "online" ? "Online" : "Offli
     height: 450px;
     padding: 10px;
     overflow: hidden;
-    border: 2px solid var(--color-main-border);
+    border: 2px solid var(--shop-card-border, var(--color-main-border));
     border-radius: var(--radius-xl);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
+    background-color: var(--shop-card-bg, var(--color-main-surface));
+    color: var(--shop-card-text, var(--color-text-secondary));
+    transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease;
 }
 
-.botImage,
-.botImageFallback,
+.botHero,
 .skeletonImage {
     width: 100%;
     height: 166px;
@@ -134,15 +133,51 @@ const statusLabel = computed(() => props.status === "online" ? "Online" : "Offli
     border-radius: var(--radius-xl);
 }
 
-.botImage {
+/* Hero = the bot's avatar as a crisp centered circle over a blurred, dimmed copy
+   of itself (so a small/low-res Discord avatar never looks stretched). No image →
+   just the brand gradient. */
+.botHero {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: var(--gradient-card-highlight);
+}
+
+.botHeroBg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
     object-fit: cover;
-    object-position: center top;
+    transform: scale(1.25);
+    filter: blur(20px) brightness(0.6) saturate(1.2);
     user-select: none;
     -webkit-user-drag: none;
 }
 
-.botImageFallback {
-    background: var(--gradient-card-highlight);
+.botHeroScrim {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        180deg,
+        color-mix(in srgb, #000 28%, transparent) 0%,
+        color-mix(in srgb, #000 14%, transparent) 100%
+    );
+}
+
+.botAvatar {
+    position: relative;
+    width: 112px;
+    height: 112px;
+    border-radius: var(--radius-full);
+    object-fit: cover;
+    box-shadow:
+        0 0 0 3px color-mix(in srgb, var(--color-neutral-50) 70%, transparent),
+        0 10px 26px color-mix(in srgb, #000 45%, transparent);
+    user-select: none;
+    -webkit-user-drag: none;
 }
 
 .titleRow {
@@ -157,7 +192,7 @@ const statusLabel = computed(() => props.status === "online" ? "Online" : "Offli
     min-width: 0;
     margin: 0;
     overflow: hidden;
-    color: var(--color-text-secondary);
+    color: var(--shop-card-text, var(--color-text-secondary));
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -171,10 +206,10 @@ const statusLabel = computed(() => props.status === "online" ? "Online" : "Offli
     height: 36px;
     padding: 10px;
     gap: 10px;
-    border: 1px solid var(--color-main-divider);
+    border: 1px solid var(--shop-card-border, var(--color-main-divider));
     border-radius: var(--radius-full);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
+    background-color: var(--shop-card-bg, var(--color-main-surface));
+    color: var(--shop-card-text, var(--color-text-secondary));
     font-size: 20px;
     font-weight: 300;
     line-height: 1;
@@ -198,7 +233,7 @@ const statusLabel = computed(() => props.status === "online" ? "Online" : "Offli
 .detailLine {
     width: 100%;
     margin: 0;
-    color: var(--color-text-secondary);
+    color: var(--shop-card-text, var(--color-text-secondary));
     font-size: 20px;
     font-weight: 300;
     line-height: 1.2;
@@ -208,6 +243,7 @@ const statusLabel = computed(() => props.status === "online" ? "Online" : "Offli
     font-weight: 600;
 }
 
+/* Frosted glass action bar (card surface is always dark → light translucency). */
 .actionList {
     display: flex;
     align-items: center;
@@ -216,8 +252,31 @@ const statusLabel = computed(() => props.status === "online" ? "Online" : "Offli
     box-sizing: border-box;
     padding: 10px;
     gap: 36px;
-    border: 1px solid var(--color-main-divider);
+    border: 1px solid color-mix(in srgb, var(--color-neutral-50) 14%, transparent);
     border-radius: var(--radius-full);
+    background: color-mix(in srgb, var(--color-neutral-900) 22%, transparent);
+    backdrop-filter: blur(14px) saturate(160%);
+    -webkit-backdrop-filter: blur(14px) saturate(160%);
+}
+
+/* Frosted dark-glass tiles for the shared ActionButtons, scoped to this card. Kept
+   dark in both themes because the action icons are fixed light (#E4E4E4) — a light
+   glass on a light card would hide them. The light border + inset give the sheen. */
+.actionList button {
+    border: 1px solid color-mix(in srgb, var(--color-neutral-50) 18%, transparent);
+    background: color-mix(in srgb, var(--color-neutral-800) 62%, transparent);
+    box-shadow: inset 0 1px 1px color-mix(in srgb, var(--color-neutral-50) 22%, transparent);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.actionList button:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--color-neutral-50) 30%, transparent);
+    background: color-mix(in srgb, var(--color-neutral-700) 70%, transparent);
+}
+
+.actionList button:active:not(:disabled) {
+    background: color-mix(in srgb, var(--color-neutral-700) 82%, transparent);
 }
 
 .addCard {

@@ -90,12 +90,12 @@ function selectOption(): void {
     padding: var(--spacing-space-6);
     gap: var(--spacing-space-5);
     overflow: hidden;
-    border: 1px solid var(--color-main-border);
+    border: 1px solid var(--shop-card-border, var(--color-main-border));
     border-radius: var(--radius-2xl);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
+    background-color: var(--shop-card-bg, var(--color-main-surface));
+    color: var(--shop-card-text, var(--color-text-secondary));
     text-align: left;
-    transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease, background-color 0.3s ease, color 0.3s ease;
 }
 
 .card:hover {
@@ -156,8 +156,8 @@ function selectOption(): void {
 }
 
 .meta {
-    border: 1px solid var(--color-main-divider);
-    color: var(--color-text-secondary);
+    border: 1px solid var(--shop-card-border, var(--color-main-divider));
+    color: var(--shop-card-text, var(--color-text-secondary));
 }
 
 .title {
@@ -181,7 +181,7 @@ function selectOption(): void {
 
 .helper {
     margin: auto 0 0;
-    color: color-mix(in srgb, var(--color-text-secondary) 70%, transparent);
+    color: var(--shop-card-muted, color-mix(in srgb, var(--color-text-secondary) 70%, transparent));
     font-size: 13px;
     font-weight: 500;
     line-height: 1.45;

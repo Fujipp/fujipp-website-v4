@@ -208,6 +208,28 @@ function submit(): void {
     gap: var(--spacing-space-4);
     overflow-y: auto;
     padding-right: var(--spacing-space-1);
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--color-main-primary) 72%, transparent) transparent;
+}
+
+.fields::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.fields::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.fields::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: var(--radius-full);
+    background-color: color-mix(in srgb, var(--color-main-primary) 72%, transparent);
+    background-clip: content-box;
+}
+
+.fields::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-main-primary);
 }
 
 .grid2 {

@@ -87,17 +87,18 @@ const emit = defineEmits<{ toggleAutoRenew: [value: boolean]; renew: [] }>();
     min-height: 160px;
     padding: var(--spacing-space-2);
     gap: 10px;
-    border: 1px solid var(--color-main-divider);
+    border: 1px solid var(--shop-card-border, var(--color-main-divider));
     border-radius: var(--radius-xl);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
+    background-color: var(--shop-card-bg, var(--color-main-surface));
+    color: var(--shop-card-text, var(--color-text-secondary));
     text-align: center;
+    transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease;
 }
 
 .title,
 .remaining {
     margin: 0;
-    color: var(--color-text-secondary);
+    color: var(--shop-card-text, var(--color-text-secondary));
 }
 
 .title {
@@ -130,10 +131,10 @@ const emit = defineEmits<{ toggleAutoRenew: [value: boolean]; renew: [] }>();
     height: 36px;
     padding: 10px;
     gap: 10px;
-    border: 1px solid var(--color-main-border);
+    border: 1px solid var(--shop-card-border, var(--color-main-border));
     border-radius: var(--radius-full);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
+    background-color: var(--shop-card-bg, var(--color-main-surface));
+    color: var(--shop-card-text, var(--color-text-secondary));
     font-size: 20px;
     font-weight: 300;
     line-height: 1;
@@ -168,7 +169,7 @@ const emit = defineEmits<{ toggleAutoRenew: [value: boolean]; renew: [] }>();
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    color: var(--color-text-secondary);
+    color: var(--shop-card-text, var(--color-text-secondary));
     font-size: 13px;
     cursor: pointer;
 }

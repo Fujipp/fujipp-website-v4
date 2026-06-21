@@ -392,7 +392,7 @@ onUnmounted(() => {
     border-radius: var(--radius-xl);
     background-color: var(--projects-card-bg, var(--color-main-surface));
     color: var(--projects-card-text, var(--color-text-secondary));
-    box-shadow: 0 16px 40px color-mix(in srgb, var(--color-text-input) 30%, transparent);
+    /* box-shadow: 0 16px 40px color-mix(in srgb, var(--color-text-input) 30%, transparent); */
     transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease;
 }
 

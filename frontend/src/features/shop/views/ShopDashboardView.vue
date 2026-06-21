@@ -374,7 +374,7 @@ onUnmounted(clearToast);
         <main :class="[$style.content, isSidebarOpen ? $style.sidebarOpen : $style.sidebarClosed]">
             <section :class="$style.dashboardSection" aria-labelledby="shop-dashboard-title">
                 <div :class="$style.titleSection">
-                    <h1 id="shop-dashboard-title" :class="$style.pageTitle">DASHBOARD</h1>
+                    <h1 id="shop-dashboard-title" :class="$style.pageTitle">Dashboard</h1>
                     <div :class="$style.divider" aria-hidden="true" />
                 </div>
 
@@ -505,10 +505,28 @@ onUnmounted(clearToast);
 
 <style module>
 .shopDashboard {
+    /* Page-scoped card theme (light defaults + dark override below), so Shop cards
+       read like the Projects page instead of always-dark on a white page. Components
+       consume these via var(--shop-*, <dark fallback>). */
+    --shop-card-bg: var(--color-neutral-50);
+    --shop-card-border: var(--color-input-border);
+    --shop-card-text: var(--color-text-primary);
+    --shop-card-muted: var(--color-neutral-600);
+    --shop-row-hover: var(--color-neutral-100);
+
     display: flex;
     min-height: 100vh;
     background-color: var(--color-main-background);
     color: var(--color-text-primary);
+}
+
+:global(.dark) .shopDashboard,
+:global([data-theme="dark"]) .shopDashboard {
+    --shop-card-bg: var(--color-main-surface);
+    --shop-card-border: var(--color-main-border);
+    --shop-card-text: var(--color-text-secondary);
+    --shop-card-muted: var(--color-text-secondary);
+    --shop-row-hover: var(--color-table-row-hover);
 }
 
 .content {
@@ -519,7 +537,7 @@ onUnmounted(clearToast);
     box-sizing: border-box;
     padding: var(--spacing-space-6);
     gap: var(--spacing-space-6);
-    transition: margin-left 180ms ease;
+    transition: margin-left 260ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .sidebarOpen {
@@ -580,22 +598,23 @@ onUnmounted(clearToast);
     box-sizing: border-box;
     gap: var(--spacing-space-2);
     padding: var(--spacing-space-5) var(--spacing-space-6);
-    border: 1px solid var(--color-main-border);
+    border: 1px solid var(--shop-card-border, var(--color-main-border));
     border-radius: var(--radius-xl);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
+    background-color: var(--shop-card-bg, var(--color-main-surface));
+    color: var(--shop-card-text, var(--color-text-secondary));
     text-align: left;
+    transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease;
 }
 
 .metricValue {
-    color: var(--color-text-secondary);
+    color: var(--shop-card-text, var(--color-text-secondary));
     font-size: 32px;
     font-weight: 800;
     line-height: 1;
 }
 
 .metricLabel {
-    color: var(--color-text-secondary);
+    color: var(--shop-card-muted, var(--color-text-secondary));
     font-size: 14px;
     font-weight: 600;
     line-height: 1;
@@ -670,10 +689,10 @@ onUnmounted(clearToast);
     margin-inline: var(--spacing-space-5);
     padding: var(--spacing-space-6);
     gap: var(--spacing-space-4);
-    border: 1px solid var(--color-main-border);
+    border: 1px solid var(--shop-card-border, var(--color-main-border));
     border-radius: var(--radius-xl);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
+    background-color: var(--shop-card-bg, var(--color-main-surface));
+    color: var(--shop-card-text, var(--color-text-secondary));
 }
 
 .stateTitle,

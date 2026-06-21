@@ -56,12 +56,12 @@ const displayLabel = computed(() => categoryLabels[props.label] ?? props.label);
     transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease, box-shadow 300ms ease;
 }
 
-:global(.dark) .categoryTag,
+/* :global(.dark) .categoryTag,
 :global([data-theme="dark"]) .categoryTag {
     --category-tag-bg: var(--color-main-surface);
     --category-tag-border: var(--color-main-border);
     --category-tag-text: var(--color-text-secondary);
 
     box-shadow: 0 8px 24px -10px rgb(121 135 172 / 70%);
-}
+} */
 </style>

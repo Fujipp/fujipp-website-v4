@@ -34,7 +34,7 @@ const isSidebarOpen = ref(typeof window === "undefined" ? true : window.innerWid
 
 <style module>
 .page { display: flex; min-height: 100vh; background: var(--color-main-background); color: var(--color-text-primary); }
-.content { display: flex; min-width: 0; flex: 1; flex-direction: column; box-sizing: border-box; padding: var(--spacing-space-6); gap: var(--spacing-space-6); transition: margin-left 180ms ease; }
+.content { display: flex; min-width: 0; flex: 1; flex-direction: column; box-sizing: border-box; padding: var(--spacing-space-6); gap: var(--spacing-space-6); transition: margin-left 260ms cubic-bezier(0.22, 1, 0.36, 1); }
 .sidebarOpen { margin-left: 194px; }
 .sidebarClosed { margin-left: 44px; }
 

@@ -3,28 +3,54 @@
     @apply min-h-dvh bg-main-background font-sans text-text-primary antialiased;
     margin: 0;
   }
+}
 
-  /* Smooth light↔dark switching. The `theme-anim` class is added on the first
-     user-initiated theme change (see themeStore.setTheme), so the initial paint
-     never cross-fades from unstyled — only deliberate toggles animate. Limited to
-     color properties; components keep their own (more specific) hover transitions. */
+html.shop-route {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-main-primary) 72%, transparent) transparent;
+}
+
+html.shop-route::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+html.shop-route::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+html.shop-route::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: var(--radius-full);
+  background-color: color-mix(in srgb, var(--color-main-primary) 72%, transparent);
+  background-clip: content-box;
+}
+
+html.shop-route::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-main-primary);
+}
+
+/* Smooth light↔dark switching. themeStore adds `theme-anim` to <html> only for the
+   duration of a deliberate toggle (then removes it), so the initial paint never
+   cross-fades and normal hover transitions are untouched the rest of the time.
+   Unlayered + !important so it overrides each component's own `transition` (many omit
+   `color`, which is what made some text snap/flicker instead of fading). */
+.theme-anim,
+.theme-anim *,
+.theme-anim *::before,
+.theme-anim *::after {
+  transition:
+    background-color 220ms ease,
+    border-color 220ms ease,
+    color 220ms ease,
+    fill 220ms ease !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
   .theme-anim,
   .theme-anim *,
   .theme-anim *::before,
   .theme-anim *::after {
-    transition:
-      background-color 220ms ease,
-      border-color 220ms ease,
-      color 220ms ease,
-      fill 220ms ease;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .theme-anim,
-    .theme-anim *,
-    .theme-anim *::before,
-    .theme-anim *::after {
-      transition: none;
-    }
+    transition: none !important;
   }
 }

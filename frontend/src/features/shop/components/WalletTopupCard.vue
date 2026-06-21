@@ -149,11 +149,12 @@ const emit = defineEmits<{
     box-sizing: border-box;
     padding: var(--spacing-space-4);
     gap: var(--spacing-space-4);
-    border: 1px solid var(--color-main-border);
+    border: 1px solid var(--shop-card-border, var(--color-main-border));
     border-radius: var(--radius-2xl);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
+    background-color: var(--shop-card-bg, var(--color-main-surface));
+    color: var(--shop-card-text, var(--color-text-secondary));
     text-align: left;
+    transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease;
 }
 
 .instructionPanel,
@@ -161,9 +162,9 @@ const emit = defineEmits<{
 .slipPanel {
     box-sizing: border-box;
     width: 100%;
-    border: 1px solid var(--color-main-divider);
+    border: 1px solid var(--shop-card-border, var(--color-main-divider));
     border-radius: var(--radius-lg);
-    background-color: var(--color-main-surface);
+    background-color: var(--shop-card-bg, var(--color-main-surface));
 }
 
 .instructionPanel {
@@ -177,7 +178,7 @@ const emit = defineEmits<{
 .instructionText {
     flex: 1;
     margin: 0;
-    color: color-mix(in srgb, var(--color-text-secondary) 82%, transparent);
+    color: var(--shop-card-muted, color-mix(in srgb, var(--color-text-secondary) 82%, transparent));
     font-size: 15px;
     font-weight: 400;
     line-height: 1.6;
@@ -202,7 +203,7 @@ const emit = defineEmits<{
     flex-wrap: wrap;
     gap: 20px;
     padding: var(--spacing-space-4);
-    color: var(--color-text-secondary);
+    color: var(--shop-card-text, var(--color-text-secondary));
 }
 
 .qrPreview {
@@ -270,10 +271,10 @@ const emit = defineEmits<{
     align-items: center;
     justify-content: center;
     box-sizing: border-box;
-    border: 1px solid var(--color-main-divider);
+    border: 1px solid var(--shop-card-border, var(--color-main-divider));
     border-radius: var(--radius-lg);
-    background-color: var(--color-main-secondary);
-    color: var(--color-text-secondary);
+    background-color: transparent;
+    color: var(--shop-card-text, var(--color-text-secondary));
     font-size: 15px;
     font-weight: 500;
 }
@@ -374,9 +375,10 @@ const emit = defineEmits<{
     align-self: stretch;
     padding: var(--spacing-space-2);
     overflow-wrap: anywhere;
+    border: 1px solid var(--shop-card-border, var(--color-main-divider));
     border-radius: var(--radius-md);
-    background-color: var(--color-main-secondary);
-    color: var(--color-text-secondary);
+    background-color: color-mix(in srgb, var(--color-main-primary) 8%, transparent);
+    color: var(--shop-card-text, var(--color-text-secondary));
 }
 
 .referenceBox strong {
@@ -401,15 +403,15 @@ const emit = defineEmits<{
     align-items: center;
     justify-content: center;
     box-sizing: border-box;
-    border: 1px dashed var(--color-main-border);
+    border: 1px dashed var(--shop-card-border, var(--color-main-border));
     border-radius: var(--radius-2xl);
-    color: var(--color-text-secondary);
+    color: var(--shop-card-text, var(--color-text-secondary));
     cursor: pointer;
 }
 
 .dropZoneActive {
     border-color: var(--color-main-primary);
-    background-color: var(--color-main-secondary);
+    background-color: color-mix(in srgb, var(--color-main-primary) 10%, transparent);
 }
 
 .dropNormal,
@@ -420,7 +422,7 @@ const emit = defineEmits<{
 
 .dropNormal {
     font-weight: 400;
-    color: color-mix(in srgb, var(--color-text-secondary) 82%, transparent);
+    color: var(--shop-card-muted, color-mix(in srgb, var(--color-text-secondary) 82%, transparent));
 }
 
 .dropStrong {

@@ -33,13 +33,20 @@ export const useThemeStore = defineStore('theme', () => {
     document.documentElement.dataset.theme = useDarkTheme ? 'dark' : 'light'
   }
 
+  let themeAnimTimer: ReturnType<typeof setTimeout> | undefined
+
   function setTheme(theme: ThemeMode) {
     selectedTheme.value = theme
     window.localStorage.setItem(themeStorageKey, theme)
-    // Enable cross-fade only from the first deliberate toggle, so the initial
-    // paint isn't animated (see .theme-anim in styles/base.css).
+    // Cross-fade only for the duration of this deliberate toggle: add the class,
+    // apply the new theme, then remove it once the 220ms fade is done. This keeps
+    // the initial paint un-animated and leaves normal hover transitions untouched
+    // (see .theme-anim in styles/base.css).
     if (typeof document !== 'undefined') {
-      document.documentElement.classList.add('theme-anim')
+      const root = document.documentElement
+      root.classList.add('theme-anim')
+      if (themeAnimTimer) clearTimeout(themeAnimTimer)
+      themeAnimTimer = setTimeout(() => root.classList.remove('theme-anim'), 280)
     }
     applyTheme()
   }
