@@ -23,6 +23,10 @@ public record CreateVpsNodeRequest(
     @Min(value = 0, message = "maxSlots must be >= 0")
     int maxSlots,
 
+    // Seats held back for backend/services (never sold). Must be 0..maxSlots.
+    @Min(value = 0, message = "reservedSlots must be >= 0")
+    int reservedSlots,
+
     // ACTIVE | DRAINING | OFFLINE — defaults to ACTIVE when blank.
     String status,
 

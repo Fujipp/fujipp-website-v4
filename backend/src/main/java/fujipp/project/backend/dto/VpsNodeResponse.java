@@ -13,6 +13,7 @@ public record VpsNodeResponse(
     String region,
     String status,
     int maxSlots,
+    int reservedSlots,
     long usedSlots,
     long freeSlots,
     String orchestratorUrl,
@@ -20,7 +21,9 @@ public record VpsNodeResponse(
     String notes,
     OffsetDateTime createdAt
 ) {
-    public static VpsNodeResponse from(VpsNode n, long used) {
+    /** {@code occupied} = seats held by an active runtime; sellable free = max − reserved − occupied. */
+    public static VpsNodeResponse from(VpsNode n, long occupied) {
+        long free = Math.max(0, n.getMaxSlots() - n.getReservedSlots() - occupied);
         return new VpsNodeResponse(
             n.getId(),
             n.getName(),
@@ -28,8 +31,9 @@ public record VpsNodeResponse(
             n.getRegion(),
             n.getStatus(),
             n.getMaxSlots(),
-            used,
-            Math.max(0, n.getMaxSlots() - used),
+            n.getReservedSlots(),
+            occupied,
+            free,
             n.getOrchestratorUrl(),
             n.getServiceTokenCipher() != null && !n.getServiceTokenCipher().isBlank(),
             n.getNotes(),
