@@ -15,7 +15,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -29,7 +31,32 @@ public class BotService {
 
     @Transactional(readOnly = true)
     public List<BotResponse> listBots(UUID userId) {
-        return bots.findByUserIdOrderByCreatedAtDesc(userId).stream().map(BotResponse::from).toList();
+        Map<String, BillingClient.RuntimeSubView> byBot = runtimeByBot(userId);
+        return bots.findByUserIdOrderByCreatedAtDesc(userId).stream()
+            .map(b -> BotResponse.from(b, byBot.get(b.getId().toString())))
+            .toList();
+    }
+
+    /** Map of bot id → the runtime that decides its online/offline status (active preferred). */
+    private Map<String, BillingClient.RuntimeSubView> runtimeByBot(UUID userId) {
+        Map<String, BillingClient.RuntimeSubView> map = new HashMap<>();
+        for (BillingClient.RuntimeSubView rt : billing.runtimeSubs(userId)) {
+            String botId = rt.externalSubjectId();
+            if (botId == null) continue; // bought-but-unassigned runtime powers no bot
+            BillingClient.RuntimeSubView current = map.get(botId);
+            if (current == null || prefer(rt, current)) map.put(botId, rt);
+        }
+        return map;
+    }
+
+    /** Prefer an ACTIVE runtime, then the one running latest — so a bot's badge reflects its live seat. */
+    private static boolean prefer(BillingClient.RuntimeSubView a, BillingClient.RuntimeSubView b) {
+        boolean aActive = "ACTIVE".equals(a.status());
+        boolean bActive = "ACTIVE".equals(b.status());
+        if (aActive != bActive) return aActive;
+        if (a.currentPeriodEnd() == null) return false;
+        if (b.currentPeriodEnd() == null) return true;
+        return a.currentPeriodEnd().isAfter(b.currentPeriodEnd());
     }
 
     /** The user's bot-slot standing: bots used vs allowance (free + paid), and price of one more. */
@@ -54,7 +81,8 @@ public class BotService {
 
     @Transactional(readOnly = true)
     public BotResponse getBot(UUID userId, UUID botId) {
-        return BotResponse.from(owned(userId, botId));
+        BotInstance bot = owned(userId, botId);
+        return BotResponse.from(bot, runtimeByBot(userId).get(botId.toString()));
     }
 
     @Transactional

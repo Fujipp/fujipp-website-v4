@@ -32,6 +32,20 @@ public class BillingClient {
         long priceSatang
     ) {}
 
+    /** A runtime subscription (typed) — used to derive each bot's online/offline/expired status. */
+    public record RuntimeSubView(
+        java.util.UUID id,
+        String externalSubjectId,
+        java.util.UUID vpsSlotId,
+        java.util.UUID runtimePlanId,
+        String status,
+        java.time.LocalDate currentPeriodStart,
+        java.time.LocalDate currentPeriodEnd,
+        boolean autoRenew,
+        Long renewPriceSatang,
+        java.util.UUID renewPlanId
+    ) {}
+
     /** Money-side dashboard metrics from billing-service. */
     public record AdminMetrics(
         long topupRevenueSatang30d,
@@ -237,6 +251,17 @@ public class BillingClient {
             .retrieve()
             .onStatus(HttpStatusCode::isError, (req, res) -> raiseWithReason(res))
             .body(String.class);
+    }
+
+    /** Typed list of the user's runtime subscriptions — for deriving bot online/offline status. */
+    public java.util.List<RuntimeSubView> runtimeSubs(UUID userId) {
+        RuntimeSubView[] arr = http.get().uri("/api/billing/subscriptions/runtime")
+            .header("X-Service-Token", serviceToken)
+            .header("X-User-Id", userId.toString())
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raise(res.getStatusCode()))
+            .body(RuntimeSubView[].class);
+        return arr == null ? java.util.List.of() : java.util.Arrays.asList(arr);
     }
 
     /** Raw JSON list of the user's runtime subscriptions. */
