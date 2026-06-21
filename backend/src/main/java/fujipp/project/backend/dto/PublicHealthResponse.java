@@ -17,8 +17,19 @@ public record PublicHealthResponse(
 ) {
     public record Backend(String status, long uptimeSeconds, Integer latencyMs, String version) {}
 
-    /** The web/host layer can't be authoritatively probed server-side; status is informational. */
-    public record Frontend(String status, String note) {}
+    /**
+     * The public site, probed over HTTP from the backend (like an external uptime
+     * monitor). {@code responseHistory}/{@code statusHistory} are recent probe samples
+     * (oldest → newest) for the dashboard graphs; {@code uptimePercent} is over that window.
+     */
+    public record Frontend(
+        String status,
+        Integer latencyMs,
+        Double uptimePercent,
+        java.util.List<Integer> responseHistory,
+        java.util.List<String> statusHistory,
+        String note
+    ) {}
 
     public record Shop(String status, List<Service> services) {}
 
