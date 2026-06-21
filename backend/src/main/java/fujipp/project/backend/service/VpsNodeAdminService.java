@@ -1,12 +1,16 @@
 package fujipp.project.backend.service;
 
+import fujipp.project.backend.billing.BillingClient;
 import fujipp.project.backend.dto.CreateVpsNodeRequest;
 import fujipp.project.backend.dto.UpdateVpsNodeRequest;
 import fujipp.project.backend.dto.VpsNodeResponse;
+import fujipp.project.backend.dto.VpsSlotResponse;
 import fujipp.project.backend.model.BotInstance;
 import fujipp.project.backend.model.VpsNode;
+import fujipp.project.backend.model.VpsSlot;
 import fujipp.project.backend.repository.BotInstanceRepository;
 import fujipp.project.backend.repository.VpsNodeRepository;
+import fujipp.project.backend.repository.VpsSlotRepository;
 import fujipp.project.backend.runtime.RuntimeClient;
 import fujipp.project.backend.runtime.RuntimeRouter;
 import fujipp.project.backend.security.SecretCipher;
@@ -18,34 +22,74 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-/** Admin-only VPS host management and bot placement moves. */
+/** Admin-only VPS host management: nodes, seat inventory, maintenance, bot moves. */
 @Service
 @RequiredArgsConstructor
 public class VpsNodeAdminService {
 
     private static final Logger log = LoggerFactory.getLogger(VpsNodeAdminService.class);
     private static final Set<String> STATUSES = Set.of("ACTIVE", "DRAINING", "OFFLINE");
+    private static final Set<String> SLOT_STATUSES = Set.of("FREE", "MAINTENANCE");
 
     private final VpsNodeRepository nodes;
+    private final VpsSlotRepository slots;
     private final BotInstanceRepository bots;
     private final AdminAccessService adminAccess;
     private final SecretCipher cipher;
     private final PlacementService placement;
     private final RuntimeRouter runtimeRouter;
     private final RuntimeClient runtime;
+    private final BillingClient billing;
 
     @Transactional(readOnly = true)
     public List<VpsNodeResponse> listNodes(UUID adminId) {
         requireAdmin(adminId);
+        Set<UUID> occupied = billing.occupiedSlotIds();
         return nodes.findAll().stream()
-            .map(n -> VpsNodeResponse.from(n, bots.countByVpsNodeId(n.getId())))
+            .map(n -> VpsNodeResponse.from(n, occupiedCount(n.getId(), occupied)))
             .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<VpsSlotResponse> listSlots(UUID adminId, UUID nodeId) {
+        requireAdmin(adminId);
+        if (!nodes.existsById(nodeId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "VPS not found");
+        }
+        Set<UUID> occupied = billing.occupiedSlotIds();
+        return slots.findByNodeIdOrderBySlotIndexAsc(nodeId).stream()
+            .map(s -> VpsSlotResponse.from(s, occupied.contains(s.getId())))
+            .toList();
+    }
+
+    /** Flip a seat between FREE and MAINTENANCE. RESERVED seats are managed via the node's reservedSlots. */
+    @Transactional
+    public VpsSlotResponse setSlotStatus(UUID adminId, UUID nodeId, UUID slotId, String status) {
+        requireAdmin(adminId);
+        String target = normalizeSlotStatus(status);
+        VpsSlot slot = slots.findById(slotId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Seat not found"));
+        if (!slot.getNodeId().equals(nodeId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Seat not found on this VPS");
+        }
+        if ("RESERVED".equals(slot.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "This seat is reserved — change the VPS reservedSlots instead");
+        }
+        if ("MAINTENANCE".equals(target) && billing.occupiedSlotIds().contains(slotId)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "Seat is in use — move its runtime before maintenance");
+        }
+        slot.setStatus(target);
+        VpsSlot saved = slots.save(slot);
+        return VpsSlotResponse.from(saved, false);
     }
 
     @Transactional
@@ -62,13 +106,19 @@ public class VpsNodeAdminService {
         if (req.serviceToken() != null && !req.serviceToken().isBlank()) {
             node.setServiceTokenCipher(cipher.encrypt(req.serviceToken()));
         }
+        if (req.reservedSlots() > req.maxSlots()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "reservedSlots cannot exceed maxSlots");
+        }
         node.setMaxSlots(req.maxSlots());
+        node.setReservedSlots(req.reservedSlots());
         node.setStatus(normalizeStatus(req.status(), "ACTIVE"));
         node.setNotes(blankToNull(req.notes()));
         // An externally-registered host that is ACTIVE must be reachable, or placements
         // onto it would fail. Register it as OFFLINE first if the orchestrator isn't up yet.
         requireReachableIfActive(node);
         VpsNode saved = nodes.save(node);
+        syncSlots(saved); // materialise the seat inventory for the new host
         return VpsNodeResponse.from(saved, 0);
     }
 
@@ -83,14 +133,21 @@ public class VpsNodeAdminService {
         if (req.serviceToken() != null && !req.serviceToken().isBlank()) {
             node.setServiceTokenCipher(cipher.encrypt(req.serviceToken()));
         }
+        boolean capacityChanged = false;
         if (req.maxSlots() != null) {
             if (req.maxSlots() < 0) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "maxSlots must be >= 0");
-            long used = bots.countByVpsNodeId(nodeId);
-            if (req.maxSlots() < used) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "maxSlots (" + req.maxSlots() + ") is below the " + used + " bots already on this VPS");
-            }
             node.setMaxSlots(req.maxSlots());
+            capacityChanged = true;
+        }
+        if (req.reservedSlots() != null) {
+            if (req.reservedSlots() < 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "reservedSlots must be >= 0");
+            }
+            node.setReservedSlots(req.reservedSlots());
+            capacityChanged = true;
+        }
+        if (node.getReservedSlots() > node.getMaxSlots()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "reservedSlots cannot exceed maxSlots");
         }
         if (req.status() != null) node.setStatus(normalizeStatus(req.status(), node.getStatus()));
         if (req.notes() != null) node.setNotes(blankToNull(req.notes()));
@@ -102,7 +159,10 @@ public class VpsNodeAdminService {
             requireReachableIfActive(node);
         }
         VpsNode saved = nodes.save(node);
-        return VpsNodeResponse.from(saved, bots.countByVpsNodeId(nodeId));
+        if (capacityChanged) {
+            syncSlots(saved); // add/remove seats and re-apply reservations (occupied seats protected)
+        }
+        return VpsNodeResponse.from(saved, occupiedCount(nodeId, billing.occupiedSlotIds()));
     }
 
     /**
@@ -114,14 +174,67 @@ public class VpsNodeAdminService {
         requireAdmin(adminId);
         VpsNode node = nodes.findById(nodeId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "VPS not found"));
-        long used = bots.countByVpsNodeId(nodeId);
+        long used = occupiedCount(nodeId, billing.occupiedSlotIds());
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("reachable", runtime.isReachable(runtimeRouter.targetForNode(node)));
         result.put("status", node.getStatus());
         result.put("maxSlots", node.getMaxSlots());
+        result.put("reservedSlots", node.getReservedSlots());
         result.put("usedSlots", used);
-        result.put("freeSlots", Math.max(0, node.getMaxSlots() - used));
+        result.put("freeSlots", Math.max(0, node.getMaxSlots() - node.getReservedSlots() - used));
         return result;
+    }
+
+    // ── seat inventory ──────────────────────────────────────────────────────────
+
+    /**
+     * Make bots.vps_slots match the node's capacity + reservation:
+     *   • create any missing seats up to maxSlots
+     *   • drop seats beyond maxSlots (refused if one is occupied by an active runtime)
+     *   • mark the first reservedSlots seats RESERVED and the rest FREE
+     * An occupied or MAINTENANCE seat is left untouched so a live/parked seat is never
+     * silently flipped. Runs inside the caller's transaction.
+     */
+    private void syncSlots(VpsNode node) {
+        Set<UUID> occupied = billing.occupiedSlotIds();
+        int max = node.getMaxSlots();
+        int reserved = node.getReservedSlots();
+
+        Map<Integer, VpsSlot> byIndex = new HashMap<>();
+        for (VpsSlot s : slots.findByNodeIdOrderBySlotIndexAsc(node.getId())) {
+            if (s.getSlotIndex() > max) {
+                if (occupied.contains(s.getId())) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "Seat " + s.getSlotIndex() + " is in use — free its runtime before shrinking this VPS");
+                }
+                slots.delete(s);
+            } else {
+                byIndex.put(s.getSlotIndex(), s);
+            }
+        }
+
+        for (int i = 1; i <= max; i++) {
+            String desired = i <= reserved ? "RESERVED" : "FREE";
+            VpsSlot s = byIndex.get(i);
+            if (s == null) {
+                VpsSlot fresh = new VpsSlot();
+                fresh.setNodeId(node.getId());
+                fresh.setSlotIndex(i);
+                fresh.setStatus(desired);
+                slots.save(fresh);
+            } else if (!occupied.contains(s.getId())
+                    && !"MAINTENANCE".equals(s.getStatus())
+                    && !desired.equals(s.getStatus())) {
+                s.setStatus(desired);
+                slots.save(s);
+            }
+        }
+    }
+
+    private long occupiedCount(UUID nodeId, Set<UUID> occupied) {
+        return slots.findByNodeIdOrderBySlotIndexAsc(nodeId).stream()
+            .filter(s -> occupied.contains(s.getId()))
+            .count();
     }
 
     /**
@@ -180,6 +293,14 @@ public class VpsNodeAdminService {
         String upper = status.trim().toUpperCase();
         if (!STATUSES.contains(upper)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "status must be ACTIVE, DRAINING, or OFFLINE");
+        }
+        return upper;
+    }
+
+    private static String normalizeSlotStatus(String status) {
+        String upper = status == null ? "" : status.trim().toUpperCase();
+        if (!SLOT_STATUSES.contains(upper)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "status must be FREE or MAINTENANCE");
         }
         return upper;
     }

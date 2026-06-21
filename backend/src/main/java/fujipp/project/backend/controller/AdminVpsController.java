@@ -2,8 +2,10 @@ package fujipp.project.backend.controller;
 
 import fujipp.project.backend.dto.CreateVpsNodeRequest;
 import fujipp.project.backend.dto.MoveBotRequest;
+import fujipp.project.backend.dto.UpdateSlotStatusRequest;
 import fujipp.project.backend.dto.UpdateVpsNodeRequest;
 import fujipp.project.backend.dto.VpsNodeResponse;
+import fujipp.project.backend.dto.VpsSlotResponse;
 import fujipp.project.backend.service.VpsNodeAdminService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -52,6 +54,22 @@ public class AdminVpsController {
     public ResponseEntity<Map<String, Object>> health(
             @AuthenticationPrincipal Jwt jwt, @PathVariable UUID nodeId) {
         return ResponseEntity.ok(admin.checkNode(UUID.fromString(jwt.getSubject()), nodeId));
+    }
+
+    /** The seats on a VPS with their status + live occupancy. */
+    @GetMapping("/vps-nodes/{nodeId}/slots")
+    public ResponseEntity<List<VpsSlotResponse>> slots(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable UUID nodeId) {
+        return ResponseEntity.ok(admin.listSlots(UUID.fromString(jwt.getSubject()), nodeId));
+    }
+
+    /** Flip a single seat between FREE and MAINTENANCE. */
+    @PatchMapping("/vps-nodes/{nodeId}/slots/{slotId}")
+    public ResponseEntity<VpsSlotResponse> updateSlot(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable UUID nodeId, @PathVariable UUID slotId,
+            @RequestBody @Valid UpdateSlotStatusRequest request) {
+        return ResponseEntity.ok(
+            admin.setSlotStatus(UUID.fromString(jwt.getSubject()), nodeId, slotId, request.status()));
     }
 
     @PostMapping("/bots/{botId}/move")

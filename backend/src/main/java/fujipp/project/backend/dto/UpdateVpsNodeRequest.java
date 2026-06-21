@@ -11,6 +11,7 @@ public record UpdateVpsNodeRequest(
     String orchestratorUrl,
     String serviceToken,
     Integer maxSlots,
+    Integer reservedSlots,
     String status,
     String notes
 ) {}

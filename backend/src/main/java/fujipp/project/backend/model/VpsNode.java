@@ -49,6 +49,10 @@ public class VpsNode {
     @Column(name = "max_slots", nullable = false)
     private int maxSlots;
 
+    /** How many of the seats are held back for backend/services (never sold). */
+    @Column(name = "reserved_slots", nullable = false)
+    private int reservedSlots;
+
     @Column(name = "status", nullable = false)
     private String status = "ACTIVE";
 

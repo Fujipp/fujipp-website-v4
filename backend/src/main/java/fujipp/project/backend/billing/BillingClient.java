@@ -521,6 +521,16 @@ public class BillingClient {
             .toBodilessEntity();
     }
 
+    /** Seat ids an active runtime currently occupies — for safe admin capacity edits. */
+    public java.util.Set<UUID> occupiedSlotIds() {
+        UUID[] arr = http.get().uri("/api/billing/admin/runtime/occupied-slots")
+            .header("X-Service-Token", serviceToken)
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raise(res.getStatusCode()))
+            .body(UUID[].class);
+        return arr == null ? java.util.Set.of() : new java.util.HashSet<>(java.util.Arrays.asList(arr));
+    }
+
     /** Money-side dashboard metrics (top-up revenue, total balances, recent audit). */
     public AdminMetrics adminMetrics() {
         return http.get().uri("/api/billing/admin/metrics")
