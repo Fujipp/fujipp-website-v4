@@ -1,9 +1,13 @@
 # Changelog — Frontend
 
-**Current version: `0.5.9.19`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.5.9.23`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.5.9.23` | 2026-06-21 | wire the Performance dashboard to the live backend (Phases 2–5): add a `monitoring` store that fetches `GET /api/public/health` + `/api/public/incidents` (and `GET /api/admin/health/vps` for admins), drive the Overview, Backend (VPS) and Shop Service Health panels from real data with a 30s refresh, show real admin CPU/RAM/disk/network history graphs + server info, render the live incident log, and fall back to clearly-badged sample data when the backend is unreachable; Browser Runtime stays live session data and Frontend (Rukcom) stays sample (not server-probeable) |
+| `0.5.9.22` | 2026-06-21 | rebuild the Performance page as a HetrixTools-inspired platform monitoring dashboard (Phase 1, frontend-only): keep the live Browser Runtime section as real session data and add Overview status cards plus clearly-labeled "sample display data" sections for Frontend (Rukcom) uptime/response/90-day ribbon, Backend (VPS) CPU/RAM/disk/network sparkline charts and server info, and Shop Service Health with service rows and recent checks — all on design tokens, no backend calls and an honest live-vs-sample banner |
+| `0.5.9.21` | 2026-06-21 | revise the public Performance page into a live browser-session view for the website itself, showing runtime, navigation timing, paint milestones, frame activity, resource loading graphs, and optional JS heap usage |
+| `0.5.9.20` | 2026-06-21 | implement the public Performance page as a manual platform snapshot covering website delivery, Discord bot runtime readiness, reliability signals, and recent operational work |
 | `0.5.9.19` | 2026-06-21 | make shared Project category tags theme-aware in light mode and restyle shared status tags to match the Project Detail pill treatment with compact spacing, pulsing dots, and Detail-aligned status colors |
 | `0.5.9.18` | 2026-06-21 | add a cursor-follow glass highlight to shared Secondary, Filter, table next/back, and Projects pagination buttons so hover light tracks the mouse while keyboard focus keeps a centered glow |
 | `0.5.9.17` | 2026-06-21 | fix light-mode glass button legibility by giving shared Secondary, Filter, table next/back, and Projects pagination buttons theme-aware foreground, icon, border, and shadow colors instead of always-white glass styling |
