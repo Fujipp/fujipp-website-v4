@@ -30,4 +30,7 @@ public interface BotInstanceRepository extends JpaRepository<BotInstance, UUID> 
 
     /** Total slots consumed across all nodes = bots that have been placed. */
     long countByVpsNodeIdNotNull();
+
+    /** Bots that have a token but no cached avatar yet — used to backfill avatars once. */
+    List<BotInstance> findByDiscordAvatarUrlIsNullAndDiscordTokenCipherIsNotNull();
 }

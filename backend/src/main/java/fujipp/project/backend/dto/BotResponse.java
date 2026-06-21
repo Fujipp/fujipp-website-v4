@@ -13,6 +13,7 @@ public record BotResponse(
     String discordApplicationId,
     String discordGuildId,
     boolean tokenConfigured,
+    String avatarUrl,
     OffsetDateTime createdAt
 ) {
     public static BotResponse from(BotInstance bot) {
@@ -23,6 +24,7 @@ public record BotResponse(
             bot.getDiscordApplicationId(),
             bot.getDiscordGuildId(),
             bot.getDiscordTokenCipher() != null && !bot.getDiscordTokenCipher().isBlank(),
+            bot.getDiscordAvatarUrl(),
             bot.getCreatedAt()
         );
     }

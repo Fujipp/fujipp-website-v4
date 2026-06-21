@@ -11,8 +11,8 @@ import type { CatalogFeature, RuntimePlan } from "@/features/shop/config/catalog
 type ToastStatus = "info" | "success" | "warning" | "error";
 type BotAction = "start" | "stop" | "restart" | "edit";
 type NextAction =
-    | { description: string; label: string; title: string; type: "create" }
-    | { description: string; label: string; title: string; type: "route"; to: "shop-dashboard" | "shop-package" | "shop-wallet" };
+    | { label: string; title: string; type: "create" }
+    | { label: string; title: string; type: "route"; to: "shop-dashboard" | "shop-package" | "shop-wallet" };
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -37,6 +37,7 @@ interface BotResponse {
     discordApplicationId?: string | null;
     discordGuildId?: string | null;
     tokenConfigured: boolean;
+    avatarUrl?: string | null;
     createdAt: string;
 }
 
@@ -97,42 +98,19 @@ const nextActions = computed(() => {
     const actions: NextAction[] = [];
 
     if (botRecords.value.length === 0) {
-        actions.push({
-            type: "create",
-            title: "Create your first bot",
-            description: "เพิ่ม token และ runtime เริ่มต้น เพื่อให้เริ่มขายบริการได้",
-            label: "Create bot",
-        });
+        actions.push({ type: "create", title: "Create your first bot", label: "สร้างบอท" });
     }
 
     if (runtimeSubscriptions.value.length === 0) {
-        actions.push({
-            type: "route",
-            title: "Buy runtime",
-            description: "Runtime คือเวลาออนไลน์ของบอท ต้องมีก่อน start ใช้งานจริง",
-            label: "Go Package",
-            to: "shop-package",
-        });
+        actions.push({ type: "route", title: "Buy runtime", label: "ซื้อ Runtime", to: "shop-package" });
     }
 
     if (featureSubscriptions.value.length === 0) {
-        actions.push({
-            type: "route",
-            title: "Add a feature",
-            description: "เลือกความสามารถ เช่น Roblox, wallet, review หรือ voice keeper ให้บอท",
-            label: "Choose feature",
-            to: "shop-package",
-        });
+        actions.push({ type: "route", title: "Add a feature", label: "เลือก Feature", to: "shop-package" });
     }
 
     if (bots.value.some((bot) => bot.status === "offline")) {
-        actions.push({
-            type: "route",
-            title: "Configure then start",
-            description: "ตรวจ config ของบอท offline ก่อนกด start เพื่อกัน Discord error",
-            label: "Open bots",
-            to: "shop-dashboard",
-        });
+        actions.push({ type: "route", title: "Configure then start", label: "ตั้งค่าบอท", to: "shop-dashboard" });
     }
 
     return actions.slice(0, 4);
@@ -149,6 +127,7 @@ const bots = computed<BotDashboardItem[]>(() => botRecords.value.map((bot) => {
     return {
         id: bot.id,
         name: bot.name,
+        image: bot.avatarUrl ?? undefined,
         renewPrice: formatMoney(runtime?.renewPriceSatang ?? 0),
         runtime: formatPeriod(runtime?.currentPeriodEnd),
         currentPeriodEnd: runtime?.currentPeriodEnd ?? null,
@@ -192,32 +171,6 @@ const overviewMetrics = computed<OverviewMetric[]>(() => {
         { label: "Offline Bot", value: offlineBotCount },
         { label: "Features", value: features.value.length },
         { label: "Runtime", value: runtimes.value.length },
-    ];
-});
-
-const operationCards = computed(() => {
-    const totalBots = botRecords.value.length;
-    const runningBots = bots.value.filter((bot) => bot.status === "online").length;
-    const offlineBots = bots.value.filter((bot) => bot.status === "offline").length;
-    const runtimeReady = runtimeSubscriptions.value.length;
-    const featureReady = featureSubscriptions.value.length;
-
-    return [
-        {
-            label: "Bot capacity",
-            value: availableSlots.value == null ? `${totalBots} bots` : `${availableSlots.value} slots free`,
-            detail: totalBots === 0 ? "ยังไม่มีบอทในระบบ" : `${runningBots} online / ${offlineBots} offline`,
-        },
-        {
-            label: "Runtime coverage",
-            value: `${runtimeReady} active`,
-            detail: runtimeReady === 0 ? "ซื้อ runtime ก่อน start บอท" : "มี runtime ที่ผูกกับบอทแล้ว",
-        },
-        {
-            label: "Feature coverage",
-            value: `${featureReady} enabled`,
-            detail: featureReady === 0 ? "ยังไม่มี feature ที่เปิดใช้" : "feature subscription พร้อมใช้งาน",
-        },
     ];
 });
 
@@ -436,48 +389,22 @@ onUnmounted(clearToast);
                     </article>
                 </div>
 
-                <section :class="$style.operatorPanel" aria-labelledby="shop-operator-title">
-                    <div :class="$style.operatorHeader">
-                        <div>
-                            <h2 id="shop-operator-title" :class="$style.panelTitle">Operator snapshot</h2>
-                            <p :class="$style.panelText">ภาพรวมสำหรับตัดสินใจว่าต้องสร้าง ซื้อ ตั้งค่า หรือเติมเครดิตก่อน</p>
-                        </div>
-                        <RouterLink :class="$style.secondaryLink" :to="{ name: 'shop-guide' }">คู่มือการใช้งาน</RouterLink>
-                    </div>
-                    <div :class="$style.operatorGrid">
-                        <article v-for="card in operationCards" :key="card.label" :class="$style.operatorCard">
-                            <span :class="$style.operatorLabel">{{ card.label }}</span>
-                            <strong :class="$style.operatorValue">{{ card.value }}</strong>
-                            <span :class="$style.operatorDetail">{{ card.detail }}</span>
-                        </article>
-                    </div>
-                </section>
-
-                <section v-if="nextActions.length > 0" :class="$style.nextPanel" aria-labelledby="shop-next-title">
-                    <div :class="$style.nextHeader">
-                        <h2 id="shop-next-title" :class="$style.panelTitle">Next actions</h2>
-                        <p :class="$style.panelText">งานที่ควรทำต่อจากสถานะร้านตอนนี้</p>
-                    </div>
-                    <div :class="$style.nextGrid">
-                        <article v-for="action in nextActions" :key="action.title" :class="$style.nextItem">
-                            <strong :class="$style.nextTitle">{{ action.title }}</strong>
-                            <span :class="$style.nextText">{{ action.description }}</span>
+                <section v-if="nextActions.length > 0" :class="$style.quickStart" aria-label="Quick start">
+                    <span :class="$style.quickStartLabel">เริ่มต่อ</span>
+                    <div :class="$style.quickStartActions">
+                        <template v-for="action in nextActions" :key="action.title">
                             <button
                                 v-if="action.type === 'create'"
                                 type="button"
-                                :class="$style.nextButton"
+                                :class="$style.quickChip"
                                 @click="handleAddBot"
                             >
                                 {{ action.label }}
                             </button>
-                            <RouterLink
-                                v-else
-                                :to="{ name: action.to }"
-                                :class="$style.nextButton"
-                            >
+                            <RouterLink v-else :to="{ name: action.to }" :class="$style.quickChip">
                                 {{ action.label }}
                             </RouterLink>
-                        </article>
+                        </template>
                     </div>
                 </section>
             </section>
@@ -676,158 +603,49 @@ onUnmounted(clearToast);
     text-transform: uppercase;
 }
 
-.operatorPanel,
-.nextPanel {
+.quickStart {
     display: flex;
-    flex-direction: column;
-    gap: var(--spacing-space-4);
-    margin-inline: var(--spacing-space-5);
-    padding: var(--spacing-space-5);
-    border: 1px solid var(--color-main-border);
-    border-radius: var(--radius-2xl);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
-}
-
-.operatorHeader,
-.nextHeader {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
+    align-items: center;
     flex-wrap: wrap;
     gap: var(--spacing-space-3);
+    margin-inline: var(--spacing-space-5);
 }
 
-.operatorGrid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: var(--spacing-space-3);
+.quickStartLabel {
+    color: color-mix(in srgb, var(--color-text-primary) 68%, transparent);
+    font-size: 14px;
+    font-weight: 600;
 }
 
-.operatorCard {
+.quickStartActions {
     display: flex;
-    min-width: 0;
-    min-height: 112px;
-    flex-direction: column;
-    justify-content: center;
+    flex-wrap: wrap;
     gap: var(--spacing-space-2);
-    padding: var(--spacing-space-4);
-    border: 1px solid var(--color-main-divider);
-    border-radius: var(--radius-xl);
-    background-color: color-mix(in srgb, var(--color-main-background) 72%, var(--color-main-surface) 28%);
 }
 
-.operatorLabel,
-.operatorDetail {
-    color: color-mix(in srgb, var(--color-text-secondary) 72%, transparent);
-    font-size: 13px;
-    line-height: 1.45;
-}
-
-.operatorLabel {
-    font-weight: 700;
-    text-transform: uppercase;
-}
-
-.operatorValue {
-    color: var(--color-text-secondary);
-    font-size: 24px;
-    font-weight: 800;
-    line-height: 1.1;
-}
-
-.nextGrid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: var(--spacing-space-3);
-}
-
-.nextItem {
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
-    gap: var(--spacing-space-3);
-    padding: var(--spacing-space-4);
-    border: 1px solid var(--color-main-divider);
-    border-radius: var(--radius-xl);
-    background-color: color-mix(in srgb, var(--color-main-surface) 88%, var(--color-main-primary) 12%);
-}
-
-.nextTitle {
-    color: var(--color-text-secondary);
-    font-size: 17px;
-    line-height: 1.2;
-}
-
-.nextText {
-    flex: 1;
-    color: color-mix(in srgb, var(--color-text-secondary) 72%, transparent);
-    font-size: 13px;
-    line-height: 1.45;
-}
-
-.nextButton {
+.quickChip {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     min-height: 38px;
     padding: 0 var(--spacing-space-4);
-    border: 0;
-    border-radius: var(--radius-lg);
-    background-color: var(--color-button-primary-btn-bg);
-    color: var(--color-button-primary-btn-text-active);
+    border: 1px solid var(--color-main-primary);
+    border-radius: var(--radius-full);
+    background-color: color-mix(in srgb, var(--color-main-primary) 14%, transparent);
+    color: var(--color-text-primary);
     font-size: 14px;
-    font-weight: 700;
+    font-weight: 600;
     text-decoration: none;
     cursor: pointer;
+    transition: background-color 160ms ease, color 160ms ease;
 }
 
-.nextButton:hover {
-    background-color: var(--color-button-primary-btn-hover);
+.quickChip:hover {
+    background-color: var(--color-main-primary);
+    color: var(--color-button-primary-btn-text-active);
 }
 
-.nextButton:focus-visible {
-    outline: 2px solid var(--color-main-primary);
-    outline-offset: 2px;
-}
-
-.panelTitle,
-.panelText {
-    margin: 0;
-}
-
-.panelTitle {
-    color: var(--color-text-secondary);
-    font-size: 24px;
-    font-weight: 700;
-    line-height: 1.15;
-}
-
-.panelText {
-    color: color-mix(in srgb, var(--color-text-secondary) 76%, transparent);
-    font-size: 15px;
-    line-height: 1.55;
-}
-
-.secondaryLink {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 38px;
-    padding: 0 var(--spacing-space-4);
-    border: 1px solid var(--color-main-divider);
-    border-radius: var(--radius-lg);
-    color: var(--color-text-secondary);
-    font-size: 14px;
-    font-weight: 700;
-    text-decoration: none;
-}
-
-.secondaryLink:hover {
-    border-color: var(--color-main-primary);
-}
-
-.secondaryLink:focus-visible {
+.quickChip:focus-visible {
     outline: 2px solid var(--color-main-primary);
     outline-offset: 2px;
 }

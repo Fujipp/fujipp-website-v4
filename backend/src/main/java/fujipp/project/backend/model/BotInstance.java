@@ -49,6 +49,9 @@ public class BotInstance {
     @Column(name = "discord_client_secret_cipher")
     private String discordClientSecretCipher;
 
+    @Column(name = "discord_avatar_url")
+    private String discordAvatarUrl;
+
     @Column(name = "status", nullable = false)
     private String status = "CREATED";
 

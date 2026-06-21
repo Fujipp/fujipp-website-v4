@@ -3,4 +3,28 @@
     @apply min-h-dvh bg-main-background font-sans text-text-primary antialiased;
     margin: 0;
   }
+
+  /* Smooth light↔dark switching. The `theme-anim` class is added on the first
+     user-initiated theme change (see themeStore.setTheme), so the initial paint
+     never cross-fades from unstyled — only deliberate toggles animate. Limited to
+     color properties; components keep their own (more specific) hover transitions. */
+  .theme-anim,
+  .theme-anim *,
+  .theme-anim *::before,
+  .theme-anim *::after {
+    transition:
+      background-color 220ms ease,
+      border-color 220ms ease,
+      color 220ms ease,
+      fill 220ms ease;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .theme-anim,
+    .theme-anim *,
+    .theme-anim *::before,
+    .theme-anim *::after {
+      transition: none;
+    }
+  }
 }

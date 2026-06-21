@@ -7,6 +7,7 @@ import {
     WalletTopupCard,
 } from "@/features/shop/components";
 import { StatusToast } from "@/shared/ui";
+import { PrimaryButton, SecondaryButton } from "@/shared/ui/buttons";
 import { useUserStore } from "@/stores";
 import { API_BASE_URL } from "@/config";
 
@@ -439,8 +440,8 @@ onUnmounted(() => {
                         </p>
                     </div>
                     <div :class="$style.titleActions">
-                        <RouterLink :class="$style.summaryButton" :to="{ name: 'shop-package' }">ไป Package</RouterLink>
-                        <RouterLink :class="$style.summaryButtonSecondary" :to="{ name: 'shop-guide' }">ดูคู่มือ</RouterLink>
+                        <PrimaryButton :to="{ name: 'shop-package' }">ไป Package</PrimaryButton>
+                        <SecondaryButton :to="{ name: 'shop-guide' }">ดูคู่มือ</SecondaryButton>
                     </div>
                 </div>
                 <div :class="$style.divider" aria-hidden="true" />
@@ -457,7 +458,7 @@ onUnmounted(() => {
             <section v-if="walletError" :class="$style.statePanel" aria-live="polite">
                 <h2 :class="$style.stateTitle">โหลด Wallet ไม่สำเร็จ</h2>
                 <p :class="$style.stateText">{{ walletError }}</p>
-                <button type="button" :class="$style.retryButton" @click="loadWallet">ลองใหม่</button>
+                <PrimaryButton @click="loadWallet">ลองใหม่</PrimaryButton>
             </section>
 
             <section :class="$style.walletGrid" aria-label="Wallet top up">
@@ -622,30 +623,6 @@ onUnmounted(() => {
     line-height: 1.1;
 }
 
-.summaryButton,
-.summaryButtonSecondary {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 38px;
-    padding: 0 var(--spacing-space-4);
-    border-radius: var(--radius-lg);
-    font-size: 14px;
-    font-weight: 700;
-    text-decoration: none;
-}
-
-.summaryButton {
-    border: 0;
-    background-color: var(--color-main-primary);
-    color: var(--color-button-primary-btn-text-active);
-}
-
-.summaryButtonSecondary {
-    border: 1px solid var(--color-main-divider);
-    color: var(--color-text-secondary);
-}
-
 .walletGrid {
     display: flex;
     align-items: flex-start;
@@ -681,32 +658,6 @@ onUnmounted(() => {
     color: var(--color-text-secondary);
     font-size: 18px;
     line-height: 1.4;
-}
-
-.retryButton {
-    align-self: flex-start;
-    min-height: 42px;
-    padding: 0 var(--spacing-space-5);
-    border: 0;
-    border-radius: var(--radius-md);
-    background-color: var(--color-button-primary-btn-bg);
-    color: var(--color-button-primary-btn-text-active);
-    cursor: pointer;
-    font-size: 16px;
-    font-weight: 600;
-}
-
-.retryButton:hover {
-    background-color: var(--color-button-primary-btn-hover);
-}
-
-.retryButton:active {
-    background-color: var(--color-button-primary-btn-active);
-}
-
-.retryButton:focus-visible {
-    outline: 2px solid var(--color-main-primary);
-    outline-offset: 2px;
 }
 
 .toastRegion {
