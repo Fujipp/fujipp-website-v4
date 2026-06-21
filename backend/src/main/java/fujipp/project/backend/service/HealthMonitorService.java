@@ -45,6 +45,7 @@ public class HealthMonitorService {
     private static final Logger log = LoggerFactory.getLogger(HealthMonitorService.class);
 
     private static final String SYSTEM_SERIES = "system";
+    private static final String FRONTEND_SERIES = "frontend";
     private static final String STATUS_OPERATIONAL = "operational";
     private static final String STATUS_DEGRADED = "degraded";
     private static final String STATUS_DOWN = "down";
@@ -78,6 +79,9 @@ public class HealthMonitorService {
 
     @Value("${monitoring.discord.probe-url:https://discord.com/api/v10/gateway}")
     private String discordProbeUrl;
+
+    @Value("${monitoring.frontend.probe-url:https://fujipp.com}")
+    private String frontendProbeUrl;
 
     /** Last successfully composed public snapshot. Volatile: written by the scheduler, read by requests. */
     private volatile PublicHealthResponse latest;
@@ -131,7 +135,7 @@ public class HealthMonitorService {
             return new PublicHealthResponse(
                 STATUS_DEGRADED, now,
                 new PublicHealthResponse.Backend("online", backendUptimeSeconds(), null, appVersion),
-                new PublicHealthResponse.Frontend("unknown", "Served by Rukcom hosting; not probed by the backend."),
+                new PublicHealthResponse.Frontend("unknown", null, null, List.of(), List.of(), "Served by Rukcom hosting."),
                 new PublicHealthResponse.Shop("unknown", List.of()));
         }
     }
@@ -214,6 +218,12 @@ public class HealthMonitorService {
         Integer discordLatency = probeHttp(discordProbeUrl);
         boolean discordUp = discordLatency != null;
 
+        // Frontend (Rukcom) — external HTTP uptime probe of the public site, then a
+        // history-backed view (uptime %, recent response times, status ribbon).
+        ProbeResult frontendProbe = probeFrontend();
+        persistFrontendSnapshot(now, frontendProbe);
+        PublicHealthResponse.Frontend frontend = buildFrontendHealth(frontendProbe);
+
         List<PublicHealthResponse.Service> services = List.of(
             service("Auth", dbUp ? STATUS_OPERATIONAL : STATUS_DOWN, dbLatency),
             service("Wallet / top-up", billingUp ? STATUS_OPERATIONAL : STATUS_DOWN, billingLatency),
@@ -222,22 +232,96 @@ public class HealthMonitorService {
             service("Discord API reach", discordUp ? STATUS_OPERATIONAL : STATUS_DEGRADED, discordLatency));
 
         String shopStatus = worst(services.stream().map(PublicHealthResponse.Service::status).toList());
-        String overall = worst(List.of(backendStatus.equals("online") ? STATUS_OPERATIONAL : STATUS_DOWN, shopStatus));
+        String overall = worst(List.of(
+            backendStatus.equals("online") ? STATUS_OPERATIONAL : STATUS_DOWN,
+            shopStatus,
+            frontend.status()));
 
         PublicHealthResponse response = new PublicHealthResponse(
             overall.equals(STATUS_OPERATIONAL) ? "online" : overall,
             now,
             new PublicHealthResponse.Backend(backendStatus, backendUptimeSeconds(), dbLatency, appVersion),
-            new PublicHealthResponse.Frontend("unknown", "Served by Rukcom hosting; not probed by the backend."),
+            frontend,
             new PublicHealthResponse.Shop(shopStatus, services));
 
         this.latest = response;
 
         persistSnapshot(now, host, dbLatency, overall);
         reconcileIncidents(services, backendStatus);
+        reconcileFrontendIncident(frontendProbe.status());
         pruneOldSnapshots();
 
         return response;
+    }
+
+    private record ProbeResult(String status, Integer latencyMs) {}
+
+    /** HTTP uptime probe of the public site: 2xx/3xx = operational, other = degraded, no response = down. */
+    private ProbeResult probeFrontend() {
+        if (frontendProbeUrl == null || frontendProbeUrl.isBlank()) {
+            return new ProbeResult("unknown", null);
+        }
+        try {
+            long t0 = System.nanoTime();
+            HttpRequest request = HttpRequest.newBuilder(URI.create(frontendProbeUrl))
+                .timeout(Duration.ofSeconds(5))
+                .GET()
+                .build();
+            HttpResponse<Void> resp = httpClient.send(request, HttpResponse.BodyHandlers.discarding());
+            int latency = (int) ((System.nanoTime() - t0) / 1_000_000);
+            String status = resp.statusCode() >= 200 && resp.statusCode() < 400 ? STATUS_OPERATIONAL : STATUS_DEGRADED;
+            return new ProbeResult(status, latency);
+        } catch (Exception e) {
+            return new ProbeResult(STATUS_DOWN, null);
+        }
+    }
+
+    private void persistFrontendSnapshot(OffsetDateTime at, ProbeResult probe) {
+        try {
+            MetricSnapshot snapshot = new MetricSnapshot();
+            snapshot.setCapturedAt(at);
+            snapshot.setService(FRONTEND_SERIES);
+            snapshot.setStatus(probe.status());
+            snapshot.setLatencyMs(probe.latencyMs());
+            snapshots.save(snapshot);
+        } catch (RuntimeException e) {
+            log.warn("Failed to persist frontend snapshot", e);
+        }
+    }
+
+    /** Build the public Frontend view from the latest probe + recent stored history. */
+    private PublicHealthResponse.Frontend buildFrontendHealth(ProbeResult current) {
+        List<MetricSnapshot> recent = snapshots.findByServiceOrderByCapturedAtDesc(
+            FRONTEND_SERIES, PageRequest.of(0, Math.max(1, historyLimit)));
+        List<Integer> responseHistory = new ArrayList<>(recent.size());
+        List<String> statusHistory = new ArrayList<>(recent.size());
+        int up = 0;
+        for (int i = recent.size() - 1; i >= 0; i--) {
+            MetricSnapshot s = recent.get(i);
+            responseHistory.add(s.getLatencyMs());
+            statusHistory.add(s.getStatus());
+            if (STATUS_OPERATIONAL.equals(s.getStatus())) up++;
+        }
+        Double uptimePercent = recent.isEmpty() ? null : round((double) up / recent.size() * 100);
+        String note = "unknown".equals(current.status())
+            ? "Set monitoring.frontend.probe-url to enable frontend uptime checks."
+            : "Probed over HTTP from the platform backend.";
+        return new PublicHealthResponse.Frontend(
+            current.status(), current.latencyMs(), uptimePercent, responseHistory, statusHistory, note);
+    }
+
+    private void reconcileFrontendIncident(String status) {
+        try {
+            switch (status) {
+                case STATUS_DOWN -> openIncident("Frontend", STATUS_DOWN,
+                    "Frontend (Rukcom) unreachable", "HTTP uptime probe failed");
+                case STATUS_DEGRADED -> openIncident("Frontend", "warning",
+                    "Frontend (Rukcom) degraded", "HTTP uptime probe returned a non-2xx status");
+                default -> resolveIncident("Frontend");
+            }
+        } catch (RuntimeException e) {
+            log.warn("Frontend incident reconciliation failed", e);
+        }
     }
 
     private void persistSnapshot(OffsetDateTime at, SystemMetricsService.HostSnapshot host, Integer latencyMs, String status) {
