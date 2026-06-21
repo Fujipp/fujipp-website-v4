@@ -1,5 +1,6 @@
 package fujipp.project.billing.service;
 
+import fujipp.project.billing.dto.AdminSeatView;
 import fujipp.project.billing.dto.RuntimeSubscriptionResponse;
 import fujipp.project.billing.dto.VpsNodeView;
 import fujipp.project.billing.dto.VpsSlotView;
@@ -106,6 +107,51 @@ public class RuntimeSlotService {
         return runtimeSubs.findByStatusAndVpsSlotIdIsNotNull(ACTIVE).stream()
             .map(RuntimeSubscription::getVpsSlotId)
             .toList();
+    }
+
+    /** Every seat across the fleet with its occupant (owner/bot/runtime/expiry) for the admin table. */
+    @Transactional(readOnly = true)
+    public List<AdminSeatView> adminSeats() {
+        Map<UUID, RuntimeSubscription> bySlot = runtimeSubs.findByStatusAndVpsSlotIdIsNotNull(ACTIVE).stream()
+            .collect(Collectors.toMap(RuntimeSubscription::getVpsSlotId, Function.identity(), (a, b) -> a));
+
+        List<AdminSeatView> out = new ArrayList<>();
+        for (VpsNode node : vpsNodes.findAllByOrderByNameAsc()) {
+            for (VpsSlot slot : vpsSlots.findByNodeIdOrderBySlotIndexAsc(node.getId())) {
+                RuntimeSubscription rt = bySlot.get(slot.getId());
+                String occupancy = rt != null ? "OCCUPIED"
+                    : ("RESERVED".equals(slot.getStatus()) || "MAINTENANCE".equals(slot.getStatus())
+                        ? slot.getStatus() : "FREE");
+                out.add(new AdminSeatView(
+                    node.getId(), node.getName(), node.getStatus(),
+                    slot.getId(), slot.getSlotIndex(), occupancy,
+                    rt == null ? null : rt.getId(),
+                    rt == null ? null : rt.getUserId(),
+                    rt == null ? null : rt.getExternalSubjectId(),
+                    rt == null ? null : rt.getCurrentPeriodEnd()));
+            }
+        }
+        return out;
+    }
+
+    /** Admin: move a runtime to a different free seat (keeps its bot assignment). */
+    @Transactional
+    public RuntimeSubscriptionResponse adminMoveSeat(UUID runtimeId, UUID targetSlotId) {
+        RuntimeSubscription sub = runtimeSubs.findById(runtimeId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Runtime not found"));
+        if (targetSlotId.equals(sub.getVpsSlotId())) {
+            return RuntimeSubscriptionResponse.from(sub); // already there
+        }
+        VpsSlot target = vpsSlots.findByIdForUpdate(targetSlotId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Target seat not found"));
+        if (!"FREE".equals(target.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Target seat is not available");
+        }
+        if (runtimeSubs.findByVpsSlotIdAndStatus(targetSlotId, ACTIVE).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Target seat is already taken");
+        }
+        sub.setVpsSlotId(targetSlotId);
+        return RuntimeSubscriptionResponse.from(runtimeSubs.save(sub));
     }
 
     // ── buy a seat ────────────────────────────────────────────────────────────

@@ -237,6 +237,21 @@ public class VpsNodeAdminService {
             .count();
     }
 
+    // ── admin runtime view + manual relocation (proxied to billing) ──────────────
+
+    /** Raw JSON of every seat across the fleet with its occupant — the admin cabinet table. */
+    @Transactional(readOnly = true)
+    public String runtimeCabinet(UUID adminId) {
+        requireAdmin(adminId);
+        return billing.adminRuntimeCabinet();
+    }
+
+    /** Relocate a runtime to a different free seat (e.g. draining a problem VPS). */
+    public String moveRuntimeSeat(UUID adminId, UUID runtimeId, String body) {
+        requireAdmin(adminId);
+        return billing.adminMoveRuntimeSeat(runtimeId, body);
+    }
+
     /**
      * Refuse to mark an externally-registered host ACTIVE unless its orchestrator answers
      * a health probe. Nodes with no orchestratorUrl use the backend's default runtime and
