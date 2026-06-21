@@ -1,9 +1,10 @@
 # Changelog — Frontend
 
-**Current version: `0.5.9.23`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.5.9.24`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.5.9.24` | 2026-06-21 | restyle the whole Performance dashboard with a theme-aware page-scoped palette (`--perf-*`, light defaults + dark override like the Projects page) so light mode is legible instead of light-grey-on-white, add smooth 300ms theme cross-fade, polish cards (elevation + accent hover glow), pulsing "live" badge dot, gradient bars/frame chart and glowing sparklines with clearer text hierarchy (muted labels / heading values), and make it feel realtime — sample charts random-walk every 1.2s, live data refresh bumped to 15s, ticking last-checked clock, all respecting reduced-motion |
 | `0.5.9.23` | 2026-06-21 | wire the Performance dashboard to the live backend (Phases 2–5): add a `monitoring` store that fetches `GET /api/public/health` + `/api/public/incidents` (and `GET /api/admin/health/vps` for admins), drive the Overview, Backend (VPS) and Shop Service Health panels from real data with a 30s refresh, show real admin CPU/RAM/disk/network history graphs + server info, render the live incident log, and fall back to clearly-badged sample data when the backend is unreachable; Browser Runtime stays live session data and Frontend (Rukcom) stays sample (not server-probeable) |
 | `0.5.9.22` | 2026-06-21 | rebuild the Performance page as a HetrixTools-inspired platform monitoring dashboard (Phase 1, frontend-only): keep the live Browser Runtime section as real session data and add Overview status cards plus clearly-labeled "sample display data" sections for Frontend (Rukcom) uptime/response/90-day ribbon, Backend (VPS) CPU/RAM/disk/network sparkline charts and server info, and Shop Service Health with service rows and recent checks — all on design tokens, no backend calls and an honest live-vs-sample banner |
 | `0.5.9.21` | 2026-06-21 | revise the public Performance page into a live browser-session view for the website itself, showing runtime, navigation timing, paint milestones, frame activity, resource loading graphs, and optional JS heap usage |

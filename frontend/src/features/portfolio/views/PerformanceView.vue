@@ -3,7 +3,6 @@ import { computed, onMounted, onUnmounted, ref } from "vue";
 import { AppFooter } from "@/shared/layout";
 import { useUserStore } from "@/stores";
 import { useMonitoringStore } from "@/features/portfolio/stores";
-import type { HealthStatus } from "@/features/portfolio/stores";
 
 /* ----------------------------------------------------------------------------
  * Live browser-session metrics (REAL data, read from this visitor's browser).
@@ -46,6 +45,7 @@ const memoryUsage = ref<number | null>(null);
 let sessionTimer: ReturnType<typeof setInterval> | undefined;
 let metricsTimer: ReturnType<typeof setInterval> | undefined;
 let healthTimer: ReturnType<typeof setInterval> | undefined;
+let sampleTimer: ReturnType<typeof setInterval> | undefined;
 let animationFrameId = 0;
 let lastFrameTime = 0;
 
@@ -284,16 +284,45 @@ function sparkArea(samples: number[], max: number): string {
 }
 
 // ── Sample fallback datasets ──────────────────────────────────────────────
-const cpuSeriesSample = makeSeries(40, 1187, 32, 22, 6, 92);
-const ramSeriesSample = makeSeries(40, 4231, 61, 10, 40, 86);
-const netInSeriesSample = makeSeries(40, 7741, 48, 36, 4, 100);
-const netOutSeriesSample = makeSeries(40, 9123, 30, 28, 2, 96);
-const diskSeriesSample = makeSeries(40, 3357, 47, 3, 42, 58);
-const responseSeries = makeSeries(40, 5519, 180, 70, 96, 320);
+// Static seed shapes for the sample/fallback charts.
+const cpuSeed = makeSeries(40, 1187, 32, 22, 6, 92);
+const ramSeed = makeSeries(40, 4231, 61, 10, 40, 86);
+const netInSeed = makeSeries(40, 7741, 48, 36, 4, 100);
+const netOutSeed = makeSeries(40, 9123, 30, 28, 2, 96);
+const diskSeed = makeSeries(40, 3357, 47, 3, 42, 58);
+const responseSeed = makeSeries(40, 5519, 180, 70, 96, 320);
+
+// Reactive copies that scroll on an interval so the sample charts feel alive.
+// Decorative only — every panel that uses these is clearly badged "Sample data".
+const cpuSeriesSample = ref<number[]>([...cpuSeed]);
+const ramSeriesSample = ref<number[]>([...ramSeed]);
+const netInSeriesSample = ref<number[]>([...netInSeed]);
+const netOutSeriesSample = ref<number[]>([...netOutSeed]);
+const diskSeriesSample = ref<number[]>([...diskSeed]);
+const responseSeries = ref<number[]>([...responseSeed]);
+
+const animatedSampleSeries: { series: typeof cpuSeriesSample; swing: number; floor: number; ceil: number }[] = [
+    { series: cpuSeriesSample, swing: 16, floor: 6, ceil: 95 },
+    { series: ramSeriesSample, swing: 6, floor: 40, ceil: 88 },
+    { series: netInSeriesSample, swing: 32, floor: 2, ceil: 100 },
+    { series: netOutSeriesSample, swing: 26, floor: 2, ceil: 98 },
+    { series: diskSeriesSample, swing: 1.6, floor: 42, ceil: 60 },
+    { series: responseSeries, swing: 52, floor: 88, ceil: 330 },
+];
+
+// Random-walk each sample series one step (drop oldest, append a new point).
+function stepSampleSeries(): void {
+    for (const { series, swing, floor, ceil } of animatedSampleSeries) {
+        const current = series.value;
+        const previous = current[current.length - 1] ?? floor;
+        const next = Math.min(ceil, Math.max(floor, previous + (Math.random() - 0.5) * swing));
+        series.value = [...current.slice(1), Math.round(next * 10) / 10];
+    }
+}
 
 const frontendUptime = [
     { label: "Uptime (30d)", value: "99.95%", detail: "sample target for the Rukcom-hosted frontend" },
-    { label: "Avg response", value: `${Math.round(average(responseSeries))} ms`, detail: "edge response across sample checks" },
+    { label: "Avg response", value: `${Math.round(average(responseSeed))} ms`, detail: "edge response across sample checks" },
     { label: "Check interval", value: "1 min", detail: "how often a sample probe would run" },
     { label: "Last incident", value: "12d ago", detail: "sample last degraded window" },
 ];
@@ -421,11 +450,11 @@ function historySeries(pick: (sample: { cpuPercent: number | null; ramPercent: n
     });
 }
 
-const cpuSeries = computed(() => (vpsLive.value ? historySeries((s) => s.cpuPercent) : cpuSeriesSample));
-const ramSeries = computed(() => (vpsLive.value ? historySeries((s) => s.ramPercent) : ramSeriesSample));
-const diskSeries = computed(() => (vpsLive.value ? historySeries((s) => s.diskPercent) : diskSeriesSample));
-const netInSeries = computed(() => (vpsLive.value ? historySeries((s) => s.networkInKbps) : netInSeriesSample));
-const netOutSeries = computed(() => (vpsLive.value ? historySeries((s) => s.networkOutKbps) : netOutSeriesSample));
+const cpuSeries = computed(() => (vpsLive.value ? historySeries((s) => s.cpuPercent) : cpuSeriesSample.value));
+const ramSeries = computed(() => (vpsLive.value ? historySeries((s) => s.ramPercent) : ramSeriesSample.value));
+const diskSeries = computed(() => (vpsLive.value ? historySeries((s) => s.diskPercent) : diskSeriesSample.value));
+const netInSeries = computed(() => (vpsLive.value ? historySeries((s) => s.networkInKbps) : netInSeriesSample.value));
+const netOutSeries = computed(() => (vpsLive.value ? historySeries((s) => s.networkOutKbps) : netOutSeriesSample.value));
 
 interface VpsCard {
     key: string;
@@ -485,37 +514,37 @@ const vpsCards = computed<VpsCard[]>(() => {
         {
             key: "cpu",
             label: "CPU usage",
-            value: `${Math.round(last(cpuSeriesSample))}%`,
-            caption: `avg ${Math.round(average(cpuSeriesSample))}% · peak ${Math.round(Math.max(...cpuSeriesSample))}%`,
+            value: `${Math.round(last(cpuSeriesSample.value))}%`,
+            caption: `avg ${Math.round(average(cpuSeriesSample.value))}% · peak ${Math.round(Math.max(...cpuSeriesSample.value))}%`,
             accent: "var(--color-status-info)",
-            samples: cpuSeriesSample,
+            samples: cpuSeriesSample.value,
             max: 100,
         },
         {
             key: "ram",
             label: "RAM usage",
-            value: `${Math.round(last(ramSeriesSample))}%`,
-            caption: `~${(last(ramSeriesSample) / 100 * 4).toFixed(1)} GB of 4 GB`,
+            value: `${Math.round(last(ramSeriesSample.value))}%`,
+            caption: `~${(last(ramSeriesSample.value) / 100 * 4).toFixed(1)} GB of 4 GB`,
             accent: "var(--color-data-pastel-7)",
-            samples: ramSeriesSample,
+            samples: ramSeriesSample.value,
             max: 100,
         },
         {
             key: "disk",
             label: "Disk usage",
-            value: `${Math.round(last(diskSeriesSample))}%`,
-            caption: `~${(last(diskSeriesSample) / 100 * 80).toFixed(0)} GB of 80 GB SSD`,
+            value: `${Math.round(last(diskSeriesSample.value))}%`,
+            caption: `~${(last(diskSeriesSample.value) / 100 * 80).toFixed(0)} GB of 80 GB SSD`,
             accent: "var(--color-data-pastel-3)",
-            samples: diskSeriesSample,
+            samples: diskSeriesSample.value,
             max: 100,
         },
         {
             key: "net",
             label: "Network I/O",
-            value: `${Math.round(last(netInSeriesSample))} in`,
-            caption: `out ${Math.round(last(netOutSeriesSample))}`,
+            value: `${Math.round(last(netInSeriesSample.value))} in`,
+            caption: `out ${Math.round(last(netOutSeriesSample.value))}`,
             accent: "var(--color-status-success)",
-            samples: netInSeriesSample,
+            samples: netInSeriesSample.value,
             max: 100,
         },
     ];
@@ -551,10 +580,18 @@ onMounted(() => {
 
     sessionTimer = setInterval(() => {
         sessionSeconds.value = Math.floor((Date.now() - sessionStartedAt) / 1000);
+        // Keep the "last checked" clock ticking while showing the local snapshot.
+        if (!healthLive.value) localSnapshotAt.value = new Date();
     }, 1000);
 
     metricsTimer = setInterval(refreshPerformanceMetrics, 2500);
     animationFrameId = requestAnimationFrame(trackFrames);
+
+    // Scroll the sample charts for a realtime feel (skip when reduced-motion).
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!prefersReducedMotion) {
+        sampleTimer = setInterval(stepSampleSeries, 1200);
+    }
 
     // Live platform monitoring — best effort; falls back to sample on failure.
     void monitoring.fetchPublicHealth();
@@ -565,13 +602,14 @@ onMounted(() => {
         void monitoring.fetchPublicHealth();
         void monitoring.fetchIncidents();
         if (isAdmin.value) void monitoring.fetchVpsMetrics();
-    }, 30000);
+    }, 15000);
 });
 
 onUnmounted(() => {
     if (sessionTimer) clearInterval(sessionTimer);
     if (metricsTimer) clearInterval(metricsTimer);
     if (healthTimer) clearInterval(healthTimer);
+    if (sampleTimer) clearInterval(sampleTimer);
     cancelAnimationFrame(animationFrameId);
 });
 
@@ -692,7 +730,7 @@ const toneText: Record<ServiceTone, string> = {
                     <header :class="$style.panelHeader">
                         <div>
                             <p class="type-overline-sb text-main-primary">Runtime graph</p>
-                            <h3 id="frame-heading" class="type-subtitle-sb text-text-secondary">Frame activity</h3>
+                            <h3 id="frame-heading" class="type-subtitle-sb">Frame activity</h3>
                         </div>
                         <strong class="type-caption-sb">{{ currentFps }} FPS</strong>
                     </header>
@@ -710,7 +748,7 @@ const toneText: Record<ServiceTone, string> = {
                         <header :class="$style.panelHeader">
                             <div>
                                 <p class="type-overline-sb text-main-primary">Paint</p>
-                                <h3 id="paint-heading" class="type-subtitle-sb text-text-secondary">Page milestones</h3>
+                                <h3 id="paint-heading" class="type-subtitle-sb">Page milestones</h3>
                             </div>
                         </header>
                         <div :class="$style.barList">
@@ -730,7 +768,7 @@ const toneText: Record<ServiceTone, string> = {
                         <header :class="$style.panelHeader">
                             <div>
                                 <p class="type-overline-sb text-main-primary">Navigation</p>
-                                <h3 id="timeline-heading" class="type-subtitle-sb text-text-secondary">Load timeline</h3>
+                                <h3 id="timeline-heading" class="type-subtitle-sb">Load timeline</h3>
                             </div>
                         </header>
                         <div :class="$style.barList">
@@ -751,7 +789,7 @@ const toneText: Record<ServiceTone, string> = {
                     <header :class="$style.panelHeader">
                         <div>
                             <p class="type-overline-sb text-main-primary">Resources</p>
-                            <h3 id="resources-heading" class="type-subtitle-sb text-text-secondary">
+                            <h3 id="resources-heading" class="type-subtitle-sb">
                                 What this page loaded
                             </h3>
                         </div>
@@ -759,13 +797,13 @@ const toneText: Record<ServiceTone, string> = {
                     <div :class="$style.resourceGrid">
                         <article v-for="resource in resourceStats" :key="resource.label" :class="$style.resourceCard">
                             <div :class="$style.resourceMeta">
-                                <span class="type-caption-sb text-text-secondary">{{ resource.label }}</span>
-                                <strong class="type-h3-card-title-sb text-text-secondary">{{ resource.count }}</strong>
+                                <span class="type-caption-sb">{{ resource.label }}</span>
+                                <strong class="type-h3-card-title-sb">{{ resource.count }}</strong>
                             </div>
                             <div :class="$style.track">
                                 <span :style="{ width: barWidth(resource.duration, maxResourceDuration) }" />
                             </div>
-                            <p class="type-overline-r text-text-secondary">
+                            <p class="type-overline-r">
                                 {{ formatMs(resource.duration) }} total observed duration
                             </p>
                         </article>
@@ -795,7 +833,7 @@ const toneText: Record<ServiceTone, string> = {
                     <header :class="$style.panelHeader">
                         <div>
                             <p class="type-overline-sb text-main-primary">Response time</p>
-                            <h3 class="type-subtitle-sb text-text-secondary">Edge response (sample)</h3>
+                            <h3 class="type-subtitle-sb">Edge response (sample)</h3>
                         </div>
                         <strong class="type-caption-sb">{{ Math.round(last(responseSeries)) }} ms</strong>
                     </header>
@@ -810,7 +848,7 @@ const toneText: Record<ServiceTone, string> = {
                     <header :class="$style.panelHeader">
                         <div>
                             <p class="type-overline-sb text-main-primary">Recent uptime</p>
-                            <h3 class="type-subtitle-sb text-text-secondary">Last 90 days (sample)</h3>
+                            <h3 class="type-subtitle-sb">Last 90 days (sample)</h3>
                         </div>
                     </header>
                     <div :class="$style.ribbon" aria-label="Sample daily uptime, last 90 days">
@@ -861,7 +899,7 @@ const toneText: Record<ServiceTone, string> = {
                         <header :class="$style.panelHeader">
                             <div>
                                 <p class="type-overline-sb text-main-primary">{{ metric.label }}</p>
-                                <strong class="type-h3-card-title-sb text-text-secondary">{{ metric.value }}</strong>
+                                <strong class="type-h3-card-title-sb">{{ metric.value }}</strong>
                             </div>
                         </header>
                         <svg :class="$style.spark" viewBox="0 0 100 36" preserveAspectRatio="none" role="img"
@@ -875,7 +913,7 @@ const toneText: Record<ServiceTone, string> = {
                                 :points="sparkPoints(netOutSeries, metric.max)"
                             />
                         </svg>
-                        <p class="type-overline-r text-text-secondary">{{ metric.caption }}</p>
+                        <p class="type-overline-r">{{ metric.caption }}</p>
                     </section>
                 </div>
 
@@ -883,7 +921,7 @@ const toneText: Record<ServiceTone, string> = {
                     <header :class="$style.panelHeader">
                         <div>
                             <p class="type-overline-sb text-main-primary">Server info</p>
-                            <h3 class="type-subtitle-sb text-text-secondary">
+                            <h3 class="type-subtitle-sb">
                                 {{ vpsLive ? "Runtime environment" : "Runtime environment (sample)" }}
                             </h3>
                         </div>
@@ -891,7 +929,7 @@ const toneText: Record<ServiceTone, string> = {
                     <dl :class="$style.infoGrid">
                         <div v-for="info in serverInfo" :key="info.label" :class="$style.infoRow">
                             <dt class="type-overline-r">{{ info.label }}</dt>
-                            <dd class="type-caption-sb text-text-secondary">{{ info.value }}</dd>
+                            <dd class="type-caption-sb">{{ info.value }}</dd>
                         </div>
                     </dl>
                 </section>
@@ -917,7 +955,7 @@ const toneText: Record<ServiceTone, string> = {
                         <li v-for="service in shopServices" :key="service.name" :class="$style.serviceRow">
                             <span :class="[$style.dot, $style[toneDot[service.tone]]]" aria-hidden="true" />
                             <div :class="$style.serviceMain">
-                                <strong class="type-caption-sb text-text-secondary">{{ service.name }}</strong>
+                                <strong class="type-caption-sb">{{ service.name }}</strong>
                                 <span class="type-overline-r">{{ service.description }}</span>
                             </div>
                             <span class="type-overline-r" :class="$style.serviceLatency">{{ service.latency }}</span>
@@ -932,7 +970,7 @@ const toneText: Record<ServiceTone, string> = {
                     <header :class="$style.panelHeader">
                         <div>
                             <p class="type-overline-sb text-main-primary">Recent incidents</p>
-                            <h3 class="type-subtitle-sb text-text-secondary">
+                            <h3 class="type-subtitle-sb">
                                 {{ healthLive ? "Service incident log" : "Latest probes (sample)" }}
                             </h3>
                         </div>
@@ -951,7 +989,7 @@ const toneText: Record<ServiceTone, string> = {
                             <span :class="[$style.dot, $style[toneDot[check.tone]]]" aria-hidden="true" />
                             <span class="type-overline-r" :class="$style.checkTime">{{ check.time }}</span>
                             <div :class="$style.checkMain">
-                                <strong class="type-caption-sb text-text-secondary">{{ check.service }}</strong>
+                                <strong class="type-caption-sb">{{ check.service }}</strong>
                                 <span class="type-overline-r">{{ check.message }}</span>
                             </div>
                         </li>
@@ -965,15 +1003,44 @@ const toneText: Record<ServiceTone, string> = {
 
 <style module>
 .page {
+    /* Page-scoped, theme-aware palette (light defaults; dark override below). */
+    --perf-page: var(--color-neutral-50);
+    --perf-panel: #ffffff;
+    --perf-inset: var(--color-neutral-100);
+    --perf-border: var(--color-input-border);
+    --perf-divider: var(--color-neutral-200);
+    --perf-text: var(--perf-heading);
+    --perf-heading: var(--perf-heading);
+    --perf-muted: var(--color-neutral-600);
+    --perf-accent: var(--color-main-primary);
+
     min-height: 100vh;
     padding-top: var(--spacing-space-16);
-    color: var(--color-text-secondary);
-    background: var(--color-main-background);
+    color: var(--perf-text);
+    background: var(--perf-page);
+    transition: background-color 300ms ease, color 300ms ease;
+}
+
+:global([data-theme="dark"]) .page {
+    --perf-page: var(--color-main-section-background);
+    --perf-panel: var(--perf-panel);
+    --perf-inset: #1f1f1f;
+    --perf-border: var(--perf-border);
+    --perf-divider: var(--perf-divider);
+    --perf-text: var(--perf-text);
+    --perf-heading: var(--perf-heading);
+    --perf-muted: #9aa6b4;
+    --perf-accent: var(--color-main-primary);
+}
+
+/* Smooth theme cross-fade across the whole dashboard (zero-specificity). */
+.page :where(section, article, header, li, dl, div, p, span, strong, h1, h2, h3, dt, dd, svg) {
+    transition: background-color 300ms ease, color 300ms ease, border-color 300ms ease;
 }
 
 .topbar {
-    border-bottom: 1px solid var(--color-main-divider);
-    background: var(--color-main-surface);
+    border-bottom: 1px solid var(--perf-divider);
+    background: var(--perf-panel);
 }
 
 .topbarInner,
@@ -999,7 +1066,7 @@ const toneText: Record<ServiceTone, string> = {
 }
 
 .topbarHead h1 {
-    color: var(--color-text-secondary);
+    color: var(--perf-text);
 }
 
 .checked {
@@ -1007,7 +1074,7 @@ const toneText: Record<ServiceTone, string> = {
     align-items: center;
     gap: var(--spacing-space-3);
     padding: var(--spacing-space-3) var(--spacing-space-4);
-    border: 1px solid var(--color-main-divider);
+    border: 1px solid var(--perf-divider);
     border-radius: var(--radius-full);
 }
 
@@ -1017,11 +1084,11 @@ const toneText: Record<ServiceTone, string> = {
 }
 
 .checked strong {
-    color: var(--color-text-secondary);
+    color: var(--perf-text);
 }
 
 .checked span:last-child {
-    color: var(--color-text-secondary);
+    color: var(--perf-text);
     opacity: 0.7;
 }
 
@@ -1034,19 +1101,19 @@ const toneText: Record<ServiceTone, string> = {
 
 .notice {
     padding: var(--spacing-space-3) var(--spacing-space-4);
-    border: 1px solid var(--color-main-divider);
+    border: 1px solid var(--perf-divider);
     border-radius: var(--radius-lg);
-    background: var(--color-main-surface);
-    color: var(--color-text-secondary);
+    background: var(--perf-panel);
+    color: var(--perf-text);
 }
 
 .notice strong {
-    color: var(--color-text-secondary);
+    color: var(--perf-text);
 }
 
 .empty {
     padding: var(--spacing-space-4);
-    color: var(--color-text-secondary);
+    color: var(--perf-text);
     opacity: 0.7;
 }
 
@@ -1068,7 +1135,7 @@ const toneText: Record<ServiceTone, string> = {
 }
 
 .boardHead h2 {
-    color: var(--color-text-primary);
+    color: var(--perf-heading);
 }
 
 .tag {
@@ -1080,14 +1147,43 @@ const toneText: Record<ServiceTone, string> = {
 
 .tagLive {
     color: var(--color-status-success);
-    border-color: var(--color-status-success);
+    border-color: color-mix(in srgb, var(--color-status-success) 55%, transparent);
     background: color-mix(in srgb, var(--color-status-success) 12%, transparent);
 }
 
+.tagLive::before {
+    content: "";
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    margin-right: var(--spacing-space-2);
+    border-radius: var(--radius-full);
+    background: var(--color-status-success);
+    vertical-align: middle;
+    animation: perfPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes perfPulse {
+    0%, 100% {
+        opacity: 1;
+        box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-status-success) 55%, transparent);
+    }
+    50% {
+        opacity: 0.45;
+        box-shadow: 0 0 0 5px color-mix(in srgb, var(--color-status-success) 0%, transparent);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tagLive::before {
+        animation: none;
+    }
+}
+
 .tagSample {
-    color: var(--color-text-secondary);
-    border-color: var(--color-main-divider);
-    background: var(--color-main-surface);
+    color: var(--perf-text);
+    border-color: var(--perf-divider);
+    background: var(--perf-panel);
 }
 
 .dot {
@@ -1135,14 +1231,21 @@ const toneText: Record<ServiceTone, string> = {
     display: grid;
     gap: var(--spacing-space-3);
     padding: var(--spacing-space-5);
-    border: 1px solid var(--color-main-border);
+    border: 1px solid var(--perf-border);
     border-radius: var(--radius-lg);
-    background: var(--color-main-surface);
+    background: var(--perf-panel);
+    box-shadow: 0 1px 2px color-mix(in srgb, var(--perf-text) 5%, transparent);
+    transition: background-color 300ms ease, border-color 300ms ease, box-shadow 300ms ease;
+}
+
+.overviewCard:hover {
+    border-color: color-mix(in srgb, var(--perf-accent) 45%, var(--perf-border));
+    box-shadow: 0 10px 28px color-mix(in srgb, var(--perf-accent) 16%, transparent);
 }
 
 .overviewCard span,
 .overviewCard p {
-    color: var(--color-text-secondary);
+    color: var(--perf-muted);
 }
 
 .overviewStatus {
@@ -1155,9 +1258,18 @@ const toneText: Record<ServiceTone, string> = {
 .chartPanel,
 .resourceCard,
 .statCard {
-    border: 1px solid var(--color-main-border);
+    border: 1px solid var(--perf-border);
     border-radius: var(--radius-lg);
-    background: var(--color-main-surface);
+    background: var(--perf-panel);
+    box-shadow: 0 1px 2px color-mix(in srgb, var(--perf-text) 5%, transparent);
+    transition: background-color 300ms ease, border-color 300ms ease, box-shadow 300ms ease;
+}
+
+.chartPanel:hover,
+.metricCard:hover,
+.statCard:hover {
+    border-color: color-mix(in srgb, var(--perf-accent) 40%, var(--perf-border));
+    box-shadow: 0 10px 28px color-mix(in srgb, var(--perf-accent) 14%, transparent);
 }
 
 .metricGrid {
@@ -1174,10 +1286,16 @@ const toneText: Record<ServiceTone, string> = {
 }
 
 .metricCard span,
-.metricCard strong,
-.metricCard p,
+.metricCard p {
+    color: var(--perf-muted);
+}
+
+.metricCard strong {
+    color: var(--perf-heading);
+}
+
 .panelHeader strong {
-    color: var(--color-text-secondary);
+    color: var(--perf-text);
 }
 
 .splitGrid {
@@ -1206,7 +1324,7 @@ const toneText: Record<ServiceTone, string> = {
 
 .panelHeader strong {
     padding: var(--spacing-space-2) var(--spacing-space-3);
-    border: 1px solid var(--color-main-divider);
+    border: 1px solid var(--perf-divider);
     border-radius: var(--radius-full);
 }
 
@@ -1217,16 +1335,20 @@ const toneText: Record<ServiceTone, string> = {
     gap: var(--spacing-space-2);
     height: 16rem;
     padding: var(--spacing-space-4);
-    border: 1px solid var(--color-main-divider);
+    border: 1px solid var(--perf-divider);
     border-radius: var(--radius-lg);
-    background: var(--color-main-background);
+    background: var(--perf-inset);
 }
 
 .frameChart span {
     display: block;
     min-height: var(--spacing-space-2);
     border-radius: var(--radius-full) var(--radius-full) 0 0;
-    background: var(--color-main-primary);
+    background: linear-gradient(
+        to top,
+        color-mix(in srgb, var(--perf-accent) 55%, transparent),
+        var(--perf-accent)
+    );
     transition: height 150ms ease;
 }
 
@@ -1250,24 +1372,32 @@ const toneText: Record<ServiceTone, string> = {
 }
 
 .barMeta span,
+.resourceMeta span {
+    color: var(--perf-muted);
+}
+
 .barMeta strong,
-.resourceMeta span,
 .resourceMeta strong {
-    color: var(--color-text-secondary);
+    color: var(--perf-heading);
 }
 
 .track {
     height: var(--spacing-space-3);
     overflow: hidden;
     border-radius: var(--radius-full);
-    background: var(--color-main-background);
+    background: var(--perf-inset);
 }
 
 .track span {
     display: block;
     height: 100%;
     border-radius: inherit;
-    background: var(--color-main-primary);
+    background: linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--perf-accent) 60%, transparent),
+        var(--perf-accent)
+    );
+    transition: width 700ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .resourceGrid {
@@ -1281,7 +1411,7 @@ const toneText: Record<ServiceTone, string> = {
 }
 
 .resourceCard p {
-    color: var(--color-text-secondary);
+    color: var(--perf-muted);
 }
 
 .statGrid {
@@ -1297,13 +1427,12 @@ const toneText: Record<ServiceTone, string> = {
 }
 
 .statCard span,
-.statCard strong,
 .statCard p {
-    color: var(--color-text-secondary);
+    color: var(--perf-muted);
 }
 
-.statCard p {
-    opacity: 0.7;
+.statCard strong {
+    color: var(--perf-heading);
 }
 
 .spark {
@@ -1315,15 +1444,16 @@ const toneText: Record<ServiceTone, string> = {
 .sparkLine {
     fill: none;
     stroke: var(--accent);
-    stroke-width: 1.5;
+    stroke-width: 1.75;
     stroke-linejoin: round;
     stroke-linecap: round;
     vector-effect: non-scaling-stroke;
+    filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent) 45%, transparent));
 }
 
 .sparkArea {
     fill: var(--accent);
-    opacity: 0.14;
+    opacity: 0.16;
     stroke: none;
 }
 
@@ -1355,18 +1485,18 @@ const toneText: Record<ServiceTone, string> = {
     display: grid;
     gap: var(--spacing-space-1);
     padding: var(--spacing-space-4);
-    border: 1px solid var(--color-main-divider);
+    border: 1px solid var(--perf-divider);
     border-radius: var(--radius-md);
-    background: var(--color-main-background);
+    background: var(--perf-inset);
 }
 
 .infoRow dt {
-    color: var(--color-text-secondary);
-    opacity: 0.7;
+    color: var(--perf-muted);
 }
 
 .infoRow dd {
     margin: 0;
+    color: var(--perf-heading);
 }
 
 .serviceList,
@@ -1384,7 +1514,7 @@ const toneText: Record<ServiceTone, string> = {
     align-items: center;
     gap: var(--spacing-space-4);
     padding: var(--spacing-space-4);
-    border-bottom: 1px solid var(--color-main-divider);
+    border-bottom: 1px solid var(--perf-divider);
 }
 
 .serviceRow:last-child {
@@ -1399,13 +1529,11 @@ const toneText: Record<ServiceTone, string> = {
 
 .serviceMain span,
 .checkMain span {
-    color: var(--color-text-secondary);
-    opacity: 0.7;
+    color: var(--perf-muted);
 }
 
 .serviceLatency {
-    color: var(--color-text-secondary);
-    opacity: 0.8;
+    color: var(--perf-muted);
 }
 
 .checkRow {
@@ -1414,7 +1542,7 @@ const toneText: Record<ServiceTone, string> = {
     align-items: center;
     gap: var(--spacing-space-4);
     padding: var(--spacing-space-3) var(--spacing-space-4);
-    border-bottom: 1px solid var(--color-main-divider);
+    border-bottom: 1px solid var(--perf-divider);
 }
 
 .checkRow:last-child {
@@ -1422,8 +1550,7 @@ const toneText: Record<ServiceTone, string> = {
 }
 
 .checkTime {
-    color: var(--color-text-secondary);
-    opacity: 0.7;
+    color: var(--perf-muted);
     min-width: 5rem;
 }
 
