@@ -43,7 +43,7 @@ export default {
         seniorHigh: {
             institution: "Bangpakok Wittayakom School",
             degree: "Grade 10 - 12 (M.4 - M.6)",
-            field: "Senior high school education",
+            field: "Senior High School Education / Science-Mathematics Program",
             years: "2019 - 2021",
         },
         foundation: {

@@ -175,12 +175,13 @@ watch(
     padding: 20px;
     gap: 10px;
     overflow: hidden;
-    border: 2px solid var(--color-main-border);
+    border: 2px solid var(--projects-card-border, var(--color-main-border));
     border-radius: var(--radius-xl);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
+    background-color: var(--projects-card-bg, var(--color-main-surface));
+    color: var(--projects-card-text, var(--color-text-secondary));
     font-family: var(--font-sans);
     text-align: left;
+    transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease;
 }
 
 .thumbnail {
@@ -191,7 +192,8 @@ watch(
     flex-shrink: 0;
     overflow: hidden;
     border-radius: 16px;
-    background-color: var(--color-button-primary-btn-text-active);
+    background-color: var(--projects-card-inset-bg, var(--color-button-primary-btn-text-active));
+    transition: background-color 300ms ease;
 }
 
 .thumbnailImage,
@@ -232,9 +234,10 @@ watch(
     padding: 10px 18px;
     gap: 10px;
     overflow: visible;
-    border: 1px solid var(--color-main-border);
+    border: 1px solid var(--projects-card-border, var(--color-main-border));
     border-radius: var(--radius-full);
-    background-color: var(--color-main-surface);
+    background-color: var(--projects-card-bg, var(--color-main-surface));
+    transition: background-color 300ms ease, border-color 300ms ease;
 }
 
 .stackIconWrap {
@@ -265,10 +268,10 @@ watch(
     bottom: calc(100% + 10px);
     left: 50%;
     padding: 5px 8px;
-    border: 1px solid var(--color-main-divider);
+    border: 1px solid var(--projects-card-border, var(--color-main-divider));
     border-radius: var(--radius-lg);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
+    background-color: var(--projects-card-bg, var(--color-main-surface));
+    color: var(--projects-card-text, var(--color-text-secondary));
     font-family: var(--font-sans);
     font-size: 0.75rem;
     font-weight: 300;
@@ -286,9 +289,9 @@ watch(
     left: 50%;
     width: 8px;
     height: 8px;
-    border-right: 1px solid var(--color-main-divider);
-    border-bottom: 1px solid var(--color-main-divider);
-    background-color: var(--color-main-surface);
+    border-right: 1px solid var(--projects-card-border, var(--color-main-divider));
+    border-bottom: 1px solid var(--projects-card-border, var(--color-main-divider));
+    background-color: var(--projects-card-bg, var(--color-main-surface));
     content: "";
     transform: translate(-50%, -4px) rotate(45deg);
 }
@@ -312,7 +315,7 @@ watch(
 .title {
     align-self: stretch;
     margin: 0;
-    color: var(--color-text-secondary);
+    color: var(--projects-card-text, var(--color-text-secondary));
     font-size: 1.25rem;
     font-weight: 600;
     line-height: normal;
@@ -324,7 +327,7 @@ watch(
     display: -webkit-box;
     margin: 0;
     overflow: hidden;
-    color: var(--color-text-secondary);
+    color: var(--projects-card-muted, var(--color-text-secondary));
     font-size: 1.125rem;
     font-weight: 300;
     line-height: 1.2;

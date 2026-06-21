@@ -120,10 +120,12 @@ function usesSecondaryIcon(name: string): boolean {
     overflow: hidden;
     flex-shrink: 0;
     border-radius: var(--radius-xl);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
+    border: 1px solid var(--projects-card-border, transparent);
+    background-color: var(--projects-card-bg, var(--color-main-surface));
+    color: var(--projects-card-text, var(--color-text-secondary));
     font-family: var(--font-sans);
     text-align: left;
+    transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease;
 }
 
 .icon {
@@ -135,6 +137,11 @@ function usesSecondaryIcon(name: string): boolean {
 }
 
 .secondaryIcon {
+    filter: none;
+}
+
+:global(.dark) .secondaryIcon,
+:global([data-theme="dark"]) .secondaryIcon {
     filter: brightness(0) saturate(100%) invert(94%) sepia(7%) saturate(39%) hue-rotate(169deg) brightness(97%) contrast(91%);
 }
 

@@ -128,6 +128,25 @@ function closeFilterOnEscape(event: KeyboardEvent): void {
     }
 }
 
+function updateGlassPointer(event: PointerEvent): void {
+    const target = event.currentTarget as HTMLElement | null;
+
+    if (!target) return;
+
+    const rect = target.getBoundingClientRect();
+    target.style.setProperty("--glass-pointer-x", `${event.clientX - rect.left}px`);
+    target.style.setProperty("--glass-pointer-y", `${event.clientY - rect.top}px`);
+}
+
+function resetGlassPointer(event: PointerEvent): void {
+    const target = event.currentTarget as HTMLElement | null;
+
+    if (!target) return;
+
+    target.style.removeProperty("--glass-pointer-x");
+    target.style.removeProperty("--glass-pointer-y");
+}
+
 watch(searchQuery, () => {
     goToPage(1);
 });
@@ -303,6 +322,8 @@ onUnmounted(() => {
                     page === currentPage ? 'type-button-sb' : 'type-button-r',
                 ]"
                 :aria-current="page === currentPage ? 'page' : undefined"
+                @pointermove="updateGlassPointer"
+                @pointerleave="resetGlassPointer"
                 @click="goToPage(page)"
             >
                 {{ page }}
@@ -330,8 +351,9 @@ onUnmounted(() => {
     flex-direction: column;
     width: 100%;
     gap: 10px;
-    color: var(--color-text-secondary);
+    color: var(--projects-card-text, var(--color-text-secondary));
     font-family: var(--font-sans);
+    transition: color 300ms ease;
 }
 
 .tableNav {
@@ -366,11 +388,12 @@ onUnmounted(() => {
     width: 260px;
     padding: 12px;
     gap: 12px;
-    border: 1px solid var(--color-main-border);
+    border: 1px solid var(--projects-card-border, var(--color-main-border));
     border-radius: var(--radius-xl);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
+    background-color: var(--projects-card-bg, var(--color-main-surface));
+    color: var(--projects-card-text, var(--color-text-secondary));
     box-shadow: 0 16px 40px color-mix(in srgb, var(--color-text-input) 30%, transparent);
+    transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease;
 }
 
 .filterGroup {
@@ -448,7 +471,10 @@ onUnmounted(() => {
     gap: 10px;
     overflow: hidden;
     border-radius: var(--radius-xl);
-    background-color: var(--color-main-surface);
+    background-color: var(--projects-card-bg, var(--color-main-surface));
+    color: var(--projects-card-text, var(--color-text-secondary));
+    border: 1px solid var(--projects-card-border, transparent);
+    transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease;
 }
 
 .tableHeader,
@@ -485,15 +511,15 @@ onUnmounted(() => {
 }
 
 .tableRow:hover {
-    background-color: var(--color-table-row-hover);
+    background-color: var(--projects-row-hover, var(--color-table-row-hover));
 }
 
 .tableRow:active {
-    background-color: var(--color-table-row-active);
+    background-color: var(--projects-row-active, var(--color-table-row-active));
 }
 
 .tableRow:focus-visible {
-    background-color: var(--color-table-row-focus);
+    background-color: var(--projects-row-focus, var(--color-table-row-focus));
     outline: 2px solid var(--color-main-primary);
     outline-offset: 2px;
 }
@@ -501,7 +527,8 @@ onUnmounted(() => {
 .divider {
     width: 100%;
     height: 1px;
-    border-top: 1px solid var(--color-main-divider);
+    border-top: 1px solid var(--projects-card-border, var(--color-main-divider));
+    transition: border-color 300ms ease;
 }
 
 .noCell {
@@ -554,7 +581,7 @@ onUnmounted(() => {
 }
 
 .stackList li::marker {
-    color: var(--color-text-secondary);
+    color: var(--projects-card-text, var(--color-text-secondary));
 }
 
 .stackList li:nth-child(n + 4) {
@@ -592,6 +619,18 @@ onUnmounted(() => {
 }
 
 .pageButton {
+    --glass-foreground: var(--color-neutral-700);
+    --glass-border: color-mix(in srgb, var(--color-neutral-600) 24%, transparent);
+    --glass-border-hover: color-mix(in srgb, var(--color-neutral-700) 34%, transparent);
+    --glass-highlight: color-mix(in srgb, var(--color-neutral-50) 82%, transparent);
+    --glass-highlight-soft: color-mix(in srgb, var(--color-neutral-50) 48%, transparent);
+    --glass-lowlight: color-mix(in srgb, var(--color-neutral-400) 40%, transparent);
+    --glass-shadow: color-mix(in srgb, var(--color-neutral-900) 22%, transparent);
+    --glass-shadow-hover: color-mix(in srgb, var(--color-neutral-900) 26%, transparent);
+    --glass-pointer-color: color-mix(in srgb, var(--color-main-primary) 24%, var(--color-neutral-50) 54%);
+    --glass-pointer-x: 50%;
+    --glass-pointer-y: 50%;
+
     position: relative;
     display: inline-flex;
     align-items: center;
@@ -602,27 +641,40 @@ onUnmounted(() => {
     padding: 10px;
     overflow: hidden;
     isolation: isolate;
-    border: 1px solid color-mix(in srgb, var(--color-neutral-50) 16%, transparent);
+    border: 1px solid var(--glass-border);
     border-radius: var(--radius-full);
     background:
         linear-gradient(
             150deg,
-            color-mix(in srgb, var(--color-neutral-50) 14%, transparent) 0%,
-            color-mix(in srgb, var(--color-neutral-50) 4%, transparent) 42%,
-            color-mix(in srgb, var(--color-neutral-900) 28%, transparent) 100%
+            var(--glass-highlight) 0%,
+            var(--glass-highlight-soft) 42%,
+            var(--glass-lowlight) 100%
         );
     box-shadow:
-        inset 0 1px 1px color-mix(in srgb, var(--color-neutral-50) 45%, transparent),
-        inset 0 -8px 16px color-mix(in srgb, var(--color-neutral-900) 30%, transparent),
-        0 6px 18px color-mix(in srgb, var(--color-neutral-900) 35%, transparent);
+        inset 0 1px 1px color-mix(in srgb, var(--color-neutral-50) 72%, transparent),
+        inset 0 -8px 16px var(--glass-lowlight),
+        0 6px 18px var(--glass-shadow);
     backdrop-filter: blur(24px) saturate(180%) brightness(1.1);
     -webkit-backdrop-filter: blur(24px) saturate(180%) brightness(1.1);
-    color: var(--color-neutral-50);
+    color: var(--glass-foreground);
     cursor: pointer;
     transition:
         border-color 220ms ease,
         box-shadow 220ms ease,
         transform 220ms ease;
+}
+
+:global(.dark) .pageButton,
+:global([data-theme="dark"]) .pageButton {
+    --glass-foreground: var(--color-neutral-50);
+    --glass-border: color-mix(in srgb, var(--color-neutral-50) 16%, transparent);
+    --glass-border-hover: color-mix(in srgb, var(--color-neutral-50) 26%, transparent);
+    --glass-highlight: color-mix(in srgb, var(--color-neutral-50) 14%, transparent);
+    --glass-highlight-soft: color-mix(in srgb, var(--color-neutral-50) 4%, transparent);
+    --glass-lowlight: color-mix(in srgb, var(--color-neutral-900) 28%, transparent);
+    --glass-shadow: color-mix(in srgb, var(--color-neutral-900) 35%, transparent);
+    --glass-shadow-hover: color-mix(in srgb, var(--color-neutral-900) 40%, transparent);
+    --glass-pointer-color: color-mix(in srgb, var(--color-neutral-50) 36%, var(--color-main-primary) 24%);
 }
 
 .pageButton::before {
@@ -634,19 +686,41 @@ onUnmounted(() => {
     background:
         radial-gradient(
             120% 80% at 50% -20%,
-            color-mix(in srgb, var(--color-neutral-50) 38%, transparent) 0%,
+            color-mix(in srgb, var(--color-neutral-50) 62%, transparent) 0%,
             transparent 60%
         );
     opacity: 0.7;
     pointer-events: none;
 }
 
+.pageButton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background:
+        radial-gradient(
+            circle 34px at var(--glass-pointer-x) var(--glass-pointer-y),
+            var(--glass-pointer-color) 0%,
+            transparent 70%
+        );
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 180ms ease;
+}
+
+.pageButton:hover::after,
+.pageButton:focus-visible::after {
+    opacity: 0.82;
+}
+
 .pageButton:hover {
-    border-color: color-mix(in srgb, var(--color-neutral-50) 26%, transparent);
+    border-color: var(--glass-border-hover);
     box-shadow:
-        inset 0 1px 1px color-mix(in srgb, var(--color-neutral-50) 55%, transparent),
-        inset 0 -8px 16px color-mix(in srgb, var(--color-neutral-900) 30%, transparent),
-        0 8px 22px color-mix(in srgb, var(--color-neutral-900) 40%, transparent);
+        inset 0 1px 1px color-mix(in srgb, var(--color-neutral-50) 78%, transparent),
+        inset 0 -8px 16px var(--glass-lowlight),
+        0 8px 22px var(--glass-shadow-hover);
 }
 
 .pageButton:active {
@@ -661,7 +735,13 @@ onUnmounted(() => {
 .currentPage {
     width: 45px;
     color: var(--color-button-primary-btn-text-active);
-    border-color: color-mix(in srgb, var(--color-neutral-50) 28%, transparent);
+    border-color: color-mix(in srgb, var(--color-main-primary) 60%, transparent);
+    background:
+        linear-gradient(
+            150deg,
+            color-mix(in srgb, var(--color-main-primary) 88%, var(--color-neutral-50) 12%) 0%,
+            color-mix(in srgb, var(--color-main-primary) 68%, var(--color-neutral-900) 32%) 100%
+        );
 }
 
 @media (min-width: 768px) and (max-width: 1023px) {

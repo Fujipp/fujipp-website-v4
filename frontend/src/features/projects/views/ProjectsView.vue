@@ -53,7 +53,7 @@ const projectRows = computed(() => projects.value.map((project) => ({
 })) satisfies readonly ProjectTableRow[]);
 
 onMounted(() => {
-    if (projects.value.length === 0) {
+    if (!projectStore.hasLoadedAll) {
         void projectStore.fetchProjects().catch(() => undefined);
     }
 });
@@ -200,6 +200,17 @@ onUnmounted(() => {
 
 <style module>
 .projects {
+    --projects-band-bg: var(--color-main-background);
+    --projects-band-text: var(--color-text-primary);
+    --projects-card-bg: var(--color-neutral-50);
+    --projects-card-border: var(--color-input-border);
+    --projects-card-text: var(--color-text-primary);
+    --projects-card-muted: var(--color-neutral-600);
+    --projects-card-inset-bg: var(--color-input-placeholder-bg);
+    --projects-row-hover: var(--color-neutral-100);
+    --projects-row-active: var(--color-neutral-200);
+    --projects-row-focus: var(--color-neutral-100);
+
     display: flex;
     flex-direction: column;
     height: 100dvh;
@@ -207,6 +218,23 @@ onUnmounted(() => {
     gap: 0;
     overflow-y: auto;
     scrollbar-width: none;
+    background-color: var(--projects-band-bg);
+    color: var(--projects-band-text);
+    transition: background-color 300ms ease, color 300ms ease;
+}
+
+:global(.dark) .projects,
+:global([data-theme="dark"]) .projects {
+    --projects-band-bg: var(--color-main-section-background);
+    --projects-band-text: var(--color-text-secondary);
+    --projects-card-bg: var(--color-main-surface);
+    --projects-card-border: var(--color-main-border);
+    --projects-card-text: var(--color-text-secondary);
+    --projects-card-muted: var(--color-text-secondary);
+    --projects-card-inset-bg: var(--color-main-surface);
+    --projects-row-hover: var(--color-table-row-hover);
+    --projects-row-active: var(--color-table-row-active);
+    --projects-row-focus: var(--color-table-row-focus);
 }
 
 .projects::-webkit-scrollbar {
@@ -230,7 +258,14 @@ onUnmounted(() => {
     box-sizing: border-box;
     margin: 0 auto;
     padding-block: var(--spacing-space-8);
-    background: var(--color-main-surface);
+    background-color: var(--projects-band-bg);
+    color: var(--projects-band-text);
+    transition: background-color 300ms ease, color 300ms ease;
+}
+
+.sectionBand h2 {
+    color: var(--projects-band-text);
+    transition: color 300ms ease;
 }
 
 .sectionStage {

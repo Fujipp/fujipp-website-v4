@@ -54,7 +54,7 @@ function handleThemeIconClick(theme: ThemeMode) {
                         src="/images/icons/navbar/fujipp.svg"
                         alt=""
                         aria-hidden="true"
-                        class="h-[45px] w-[48px]"
+                        class="h-[35px] w-[38px]"
                     >
                 </RouterLink>
             </div>

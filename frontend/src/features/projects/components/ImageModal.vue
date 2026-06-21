@@ -125,8 +125,23 @@ onUnmounted(() => {
                 aria-modal="true"
                 aria-label="Image preview"
             >
-                <div :class="$style.toolbar">
-                    <div :class="$style.zoomControls" aria-label="Image zoom controls">
+                <div
+                    ref="viewport"
+                    :class="[$style.viewport, canPan ? $style.pannable : '', isPanning ? $style.panning : '']"
+                    @pointerdown="startPanning"
+                    @pointermove="panImage"
+                    @pointerup="stopPanning"
+                    @pointercancel="stopPanning"
+                >
+                    <div :class="$style.zoomLayer" :style="zoomLayerStyle">
+                        <img :class="$style.image" :style="imageStyle" :src="src" :alt="alt" draggable="false">
+                    </div>
+                </div>
+
+                <div :class="$style.topScrim" aria-hidden="true" />
+
+                <div :class="$style.controls">
+                    <div :class="$style.zoomGroup" aria-label="Image zoom controls">
                         <button
                             type="button"
                             :class="$style.controlButton"
@@ -153,18 +168,6 @@ onUnmounted(() => {
                         <img src="/images/icons/navbar/close.svg" alt="" aria-hidden="true">
                     </button>
                 </div>
-                <div
-                    ref="viewport"
-                    :class="[$style.viewport, canPan ? $style.pannable : '', isPanning ? $style.panning : '']"
-                    @pointerdown="startPanning"
-                    @pointermove="panImage"
-                    @pointerup="stopPanning"
-                    @pointercancel="stopPanning"
-                >
-                    <div :class="$style.zoomLayer" :style="zoomLayerStyle">
-                        <img :class="$style.image" :style="imageStyle" :src="src" :alt="alt" draggable="false">
-                    </div>
-                </div>
             </section>
         </div>
     </Teleport>
@@ -179,75 +182,155 @@ onUnmounted(() => {
     justify-content: center;
     inset: 0;
     padding: var(--spacing-space-4);
-    background-color: rgb(0 0 0 / 82%);
-    backdrop-filter: blur(4px);
+    background-color: rgb(0 0 0 / 84%);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    animation: modal-fade 200ms ease;
 }
 
 .modal {
-    display: flex;
-    flex-direction: column;
+    position: relative;
     width: min(1400px, 100%);
     height: min(900px, calc(100dvh - (var(--spacing-space-4) * 2)));
     overflow: hidden;
+    border: 1px solid var(--color-main-divider);
     border-radius: var(--radius-2xl);
     background-color: var(--color-main-surface);
+    animation: modal-pop 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.toolbar {
+@keyframes modal-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes modal-pop {
+    from { opacity: 0; transform: scale(0.96); }
+    to { opacity: 1; transform: none; }
+}
+
+.viewport {
+    position: absolute;
+    inset: 0;
+    overflow: auto;
+    background:
+        radial-gradient(120% 90% at 50% 0%, #1f2230 0%, var(--color-main-surface) 60%);
+}
+
+/* ---------- Floating glass controls ---------- */
+
+.topScrim {
+    position: absolute;
+    z-index: 1;
+    top: 0;
+    right: 0;
+    left: 0;
+    height: 104px;
+    background: linear-gradient(180deg, rgb(0 0 0 / 55%) 0%, transparent 100%);
+    pointer-events: none;
+}
+
+.controls {
+    position: absolute;
+    z-index: 2;
+    top: var(--spacing-space-4);
+    right: var(--spacing-space-4);
+    left: var(--spacing-space-4);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px;
     gap: 10px;
-    border-bottom: 1px solid var(--color-main-divider);
+    pointer-events: none;
 }
 
-.zoomControls {
-    display: flex;
+.zoomGroup,
+.closeButton {
+    pointer-events: auto;
+    border: 1px solid color-mix(in srgb, var(--color-neutral-50) 16%, transparent);
+    background:
+        linear-gradient(
+            150deg,
+            color-mix(in srgb, var(--color-neutral-50) 14%, transparent) 0%,
+            color-mix(in srgb, var(--color-neutral-50) 4%, transparent) 42%,
+            color-mix(in srgb, var(--color-neutral-900) 28%, transparent) 100%
+        );
+    box-shadow:
+        inset 0 1px 1px color-mix(in srgb, var(--color-neutral-50) 45%, transparent),
+        inset 0 -8px 16px color-mix(in srgb, var(--color-neutral-900) 30%, transparent),
+        0 10px 28px color-mix(in srgb, var(--color-neutral-900) 40%, transparent);
+    backdrop-filter: blur(24px) saturate(180%) brightness(1.1);
+    -webkit-backdrop-filter: blur(24px) saturate(180%) brightness(1.1);
+}
+
+.zoomGroup {
+    display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 2px;
+    padding: 4px;
+    border-radius: var(--radius-full);
 }
 
 .controlButton,
-.zoomValue,
-.closeButton {
+.zoomValue {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     height: 36px;
-    border: 1px solid var(--color-main-divider);
-    border-radius: var(--radius-lg);
-    background-color: var(--color-button-secondary-btn-bg);
-    color: var(--color-button-secondary-btn-text);
+    border: 0;
+    border-radius: var(--radius-full);
+    background-color: transparent;
+    color: var(--color-neutral-50);
     cursor: pointer;
-    transition: background-color 160ms ease, border-color 160ms ease, opacity 160ms ease;
+    transition: background-color 160ms ease, opacity 160ms ease;
 }
 
 .controlButton {
     width: 36px;
     font-size: 1.5rem;
+    line-height: 1;
 }
 
 .zoomValue {
-    width: 68px;
+    min-width: 62px;
+    padding: 0 10px;
     font-family: var(--font-sans);
     font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.controlButton:hover:not(:disabled),
+.zoomValue:hover {
+    background-color: color-mix(in srgb, var(--color-neutral-50) 14%, transparent);
+}
+
+.controlButton:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
 }
 
 .closeButton {
-    width: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-full);
+    color: var(--color-neutral-50);
+    cursor: pointer;
+    transition: border-color 160ms ease, transform 160ms ease;
+}
+
+.closeButton:hover {
+    border-color: color-mix(in srgb, var(--color-neutral-50) 28%, transparent);
+}
+
+.closeButton:active {
+    transform: scale(0.95);
 }
 
 .closeButton img {
     width: 20px;
     height: 20px;
-}
-
-.controlButton:hover:not(:disabled),
-.zoomValue:hover,
-.closeButton:hover {
-    border-color: var(--color-button-secondary-btn-hover);
-    background-color: var(--color-button-secondary-btn-hover);
 }
 
 .controlButton:focus-visible,
@@ -257,17 +340,11 @@ onUnmounted(() => {
     outline-offset: 2px;
 }
 
-.controlButton:disabled {
-    cursor: not-allowed;
-    opacity: 0.45;
-}
-
-.viewport {
-    flex: 1;
-    min-width: 0;
-    min-height: 0;
-    overflow: auto;
-    background-color: var(--color-main-background);
+@media (prefers-reduced-motion: reduce) {
+    .backdrop,
+    .modal {
+        animation: none;
+    }
 }
 
 .pannable {

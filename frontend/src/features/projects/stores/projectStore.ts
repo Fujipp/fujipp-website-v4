@@ -14,6 +14,7 @@ export const useProjectStore = defineStore("project", () => {
     const projects = ref<ProjectRecord[]>([]);
     const isLoading = ref(false);
     const error = ref<string | null>(null);
+    const hasLoadedAll = ref(false);
 
     async function fetchProjects(): Promise<ProjectRecord[]> {
         isLoading.value = true;
@@ -22,6 +23,7 @@ export const useProjectStore = defineStore("project", () => {
         try {
             const response = await fetch(`${API_BASE_URL}/api/public/projects`);
             projects.value = await parseResponse<ProjectRecord[]>(response);
+            hasLoadedAll.value = true;
             return projects.value;
         } catch (cause) {
             error.value = getErrorMessage(cause);
@@ -136,6 +138,7 @@ export const useProjectStore = defineStore("project", () => {
         projects,
         isLoading,
         error,
+        hasLoadedAll,
         createProject,
         deleteProject,
         fetchProject,

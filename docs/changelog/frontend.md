@@ -1,9 +1,31 @@
 # Changelog — Frontend
 
-**Current version: `0.5.8.33`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.5.9.19`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.5.9.19` | 2026-06-21 | make shared Project category tags theme-aware in light mode and restyle shared status tags to match the Project Detail pill treatment with compact spacing, pulsing dots, and Detail-aligned status colors |
+| `0.5.9.18` | 2026-06-21 | add a cursor-follow glass highlight to shared Secondary, Filter, table next/back, and Projects pagination buttons so hover light tracks the mouse while keyboard focus keeps a centered glow |
+| `0.5.9.17` | 2026-06-21 | fix light-mode glass button legibility by giving shared Secondary, Filter, table next/back, and Projects pagination buttons theme-aware foreground, icon, border, and shadow colors instead of always-white glass styling |
+| `0.5.9.16` | 2026-06-21 | make the Projects index page respond visibly to Light/Dark mode by using page-scoped theme variables for section bands, cards, the table, and AI cards, with smooth color transitions while keeping Project Detail's fixed dark section token untouched |
+| `0.5.9.15` | 2026-06-21 | add a `--color-main-section-background` token (the dark-mode background tone, same in both themes) and use it for the Project Detail page background, blending the hero scrim and band into the same tone so there is no longer a hard seam between the hero and the body sections |
+| `0.5.9.14` | 2026-06-21 | restyle the project image zoom modal to match the dark detail page: dark gradient viewport instead of a white background, floating glass zoom + close controls overlaying the image, and a pop-in open animation that respects reduced-motion |
+| `0.5.9.13` | 2026-06-21 | remove the Project Detail bottom "See … in action" links CTA band since the same project links already appear in the hero |
+| `0.5.9.12` | 2026-06-21 | stack the Project Detail architecture image above its tech stack grid so the diagram spans full width, and switch the gallery main image to a 16:9 aspect-ratio so it matches the thumbnail column height instead of letterboxing inside a fixed-height box |
+| `0.5.9.11` | 2026-06-21 | redesign the Project Detail tech stack from icon pills into a grid of labelled glass cells (icon + name) per group, with a trailing rule on each group label and hover lift/glow, replacing the tooltip-only icons |
+| `0.5.9.10` | 2026-06-21 | restyle the Project Detail Dynamic Island with the shared glass treatment instead of solid black so it matches the secondary button and language switch |
+| `0.5.9.9` | 2026-06-21 | move the Project Detail Dynamic Island to the right edge, vertically centered, and stack its back and EN/TH controls vertically, sliding in from the right |
+| `0.5.9.8` | 2026-06-21 | fix the Projects list collapsing to a single row after viewing a project: track a `hasLoadedAll` flag in the project store and refetch the full list when only a single project was loaded by the detail page, instead of caching on array length |
+| `0.5.9.7` | 2026-06-21 | keep the Project Detail back/language controls in the hero (scrolling away normally) and add a Dynamic Island pill that expands in centered near the top once those controls scroll out of view, offering back and EN/TH language toggles |
+| `0.5.9.6` | 2026-06-21 | constrain the Project Detail hero content (back, language, title, links) to the shared 7xl column so the controls stop spreading to the viewport edges when zoomed out, while keeping the cover image full-bleed |
+| `0.5.9.5` | 2026-06-21 | repurpose the project Roles field from app user-roles to the developer's own responsibilities: swap the editor role options to role titles (Full Stack / Frontend / Backend / UI/UX / etc.), relabel the editor field and Project Detail tile to "My Role" (free-text `project_roles` column means no DB migration) |
+| `0.5.9.4` | 2026-06-21 | swap the Project Detail at-a-glance number tiles from internal overview metrics to viewer-meaningful Duration / Technologies / Features derived from existing data, and drop the duplicate duration from the status tile |
+| `0.5.9.3` | 2026-06-21 | make shared section headers use primary text by default and keep secondary text only on surface-backed sections |
+| `0.5.9.2` | 2026-06-21 | polish the Project Detail at-a-glance bento: add an AT A GLANCE eyebrow, accent underline on metric tiles, icon + accent headers, a roles count badge, and surface the timeline date range inside the status tile |
+| `0.5.9.1` | 2026-06-21 | swap the Project Detail hero breadcrumb for a SecondaryButton Back control, and add an opt-in `icon-reveal` SecondaryButton variant so the project links render as icon-only glass buttons that expand their label on hover; keep the original brand icon colors since whitening the multi-fill YouTube logo collapsed it into a solid blob |
+| `0.5.9` | 2026-06-21 | rebuild the Project Detail page as an immersive dark case study: full-bleed cinematic cover hero with gradient display title, bento at-a-glance grid, auto-numbered editorial sections with sticky index, scroll-reveal and hover micro-interactions, and a matching skeleton — all on design tokens, keeping every database field and respecting reduced-motion |
+| `0.5.8.35` | 2026-06-21 | align the Project Detail top offset with the fixed navbar height so the Projects band starts flush below it |
+| `0.5.8.34` | 2026-06-21 | make the Project Detail top section use a full-width Projects band and replace the project ID header label |
 | `0.5.8.33` | 2026-06-20 | align the Projects page top offset with the fixed navbar height so section bands start directly below it |
 | `0.5.8.32` | 2026-06-20 | lower the global button click sound volume to 20 percent |
 | `0.5.8.31` | 2026-06-20 | restore the Projects AI Skills marquee to full-bleed width inside its section band |

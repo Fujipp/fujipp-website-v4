@@ -302,7 +302,7 @@ onUnmounted(() => {
             <section
                 ref="heroSection"
                 :class="$style.hero"
-                class="bg-main-surface text-text-secondary"
+                class="bg-main-section-background text-text-secondary"
                 aria-label="About Anawat Grudtoop"
             >
                 <audio
@@ -799,7 +799,7 @@ onUnmounted(() => {
     margin: 0 auto;
     padding: var(--spacing-space-8) 0;
     overflow: hidden;
-    background: var(--color-main-surface);
+    background: var(--color-main-section-background);
 }
 
 .galleryStage {

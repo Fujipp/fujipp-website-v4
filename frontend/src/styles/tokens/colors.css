@@ -6,6 +6,8 @@
   --color-main-border: #5d5d5d;
   --color-main-surface: #171717;
   --color-main-divider: #505050;
+  /* Section band background — always the dark-mode background tone in both themes */
+  --color-main-section-background: #1c1c1c;
 
   /* Text */
   --color-text-primary: #1d1d1d;

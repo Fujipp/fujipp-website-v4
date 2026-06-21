@@ -88,7 +88,8 @@ watch(visibleImages, (images) => {
 .mainImage,
 .mainImageButton {
     width: 100%;
-    height: 542px;
+    aspect-ratio: 16 / 9;
+    height: auto;
     border-radius: var(--radius-2xl);
 }
 
@@ -178,7 +179,7 @@ watch(visibleImages, (images) => {
 
     .mainImage,
     .mainImageButton {
-        height: 308px;
+        height: auto;
     }
 
     .thumbnailButton {
@@ -197,7 +198,7 @@ watch(visibleImages, (images) => {
     .mainImage,
     .mainImageButton {
         width: min(100%, 341px);
-        height: 186px;
+        height: auto;
     }
 
     .thumbnailList {

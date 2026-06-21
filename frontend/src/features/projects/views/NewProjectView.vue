@@ -81,7 +81,17 @@ const categories = [
 ].map((value) => ({ label: value, value }));
 
 const statuses = ["Active", "Completed", "In Progress", "Archived"].map((value) => ({ label: value, value }));
-const roleOptions = ["User", "Admin", "Guest", "Moderator", "Developer", "Owner"]
+const roleOptions = [
+    "Full Stack Developer",
+    "Frontend Developer",
+    "Backend Developer",
+    "UI/UX Designer",
+    "Database Design",
+    "System Architecture",
+    "DevOps",
+    "Project Manager",
+    "QA / Tester",
+]
     .map((value) => ({ label: value, value }));
 
 const emptyLocalizedForm = (): LocalizedForm => ({
@@ -169,7 +179,7 @@ const techStackGroups: readonly TechStackGroup[] = [
 ];
 
 const overviewMetrics = computed(() => [
-    { label: "Core Roles", value: form.roles.length },
+    { label: "My Role", value: form.roles.length },
     { label: "Challenge Areas", value: countStructuredItems(activeContent.value.challenges) },
     {
         label: "Stack Group",
@@ -685,7 +695,7 @@ onUnmounted(() => {
                             </div>
                             <div :class="$style.roleSelector">
                                 <SelectField
-                                    label="Core Roles"
+                                    label="My Role"
                                     :options="availableRoleOptions"
                                     placeholder="Select role"
                                     tone="dark"
@@ -746,7 +756,7 @@ onUnmounted(() => {
                         </div>
                         <div :class="$style.roleSelector">
                             <SelectField
-                                label="Core Roles"
+                                label="My Role"
                                 :options="availableRoleOptions"
                                 placeholder="Select role"
                                 tone="dark"
