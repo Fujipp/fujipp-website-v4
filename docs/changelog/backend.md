@@ -1,52 +1,53 @@
 # Changelog — Backend
 
-**Current version: `0.4.1`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.4.2`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
-| `0.4.1` | 2026-06-21 | make Frontend (Rukcom) status real: the collector now HTTP-probes the public site (`monitoring.frontend.probe-url`, default `https://fujipp.com`) each cycle like an external uptime monitor, stores `metric_snapshots` under service `frontend`, opens/resolves a Frontend incident, and the `/api/public/health` `frontend` payload now carries real `status` + `latencyMs` + `uptimePercent` + recent `responseHistory`/`statusHistory` (no schema change — reuses the existing table) |
-| `0.4.0` | 2026-06-21 | platform monitoring for the `/performance` dashboard: add `HealthMonitorService` (a `@Scheduled` collector that probes host metrics via OSHI + DB/billing/runtime/Discord reachability, caches a public snapshot, writes `monitoring.metric_snapshots` history, and opens/resolves `monitoring.incidents`) exposed as public `GET /api/public/health` + `/api/public/incidents` (non-sensitive only) and admin-gated `GET /api/admin/health/vps` (CPU/RAM/disk/network/JVM + history); adds `SystemMetricsService` (OSHI), the `oshi-core` dependency, and `app.version` + `monitoring.*` config |
-| `0.3.0` | 2026-06-18 | admin per-bot control: proxy `POST /api/admin/bots/{id}/{start,stop,restart}` + `GET …/status` to the orchestrator (admin-gated, any bot, audited `BOT_RUNTIME_*`); `GET …/subscriptions` (owner's runtime+feature subs); and free grants `POST …/runtime` (plan) and `POST …/feature` (featureId+optional priceId+billingType), owner/subject resolved server-side |
-| `0.2.9` | 2026-06-18 | [billing] admin subscription grants: `POST /api/billing/admin/subscriptions/{runtime,features}` create/extend entitlements for a subject free of charge (no wallet debit/order), mirroring purchase logic; feature grant 409s if already live for the bot and skips the runtime-active gate |
-| `0.2.8.1` | 2026-06-18 | backend config docs: align `application.properties` comments with the Supabase transaction pooler requirement (`6543`, `sslmode=require`, `prepareThreshold=0`) |
-| `0.2.8` | 2026-06-16 | VPS slots: registering/updating an externally-hosted VPS node now health-probes its orchestrator (`GET /healthz`, 3s timeout) before it's accepted as `ACTIVE` (502 otherwise — register it `OFFLINE` first) so a dead host can't silently swallow placements. New `GET /api/admin/vps-nodes/{id}/health` returns `reachable` + `maxSlots`/`usedSlots`/`freeSlots`. The default-runtime node (NULL `orchestratorUrl`) is not probed |
-| `0.2.7` | 2026-06-15 | review-credit counter API: `GET/PUT /api/bots/{id}/review-credit/count` (read / set the `shop.review_credit_state` count, channel from `REVIEW_CHANNEL_ID`) and `POST .../recount` (clears the row + restarts the bot so it re-counts the whole channel on start). Extracted shared `BotRuntimeOps.restartIfRunning` (also used by config save) |
-| `0.2.6` | 2026-06-15 | bots: saving feature config (`PUT /api/bots/{id}/config`) now restarts the bot if it's online, so new config (injected as env at start) applies immediately — previously a save did nothing until a manual restart (e.g. review-credit reply messages never took effect). Best-effort; a stopped bot is left stopped |
-| `0.2.5.3` | 2026-06-15 | embeds: the Embed Designer slot list (`GET /api/bots/{id}/embeds`, admin too) now returns only slots whose `featureCode` is a feature the bot owns — filtered by the same `getBotConfig` feature set the config form uses. Previously it listed every catalog slot (e.g. roblox/wallet) on bots that don't have those features. Fails open if billing is unreachable |
-| `0.2.5.2` | 2026-06-15 | billing: admin runtime subscription update now accepts `runtimePlanId` (the current plan — drives the "X Month" label the customer sees), set alongside `renewPlanId`. Audited in `SUBSCRIPTION_OVERRIDE` |
-| `0.2.5.1` | 2026-06-15 | billing: expose `renewPlanId` in `RuntimeSubscriptionResponse` so the admin panel can show/set a runtime subscription's renewal term (the plan whose duration = months added per renewal). Update already accepted it; only the read side was missing |
-| `0.2.5` | 2026-06-15 | admin: create feature prices — new `POST /admin/catalog/feature-prices` (billing-service: validates kind/uniqueness, audits `CATALOG_PRICE_CREATE`) + `GET /admin/catalog/features` (all features incl. unpriced) proxied through the backend gateway; previously prices could only be seeded via migration |
-| `0.2.4.2` | 2026-06-14 | fix(central-bot): share Roblox group Robux balance cache between panel and buy flow, and show a check-failed error instead of treating failed fund checks as zero stock |
-| `0.2.4.1` | 2026-06-13 | fix(billing): admin audit writes 500'd every audited admin action (transfer/wallet/price/override) — Hibernate 7.2 couldn't find a JSON FormatMapper for Jackson 3. Store `admin_audit_log.payload` as text (serialized with Jackson 3) and make `AdminAuditService.record` never throw |
-| `0.2.4` | 2026-06-13 | admin bot transfer: `POST /api/admin/bots/{id}/transfer` reassigns a bot to a new owner — bot row (`bot_instances.user_id`) + billing rows (runtime/feature subscriptions + config values via billing `AdminBotTransferService`), name-conflict checked, audited `BOT_TRANSFER`; wallets not moved |
-| `0.2.3` | 2026-06-13 | admin embeds: `EmbedConfigService` admin variants (no ownership check) + `AdminBotController` `GET/PUT /api/admin/bots/{id}/embeds[/{slotKey}]` (audited `BOT_EMBED_UPDATE`) — lets an admin edit any bot's embeds |
-| `0.2.2.1` | 2026-06-13 | fix(billing): `AdminAuditService` no longer imports Jackson (not on billing-service's Spring Boot 4 compile classpath — broke `mvn` build since #53); `admin_audit_log.payload` is now a `Map<String,Object>` mapped to jsonb by Hibernate |
-| `0.2.2` | 2026-06-13 | admin dashboard: `GET /api/admin/dashboard` aggregates platform counts (users/admins, bots/running, VPS slots used/total) with billing-service `/api/billing/admin/metrics` (30-day top-up revenue, total wallet balances, recent audit) — billing fetch is best-effort |
-| `0.2.1` | 2026-06-13 | admin bot management: `AdminBotService.listBots` (all bots + owner) + `AdminBotController` — `GET /api/admin/bots`, `GET/PUT /api/admin/bots/{id}/config` (proxy to billing bot config, config update audited as `BOT_CONFIG_UPDATE`) |
-| `0.2.0` | 2026-06-13 | admin user settings: `AdminUserService.updateUser` + `PATCH /api/admin/users/{id}` (profile fields + USER↔ADMIN role, self-demotion guard); billing-service `/api/billing/admin/audit` record endpoint + `BillingClient.recordAudit` so backend-side admin actions land in the audit trail |
-| `0.1.9` | 2026-06-13 | admin wallet adjust: billing-service `AdminWalletService` + `/api/billing/admin/wallet/{userId}` (balance, ledger, credit/debit adjust as type `ADJUSTMENT`/`MANUAL` with admin as `created_by`, audited); `WalletService.debit` gains a `createdBy` overload; backend gateway `/api/admin/users/{id}/wallet/*` |
-| `0.1.8` | 2026-06-13 | admin subscription overrides: billing-service `AdminSubscriptionService` + `/api/billing/admin/subscriptions` (list a user's subs, PATCH renew price/plan/status/period/auto-renew, audited); backend gateway `/api/admin/users/{id}/subscriptions` + `/api/admin/subscriptions/{runtime,features}/{id}` |
-| `0.1.7` | 2026-06-13 | admin catalog pricing: billing-service `AdminCatalogService` + `/api/billing/admin/catalog/*` (list all + partial update of runtime plans & feature prices, promo-clear, audited); backend gateway `/api/admin/catalog/*` (role-gated JSON passthrough, forwards `X-Admin-Id`) |
-| `0.1.6` | 2026-06-13 | admin: extract `AdminAccessService.requireAdmin` (reused by `VpsNodeAdminService`); new `AdminController` user directory — `GET /api/admin/users` (search) + `GET /api/admin/users/{id}` |
-| `0.1.5.4` | 2026-06-10 | trim Discord bot tokens and client secrets before encrypting bot credentials |
-| `0.1.5.3` | 2026-06-10 | runtime bot actions now return orchestrator error JSON instead of Spring's generic 400 body |
-| `0.1.5.2` | 2026-06-10 | fix embed config merge SQL to avoid JDBC treating the JSONB `?` operator as bind parameters |
-| `0.1.5.1` | 2026-06-10 | embed config API merges seeded component roles into per-bot overrides so existing bot configs inherit new buttons/dropdowns |
-| `0.1.5` | 2026-06-09 | embed config API: `GET/PUT /api/bots/{id}/embeds[/{slot}]` (registry default + per-bot override via JdbcTemplate, ownership-checked) |
-| `0.1.4` | 2026-06-09 | admin VPS management (`GET/POST/PATCH /api/admin/vps-nodes`, role-gated) + move a bot across hosts (`POST /api/admin/bots/{id}/move`: stop → capacity-checked reassign → start) |
-| `0.1.3` | 2026-06-09 | runtime automation (gated off): [billing] daily renewal/expiry sweep (charge → extend / grace → PAST_DUE → SUSPENDED, notifications + run log) via `POST /api/billing/automation/run`; backend `@Scheduled` 03:00 Asia/Bangkok stops suspended bots |
-| `0.1.2` | 2026-06-09 | proxy subscription lifecycle: auto-renew toggle + renew-now for runtime & feature (`PATCH/POST /api/subscriptions/{runtime,features}/{id}/...`) |
-| `0.1.1` | 2026-06-09 | VPS slots: VpsNode entity/repo, PlacementService (locked capacity check), node-aware runtime routing, `GET /api/bots/capacity`, create-bot with a plan reserves a slot + charges runtime (rollback on failure) |
-| `0.1.0` | 2026-06-08 | proxy feature and runtime subscription lists for Shop dashboard data |
-| `0.0.9.1` | 2026-06-08 | store bot public key + client secret; make SecretCipher boot-safe (lazy key) |
-| `0.0.9` | 2026-06-08 | proxy bot start/stop/restart/status to the orchestrator (`/api/bots/{id}/start` …) |
-| `0.0.8` | 2026-06-08 | proxy bot config (`/api/bots/{id}/config` GET/PUT) to billing with ownership check |
-| `0.0.7` | 2026-06-08 | add bot registry API (`/api/bots` list/create) with AES-GCM token encryption |
-| `0.0.6` | 2026-06-08 | proxy shop catalog + orders to billing-service (`/api/catalog/*`, `/api/orders`) |
-| `0.0.5.1` | 2026-06-05 | connect via Supabase transaction pooler (6543) + prepareThreshold=0; cap Hikari pool |
-| `0.0.5` | 2026-06-04 | add credit top-up with SlipOK verification and PromptPay QR |
-| `0.0.4` | 2026-06-04 | add featured projects management |
-| `0.0.3` | 2026-06-04 | [billing] update payment confirmation, wallet, and pricing models |
-| `0.0.2` | 2026-06-03 | [billing] add credit wallet and commerce service |
-| `0.0.1` | 2026-06-02 | add project portfolio management API |
-| `0.0.0.1` | 2026-06-02 | update env example and application properties |
+| `0.4.2` | 2026-06-22 | Added permanent bot slots: members get three free bots and can buy more to create additional bots |
+| `0.4.1` | 2026-06-21 | Connected the public website status to real uptime checks for the Performance page |
+| `0.4.0` | 2026-06-21 | Added platform health monitoring for public status views and deeper admin diagnostics |
+| `0.3.0` | 2026-06-18 | Added admin controls for starting, stopping, restarting, and granting bot services |
+| `0.2.9` | 2026-06-18 | Allowed admins to grant runtime and feature access without charging a wallet |
+| `0.2.8.1` | 2026-06-18 | Clarified production database connection guidance for the backend |
+| `0.2.8` | 2026-06-16 | Added health checks before accepting external bot host servers |
+| `0.2.7` | 2026-06-15 | Added review-credit counter management, including manual count updates and recounts |
+| `0.2.6` | 2026-06-15 | Applied bot feature setting changes immediately by restarting online bots after save |
+| `0.2.5.3` | 2026-06-15 | Limited Embed Designer options to features owned by each bot |
+| `0.2.5.2` | 2026-06-15 | Let admins update the current runtime plan shown to customers |
+| `0.2.5.1` | 2026-06-15 | Showed each runtime subscription's renewal term in the admin panel |
+| `0.2.5` | 2026-06-15 | Added admin tools for creating new feature prices from the web dashboard |
+| `0.2.4.2` | 2026-06-14 | Improved Robux balance checks so failed checks show errors instead of false zero stock |
+| `0.2.4.1` | 2026-06-13 | Stabilized admin audit logging so admin actions no longer fail when logging has issues |
+| `0.2.4` | 2026-06-13 | Added admin bot transfer between owners while preserving bot settings and subscriptions |
+| `0.2.3` | 2026-06-13 | Let admins edit embeds for any managed bot |
+| `0.2.2.1` | 2026-06-13 | Fixed billing audit storage compatibility for reliable backend builds |
+| `0.2.2` | 2026-06-13 | Added admin dashboard metrics for users, bots, capacity, revenue, and recent activity |
+| `0.2.1` | 2026-06-13 | Added admin bot management with owner visibility and bot configuration editing |
+| `0.2.0` | 2026-06-13 | Added admin user editing with profile, role, and audit tracking support |
+| `0.1.9` | 2026-06-13 | Added admin wallet adjustments with ledger history and audit tracking |
+| `0.1.8` | 2026-06-13 | Added admin subscription overrides for renewal price, status, dates, and auto-renew |
+| `0.1.7` | 2026-06-13 | Added admin pricing management for runtime plans and feature prices |
+| `0.1.6` | 2026-06-13 | Added admin access checks and a searchable user directory |
+| `0.1.5.4` | 2026-06-10 | Trimmed bot credential input before secure storage |
+| `0.1.5.3` | 2026-06-10 | Improved runtime action errors so bot startup issues are easier to understand |
+| `0.1.5.2` | 2026-06-10 | Fixed embed configuration saving for advanced JSON fields |
+| `0.1.5.1` | 2026-06-10 | Kept existing bot embed settings while inheriting newly added component controls |
+| `0.1.5` | 2026-06-09 | Added bot embed configuration APIs with owner-safe access |
+| `0.1.4` | 2026-06-09 | Added VPS host management and bot migration between available hosts |
+| `0.1.3` | 2026-06-09 | Prepared automated subscription renewal, expiry handling, and suspended-bot stopping |
+| `0.1.2` | 2026-06-09 | Added subscription controls for auto-renew and manual renewal |
+| `0.1.1` | 2026-06-09 | Added bot host capacity tracking and slot reservation during bot creation |
+| `0.1.0` | 2026-06-08 | Connected shop dashboard subscriptions to backend data |
+| `0.0.9.1` | 2026-06-08 | Improved secure bot credential storage and startup safety |
+| `0.0.9` | 2026-06-08 | Added backend controls for bot start, stop, restart, and status |
+| `0.0.8` | 2026-06-08 | Added secure bot configuration loading and saving |
+| `0.0.7` | 2026-06-08 | Added bot registration with encrypted Discord credentials |
+| `0.0.6` | 2026-06-08 | Connected shop catalog and order actions through the backend |
+| `0.0.5.1` | 2026-06-05 | Tuned backend database pooling for production Supabase usage |
+| `0.0.5` | 2026-06-04 | Added wallet top-up with PromptPay QR and SlipOK verification |
+| `0.0.4` | 2026-06-04 | Added backend management for featured portfolio projects |
+| `0.0.3` | 2026-06-04 | Updated billing models for payments, wallets, and pricing |
+| `0.0.2` | 2026-06-03 | Added the credit wallet and commerce service foundation |
+| `0.0.1` | 2026-06-02 | Added the project portfolio management API |
+| `0.0.0.1` | 2026-06-02 | Updated backend environment and application configuration examples |

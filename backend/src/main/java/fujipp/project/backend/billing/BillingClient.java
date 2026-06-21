@@ -25,6 +25,13 @@ public class BillingClient {
         String currency
     ) {}
 
+    /** The user's permanent bot-slot standing (free allowance + paid extras + price). */
+    public record BotSlotView(
+        int freeCount,
+        int paidSlots,
+        long priceSatang
+    ) {}
+
     /** Money-side dashboard metrics from billing-service. */
     public record AdminMetrics(
         long topupRevenueSatang30d,
@@ -134,6 +141,32 @@ public class BillingClient {
             .retrieve()
             .onStatus(HttpStatusCode::isError, (req, res) -> raiseWithReason(res))
             .toBodilessEntity();
+    }
+
+    /** The user's permanent bot-slot standing (free + paid + price), for the create-bot cap. */
+    public BotSlotView getBotSlots(UUID userId) {
+        return http.get().uri("/api/billing/bot-slots")
+            .header("X-Service-Token", serviceToken)
+            .header("X-User-Id", userId.toString())
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raise(res.getStatusCode()))
+            .body(BotSlotView.class);
+    }
+
+    /**
+     * Buy one permanent bot slot from wallet credit. Charges + grants in billing's
+     * own transaction; surfaces billing's reason on failure (e.g. insufficient
+     * credit). Returns the user's updated bot-slot standing.
+     */
+    public BotSlotView purchaseBotSlot(UUID userId, String idempotencyKey) {
+        return http.post().uri("/api/billing/bot-slots/purchase")
+            .header("X-Service-Token", serviceToken)
+            .header("X-User-Id", userId.toString())
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(Map.of("idempotencyKey", idempotencyKey))
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raiseWithReason(res))
+            .body(BotSlotView.class);
     }
 
     /** Buy features/runtime from wallet credit. {@code body} is the PurchaseRequest JSON. */

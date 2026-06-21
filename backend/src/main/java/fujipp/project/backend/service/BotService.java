@@ -3,6 +3,7 @@ package fujipp.project.backend.service;
 import fujipp.project.backend.billing.BillingClient;
 import fujipp.project.backend.discord.DiscordBotClient;
 import fujipp.project.backend.dto.BotResponse;
+import fujipp.project.backend.dto.BotSlotInfo;
 import fujipp.project.backend.dto.CreateBotRequest;
 import fujipp.project.backend.dto.UpdateBotRequest;
 import fujipp.project.backend.model.BotInstance;
@@ -34,6 +35,20 @@ public class BotService {
     @Transactional(readOnly = true)
     public List<BotResponse> listBots(UUID userId) {
         return bots.findByUserIdOrderByCreatedAtDesc(userId).stream().map(BotResponse::from).toList();
+    }
+
+    /** The user's bot-slot standing: bots used vs allowance (free + paid), and price of one more. */
+    @Transactional(readOnly = true)
+    public BotSlotInfo botSlots(UUID userId) {
+        long used = bots.countByUserId(userId);
+        BillingClient.BotSlotView v = billing.getBotSlots(userId);
+        return BotSlotInfo.of(used, v.freeCount(), v.paidSlots(), v.priceSatang());
+    }
+
+    /** Buy one permanent bot slot (charged in billing), then return the updated standing. */
+    public BotSlotInfo purchaseSlot(UUID userId) {
+        billing.purchaseBotSlot(userId, UUID.randomUUID().toString());
+        return botSlots(userId);
     }
 
     /** Throws 404 if the bot does not exist or is not owned by this user. */
@@ -88,6 +103,14 @@ public class BotService {
      * failed purchase never leaks a slot or leaves an unpaid bot.
      */
     public BotResponse createBot(UUID userId, CreateBotRequest request) {
+        // Bot Slot gate: a user may own at most free_count + paid_slots bots. Buying a
+        // permanent slot raises the cap; runtime (online/offline) is a separate thing.
+        BotSlotInfo slots = botSlots(userId);
+        if (!slots.canCreate()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "BOT_SLOT_LIMIT: you've used all " + slots.maxSlots()
+                    + " bot slots — buy another slot to create more bots");
+        }
         if (bots.existsByUserIdAndName(userId, request.name())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "You already have a bot with this name");
         }
