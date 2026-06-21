@@ -1,9 +1,10 @@
 # Changelog — Backend
 
-**Current version: `0.3.0`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.4.0`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.4.0` | 2026-06-21 | platform monitoring for the `/performance` dashboard: add `HealthMonitorService` (a `@Scheduled` collector that probes host metrics via OSHI + DB/billing/runtime/Discord reachability, caches a public snapshot, writes `monitoring.metric_snapshots` history, and opens/resolves `monitoring.incidents`) exposed as public `GET /api/public/health` + `/api/public/incidents` (non-sensitive only) and admin-gated `GET /api/admin/health/vps` (CPU/RAM/disk/network/JVM + history); adds `SystemMetricsService` (OSHI), the `oshi-core` dependency, and `app.version` + `monitoring.*` config |
 | `0.3.0` | 2026-06-18 | admin per-bot control: proxy `POST /api/admin/bots/{id}/{start,stop,restart}` + `GET …/status` to the orchestrator (admin-gated, any bot, audited `BOT_RUNTIME_*`); `GET …/subscriptions` (owner's runtime+feature subs); and free grants `POST …/runtime` (plan) and `POST …/feature` (featureId+optional priceId+billingType), owner/subject resolved server-side |
 | `0.2.9` | 2026-06-18 | [billing] admin subscription grants: `POST /api/billing/admin/subscriptions/{runtime,features}` create/extend entitlements for a subject free of charge (no wallet debit/order), mirroring purchase logic; feature grant 409s if already live for the bot and skips the runtime-active gate |
 | `0.2.8.1` | 2026-06-18 | backend config docs: align `application.properties` comments with the Supabase transaction pooler requirement (`6543`, `sslmode=require`, `prepareThreshold=0`) |
