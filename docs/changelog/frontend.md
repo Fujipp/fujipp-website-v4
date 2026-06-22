@@ -1,10 +1,10 @@
 # Changelog — Frontend
 
-**Current version: `0.6.4`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.6.5`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
-| `0.6.4` | 2026-06-22 | Admins can rename a VPS (display name) from the VPS page |
+| `0.6.5` | 2026-06-22 | Admins can rename a VPS (display name) from the VPS page |
 | `0.6.4` | 2026-06-22 | Refined shop and admin controls with consistent tables, dropdowns, activity sorting, and removed the Guide entry |
 | `0.6.3` | 2026-06-22 | The admin VPS page now lists seatless runtimes and lets admins assign them to a free seat |
 | `0.6.2` | 2026-06-22 | Added an admin VPS & Runtime page showing which bot sits on which seat, with capacity, maintenance, and seat-move controls |
