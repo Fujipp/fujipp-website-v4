@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { ShopSidebar, PackageCard, PackageRuntimeCard, PurchaseDialog, type PackageOption } from "@/features/shop/components";
+import { ShopSidebar, PackageCard, PurchaseDialog, type PackageOption } from "@/features/shop/components";
 import { StatusToast } from "@/shared/ui";
 import { PrimaryButton, SecondaryButton } from "@/shared/ui/buttons";
 import { useUserStore } from "@/stores";
@@ -11,7 +11,6 @@ import {
     priceNeedsSubject,
     type BotOption,
     type CatalogFeature,
-    type RuntimePlan,
 } from "@/features/shop/config/catalog";
 
 type ToastStatus = "info" | "success" | "warning" | "error";
@@ -21,7 +20,6 @@ const userStore = useUserStore();
 
 const isSidebarOpen = ref(typeof window === "undefined" ? true : window.innerWidth > 760);
 const features = ref<CatalogFeature[]>([]);
-const runtimePlans = ref<RuntimePlan[]>([]);
 const bots = ref<BotOption[]>([]);
 const balanceSatang = ref(0);
 const isLoading = ref(false);
@@ -64,17 +62,6 @@ function featureOptions(feature: CatalogFeature): PackageOption[] {
     }));
 }
 
-function planOption(plan: RuntimePlan): PackageOption {
-    return {
-        id: plan.id,
-        label: `${plan.durationMonths} เดือน`,
-        priceSatang: plan.effectivePriceSatang,
-        promotionLabel: plan.promotionLabel,
-        requiresSubject: true,
-        payload: { runtimePlanId: plan.id },
-    };
-}
-
 const dialogProps = computed(() => {
     const option = dialog.value.option;
     return {
@@ -99,16 +86,6 @@ const featureCards = computed(() =>
     ),
 );
 
-const runtimeCards = computed(() =>
-    runtimePlans.value.map((plan) => ({
-        id: plan.id,
-        title: `Runtime ${plan.durationMonths} month`,
-        option: planOption(plan),
-        name: plan.name,
-        helper: "เติมเวลาออนไลน์ให้บอท เลือกบอทปลายทางตอนซื้อ",
-    })),
-);
-
 async function loadCatalog(): Promise<void> {
     isLoading.value = true;
     catalogError.value = "";
@@ -118,20 +95,17 @@ async function loadCatalog(): Promise<void> {
             catalogError.value = "กรุณาเข้าสู่ระบบก่อนดูแพ็กเกจ";
             return;
         }
-        const [fRes, rRes, wRes, bRes] = await Promise.all([
+        const [fRes, wRes, bRes] = await Promise.all([
             fetch(`${API_BASE_URL}/api/catalog/features`, { headers }),
-            fetch(`${API_BASE_URL}/api/catalog/runtime-plans`, { headers }),
             fetch(`${API_BASE_URL}/api/wallet`, { headers }),
             fetch(`${API_BASE_URL}/api/bots`, { headers }),
         ]);
-        if (!fRes.ok || !rRes.ok || !wRes.ok || !bRes.ok) throw new Error("catalog unavailable");
+        if (!fRes.ok || !wRes.ok || !bRes.ok) throw new Error("catalog unavailable");
         features.value = (await fRes.json()) as CatalogFeature[];
-        runtimePlans.value = (await rRes.json()) as RuntimePlan[];
         balanceSatang.value = wRes.ok ? ((await wRes.json()).balanceSatang ?? 0) : 0;
         bots.value = bRes.ok ? ((await bRes.json()) as BotOption[]) : [];
     } catch {
         features.value = [];
-        runtimePlans.value = [];
         bots.value = [];
         balanceSatang.value = 0;
         catalogError.value = "โหลดแพ็กเกจไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
@@ -218,17 +192,6 @@ onUnmounted(clearToast);
                         />
                     </div>
                 </section>
-
-                <section :class="$style.sectionGroup" aria-labelledby="shop-package-runtime-title">
-                    <h2 id="shop-package-runtime-title" :class="$style.sectionTitle">Runtime</h2>
-                    <div :class="$style.packageGrid">
-                        <PackageRuntimeCard
-                            v-for="n in 4"
-                            :key="`runtime-skeleton-${n}`"
-                            mode="skeleton"
-                        />
-                    </div>
-                </section>
             </template>
 
             <section v-else-if="catalogError" :class="$style.statePanel" aria-live="polite">
@@ -260,25 +223,10 @@ onUnmounted(clearToast);
                     </section>
                 </section>
 
-                <section :class="$style.sectionGroup" aria-labelledby="shop-package-runtime-title">
-                    <h2 id="shop-package-runtime-title" :class="$style.sectionTitle">Runtime</h2>
-                    <div :class="$style.packageGrid">
-                        <PackageRuntimeCard
-                            v-for="card in runtimeCards"
-                            :key="card.id"
-                            eyebrow="Runtime"
-                            :title="card.title"
-                            :meta="card.option.label"
-                            :helper="card.helper"
-                            :option="card.option"
-                            button-label="ซื้อ Runtime"
-                            @select="(option) => openBuy(card.name, option)"
-                        />
-                    </div>
-                    <section v-if="runtimeCards.length === 0" :class="$style.statePanel">
-                        <h3 :class="$style.stateTitle">ยังไม่มี runtime plan</h3>
-                        <p :class="$style.stateText">เพิ่ม runtime plan ที่ billing-service แล้วรายการจะแสดงที่นี่</p>
-                    </section>
+                <section :class="$style.statePanel">
+                    <h3 :class="$style.stateTitle">มองหา Runtime อยู่?</h3>
+                    <p :class="$style.stateText">Runtime ย้ายไปซื้อจาก "ตู้ Server" ในหน้า Runtime แล้ว — เลือกช่องว่างในตู้ VPS ได้เลย</p>
+                    <RouterLink :to="{ name: 'shop-runtime' }" :class="$style.runtimeLink">ไปหน้า Runtime →</RouterLink>
                 </section>
             </template>
 
@@ -386,6 +334,18 @@ onUnmounted(clearToast);
 .stateText {
     color: var(--shop-card-muted, var(--color-text-secondary));
     font-size: 18px;
+}
+
+.runtimeLink {
+    align-self: flex-start;
+    color: var(--color-main-primary);
+    font-size: 16px;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.runtimeLink:hover {
+    text-decoration: underline;
 }
 
 .titleRow {

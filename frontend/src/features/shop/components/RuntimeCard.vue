@@ -10,6 +10,8 @@ interface Props {
     mode?: RuntimeCardMode;
     remaining: string;
     status?: RuntimeStatus;
+    // Where this runtime sits, e.g. "Primary (shared) · ช่อง #3".
+    location?: string;
     // Lifecycle controls — present when this card maps to a real subscription.
     subscriptionId?: string;
     autoRenew?: boolean;
@@ -21,6 +23,7 @@ withDefaults(defineProps<Props>(), {
     botName: "",
     mode: "default",
     status: "idle",
+    location: "",
     subscriptionId: "",
     autoRenew: false,
     currentPeriodEnd: null,
@@ -58,6 +61,8 @@ const emit = defineEmits<{ toggleAutoRenew: [value: boolean]; renew: [] }>();
                     {{ botName }}
                 </span>
             </div>
+
+            <p v-if="location" :class="$style.location">{{ location }}</p>
 
             <div v-if="subscriptionId" :class="$style.controls">
                 <label :class="$style.autoRenew">
@@ -120,6 +125,13 @@ const emit = defineEmits<{ toggleAutoRenew: [value: boolean]; renew: [] }>();
     justify-content: center;
     flex-wrap: wrap;
     gap: 10px;
+}
+
+.location {
+    margin: 0;
+    color: var(--shop-card-muted, var(--color-text-secondary));
+    font-size: 13px;
+    font-weight: 600;
 }
 
 .statusBadge,

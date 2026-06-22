@@ -70,12 +70,24 @@ interface FeatureSubscriptionResponse {
 interface RuntimeSubscriptionResponse {
     id: string;
     externalSubjectId: string;
+    vpsSlotId: string | null;
     runtimePlanId: string;
     status: string;
     currentPeriodStart: string | null;
     currentPeriodEnd: string | null;
     autoRenew: boolean;
     renewPriceSatang: number | null;
+}
+
+interface VpsSlotLite {
+    id: string;
+    slotIndex: number;
+}
+
+interface VpsNodeLite {
+    name: string;
+    label: string | null;
+    slots: VpsSlotLite[];
 }
 
 interface BotDashboardItem {
@@ -96,6 +108,7 @@ interface RuntimeDashboardItem {
     status: RuntimeStatus;
     autoRenew: boolean;
     currentPeriodEnd: string | null;
+    location: string;
 }
 
 const botRecords = ref<BotResponse[]>([]);
@@ -103,9 +116,21 @@ const catalogFeatures = ref<CatalogFeature[]>([]);
 const runtimePlans = ref<RuntimePlan[]>([]);
 const featureSubscriptions = ref<FeatureSubscriptionResponse[]>([]);
 const runtimeSubscriptions = ref<RuntimeSubscriptionResponse[]>([]);
+const vpsNodes = ref<VpsNodeLite[]>([]);
 const botSlots = ref<BotSlotInfo | null>(null);
 const showBuySlot = ref(false);
 const isBuyingSlot = ref(false);
+
+// slotId → "Primary (shared) · ช่อง #3", so a runtime card can show where it lives.
+const slotLocation = computed(() => {
+    const map = new Map<string, string>();
+    for (const node of vpsNodes.value) {
+        for (const slot of node.slots) {
+            map.set(slot.id, `${node.label || node.name} · ช่อง #${slot.slotIndex}`);
+        }
+    }
+    return map;
+});
 
 const nextActions = computed(() => {
     if (isLoading.value) return [];
@@ -165,6 +190,7 @@ const features = computed<FeatureTableRow[]>(() => featureSubscriptions.value.ma
 const runtimes = computed<RuntimeDashboardItem[]>(() => runtimeSubscriptions.value.map((runtime) => {
     const plan = runtimePlanById.value.get(runtime.runtimePlanId);
     const bot = botById.value.get(runtime.externalSubjectId);
+    const location = runtime.vpsSlotId ? (slotLocation.value.get(runtime.vpsSlotId) ?? "") : "ยังไม่ได้ลงช่อง VPS";
 
     return {
         id: runtime.id,
@@ -174,6 +200,7 @@ const runtimes = computed<RuntimeDashboardItem[]>(() => runtimeSubscriptions.val
         status: mapRuntimeStatus(runtime.status),
         autoRenew: runtime.autoRenew,
         currentPeriodEnd: runtime.currentPeriodEnd,
+        location,
     };
 }));
 
@@ -264,13 +291,14 @@ async function loadDashboard(): Promise<void> {
             return;
         }
 
-        const [botsRes, featuresRes, plansRes, featureSubsRes, runtimeSubsRes, slotsRes] = await Promise.all([
+        const [botsRes, featuresRes, plansRes, featureSubsRes, runtimeSubsRes, slotsRes, vpsRes] = await Promise.all([
             fetch(`${API_BASE_URL}/api/bots`, { headers }),
             fetch(`${API_BASE_URL}/api/catalog/features`, { headers }),
             fetch(`${API_BASE_URL}/api/catalog/runtime-plans`, { headers }),
             fetch(`${API_BASE_URL}/api/subscriptions/features`, { headers }),
             fetch(`${API_BASE_URL}/api/subscriptions/runtime`, { headers }),
             fetch(`${API_BASE_URL}/api/bots/slots`, { headers }),
+            fetch(`${API_BASE_URL}/api/runtime/vps`, { headers }),
         ]);
 
         if (!botsRes.ok || !featuresRes.ok || !plansRes.ok || !featureSubsRes.ok || !runtimeSubsRes.ok) {
@@ -282,6 +310,7 @@ async function loadDashboard(): Promise<void> {
         runtimePlans.value = await plansRes.json() as RuntimePlan[];
         featureSubscriptions.value = await featureSubsRes.json() as FeatureSubscriptionResponse[];
         runtimeSubscriptions.value = await runtimeSubsRes.json() as RuntimeSubscriptionResponse[];
+        vpsNodes.value = vpsRes.ok ? ((await vpsRes.json()) as VpsNodeLite[]) : [];
         botSlots.value = slotsRes.ok ? ((await slotsRes.json()) as BotSlotInfo) : null;
     } catch {
         botRecords.value = [];
@@ -289,6 +318,7 @@ async function loadDashboard(): Promise<void> {
         runtimePlans.value = [];
         featureSubscriptions.value = [];
         runtimeSubscriptions.value = [];
+        vpsNodes.value = [];
         botSlots.value = null;
         loadError.value = "โหลด Dashboard ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
         notify("error", "โหลด Dashboard ไม่สำเร็จ", "ระบบไม่สามารถดึงข้อมูลบอทและ subscription ได้");
@@ -526,13 +556,14 @@ onUnmounted(clearToast);
                             :remaining="runtime.remaining"
                             :status="runtime.status"
                             :bot-name="runtime.botName"
+                            :location="runtime.location"
                             :current-period-end="runtime.currentPeriodEnd"
                         />
                     </template>
                 </div>
                 <section v-if="!isLoading && runtimes.length === 0" :class="$style.statePanel">
                     <h3 :class="$style.stateTitle">ยังไม่มี runtime ที่เปิดใช้งาน</h3>
-                    <p :class="$style.stateText">ซื้อ runtime package แล้วข้อมูลจะแสดงที่นี่</p>
+                    <p :class="$style.stateText">ไปหน้า Runtime เลือกช่องว่างในตู้ VPS เพื่อซื้อ — แล้วข้อมูลจะแสดงที่นี่</p>
                 </section>
             </section>
 
