@@ -246,6 +246,13 @@ public class VpsNodeAdminService {
         return billing.adminRuntimeCabinet();
     }
 
+    /** Raw JSON of active runtimes that hold no seat (legacy/orphan) for the admin to re-seat. */
+    @Transactional(readOnly = true)
+    public String unseatedRuntimes(UUID adminId) {
+        requireAdmin(adminId);
+        return billing.adminUnseatedRuntimes();
+    }
+
     /** Relocate a runtime to a different free seat (e.g. draining a problem VPS). */
     public String moveRuntimeSeat(UUID adminId, UUID runtimeId, String body) {
         requireAdmin(adminId);

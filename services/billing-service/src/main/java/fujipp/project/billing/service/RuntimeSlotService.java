@@ -1,6 +1,7 @@
 package fujipp.project.billing.service;
 
 import fujipp.project.billing.dto.AdminSeatView;
+import fujipp.project.billing.dto.AdminUnseatedRuntime;
 import fujipp.project.billing.dto.RuntimeSubscriptionResponse;
 import fujipp.project.billing.dto.VpsNodeView;
 import fujipp.project.billing.dto.VpsSlotView;
@@ -106,6 +107,15 @@ public class RuntimeSlotService {
     public List<UUID> occupiedSlotIds() {
         return runtimeSubs.findByStatusAndVpsSlotIdIsNotNull(ACTIVE).stream()
             .map(RuntimeSubscription::getVpsSlotId)
+            .toList();
+    }
+
+    /** Active runtimes that hold no seat (legacy/orphan) — the admin can re-seat them. */
+    @Transactional(readOnly = true)
+    public List<AdminUnseatedRuntime> unseatedRuntimes() {
+        return runtimeSubs.findByStatusAndVpsSlotIdIsNull(ACTIVE).stream()
+            .map(r -> new AdminUnseatedRuntime(r.getId(), r.getExternalSubjectId(),
+                r.getUserId(), r.getCurrentPeriodEnd()))
             .toList();
     }
 

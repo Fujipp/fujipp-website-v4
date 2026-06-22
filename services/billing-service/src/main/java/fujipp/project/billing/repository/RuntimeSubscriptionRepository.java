@@ -18,6 +18,9 @@ public interface RuntimeSubscriptionRepository extends JpaRepository<RuntimeSubs
     /** Active runtimes that occupy a seat — used to render the cabinet (slot → runtime). */
     List<RuntimeSubscription> findByStatusAndVpsSlotIdIsNotNull(String status);
 
+    /** Active runtimes NOT parked on any seat — legacy/orphan rows the admin can re-seat. */
+    List<RuntimeSubscription> findByStatusAndVpsSlotIdIsNull(String status);
+
     /** The active runtime on a given seat, if any (the seat's current occupant). */
     Optional<RuntimeSubscription> findByVpsSlotIdAndStatus(UUID vpsSlotId, String status);
 
