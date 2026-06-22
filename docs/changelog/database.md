@@ -1,9 +1,10 @@
 # Changelog — Database
 
-**Current version: `0.2.6`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.2.7`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.2.7` | 2026-06-23 | Server Log can now route each kind of activity to its own channel, with a default channel as fallback |
 | `0.2.6` | 2026-06-22 | Prepared runtime hosting to be moved between bots and tracked per server seat |
 | `0.2.5` | 2026-06-22 | Added permanent bot slots so members can own more bots beyond the free three |
 | `0.2.4` | 2026-06-22 | Added addressable server seats with reserved and maintenance support for hosting |
