@@ -5,7 +5,7 @@ import type { ActionButtonVariant } from "@/shared/ui/buttons";
 import CountdownTimer from "./CountdownTimer.vue";
 
 export type BotCardMode = "add" | "default" | "skeleton";
-export type BotStatus = "offline" | "online";
+export type BotStatus = "offline" | "online" | "expired";
 
 interface Props {
     image?: string;
@@ -35,7 +35,11 @@ const emit = defineEmits<{
 }>();
 
 const actions = ["start", "stop", "restart", "edit"] as const;
-const statusLabel = computed(() => props.status === "online" ? "Online" : "Offline");
+const statusLabel = computed(() => {
+    if (props.status === "online") return "Online";
+    if (props.status === "expired") return "Expired";
+    return "Offline";
+});
 </script>
 
 <template>
@@ -75,7 +79,10 @@ const statusLabel = computed(() => props.status === "online" ? "Online" : "Offli
                 <h3 :class="$style.botName" class="type-h3-card-title-sb">{{ name }}</h3>
                 <span :class="$style.statusBadge">
                     <span
-                        :class="[$style.statusDot, status === 'online' ? $style.online : $style.offline]"
+                        :class="[
+                            $style.statusDot,
+                            status === 'online' ? $style.online : (status === 'expired' ? $style.expired : $style.offline),
+                        ]"
                         aria-hidden="true"
                     />
                     <span>{{ statusLabel }}</span>
@@ -228,6 +235,10 @@ const statusLabel = computed(() => props.status === "online" ? "Online" : "Offli
 
 .offline {
     background-color: var(--color-status-error);
+}
+
+.expired {
+    background-color: var(--color-status-warning);
 }
 
 .detailLine {

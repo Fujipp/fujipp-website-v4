@@ -39,6 +39,19 @@ interface BotResponse {
     tokenConfigured: boolean;
     avatarUrl?: string | null;
     createdAt: string;
+    // Derived shop lifecycle from the bot's runtime (ONLINE/OFFLINE/EXPIRED or null).
+    runtimeStatus?: string | null;
+    runtimeExpiresAt?: string | null;
+    runtimeId?: string | null;
+}
+
+interface BotSlotInfo {
+    used: number;
+    freeCount: number;
+    paidSlots: number;
+    maxSlots: number;
+    canCreate: boolean;
+    priceSatang: number;
 }
 
 interface FeatureSubscriptionResponse {
@@ -90,7 +103,9 @@ const catalogFeatures = ref<CatalogFeature[]>([]);
 const runtimePlans = ref<RuntimePlan[]>([]);
 const featureSubscriptions = ref<FeatureSubscriptionResponse[]>([]);
 const runtimeSubscriptions = ref<RuntimeSubscriptionResponse[]>([]);
-const availableSlots = ref<number | null>(null);
+const botSlots = ref<BotSlotInfo | null>(null);
+const showBuySlot = ref(false);
+const isBuyingSlot = ref(false);
 
 const nextActions = computed(() => {
     if (isLoading.value) return [];
@@ -129,9 +144,9 @@ const bots = computed<BotDashboardItem[]>(() => botRecords.value.map((bot) => {
         name: bot.name,
         image: bot.avatarUrl ?? undefined,
         renewPrice: formatMoney(runtime?.renewPriceSatang ?? 0),
-        runtime: formatPeriod(runtime?.currentPeriodEnd),
-        currentPeriodEnd: runtime?.currentPeriodEnd ?? null,
-        status: mapBotStatus(bot.status),
+        runtime: formatPeriod(bot.runtimeExpiresAt ?? runtime?.currentPeriodEnd),
+        currentPeriodEnd: bot.runtimeExpiresAt ?? runtime?.currentPeriodEnd ?? null,
+        status: mapBotStatus(bot),
     };
 }));
 
@@ -164,7 +179,7 @@ const runtimes = computed<RuntimeDashboardItem[]>(() => runtimeSubscriptions.val
 
 const overviewMetrics = computed<OverviewMetric[]>(() => {
     const onlineBotCount = bots.value.filter((bot) => bot.status === "online").length;
-    const offlineBotCount = bots.value.filter((bot) => bot.status === "offline").length;
+    const offlineBotCount = bots.value.filter((bot) => bot.status !== "online").length;
 
     return [
         { label: "Online Bot", value: onlineBotCount },
@@ -226,8 +241,13 @@ function formatBillingType(value: string): FeatureCategory {
     }
 }
 
-function mapBotStatus(status: string): BotStatus {
-    return status === "RUNNING" || status === "ONLINE" ? "online" : "offline";
+function mapBotStatus(bot: BotResponse): BotStatus {
+    // Prefer the runtime-derived lifecycle; fall back to the process status.
+    const rs = bot.runtimeStatus;
+    if (rs === "ONLINE") return "online";
+    if (rs === "EXPIRED") return "expired";
+    if (rs === "OFFLINE") return "offline";
+    return bot.status === "RUNNING" ? "online" : "offline";
 }
 
 function mapRuntimeStatus(status: string): RuntimeStatus {
@@ -244,13 +264,13 @@ async function loadDashboard(): Promise<void> {
             return;
         }
 
-        const [botsRes, featuresRes, plansRes, featureSubsRes, runtimeSubsRes, capacityRes] = await Promise.all([
+        const [botsRes, featuresRes, plansRes, featureSubsRes, runtimeSubsRes, slotsRes] = await Promise.all([
             fetch(`${API_BASE_URL}/api/bots`, { headers }),
             fetch(`${API_BASE_URL}/api/catalog/features`, { headers }),
             fetch(`${API_BASE_URL}/api/catalog/runtime-plans`, { headers }),
             fetch(`${API_BASE_URL}/api/subscriptions/features`, { headers }),
             fetch(`${API_BASE_URL}/api/subscriptions/runtime`, { headers }),
-            fetch(`${API_BASE_URL}/api/bots/capacity`, { headers }),
+            fetch(`${API_BASE_URL}/api/bots/slots`, { headers }),
         ]);
 
         if (!botsRes.ok || !featuresRes.ok || !plansRes.ok || !featureSubsRes.ok || !runtimeSubsRes.ok) {
@@ -262,16 +282,14 @@ async function loadDashboard(): Promise<void> {
         runtimePlans.value = await plansRes.json() as RuntimePlan[];
         featureSubscriptions.value = await featureSubsRes.json() as FeatureSubscriptionResponse[];
         runtimeSubscriptions.value = await runtimeSubsRes.json() as RuntimeSubscriptionResponse[];
-        availableSlots.value = capacityRes.ok
-            ? ((await capacityRes.json()) as { availableSlots: number }).availableSlots
-            : null;
+        botSlots.value = slotsRes.ok ? ((await slotsRes.json()) as BotSlotInfo) : null;
     } catch {
         botRecords.value = [];
         catalogFeatures.value = [];
         runtimePlans.value = [];
         featureSubscriptions.value = [];
         runtimeSubscriptions.value = [];
-        availableSlots.value = null;
+        botSlots.value = null;
         loadError.value = "โหลด Dashboard ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
         notify("error", "โหลด Dashboard ไม่สำเร็จ", "ระบบไม่สามารถดึงข้อมูลบอทและ subscription ได้");
     } finally {
@@ -316,8 +334,45 @@ async function handleBotAction(botId: string, action: string): Promise<void> {
     }
 }
 
+const slotPrice = computed(() => formatMoney(botSlots.value?.priceSatang ?? 5000));
+
 function handleAddBot(): void {
+    // Out of slots → prompt to buy one; otherwise open the create form.
+    if (botSlots.value && !botSlots.value.canCreate) {
+        showBuySlot.value = true;
+        return;
+    }
     showAddBot.value = true;
+}
+
+async function buySlot(): Promise<void> {
+    const headers = await authHeaders();
+    if (!headers) {
+        await router.push({ name: "login", query: { redirect: "/shop" } });
+        return;
+    }
+    isBuyingSlot.value = true;
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/bots/slots/purchase`, { method: "POST", headers });
+        if (!res.ok) {
+            let reason = "";
+            try {
+                const body = await res.json();
+                reason = String(body.message ?? body.error ?? "");
+                const m = reason.match(/"(?:error|message)"\s*:\s*"([^"]+)"/);
+                if (m?.[1]) reason = m[1];
+            } catch { /* non-JSON body */ }
+            throw new Error(reason || `HTTP ${res.status}`);
+        }
+        botSlots.value = await res.json() as BotSlotInfo;
+        showBuySlot.value = false;
+        notify("success", "ซื้อ Bot Slot แล้ว", "ตอนนี้สร้างบอทเพิ่มได้อีก 1 ตัว");
+        showAddBot.value = true;
+    } catch (e) {
+        notify("error", "ซื้อ Slot ไม่สำเร็จ", (e as Error).message || "เครดิตอาจไม่พอ — เติมเงินแล้วลองใหม่");
+    } finally {
+        isBuyingSlot.value = false;
+    }
 }
 
 async function createBot(payload: CreateBotPayload): Promise<void> {
@@ -336,7 +391,6 @@ async function createBot(payload: CreateBotPayload): Promise<void> {
             discordPublicKey: payload.discordPublicKey,
             discordClientSecret: payload.discordClientSecret,
         };
-        if (payload.runtimePlanId) body.runtimePlanId = payload.runtimePlanId;
 
         const res = await fetch(`${API_BASE_URL}/api/bots`, {
             method: "POST",
@@ -354,7 +408,7 @@ async function createBot(payload: CreateBotPayload): Promise<void> {
             throw new Error(reason || `HTTP ${res.status}`);
         }
         showAddBot.value = false;
-        notify("success", "สร้างบอท + ซื้อ Runtime แล้ว", "ตั้งค่าบอทแล้วกดเริ่มรันได้เลย");
+        notify("success", "สร้างบอทแล้ว", "ไปที่หน้า Runtime เพื่อซื้อช่องเครื่องแล้ว assign ให้บอทตัวนี้");
         await loadDashboard();
     } catch (e) {
         notify("error", "สร้างบอทไม่สำเร็จ", (e as Error).message || "ชื่อบอทอาจซ้ำ หรือ token ไม่ถูกต้อง — ลองใหม่อีกครั้ง");
@@ -495,11 +549,35 @@ onUnmounted(clearToast);
         <CreateBotDialog
             :open="showAddBot"
             :submitting="isCreatingBot"
-            :runtime-plans="runtimePlans"
-            :available-slots="availableSlots"
             @submit="createBot"
             @cancel="showAddBot = false"
         />
+
+        <Teleport to="body">
+            <Transition name="dialog">
+                <div v-if="showBuySlot" :class="$style.buySlotBackdrop" @click.self="showBuySlot = false">
+                    <section :class="$style.buySlotModal" role="dialog" aria-modal="true" aria-labelledby="buy-slot-title">
+                        <h2 id="buy-slot-title" :class="$style.buySlotTitle">ซื้อ Bot Slot เพิ่ม</h2>
+                        <p :class="$style.buySlotText">
+                            คุณใช้ครบ {{ botSlots?.maxSlots ?? 3 }} slot แล้ว ({{ botSlots?.freeCount ?? 3 }} ฟรี +
+                            {{ botSlots?.paidSlots ?? 0 }} ที่ซื้อ) — ซื้อเพิ่มอีก 1 slot ถาวรเพื่อสร้างบอทได้อีกตัว
+                        </p>
+                        <p :class="$style.buySlotPrice">{{ slotPrice }} บาท</p>
+                        <div :class="$style.buySlotActions">
+                            <button type="button" :class="$style.buySlotCancel" @click="showBuySlot = false">ยกเลิก</button>
+                            <button
+                                type="button"
+                                :class="$style.buySlotConfirm"
+                                :disabled="isBuyingSlot"
+                                @click="buySlot"
+                            >
+                                {{ isBuyingSlot ? "กำลังซื้อ…" : "ซื้อ Slot" }}
+                            </button>
+                        </div>
+                    </section>
+                </div>
+            </Transition>
+        </Teleport>
     </div>
 </template>
 
@@ -744,6 +822,87 @@ onUnmounted(clearToast);
     bottom: var(--spacing-space-5);
     z-index: 60;
     width: min(360px, calc(100vw - var(--spacing-space-10)));
+}
+
+.buySlotBackdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-space-5);
+    background: color-mix(in srgb, #000 55%, transparent);
+    backdrop-filter: blur(4px);
+}
+
+.buySlotModal {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-space-4);
+    width: min(440px, 100%);
+    padding: var(--spacing-space-6);
+    border: 1px solid var(--color-main-border);
+    border-radius: var(--radius-xl);
+    background-color: var(--color-main-surface);
+    color: var(--color-text-primary);
+}
+
+.buySlotTitle {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.buySlotText {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: 16px;
+    line-height: 1.5;
+}
+
+.buySlotPrice {
+    margin: 0;
+    color: var(--color-main-primary);
+    font-size: 28px;
+    font-weight: 800;
+}
+
+.buySlotActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-space-3);
+}
+
+.buySlotCancel,
+.buySlotConfirm {
+    min-height: 42px;
+    padding: 0 var(--spacing-space-5);
+    border-radius: var(--radius-md);
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.buySlotCancel {
+    border: 1px solid var(--color-main-border);
+    background: transparent;
+    color: var(--color-text-primary);
+}
+
+.buySlotConfirm {
+    border: 0;
+    background-color: var(--color-button-primary-btn-bg);
+    color: var(--color-button-primary-btn-text-active);
+}
+
+.buySlotConfirm:hover {
+    background-color: var(--color-button-primary-btn-hover);
+}
+
+.buySlotConfirm:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
 @media (max-width: 920px) {
