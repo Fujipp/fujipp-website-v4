@@ -12,7 +12,7 @@ type ToastStatus = "info" | "success" | "warning" | "error";
 type BotAction = "start" | "stop" | "restart" | "edit";
 type NextAction =
     | { label: string; title: string; type: "create" }
-    | { label: string; title: string; type: "route"; to: "shop-dashboard" | "shop-package" | "shop-wallet" };
+    | { label: string; title: string; type: "route"; to: "shop-dashboard" | "shop-package" | "shop-wallet" | "shop-runtime" };
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -117,7 +117,7 @@ const nextActions = computed(() => {
     }
 
     if (runtimeSubscriptions.value.length === 0) {
-        actions.push({ type: "route", title: "Buy runtime", label: "ซื้อ Runtime", to: "shop-package" });
+        actions.push({ type: "route", title: "Buy runtime", label: "ซื้อ Runtime", to: "shop-runtime" });
     }
 
     if (featureSubscriptions.value.length === 0) {
