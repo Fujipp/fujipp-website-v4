@@ -343,10 +343,25 @@ onUnmounted(clearToast);
 
 <style module>
 .page {
+    /* Page-scoped card theme (mirrors Dashboard/Package) so cabinets read light in
+       light mode instead of always-dark. Elements consume var(--shop-*, <fallback>). */
+    --shop-card-bg: var(--color-neutral-50);
+    --shop-card-border: var(--color-input-border);
+    --shop-card-text: var(--color-text-primary);
+    --shop-card-muted: var(--color-neutral-600);
+
     display: flex;
     min-height: 100vh;
     background-color: var(--color-main-background);
     color: var(--color-text-primary);
+}
+
+:global(.dark) .page,
+:global([data-theme="dark"]) .page {
+    --shop-card-bg: var(--color-main-surface);
+    --shop-card-border: var(--color-main-border);
+    --shop-card-text: var(--color-text-secondary);
+    --shop-card-muted: var(--color-text-secondary);
 }
 
 .content {
@@ -366,21 +381,23 @@ onUnmounted(clearToast);
 .head { display: flex; flex-direction: column; gap: var(--spacing-space-3); }
 .title { margin: 0; font-size: 32px; font-weight: 600; line-height: 1; }
 .divider { height: 1px; background-color: var(--color-main-divider); }
-.lead { margin: 0; color: var(--color-text-secondary); font-size: 16px; }
+.lead { margin: 0; color: var(--shop-card-muted, var(--color-text-secondary)); font-size: 16px; }
 
 .cabinet {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-space-4);
     padding: var(--spacing-space-5);
-    border: 1px solid var(--color-main-border);
+    border: 1px solid var(--shop-card-border, var(--color-main-border));
     border-radius: var(--radius-xl);
-    background-color: var(--color-main-surface);
+    background-color: var(--shop-card-bg, var(--color-main-surface));
+    color: var(--shop-card-text, var(--color-text-secondary));
+    transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease;
 }
 
 .cabinetHead { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-space-3); }
-.cabinetName { margin: 0; font-size: 22px; font-weight: 700; }
-.cabinetMeta { color: var(--color-text-secondary); font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; }
+.cabinetName { margin: 0; color: var(--shop-card-text, var(--color-text-primary)); font-size: 22px; font-weight: 700; }
+.cabinetMeta { color: var(--shop-card-muted, var(--color-text-secondary)); font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; }
 .cabinetCount { color: var(--color-main-primary); font-weight: 700; }
 
 .seatGrid {
@@ -395,10 +412,10 @@ onUnmounted(clearToast);
     gap: 4px;
     min-height: 84px;
     padding: var(--spacing-space-3);
-    border: 1px solid var(--color-main-border);
+    border: 1px solid var(--shop-card-border, var(--color-main-border));
     border-radius: var(--radius-md);
-    background-color: var(--color-main-background);
-    color: var(--color-text-primary);
+    background-color: color-mix(in srgb, var(--shop-card-text, #000) 5%, var(--shop-card-bg, var(--color-main-surface)));
+    color: var(--shop-card-text, var(--color-text-primary));
     text-align: left;
     cursor: pointer;
     transition: border-color 160ms ease, transform 160ms ease;
@@ -407,15 +424,15 @@ onUnmounted(clearToast);
 .seat:disabled { cursor: not-allowed; opacity: 0.55; }
 .seat:not(:disabled):hover { transform: translateY(-2px); border-color: var(--color-main-primary); }
 
-.seatIndex { font-size: 12px; color: var(--color-text-secondary); }
+.seatIndex { font-size: 12px; color: var(--shop-card-muted, var(--color-text-secondary)); }
 .seatLabel { font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.seatExpiry { font-size: 12px; color: var(--color-text-secondary); }
+.seatExpiry { font-size: 12px; color: var(--shop-card-muted, var(--color-text-secondary)); }
 
 .seatFree { border-style: dashed; border-color: var(--color-status-success); }
 .seatMine { border-color: var(--color-main-primary); background-color: color-mix(in srgb, var(--color-main-primary) 12%, transparent); }
-.seatTaken { background-color: var(--color-main-surface); }
-.seatReserved { background-color: var(--color-main-surface); }
-.seatMaint { background-color: color-mix(in srgb, var(--color-status-warning) 14%, transparent); }
+.seatTaken { opacity: 0.7; }
+.seatReserved { opacity: 0.7; }
+.seatMaint { background-color: color-mix(in srgb, var(--color-status-warning) 16%, transparent); }
 
 .statePanel {
     display: flex;
@@ -423,13 +440,14 @@ onUnmounted(clearToast);
     flex-direction: column;
     gap: var(--spacing-space-4);
     padding: var(--spacing-space-6);
-    border: 1px solid var(--color-main-border);
+    border: 1px solid var(--shop-card-border, var(--color-main-border));
     border-radius: var(--radius-xl);
-    background-color: var(--color-main-surface);
+    background-color: var(--shop-card-bg, var(--color-main-surface));
+    color: var(--shop-card-text, var(--color-text-secondary));
 }
 
 .stateTitle { margin: 0; font-size: 22px; font-weight: 600; }
-.stateText { margin: 0; color: var(--color-text-secondary); font-size: 16px; line-height: 1.5; }
+.stateText { margin: 0; color: var(--shop-card-muted, var(--color-text-secondary)); font-size: 16px; line-height: 1.5; }
 
 .retry {
     align-self: flex-start;
