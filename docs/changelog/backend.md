@@ -1,14 +1,11 @@
 # Changelog — Backend
 
-**Current version: `0.4.7`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.4.8`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
-<<<<<<< Updated upstream
-| `0.4.7` | 2026-06-22 | Assigning or moving runtime now brings the affected bots online/offline automatically |
-=======
 | `0.4.8` | 2026-06-22 | Admins can see active runtimes that hold no server seat and assign them to a free one |
->>>>>>> Stashed changes
+| `0.4.7` | 2026-06-22 | Assigning or moving runtime now brings the affected bots online/offline automatically |
 | `0.4.6` | 2026-06-22 | Admins can review every hosting seat with its owner and relocate a runtime to another seat |
 | `0.4.5` | 2026-06-22 | Admins can set VPS capacity and reserved seats, and put individual seats into maintenance |
 | `0.4.4` | 2026-06-22 | Bots now show a live Online / Offline / Expired badge based on their real runtime |
