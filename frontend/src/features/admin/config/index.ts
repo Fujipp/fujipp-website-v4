@@ -308,6 +308,13 @@ export interface UpdateVpsNodePayload {
     notes?: string;
 }
 
+export interface AdminUnseatedRuntime {
+    runtimeId: string;
+    externalSubjectId: string | null;
+    ownerUserId: string | null;
+    expiresAt: string | null;
+}
+
 export interface AdminNavItem {
     label: string;
     icon: string;

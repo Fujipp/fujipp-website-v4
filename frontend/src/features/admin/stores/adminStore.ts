@@ -26,6 +26,7 @@ import type {
     AdminVpsNode,
     AdminVpsSlot,
     AdminSeat,
+    AdminUnseatedRuntime,
     UpdateVpsNodePayload,
 } from "@/features/admin/config";
 
@@ -236,6 +237,10 @@ export const useAdminStore = defineStore("admin", () => {
         return adminFetch<AdminSeat[]>("/api/admin/runtime/cabinet");
     }
 
+    async function fetchUnseatedRuntimes(): Promise<AdminUnseatedRuntime[]> {
+        return adminFetch<AdminUnseatedRuntime[]>("/api/admin/runtime/unseated");
+    }
+
     async function updateVpsNode(nodeId: string, payload: UpdateVpsNodePayload): Promise<AdminVpsNode> {
         return adminFetch<AdminVpsNode>(`/api/admin/vps-nodes/${nodeId}`, { method: "PATCH", body: payload });
     }
@@ -254,7 +259,8 @@ export const useAdminStore = defineStore("admin", () => {
 
     return {
         users, isLoading, error, adminFetch,
-        fetchVpsNodes, fetchVpsSlots, fetchRuntimeCabinet, updateVpsNode, setSlotStatus, moveRuntimeSeat,
+        fetchVpsNodes, fetchVpsSlots, fetchRuntimeCabinet, fetchUnseatedRuntimes,
+        updateVpsNode, setSlotStatus, moveRuntimeSeat,
         fetchUsers, fetchUser, updateUser,
         fetchRuntimePlans, updateRuntimePlan,
         fetchFeatures, fetchFeaturePrices, createFeaturePrice, updateFeaturePrice,

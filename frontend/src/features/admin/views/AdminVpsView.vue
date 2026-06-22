@@ -3,7 +3,7 @@ import { computed, onMounted, reactive, ref } from "vue";
 import { AdminLayout } from "@/features/admin/components";
 import { StatusToast } from "@/shared/ui";
 import { useAdminStore } from "@/features/admin/stores";
-import type { AdminBot, AdminSeat, AdminVpsNode } from "@/features/admin/config";
+import type { AdminBot, AdminSeat, AdminUnseatedRuntime, AdminVpsNode } from "@/features/admin/config";
 
 type ToastStatus = "info" | "success" | "warning" | "error";
 
@@ -11,6 +11,7 @@ const admin = useAdminStore();
 
 const nodes = ref<AdminVpsNode[]>([]);
 const seats = ref<AdminSeat[]>([]);
+const unseated = ref<AdminUnseatedRuntime[]>([]);
 const bots = ref<AdminBot[]>([]);
 const isLoading = ref(false);
 const loadError = ref("");
@@ -21,8 +22,10 @@ let toastTimeout: ReturnType<typeof setTimeout> | undefined;
 // Per-node draft of the editable capacity fields (keyed by node id).
 const drafts = reactive<Record<string, { maxSlots: number; reservedSlots: number; status: string }>>({});
 
-// Move dialog
-const moveSeat = ref<AdminSeat | null>(null);
+// Move/assign dialog — driven by a runtime id so it serves both seated seats and
+// unseated (orphan) runtimes.
+const moveRuntimeId = ref("");
+const moveTitle = ref("");
 const moveTarget = ref("");
 
 const botName = computed(() => new Map(bots.value.map((b) => [b.id, b])));
@@ -73,13 +76,15 @@ async function load(): Promise<void> {
     isLoading.value = true;
     loadError.value = "";
     try {
-        const [n, c, b] = await Promise.all([
+        const [n, c, u, b] = await Promise.all([
             admin.fetchVpsNodes(),
             admin.fetchRuntimeCabinet(),
+            admin.fetchUnseatedRuntimes(),
             admin.fetchBots(),
         ]);
         nodes.value = n;
         seats.value = c;
+        unseated.value = u;
         bots.value = b;
         for (const node of n) {
             drafts[node.id] = { maxSlots: node.maxSlots, reservedSlots: node.reservedSlots, status: node.status };
@@ -120,22 +125,34 @@ async function toggleMaintenance(seat: AdminSeat): Promise<void> {
     }
 }
 
+function unseatedBotLabel(u: AdminUnseatedRuntime): string {
+    if (!u.externalSubjectId) return "ยังไม่ assign บอท";
+    return botName.value.get(u.externalSubjectId)?.name ?? u.externalSubjectId.slice(0, 8);
+}
+
 function openMove(seat: AdminSeat): void {
-    moveSeat.value = seat;
+    if (!seat.runtimeId) return;
+    moveRuntimeId.value = seat.runtimeId;
+    moveTitle.value = `ย้าย runtime ของ ${seatBotLabel(seat)}`;
+    moveTarget.value = "";
+}
+
+function openAssign(u: AdminUnseatedRuntime): void {
+    moveRuntimeId.value = u.runtimeId;
+    moveTitle.value = `ลงที่นั่งให้ runtime ของ ${unseatedBotLabel(u)}`;
     moveTarget.value = "";
 }
 
 async function confirmMove(): Promise<void> {
-    const seat = moveSeat.value;
-    if (!seat?.runtimeId || !moveTarget.value) return;
+    if (!moveRuntimeId.value || !moveTarget.value) return;
     busyKey.value = "move";
     try {
-        await admin.moveRuntimeSeat(seat.runtimeId, moveTarget.value);
-        moveSeat.value = null;
-        notify("success", "ย้าย runtime แล้ว");
+        await admin.moveRuntimeSeat(moveRuntimeId.value, moveTarget.value);
+        moveRuntimeId.value = "";
+        notify("success", "อัปเดตที่นั่ง runtime แล้ว");
         await load();
     } catch (e) {
-        notify("error", "ย้ายไม่สำเร็จ", (e as Error).message);
+        notify("error", "ทำรายการไม่สำเร็จ", (e as Error).message);
     } finally {
         busyKey.value = "";
     }
@@ -241,6 +258,34 @@ onMounted(load);
             </div>
         </section>
 
+        <section v-if="unseated.length > 0" :class="$style.card">
+            <header :class="$style.cardHead">
+                <div>
+                    <h2 :class="$style.nodeName">Runtime ที่ยังไม่มีที่นั่ง</h2>
+                    <span :class="$style.nodeMeta">active อยู่แต่ไม่ได้ลงช่อง VPS (ข้อมูลเก่า) — กดลงที่นั่งให้นับเป็น slot ที่ใช้</span>
+                </div>
+                <span :class="$style.count"><strong>{{ unseated.length }}</strong> รายการ</span>
+            </header>
+            <div :class="$style.tableWrap">
+                <table :class="$style.table">
+                    <thead>
+                        <tr><th>บอท</th><th>หมดอายุ</th><th>จัดการ</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="u in unseated" :key="u.runtimeId">
+                            <td>{{ unseatedBotLabel(u) }}</td>
+                            <td>{{ formatExpiry(u.expiresAt) }}</td>
+                            <td>
+                                <button type="button" :class="$style.smallBtn" :disabled="freeSeats.length === 0" @click="openAssign(u)">
+                                    ลงที่นั่ง
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
         <p v-if="!isLoading && nodes.length === 0 && !loadError" :class="$style.empty">ยังไม่มี VPS ในระบบ</p>
 
         <div v-if="toast" :class="$style.toastRegion" aria-live="polite">
@@ -249,9 +294,9 @@ onMounted(load);
 
         <Teleport to="body">
             <Transition name="dialog">
-                <div v-if="moveSeat" :class="$style.backdrop" @click.self="moveSeat = null">
+                <div v-if="moveRuntimeId" :class="$style.backdrop" @click.self="moveRuntimeId = ''">
                     <section :class="$style.modal" role="dialog" aria-modal="true">
-                        <h2 :class="$style.modalTitle">ย้าย runtime ของ {{ seatBotLabel(moveSeat) }}</h2>
+                        <h2 :class="$style.modalTitle">{{ moveTitle }}</h2>
                         <label :class="$style.field">
                             <span :class="$style.fieldLabel">ช่องปลายทาง (ว่าง)</span>
                             <select v-model="moveTarget" :class="$style.select">
@@ -262,9 +307,9 @@ onMounted(load);
                             </select>
                         </label>
                         <div :class="$style.modalActions">
-                            <button type="button" :class="$style.smallBtn" @click="moveSeat = null">ยกเลิก</button>
+                            <button type="button" :class="$style.smallBtn" @click="moveRuntimeId = ''">ยกเลิก</button>
                             <button type="button" :class="$style.save" :disabled="!moveTarget || busyKey === 'move'" @click="confirmMove">
-                                {{ busyKey === 'move' ? "กำลังย้าย…" : "ย้าย" }}
+                                {{ busyKey === 'move' ? "กำลังบันทึก…" : "ยืนยัน" }}
                             </button>
                         </div>
                     </section>
