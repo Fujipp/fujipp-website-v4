@@ -1,9 +1,11 @@
 # Changelog — Frontend
 
-**Current version: `0.5.9.37`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.6.1`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.6.1` | 2026-06-22 | Added the Runtime "server cabinet" page to buy a hosting seat and move it between bots |
+| `0.6.0` | 2026-06-22 | Bots now show a live Online / Offline / Expired badge and you can buy extra permanent bot slots |
 | `0.5.9.37` | 2026-06-22 | Added a slimmer custom scrollbar treatment across the Shop experience |
 | `0.5.9.36` | 2026-06-22 | Smoothed the shop sidebar collapse animation so closing feels as polished as opening |
 | `0.5.9.35` | 2026-06-21 | Refined Changelog wording so the page reads like formal product release notes |
