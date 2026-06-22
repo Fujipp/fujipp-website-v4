@@ -86,6 +86,12 @@ public class AdminVpsController {
         return json(admin.runtimeCabinet(UUID.fromString(jwt.getSubject())));
     }
 
+    /** Active runtimes that hold no seat (legacy/orphan) — admin can re-seat them. */
+    @GetMapping("/runtime/unseated")
+    public ResponseEntity<String> unseatedRuntimes(@AuthenticationPrincipal Jwt jwt) {
+        return json(admin.unseatedRuntimes(UUID.fromString(jwt.getSubject())));
+    }
+
     /** Relocate a runtime to a different free seat (e.g. draining a problem VPS). */
     @PostMapping("/runtime/{runtimeId}/move-seat")
     public ResponseEntity<String> moveRuntimeSeat(

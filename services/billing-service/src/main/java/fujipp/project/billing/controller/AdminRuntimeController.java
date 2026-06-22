@@ -2,6 +2,7 @@ package fujipp.project.billing.controller;
 
 import fujipp.project.billing.dto.AdminMoveSeatRequest;
 import fujipp.project.billing.dto.AdminSeatView;
+import fujipp.project.billing.dto.AdminUnseatedRuntime;
 import fujipp.project.billing.dto.RuntimeSubscriptionResponse;
 import fujipp.project.billing.service.RuntimeSlotService;
 import jakarta.validation.Valid;
@@ -38,6 +39,12 @@ public class AdminRuntimeController {
     @GetMapping("/cabinet")
     public ResponseEntity<List<AdminSeatView>> cabinet() {
         return ResponseEntity.ok(runtimeSlotService.adminSeats());
+    }
+
+    /** Active runtimes that hold no seat (legacy/orphan) — admin can re-seat them. */
+    @GetMapping("/unseated")
+    public ResponseEntity<List<AdminUnseatedRuntime>> unseated() {
+        return ResponseEntity.ok(runtimeSlotService.unseatedRuntimes());
     }
 
     /** Relocate a runtime to a different free seat (e.g. draining a problem VPS). */

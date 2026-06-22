@@ -540,6 +540,15 @@ public class BillingClient {
             .body(String.class);
     }
 
+    /** Raw JSON of active runtimes that hold no seat (legacy/orphan) for the admin to re-seat. */
+    public String adminUnseatedRuntimes() {
+        return http.get().uri("/api/billing/admin/runtime/unseated")
+            .header("X-Service-Token", serviceToken)
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raise(res.getStatusCode()))
+            .body(String.class);
+    }
+
     /** Relocate a runtime to a different free seat. {@code body} is the AdminMoveSeatRequest JSON. */
     public String adminMoveRuntimeSeat(UUID runtimeId, String body) {
         return http.post().uri("/api/billing/admin/runtime/{runtimeId}/move-seat", runtimeId)
