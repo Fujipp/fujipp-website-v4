@@ -302,6 +302,7 @@ export interface AdminSeat {
 }
 
 export interface UpdateVpsNodePayload {
+    label?: string;
     maxSlots?: number;
     reservedSlots?: number;
     status?: string;
