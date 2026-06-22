@@ -19,8 +19,8 @@ const busyKey = ref("");
 const toast = ref<{ status: ToastStatus; title: string; description?: string } | null>(null);
 let toastTimeout: ReturnType<typeof setTimeout> | undefined;
 
-// Per-node draft of the editable capacity fields (keyed by node id).
-const drafts = reactive<Record<string, { maxSlots: number; reservedSlots: number; status: string }>>({});
+// Per-node draft of the editable fields (keyed by node id).
+const drafts = reactive<Record<string, { label: string; maxSlots: number; reservedSlots: number; status: string }>>({});
 
 // Move/assign dialog — driven by a runtime id so it serves both seated seats and
 // unseated (orphan) runtimes.
@@ -99,7 +99,12 @@ async function load(): Promise<void> {
         unseated.value = u;
         bots.value = b;
         for (const node of n) {
-            drafts[node.id] = { maxSlots: node.maxSlots, reservedSlots: node.reservedSlots, status: node.status };
+            drafts[node.id] = {
+                label: node.label ?? "",
+                maxSlots: node.maxSlots,
+                reservedSlots: node.reservedSlots,
+                status: node.status,
+            };
         }
     } catch (e) {
         loadError.value = (e as Error).message || "โหลดข้อมูล VPS ไม่สำเร็จ";
@@ -113,7 +118,12 @@ async function saveNode(node: AdminVpsNode): Promise<void> {
     if (!d) return;
     busyKey.value = `node-${node.id}`;
     try {
-        await admin.updateVpsNode(node.id, { maxSlots: d.maxSlots, reservedSlots: d.reservedSlots, status: d.status });
+        await admin.updateVpsNode(node.id, {
+            label: d.label.trim(),
+            maxSlots: d.maxSlots,
+            reservedSlots: d.reservedSlots,
+            status: d.status,
+        });
         notify("success", "บันทึก VPS แล้ว");
         await load();
     } catch (e) {
@@ -198,6 +208,10 @@ onMounted(load);
             </header>
 
             <div v-if="drafts[node.id]" :class="$style.editRow">
+                <label :class="[$style.field, $style.fieldWide]">
+                    <span :class="$style.fieldLabel">ชื่อ VPS (แสดงผล)</span>
+                    <input v-model="drafts[node.id]!.label" type="text" :placeholder="node.name" :class="$style.input">
+                </label>
                 <label :class="$style.field">
                     <span :class="$style.fieldLabel">Max slots</span>
                     <input v-model.number="drafts[node.id]!.maxSlots" type="number" min="0" :class="$style.input">
@@ -402,6 +416,7 @@ onMounted(load);
 }
 
 .input { width: 110px; }
+.fieldWide .input { width: 220px; max-width: 100%; }
 .statusSelect { width: 180px; }
 .input:focus-visible,
 .select:focus-visible { outline: 2px solid var(--color-main-primary); outline-offset: 1px; }
