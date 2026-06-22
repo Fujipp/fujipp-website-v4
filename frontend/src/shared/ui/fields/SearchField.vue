@@ -55,7 +55,6 @@ const emit = defineEmits<{
 
 .searchText:focus-within {
     border-color: var(--color-input-border-focus);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-input-border-focus) 18%, transparent);
 }
 
 .searchIcon {

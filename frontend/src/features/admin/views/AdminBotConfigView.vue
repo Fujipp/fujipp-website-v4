@@ -12,7 +12,7 @@ import type {
     AdminFeatureSubscription,
 } from "@/features/admin/config";
 import { SUBSCRIPTION_STATUSES, FEATURE_BILLING_TYPES } from "@/features/admin/config";
-import { EmbedEditor, StatusToast } from "@/shared/ui";
+import { EmbedEditor, SelectField, StatusToast, type SelectFieldOption } from "@/shared/ui";
 
 const EMBEDS_KEY = "__embeds__";
 const RUNTIME_KEY = "__runtime__";
@@ -64,6 +64,23 @@ const featureNameById = computed(() => {
 
 const pricesForGrantFeature = computed<AdminFeaturePrice[]>(() =>
     featurePrices.value.filter((p) => p.featureId === grantFeatureId.value));
+const subscriptionStatusOptions: SelectFieldOption[] = SUBSCRIPTION_STATUSES.map((status) => ({ label: status, value: status }));
+const runtimePlanOptions = computed<SelectFieldOption[]>(() => [
+    { label: "Select a plan…", value: "" },
+    ...runtimePlans.value.map((plan) => ({ label: `${plan.name} (${plan.durationMonths}m)`, value: plan.id })),
+]);
+const featureOptions = computed<SelectFieldOption[]>(() => [
+    { label: "Select a feature…", value: "" },
+    ...catalogFeatures.value.map((feature) => ({ label: feature.name, value: feature.id })),
+]);
+const billingOptions: SelectFieldOption[] = FEATURE_BILLING_TYPES.map((type) => ({ label: type, value: type }));
+const priceOptions = computed<SelectFieldOption[]>(() => [
+    { label: "— none —", value: "" },
+    ...pricesForGrantFeature.value.map((price) => ({
+        label: `${price.kind}${price.durationMonths ? ` · ${price.durationMonths}m` : ""}`,
+        value: price.id,
+    })),
+]);
 
 function showToast(status: "success" | "error", title: string): void {
     toast.value = { status, title };
@@ -323,12 +340,7 @@ onMounted(async () => {
                         <p v-if="subsLoading" :class="$style.note">Loading…</p>
                         <template v-else-if="runtimeSub">
                             <div :class="$style.editRow">
-                                <label :class="$style.field">
-                                    <span :class="$style.label">Status</span>
-                                    <select v-model="subEdits[runtimeSub.id]!.status" :class="$style.input">
-                                        <option v-for="s in SUBSCRIPTION_STATUSES" :key="s" :value="s">{{ s }}</option>
-                                    </select>
-                                </label>
+                                <SelectField v-model="subEdits[runtimeSub.id]!.status" :class="$style.selectField" hide-label label="Status" :options="subscriptionStatusOptions" />
                                 <label :class="$style.field">
                                     <span :class="$style.label">Period end</span>
                                     <input v-model="subEdits[runtimeSub.id]!.currentPeriodEnd" type="date" :class="$style.input">
@@ -343,15 +355,7 @@ onMounted(async () => {
                         </template>
                         <!-- grant / extend runtime -->
                         <div :class="$style.editRow">
-                            <label :class="$style.field">
-                                <span :class="$style.label">{{ runtimeSub ? "Extend with plan" : "Grant plan" }}</span>
-                                <select v-model="grantPlanId" :class="$style.input">
-                                    <option value="">Select a plan…</option>
-                                    <option v-for="p in runtimePlans" :key="p.id" :value="p.id">
-                                        {{ p.name }} ({{ p.durationMonths }}m)
-                                    </option>
-                                </select>
-                            </label>
+                            <SelectField v-model="grantPlanId" :class="$style.wideSelectField" :label="runtimeSub ? 'Extend with plan' : 'Grant plan'" :options="runtimePlanOptions" />
                             <button type="button" :class="$style.saveBtn" :disabled="!grantPlanId || granting" @click="grantRuntime">
                                 {{ runtimeSub ? "Extend" : "Grant" }}
                             </button>
@@ -364,12 +368,7 @@ onMounted(async () => {
                         <p v-if="!subsLoading && featureSubs.length === 0" :class="$style.note">No features granted to this bot.</p>
                         <div v-for="sub in featureSubs" :key="sub.id" :class="$style.editRow">
                             <span :class="$style.subName">{{ featureNameById[sub.featureId] ?? sub.featureId.slice(0, 8) }}<span :class="$style.subMeta"> · {{ sub.billingType }}</span></span>
-                            <label :class="$style.field">
-                                <span :class="$style.label">Status</span>
-                                <select v-model="subEdits[sub.id]!.status" :class="$style.input">
-                                    <option v-for="s in SUBSCRIPTION_STATUSES" :key="s" :value="s">{{ s }}</option>
-                                </select>
-                            </label>
+                            <SelectField v-model="subEdits[sub.id]!.status" :class="$style.selectField" hide-label label="Status" :options="subscriptionStatusOptions" />
                             <label :class="$style.field">
                                 <span :class="$style.label">Period end</span>
                                 <input v-model="subEdits[sub.id]!.currentPeriodEnd" type="date" :class="$style.input">
@@ -381,28 +380,9 @@ onMounted(async () => {
 
                         <!-- add feature -->
                         <div :class="$style.editRow">
-                            <label :class="$style.field">
-                                <span :class="$style.label">Add feature</span>
-                                <select v-model="grantFeatureId" :class="$style.input">
-                                    <option value="">Select a feature…</option>
-                                    <option v-for="f in catalogFeatures" :key="f.id" :value="f.id">{{ f.name }}</option>
-                                </select>
-                            </label>
-                            <label :class="$style.field">
-                                <span :class="$style.label">Billing</span>
-                                <select v-model="grantBillingType" :class="$style.input">
-                                    <option v-for="t in FEATURE_BILLING_TYPES" :key="t" :value="t">{{ t }}</option>
-                                </select>
-                            </label>
-                            <label :class="$style.field">
-                                <span :class="$style.label">Price SKU (optional)</span>
-                                <select v-model="grantPriceId" :class="$style.input">
-                                    <option value="">— none —</option>
-                                    <option v-for="p in pricesForGrantFeature" :key="p.id" :value="p.id">
-                                        {{ p.kind }}{{ p.durationMonths ? ` · ${p.durationMonths}m` : "" }}
-                                    </option>
-                                </select>
-                            </label>
+                            <SelectField v-model="grantFeatureId" :class="$style.wideSelectField" label="Add feature" :options="featureOptions" />
+                            <SelectField v-model="grantBillingType" :class="$style.selectField" label="Billing" :options="billingOptions" />
+                            <SelectField v-model="grantPriceId" :class="$style.wideSelectField" label="Price SKU (optional)" :options="priceOptions" />
                             <button type="button" :class="$style.saveBtn" :disabled="!grantFeatureId || granting" @click="grantFeature">
                                 Grant
                             </button>
@@ -454,26 +434,26 @@ onMounted(async () => {
     box-sizing: border-box;
     text-align: left;
     padding: 10px 12px;
-    border: 1px solid var(--color-main-divider);
+    border: 1px solid var(--shop-card-border, var(--color-main-divider));
     border-radius: var(--radius-lg);
-    background: var(--color-main-surface);
-    color: var(--color-text-secondary);
+    background: var(--shop-card-bg, var(--color-main-surface));
+    color: var(--shop-card-text, var(--color-text-secondary));
     font: inherit;
     font-size: 14px;
     cursor: pointer;
 }
 .navItem:hover { border-color: var(--color-main-primary); }
-.navActive { border-color: var(--color-main-primary); color: var(--color-text-secondary); }
+.navActive { border-color: var(--color-main-primary); color: var(--shop-card-text, var(--color-text-secondary)); }
 
 .content { min-width: 0; }
 
 .feature {
     box-sizing: border-box;
     padding: 20px;
-    border: 1px solid var(--color-main-divider);
+    border: 1px solid var(--shop-card-border, var(--color-main-divider));
     border-radius: var(--radius-xl);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
+    background-color: var(--shop-card-bg, var(--color-main-surface));
+    color: var(--shop-card-text, var(--color-text-secondary));
 }
 
 .featureName { margin: 0 0 14px; font-size: 16px; font-weight: 600; }
@@ -486,9 +466,10 @@ onMounted(async () => {
 .input {
     box-sizing: border-box;
     width: 100%;
-    padding: 9px 12px;
+    min-height: 48px;
+    padding: 12px 16px;
     border: 1px solid var(--color-input-border);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-lg);
     background-color: var(--color-input-bg);
     color: var(--color-text-input);
     font: inherit;
@@ -525,7 +506,7 @@ onMounted(async () => {
 
 .stateTag {
     padding: 3px 10px;
-    border: 1px solid var(--color-main-divider);
+    border: 1px solid var(--shop-card-border, var(--color-main-divider));
     border-radius: var(--radius-full);
     font-size: 12px;
     text-transform: uppercase;
@@ -536,15 +517,15 @@ onMounted(async () => {
 
 .ghostBtn {
     padding: 8px 16px;
-    border: 1px solid var(--color-main-border);
+    border: 1px solid var(--shop-card-border);
     border-radius: var(--radius-md);
     background: transparent;
-    color: var(--color-text-secondary);
+    color: var(--shop-card-text, var(--color-text-secondary));
     font: inherit;
     cursor: pointer;
     transition: background-color 140ms ease;
 }
-.ghostBtn:hover { background-color: var(--color-table-row-hover); }
+.ghostBtn:hover { background-color: var(--shop-row-hover); }
 .ghostBtn:disabled { cursor: not-allowed; opacity: 0.5; }
 
 .editRow {
@@ -554,10 +535,12 @@ onMounted(async () => {
     gap: 12px;
     padding-top: 14px;
     margin-top: 14px;
-    border-top: 1px solid var(--color-main-divider);
+    border-top: 1px solid var(--shop-card-border, var(--color-main-divider));
 }
 .editRow:first-of-type { border-top: 0; margin-top: 0; padding-top: 0; }
 .editRow .field { flex: 1 1 140px; max-width: 220px; }
+.selectField { flex: 1 1 160px; max-width: 220px; }
+.wideSelectField { flex: 1 1 220px; max-width: 320px; }
 .editRow .saveBtn { padding: 9px 18px; }
 
 .subName { flex: 1 1 100%; font-size: 14px; font-weight: 500; }

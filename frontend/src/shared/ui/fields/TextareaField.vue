@@ -46,7 +46,11 @@ const emit = defineEmits<{
     flex-direction: column;
     width: 100%;
     gap: 8px;
-    /* Label sits on the dark main-surface; text-secondary stays legible in both themes. */
+    color: var(--color-neutral-600);
+}
+
+:global(.dark) .textArea,
+:global([data-theme="dark"]) .textArea {
     color: var(--color-text-secondary);
 }
 

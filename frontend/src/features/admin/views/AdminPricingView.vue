@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { AdminLayout } from "@/features/admin/components";
 import { useAdminStore } from "@/features/admin/stores";
 import {
@@ -13,7 +13,7 @@ import {
     type UpdateFeaturePricePayload,
     type UpdateRuntimePlanPayload,
 } from "@/features/admin/config";
-import { StatusToast } from "@/shared/ui";
+import { SelectField, StatusToast, type SelectFieldOption } from "@/shared/ui";
 
 const adminStore = useAdminStore();
 
@@ -58,6 +58,14 @@ const priceRows = ref<PriceRow[]>([]);
 const features = ref<AdminFeature[]>([]);
 const addDraft = ref<AddPriceDraft>(emptyAddDraft());
 const addSaving = ref(false);
+const featureOptions = computed<SelectFieldOption[]>(() => [
+    { label: "เลือก feature…", value: "" },
+    ...features.value.map((feature) => ({
+        label: `${feature.name} (${feature.code})${feature.prices.length ? ` — มี ${feature.prices.length} ราคา` : ""}`,
+        value: feature.id,
+    })),
+]);
+const kindOptions: SelectFieldOption[] = FEATURE_PRICE_KINDS.map((kind) => ({ label: kind, value: kind }));
 
 const isLoading = ref(false);
 const loadError = ref("");
@@ -305,15 +313,8 @@ onMounted(load);
             <h2 :class="$style.heading">Add feature price</h2>
             <div :class="$style.panel">
                 <div :class="$style.addForm">
-                    <select v-model="addDraft.featureId" :class="[$style.input, $style.select]" aria-label="Feature">
-                        <option value="" disabled>เลือก feature…</option>
-                        <option v-for="f in features" :key="f.id" :value="f.id">
-                            {{ f.name }} ({{ f.code }}){{ f.prices.length ? ` — มี ${f.prices.length} ราคา` : "" }}
-                        </option>
-                    </select>
-                    <select v-model="addDraft.kind" :class="[$style.input, $style.select]" aria-label="Kind">
-                        <option v-for="k in FEATURE_PRICE_KINDS" :key="k" :value="k">{{ k }}</option>
-                    </select>
+                    <SelectField v-model="addDraft.featureId" :class="$style.featureSelect" label="Feature" :options="featureOptions" />
+                    <SelectField v-model="addDraft.kind" :class="$style.kindSelect" label="Kind" :options="kindOptions" />
                     <input v-model.number="addDraft.priceBaht" :class="$style.input" type="number" min="0" step="0.01" placeholder="ราคา ฿" aria-label="Price">
                     <input v-if="addDraft.kind === 'RENT_MONTHLY'" v-model.number="addDraft.durationMonths" :class="$style.input" type="number" min="1" placeholder="เดือน" aria-label="Months">
                     <label :class="$style.activeLabel"><input v-model="addDraft.active" type="checkbox"> Active</label>
@@ -338,10 +339,10 @@ onMounted(load);
 .panel {
     box-sizing: border-box;
     overflow-x: auto;
-    border: 1px solid var(--color-main-divider);
+    border: 1px solid var(--shop-card-border, var(--color-main-divider));
     border-radius: var(--radius-xl);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
+    background-color: var(--shop-card-bg, var(--color-main-surface));
+    color: var(--shop-card-text, var(--color-text-secondary));
 }
 
 .table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -351,13 +352,13 @@ onMounted(load);
     text-align: left;
     font-weight: 600;
     color: var(--color-text-disabled);
-    border-bottom: 1px solid var(--color-main-divider);
+    border-bottom: 1px solid var(--shop-card-border, var(--color-main-divider));
     white-space: nowrap;
 }
 
 .td {
     padding: 8px 12px;
-    border-bottom: 1px solid var(--color-main-divider);
+    border-bottom: 1px solid var(--shop-card-border, var(--color-main-divider));
     white-space: nowrap;
 }
 
@@ -384,13 +385,14 @@ onMounted(load);
     padding: 14px 12px;
 }
 
-.select { width: auto; min-width: 180px; }
+.featureSelect { width: min(420px, 100%); }
+.kindSelect { width: min(220px, 100%); }
 
 .activeLabel {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    color: var(--color-text-secondary);
+    color: var(--shop-card-muted);
 }
 
 .input:focus-visible {

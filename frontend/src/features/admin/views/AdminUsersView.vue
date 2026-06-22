@@ -116,10 +116,10 @@ onMounted(load);
 .panel {
     box-sizing: border-box;
     overflow-x: auto;
-    border: 1px solid var(--color-main-divider);
+    border: 1px solid var(--shop-card-border, var(--color-main-divider));
     border-radius: var(--radius-xl);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
+    background-color: var(--shop-card-bg, var(--color-main-surface));
+    color: var(--shop-card-text, var(--color-text-secondary));
 }
 
 .table {
@@ -133,7 +133,7 @@ onMounted(load);
     text-align: left;
     font-weight: 600;
     color: var(--color-text-disabled);
-    border-bottom: 1px solid var(--color-main-divider);
+    border-bottom: 1px solid var(--shop-card-border, var(--color-main-divider));
     white-space: nowrap;
 }
 
@@ -142,7 +142,7 @@ onMounted(load);
     transition: background-color 140ms ease;
 }
 
-.row:hover { background-color: var(--color-table-row-hover); }
+.row:hover { background-color: var(--shop-row-hover); }
 .row:focus-visible {
     outline: 2px solid var(--color-main-primary);
     outline-offset: -2px;
@@ -150,7 +150,7 @@ onMounted(load);
 
 .td {
     padding: 12px 16px;
-    border-bottom: 1px solid var(--color-main-divider);
+    border-bottom: 1px solid var(--shop-card-border, var(--color-main-divider));
     white-space: nowrap;
 }
 
@@ -173,7 +173,7 @@ onMounted(load);
     display: inline-flex;
     align-items: center;
     padding: 2px 10px;
-    border: 1px solid var(--color-main-border);
+    border: 1px solid var(--shop-card-border);
     border-radius: var(--radius-full);
     font-size: 12px;
     font-weight: 600;

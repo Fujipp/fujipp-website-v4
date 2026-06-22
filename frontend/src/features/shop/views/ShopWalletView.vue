@@ -419,7 +419,7 @@ onUnmounted(() => {
                     <h1 :class="$style.pageTitle" class="type-h1-page-title-sb">Wallet</h1>
                     <div :class="$style.titleActions">
                         <PrimaryButton :to="{ name: 'shop-package' }">ไป Package</PrimaryButton>
-                        <SecondaryButton :to="{ name: 'shop-guide' }">ดูคู่มือ</SecondaryButton>
+                        <SecondaryButton :to="{ name: 'shop-runtime' }">ดู Runtime</SecondaryButton>
                     </div>
                 </div>
                 <div :class="$style.divider" aria-hidden="true" />

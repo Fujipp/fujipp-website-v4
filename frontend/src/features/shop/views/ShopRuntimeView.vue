@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { ShopSidebar } from "@/features/shop/components";
-import { StatusToast } from "@/shared/ui";
+import { SelectField, StatusToast, type SelectFieldOption } from "@/shared/ui";
 import { API_BASE_URL } from "@/config";
 import { useUserStore } from "@/stores";
 import type { RuntimePlan } from "@/features/shop/config/catalog";
@@ -60,6 +60,14 @@ const manageBotId = ref("");
 
 const botName = computed(() => new Map(bots.value.map((b) => [b.id, b.name])));
 const sortedPlans = computed(() => [...plans.value].sort((a, b) => a.durationMonths - b.durationMonths));
+const buyBotOptions = computed<SelectFieldOption[]>(() => [
+    { label: "— ซื้อไว้ก่อน ยังไม่ assign —", value: "" },
+    ...bots.value.map((bot) => ({ label: bot.name, value: bot.id })),
+]);
+const manageBotOptions = computed<SelectFieldOption[]>(() => [
+    { label: "— ไม่ assign —", value: "" },
+    ...bots.value.map((bot) => ({ label: bot.name, value: bot.id })),
+]);
 
 function clearToast(): void {
     if (toastTimeout) { clearTimeout(toastTimeout); toastTimeout = undefined; }
@@ -299,13 +307,7 @@ onUnmounted(clearToast);
                                 <span :class="$style.optionPrice">฿{{ formatMoney(plan.effectivePriceSatang) }}</span>
                             </label>
                         </fieldset>
-                        <label :class="$style.group">
-                            <span :class="$style.groupLabel">Assign ให้บอท (ไม่บังคับ)</span>
-                            <select v-model="buyBotId" :class="$style.select">
-                                <option value="">— ซื้อไว้ก่อน ยังไม่ assign —</option>
-                                <option v-for="b in bots" :key="b.id" :value="b.id">{{ b.name }}</option>
-                            </select>
-                        </label>
+                        <SelectField v-model="buyBotId" label="Assign ให้บอท (ไม่บังคับ)" :options="buyBotOptions" tone="dark" />
                         <div :class="$style.modalActions">
                             <button type="button" :class="$style.cancel" @click="buySlot = null">ยกเลิก</button>
                             <button type="button" :class="$style.confirm" :disabled="isBusy" @click="confirmBuy">{{ isBusy ? "กำลังซื้อ…" : "ซื้อ" }}</button>
@@ -322,13 +324,7 @@ onUnmounted(clearToast);
                     <section :class="$style.modal" role="dialog" aria-modal="true">
                         <h2 :class="$style.modalTitle">จัดการ Runtime — ช่อง #{{ manageSlot.slotIndex }}</h2>
                         <p :class="$style.stateText">{{ formatExpiry(manageSlot.expiresAt) }}</p>
-                        <label :class="$style.group">
-                            <span :class="$style.groupLabel">บอทที่ใช้ runtime นี้</span>
-                            <select v-model="manageBotId" :class="$style.select">
-                                <option value="">— ไม่ assign —</option>
-                                <option v-for="b in bots" :key="b.id" :value="b.id">{{ b.name }}</option>
-                            </select>
-                        </label>
+                        <SelectField v-model="manageBotId" label="บอทที่ใช้ runtime นี้" :options="manageBotOptions" tone="dark" />
                         <div :class="$style.modalActions">
                             <button type="button" :class="$style.cancel" @click="manageSlot = null">ปิด</button>
                             <button type="button" :class="$style.ghost" :disabled="isBusy" @click="confirmRenew">ต่ออายุ</button>
@@ -482,7 +478,7 @@ onUnmounted(clearToast);
     border: 1px solid var(--color-main-border);
     border-radius: var(--radius-xl);
     background-color: var(--color-main-surface);
-    color: var(--color-text-primary);
+    color: var(--color-text-secondary);
 }
 
 .modalTitle { margin: 0; font-size: 22px; font-weight: 700; }
@@ -497,11 +493,12 @@ onUnmounted(clearToast);
     padding: var(--spacing-space-3);
     border: 1px solid var(--color-main-border);
     border-radius: var(--radius-md);
+    color: var(--color-text-secondary);
     cursor: pointer;
 }
 
 .optionActive { border-color: var(--color-main-primary); background-color: color-mix(in srgb, var(--color-main-primary) 10%, transparent); }
-.optionPrice { margin-left: auto; font-weight: 700; }
+.optionPrice { margin-left: auto; color: var(--color-text-secondary); font-weight: 700; }
 .radio { accent-color: var(--color-main-primary); }
 
 .select {

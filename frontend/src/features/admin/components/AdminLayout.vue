@@ -54,11 +54,30 @@ function isActive(name: unknown): boolean {
 
 <style module>
 .shell {
+    --admin-page: var(--color-neutral-50);
+    --shop-card-bg: #ffffff;
+    --shop-card-inset: var(--color-neutral-100);
+    --shop-card-border: var(--color-input-border);
+    --shop-card-text: var(--color-neutral-800);
+    --shop-card-muted: var(--color-neutral-600);
+    --shop-row-hover: var(--color-neutral-100);
+
     min-height: 100dvh;
-    background-color: var(--color-main-background);
+    background-color: var(--admin-page);
     color: var(--color-text-primary);
     font-family: var(--font-sans);
     transition: background-color 300ms ease, color 300ms ease;
+}
+
+:global(.dark) .shell,
+:global([data-theme="dark"]) .shell {
+    --admin-page: var(--color-main-section-background);
+    --shop-card-bg: var(--color-main-background);
+    --shop-card-inset: #1f1f1f;
+    --shop-card-border: var(--color-main-divider);
+    --shop-card-text: var(--color-text-secondary);
+    --shop-card-muted: #9aa6b4;
+    --shop-row-hover: var(--color-table-row-hover);
 }
 
 .content {
@@ -87,7 +106,7 @@ function isActive(name: unknown): boolean {
     flex-wrap: wrap;
     gap: var(--spacing-space-4);
     padding-bottom: var(--spacing-space-4);
-    border-bottom: 1px solid var(--color-main-divider);
+    border-bottom: 1px solid var(--shop-card-border, var(--color-main-divider));
 }
 
 .titleGroup {
@@ -117,10 +136,10 @@ function isActive(name: unknown): boolean {
     flex-wrap: wrap;
     gap: var(--spacing-space-3);
     padding: var(--spacing-space-3);
-    border: 1px solid var(--color-main-border);
+    border: 1px solid var(--shop-card-border, var(--color-main-border));
     border-radius: var(--radius-2xl);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
+    background-color: var(--shop-card-bg, var(--color-main-surface));
+    color: var(--shop-card-muted, var(--color-neutral-600));
     transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease;
 }
 
@@ -132,7 +151,7 @@ function isActive(name: unknown): boolean {
     padding: 0 var(--spacing-space-4);
     border: 1px solid transparent;
     border-radius: var(--radius-xl);
-    color: var(--color-text-secondary);
+    color: var(--shop-card-muted, var(--color-text-secondary));
     font-size: 15px;
     font-weight: 600;
     line-height: 1;
@@ -141,12 +160,13 @@ function isActive(name: unknown): boolean {
 }
 
 .adminTab:hover {
-    background-color: var(--color-button-secondary-btn-hover);
+    background-color: var(--shop-row-hover, var(--color-neutral-100));
 }
 
 .adminTabActive {
     border-color: var(--color-main-primary);
-    background-color: color-mix(in srgb, var(--color-main-primary) 30%, var(--color-button-secondary-btn-active));
+    background-color: var(--color-main-primary);
+    color: var(--color-button-primary-btn-text-active);
 }
 
 .adminTab:focus-visible {
@@ -197,8 +217,8 @@ function isActive(name: unknown): boolean {
     padding: 0 10px;
     border: 1px solid var(--color-input-border);
     border-radius: var(--radius-md);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-primary);
+    background-color: var(--color-input-bg);
+    color: var(--color-text-input);
     font-family: var(--font-sans);
     font-size: 14px;
     transition: background-color 200ms ease, border-color 200ms ease, color 200ms ease;
@@ -222,7 +242,7 @@ function isActive(name: unknown): boolean {
 }
 
 :where(.fp-admin) :where(input::placeholder, textarea::placeholder) {
-    color: var(--color-text-secondary);
+    color: var(--color-input-placeholder);
 }
 
 :where(.fp-admin) :where(input[type="checkbox"], input[type="radio"]) {
@@ -232,5 +252,60 @@ function isActive(name: unknown): boolean {
     padding: 0;
     accent-color: var(--color-main-primary);
     cursor: pointer;
+}
+
+.fp-admin table {
+    width: 100%;
+    border-collapse: collapse;
+    color: var(--shop-card-text, var(--color-text-secondary));
+    font-size: 14px;
+}
+
+.fp-admin th {
+    padding: var(--spacing-space-3) var(--spacing-space-4);
+    border-bottom: 1px solid var(--shop-card-border, var(--color-main-divider));
+    background-color: var(--shop-card-inset, var(--color-main-background));
+    color: var(--shop-card-text, var(--color-text-primary));
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0;
+    line-height: 1.2;
+    text-align: left;
+    text-transform: none;
+    white-space: nowrap;
+}
+
+.fp-admin td {
+    padding: var(--spacing-space-3) var(--spacing-space-4);
+    border-bottom: 1px solid var(--shop-card-border, var(--color-main-divider));
+    color: var(--shop-card-muted, var(--color-text-secondary));
+    line-height: 1.35;
+    white-space: nowrap;
+}
+
+.fp-admin tbody tr {
+    transition: background-color 160ms ease;
+}
+
+.fp-admin tbody tr:hover {
+    background-color: var(--shop-row-hover, var(--color-table-row-hover));
+}
+
+.fp-admin table input:not([type="checkbox"]):not([type="radio"]),
+.fp-admin table select {
+    min-height: 40px;
+    border-radius: var(--radius-lg);
+    background-color: var(--color-input-bg);
+    color: var(--color-text-input);
+}
+
+.fp-admin button {
+    font-family: var(--font-sans);
+}
+
+.fp-admin button:focus-visible,
+.fp-admin a:focus-visible {
+    outline: 2px solid var(--color-main-primary);
+    outline-offset: 2px;
 }
 </style>

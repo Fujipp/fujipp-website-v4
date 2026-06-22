@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
 import { AdminLayout } from "@/features/admin/components";
-import { StatusToast } from "@/shared/ui";
+import { SelectField, StatusToast, type SelectFieldOption } from "@/shared/ui";
 import { useAdminStore } from "@/features/admin/stores";
 import type { AdminBot, AdminSeat, AdminUnseatedRuntime, AdminVpsNode } from "@/features/admin/config";
 
@@ -40,6 +40,18 @@ const seatsByNode = computed(() => {
     return map;
 });
 const freeSeats = computed(() => seats.value.filter((s) => s.occupancy === "FREE"));
+const nodeStatusOptions: SelectFieldOption[] = [
+    { label: "ACTIVE", value: "ACTIVE" },
+    { label: "DRAINING", value: "DRAINING" },
+    { label: "OFFLINE", value: "OFFLINE" },
+];
+const freeSeatOptions = computed<SelectFieldOption[]>(() => [
+    { label: "— เลือกช่อง —", value: "" },
+    ...freeSeats.value.map((seat) => ({
+        label: `${seat.nodeName} · ช่อง #${seat.slotIndex}`,
+        value: seat.slotId,
+    })),
+]);
 
 function clearToast(): void {
     if (toastTimeout) { clearTimeout(toastTimeout); toastTimeout = undefined; }
@@ -194,14 +206,9 @@ onMounted(load);
                     <span :class="$style.fieldLabel">Reserved</span>
                     <input v-model.number="drafts[node.id]!.reservedSlots" type="number" min="0" :class="$style.input">
                 </label>
-                <label :class="$style.field">
-                    <span :class="$style.fieldLabel">Status</span>
-                    <select v-model="drafts[node.id]!.status" :class="$style.select">
-                        <option value="ACTIVE">ACTIVE</option>
-                        <option value="DRAINING">DRAINING</option>
-                        <option value="OFFLINE">OFFLINE</option>
-                    </select>
-                </label>
+                <div :class="$style.field">
+                    <SelectField v-model="drafts[node.id]!.status" :class="$style.statusSelect" label="Status" :options="nodeStatusOptions" />
+                </div>
                 <button
                     type="button"
                     :class="$style.save"
@@ -297,15 +304,7 @@ onMounted(load);
                 <div v-if="moveRuntimeId" :class="$style.backdrop" @click.self="moveRuntimeId = ''">
                     <section :class="$style.modal" role="dialog" aria-modal="true">
                         <h2 :class="$style.modalTitle">{{ moveTitle }}</h2>
-                        <label :class="$style.field">
-                            <span :class="$style.fieldLabel">ช่องปลายทาง (ว่าง)</span>
-                            <select v-model="moveTarget" :class="$style.select">
-                                <option value="">— เลือกช่อง —</option>
-                                <option v-for="s in freeSeats" :key="s.slotId" :value="s.slotId">
-                                    {{ s.nodeName }} · ช่อง #{{ s.slotIndex }}
-                                </option>
-                            </select>
-                        </label>
+                        <SelectField v-model="moveTarget" label="ช่องปลายทาง (ว่าง)" :options="freeSeatOptions" />
                         <div :class="$style.modalActions">
                             <button type="button" :class="$style.smallBtn" @click="moveRuntimeId = ''">ยกเลิก</button>
                             <button type="button" :class="$style.save" :disabled="!moveTarget || busyKey === 'move'" @click="confirmMove">
@@ -348,9 +347,9 @@ onMounted(load);
 .refresh {
     min-height: 38px;
     padding: 0 var(--spacing-space-4);
-    border: 1px solid var(--color-main-border);
+    border: 1px solid var(--shop-card-border);
     border-radius: var(--radius-full);
-    background: var(--color-main-surface);
+    background: var(--shop-card-bg, var(--color-main-surface));
     font-weight: 600;
     cursor: pointer;
     transition: background-color 160ms ease, border-color 160ms ease;
@@ -363,18 +362,18 @@ onMounted(load);
     flex-direction: column;
     gap: var(--spacing-space-4);
     padding: var(--spacing-space-5);
-    border: 1px solid var(--color-main-border);
+    border: 1px solid var(--shop-card-border, var(--color-main-border));
     border-radius: var(--radius-2xl);
-    background: var(--color-main-surface);
-    color: var(--color-text-primary);
+    background: var(--shop-card-bg, var(--color-main-surface));
+    color: var(--shop-card-text, var(--color-text-primary));
 }
 
 .cardHead { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: var(--spacing-space-3); }
 .nodeName { margin: 0; font-size: 22px; font-weight: 700; }
-.nodeMeta { color: var(--color-text-secondary); font-size: 13px; }
+.nodeMeta { color: var(--shop-card-muted, var(--color-text-secondary)); font-size: 13px; }
 
 .counts { display: flex; flex-wrap: wrap; gap: var(--spacing-space-3); }
-.count { color: var(--color-text-secondary); font-size: 14px; }
+.count { color: var(--shop-card-muted, var(--color-text-secondary)); font-size: 14px; }
 .count strong { color: var(--color-main-primary); font-size: 18px; }
 
 .editRow {
@@ -383,13 +382,13 @@ onMounted(load);
     flex-wrap: wrap;
     gap: var(--spacing-space-3);
     padding: var(--spacing-space-4);
-    border: 1px solid var(--color-main-divider);
+    border: 1px solid var(--shop-card-border, var(--color-main-divider));
     border-radius: var(--radius-xl);
-    background: var(--color-main-background);
+    background: var(--shop-card-inset);
 }
 
 .field { display: flex; flex-direction: column; gap: var(--spacing-space-1); }
-.fieldLabel { color: var(--color-text-secondary); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.fieldLabel { color: var(--shop-card-muted, var(--color-text-secondary)); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0; }
 
 .input,
 .select {
@@ -397,12 +396,13 @@ onMounted(load);
     padding: 0 var(--spacing-space-3);
     border: 1px solid var(--color-input-border);
     border-radius: var(--radius-md);
-    background: var(--color-main-surface);
+    background: var(--color-input-bg);
     color: var(--color-text-primary);
     font-size: 15px;
 }
 
 .input { width: 110px; }
+.statusSelect { width: 180px; }
 .input:focus-visible,
 .select:focus-visible { outline: 2px solid var(--color-main-primary); outline-offset: 1px; }
 
@@ -425,10 +425,10 @@ onMounted(load);
 .table th, .table td {
     padding: var(--spacing-space-3);
     text-align: left;
-    border-bottom: 1px solid var(--color-main-divider);
+    border-bottom: 1px solid var(--shop-card-border, var(--color-main-divider));
 }
-.table th { color: var(--color-text-secondary); font-size: 13px; text-transform: uppercase; letter-spacing: 0.03em; }
-.table tbody tr:hover { background: var(--color-table-row-hover); }
+.table th { color: var(--shop-card-text, var(--color-text-secondary)); font-size: 13px; text-transform: none; letter-spacing: 0; }
+.table tbody tr:hover { background: var(--shop-row-hover); }
 
 .badge {
     display: inline-flex;
@@ -440,14 +440,14 @@ onMounted(load);
 }
 .badgeFREE { background: color-mix(in srgb, var(--color-status-success) 18%, transparent); color: var(--color-status-success); }
 .badgeOCCUPIED { background: color-mix(in srgb, var(--color-main-primary) 18%, transparent); color: var(--color-main-primary); }
-.badgeRESERVED { background: color-mix(in srgb, var(--color-text-secondary) 18%, transparent); color: var(--color-text-secondary); }
+.badgeRESERVED { background: color-mix(in srgb, var(--shop-card-muted) 18%, transparent); color: var(--shop-card-muted); }
 .badgeMAINTENANCE { background: color-mix(in srgb, var(--color-status-warning) 20%, transparent); color: var(--color-status-warning); }
 
 .actionsCell { display: flex; gap: var(--spacing-space-2); }
 .smallBtn {
     min-height: 32px;
     padding: 0 var(--spacing-space-3);
-    border: 1px solid var(--color-main-border);
+    border: 1px solid var(--shop-card-border);
     border-radius: var(--radius-full);
     background: transparent;
     color: var(--color-text-primary);
@@ -459,7 +459,7 @@ onMounted(load);
 .smallBtn:hover:not(:disabled) { border-color: var(--color-main-primary); background: color-mix(in srgb, var(--color-main-primary) 10%, transparent); }
 .smallBtn:disabled { opacity: 0.55; cursor: not-allowed; }
 
-.empty { color: var(--color-text-secondary); }
+.empty { color: var(--shop-card-muted, var(--color-text-secondary)); }
 
 .toastRegion {
     position: fixed;
@@ -473,17 +473,17 @@ onMounted(load);
     position: fixed; inset: 0; z-index: 70;
     display: flex; align-items: center; justify-content: center;
     padding: var(--spacing-space-5);
-    background: color-mix(in srgb, #000 55%, transparent);
+    background: color-mix(in srgb, var(--color-text-primary) 55%, transparent);
     backdrop-filter: blur(4px);
 }
 .modal {
     display: flex; flex-direction: column; gap: var(--spacing-space-4);
     width: min(440px, 100%);
     padding: var(--spacing-space-6);
-    border: 1px solid var(--color-main-border);
+    border: 1px solid var(--shop-card-border, var(--color-main-border));
     border-radius: var(--radius-xl);
-    background: var(--color-main-surface);
-    color: var(--color-text-primary);
+    background: var(--shop-card-bg, var(--color-main-surface));
+    color: var(--shop-card-text, var(--color-text-primary));
 }
 .modalTitle { margin: 0; font-size: 20px; font-weight: 700; }
 .modalActions { display: flex; justify-content: flex-end; gap: var(--spacing-space-3); }

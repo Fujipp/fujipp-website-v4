@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useAdminStore } from "@/features/admin/stores";
 import {
     bahtToSatang,
@@ -11,7 +11,7 @@ import {
     type UpdateFeatureSubscriptionPayload,
     type UpdateRuntimeSubscriptionPayload,
 } from "@/features/admin/config";
-import { StatusToast } from "@/shared/ui";
+import { SelectField, StatusToast, type SelectFieldOption } from "@/shared/ui";
 
 interface Props {
     userId: string;
@@ -43,6 +43,11 @@ function isRecurring(billingType: string): boolean {
 // the renewal term (months added per renewal). The admin picks one plan; we set the
 // subscription's runtimePlanId (label) and renewPlanId (renewal) to it together.
 const runtimePlans = ref<AdminRuntimePlan[]>([]);
+const runtimePlanOptions = computed<SelectFieldOption[]>(() => [
+    { label: "—", value: "" },
+    ...runtimePlans.value.map((plan) => ({ label: planLabel(plan), value: plan.id })),
+]);
+const statusOptions: SelectFieldOption[] = SUBSCRIPTION_STATUSES.map((status) => ({ label: status, value: status }));
 
 function planLabel(plan: AdminRuntimePlan): string {
     const baht = satangToBaht(plan.priceSatang) ?? 0;
@@ -183,16 +188,11 @@ onMounted(load);
                             <td :class="$style.td">{{ row.sub.externalSubjectId }}</td>
                             <td :class="$style.td"><input v-model="row.draft.periodEnd" :class="$style.input" type="date"></td>
                             <td :class="$style.td">
-                                <select v-model="row.draft.planId" :class="[$style.input, $style.planSelect]" aria-label="Plan">
-                                    <option value="">—</option>
-                                    <option v-for="plan in runtimePlans" :key="plan.id" :value="plan.id">{{ planLabel(plan) }}</option>
-                                </select>
+                                <SelectField v-model="row.draft.planId" :class="$style.planSelect" hide-label label="Plan" :options="runtimePlanOptions" />
                             </td>
                             <td :class="$style.td"><input v-model.number="row.draft.renewBaht" :class="$style.input" type="number" min="0" step="0.01" placeholder="—"></td>
                             <td :class="$style.td">
-                                <select v-model="row.draft.status" :class="$style.input">
-                                    <option v-for="s in SUBSCRIPTION_STATUSES" :key="s" :value="s">{{ s }}</option>
-                                </select>
+                                <SelectField v-model="row.draft.status" :class="$style.statusSelect" hide-label label="Status" :options="statusOptions" />
                             </td>
                             <td :class="[$style.td, $style.center]"><input v-model="row.draft.autoRenew" type="checkbox"></td>
                             <td :class="$style.td">
@@ -233,9 +233,7 @@ onMounted(load);
                                 <span v-else :class="$style.muted">—</span>
                             </td>
                             <td :class="$style.td">
-                                <select v-model="row.draft.status" :class="$style.input">
-                                    <option v-for="s in SUBSCRIPTION_STATUSES" :key="s" :value="s">{{ s }}</option>
-                                </select>
+                                <SelectField v-model="row.draft.status" :class="$style.statusSelect" hide-label label="Status" :options="statusOptions" />
                             </td>
                             <td :class="[$style.td, $style.center]">
                                 <input v-if="isRecurring(row.sub.billingType)" v-model="row.draft.autoRenew" type="checkbox">
@@ -265,10 +263,10 @@ onMounted(load);
 .panel {
     box-sizing: border-box;
     overflow-x: auto;
-    border: 1px solid var(--color-main-divider);
+    border: 1px solid var(--shop-card-border, var(--color-main-divider));
     border-radius: var(--radius-xl);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
+    background-color: var(--shop-card-bg, var(--color-main-surface));
+    color: var(--shop-card-text, var(--color-text-secondary));
 }
 
 .table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -278,13 +276,13 @@ onMounted(load);
     text-align: left;
     font-weight: 600;
     color: var(--color-text-disabled);
-    border-bottom: 1px solid var(--color-main-divider);
+    border-bottom: 1px solid var(--shop-card-border, var(--color-main-divider));
     white-space: nowrap;
 }
 
 .td {
     padding: 8px 12px;
-    border-bottom: 1px solid var(--color-main-divider);
+    border-bottom: 1px solid var(--shop-card-border, var(--color-main-divider));
     white-space: nowrap;
 }
 
@@ -305,7 +303,8 @@ onMounted(load);
 
 .muted { color: var(--color-text-disabled); }
 
-.planSelect { width: 220px; }
+.planSelect { width: 300px; }
+.statusSelect { width: 160px; }
 
 .saveBtn {
     padding: 6px 14px;

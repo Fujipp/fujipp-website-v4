@@ -198,10 +198,10 @@ onMounted(load);
 .panel {
     box-sizing: border-box;
     overflow-x: auto;
-    border: 1px solid var(--color-main-divider);
+    border: 1px solid var(--shop-card-border, var(--color-main-divider));
     border-radius: var(--radius-xl);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
+    background-color: var(--shop-card-bg, var(--color-main-surface));
+    color: var(--shop-card-text, var(--color-text-secondary));
 }
 
 .table { width: 100%; border-collapse: collapse; font-size: 14px; }
@@ -211,13 +211,13 @@ onMounted(load);
     text-align: left;
     font-weight: 600;
     color: var(--color-text-disabled);
-    border-bottom: 1px solid var(--color-main-divider);
+    border-bottom: 1px solid var(--shop-card-border, var(--color-main-divider));
     white-space: nowrap;
 }
 
 .td {
     padding: 12px 16px;
-    border-bottom: 1px solid var(--color-main-divider);
+    border-bottom: 1px solid var(--shop-card-border, var(--color-main-divider));
     white-space: nowrap;
 }
 
@@ -225,16 +225,25 @@ onMounted(load);
 
 .ghostBtn {
     padding: 6px 14px;
-    border: 1px solid var(--color-main-border);
+    border: 1px solid var(--shop-card-border, var(--color-input-border));
     border-radius: var(--radius-md);
-    background: transparent;
-    color: var(--color-text-secondary);
+    background: var(--color-input-bg);
+    color: var(--shop-card-text, var(--color-text-primary));
     font: inherit;
     cursor: pointer;
-    transition: background-color 140ms ease;
+    transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
 }
-.ghostBtn:hover { background-color: var(--color-table-row-hover); }
-.ghostBtn:disabled { cursor: not-allowed; opacity: 0.5; }
+.ghostBtn:hover:not(:disabled) {
+    border-color: var(--color-main-primary);
+    background-color: var(--shop-row-hover, var(--color-neutral-100));
+}
+.ghostBtn:disabled {
+    border-color: var(--color-input-border-disabled);
+    background-color: var(--color-input-bg-disabled);
+    color: var(--color-text-disabled);
+    cursor: not-allowed;
+    opacity: 1;
+}
 
 .primaryBtn {
     padding: 6px 16px;
@@ -270,10 +279,10 @@ onMounted(load);
     flex-direction: column;
     gap: 10px;
     padding: 22px;
-    border: 1px solid var(--color-main-divider);
+    border: 1px solid var(--shop-card-border, var(--color-main-divider));
     border-radius: var(--radius-xl);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
+    background-color: var(--shop-card-bg, var(--color-main-surface));
+    color: var(--shop-card-text, var(--color-text-secondary));
 }
 
 .dialogTitle { margin: 0; font-size: 17px; font-weight: 600; }
@@ -308,16 +317,16 @@ onMounted(load);
     text-align: left;
     box-sizing: border-box;
     padding: 8px 12px;
-    border: 1px solid var(--color-main-divider);
+    border: 1px solid var(--shop-card-border, var(--color-main-divider));
     border-radius: var(--radius-md);
     background: transparent;
-    color: var(--color-text-secondary);
+    color: var(--shop-card-muted);
     font: inherit;
     cursor: pointer;
     transition: border-color 140ms ease, background-color 140ms ease;
 }
 .result:hover { border-color: var(--color-main-primary); }
-.resultSelected { border-color: var(--color-main-primary); background-color: var(--color-table-row-hover); }
+.resultSelected { border-color: var(--color-main-primary); background-color: var(--shop-row-hover); }
 .resultName { font-size: 14px; font-weight: 500; }
 .resultId { font-size: 12px; color: var(--color-text-disabled); }
 .resultEmpty { margin: 6px 0; font-size: 13px; color: var(--color-text-disabled); }

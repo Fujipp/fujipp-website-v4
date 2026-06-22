@@ -25,7 +25,6 @@ const ShopDashboardView = () => import('@/features/shop/views/ShopDashboardView.
 const ShopWalletView = () => import('@/features/shop/views/ShopWalletView.vue')
 const ShopPackageView = () => import('@/features/shop/views/ShopPackageView.vue')
 const ShopRuntimeView = () => import('@/features/shop/views/ShopRuntimeView.vue')
-const ShopGuideView = () => import('@/features/shop/views/ShopGuideView.vue')
 const BotConfigView = () => import('@/features/shop/views/BotConfigView.vue')
 const EmbedDesignerView = () => import('@/features/shop/views/EmbedDesignerView.vue')
 const AuthView = () => import('@/features/auth/views/AuthView.vue')
@@ -77,7 +76,7 @@ const router = createRouter({
     { path: '/shop/wallet', name: 'shop-wallet', component: ShopWalletView, meta: { requiresAuth: true } },
     { path: '/shop/package', name: 'shop-package', component: ShopPackageView, meta: { requiresAuth: true } },
     { path: '/shop/runtime', name: 'shop-runtime', component: ShopRuntimeView, meta: { requiresAuth: true } },
-    { path: '/shop/guide', name: 'shop-guide', component: ShopGuideView },
+    { path: '/shop/guide', redirect: { name: 'shop-dashboard' } },
     { path: '/shop/bots/:botId/config', name: 'shop-bot-config', component: BotConfigView, meta: { requiresAuth: true } },
     { path: '/shop/bots/:botId/embeds', name: 'shop-bot-embeds', component: EmbedDesignerView, meta: { requiresAuth: true } },
 

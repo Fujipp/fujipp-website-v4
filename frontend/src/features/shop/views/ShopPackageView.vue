@@ -175,7 +175,7 @@ onUnmounted(clearToast);
                             <span :class="$style.balanceLabel">บาท</span>
                         </div>
                         <PrimaryButton :to="{ name: 'shop-wallet' }">เติม Wallet</PrimaryButton>
-                        <SecondaryButton :to="{ name: 'shop-guide' }">ดูคู่มือ</SecondaryButton>
+                        <SecondaryButton :to="{ name: 'shop-runtime' }">ดู Runtime</SecondaryButton>
                     </div>
                 </div>
                 <div :class="$style.divider" aria-hidden="true" />
@@ -223,11 +223,11 @@ onUnmounted(clearToast);
                     </section>
                 </section>
 
-                <section :class="$style.statePanel">
+                <!-- <section :class="$style.statePanel">
                     <h3 :class="$style.stateTitle">มองหา Runtime อยู่?</h3>
                     <p :class="$style.stateText">Runtime ย้ายไปซื้อจาก "ตู้ Server" ในหน้า Runtime แล้ว — เลือกช่องว่างในตู้ VPS ได้เลย</p>
                     <RouterLink :to="{ name: 'shop-runtime' }" :class="$style.runtimeLink">ไปหน้า Runtime →</RouterLink>
-                </section>
+                </section> -->
             </template>
 
             <div v-if="toast" :class="$style.toastRegion" aria-live="polite">

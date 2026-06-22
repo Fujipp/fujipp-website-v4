@@ -7,7 +7,7 @@ import {
     type AdminWallet,
     type AdminWalletTransaction,
 } from "@/features/admin/config";
-import { StatusToast } from "@/shared/ui";
+import { SelectField, StatusToast, type SelectFieldOption } from "@/shared/ui";
 import { TableNextBackButton } from "@/shared/ui/buttons";
 
 interface Props {
@@ -23,6 +23,10 @@ const isLoading = ref(false);
 const loadError = ref("");
 
 const direction = ref<"CREDIT" | "DEBIT">("CREDIT");
+const directionOptions: SelectFieldOption[] = [
+    { label: "Add (+)", value: "CREDIT" },
+    { label: "Subtract (-)", value: "DEBIT" },
+];
 const amountBaht = ref<number | null>(null);
 const note = ref("");
 const isSubmitting = ref(false);
@@ -128,10 +132,7 @@ onMounted(load);
         </div>
 
         <form :class="$style.adjustForm" @submit.prevent="submit">
-            <select v-model="direction" :class="$style.input" aria-label="Direction">
-                <option value="CREDIT">Add (+)</option>
-                <option value="DEBIT">Subtract (−)</option>
-            </select>
+            <SelectField v-model="direction" :class="$style.directionSelect" hide-label label="Direction" :options="directionOptions" />
             <input v-model.number="amountBaht" :class="$style.input" type="number" min="0" step="0.01" placeholder="Amount ฿" aria-label="Amount in baht">
             <input v-model="note" :class="[$style.input, $style.note]" type="text" placeholder="Note (reason)" aria-label="Note">
             <button type="submit" :class="$style.applyBtn" :disabled="!canSubmit">
@@ -202,10 +203,10 @@ onMounted(load);
     width: fit-content;
     min-width: 200px;
     padding: 16px 20px;
-    border: 1px solid var(--color-main-divider);
+    border: 1px solid var(--shop-card-border, var(--color-main-divider));
     border-radius: var(--radius-xl);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
+    background-color: var(--shop-card-bg, var(--color-main-surface));
+    color: var(--shop-card-text, var(--color-text-secondary));
 }
 
 .balanceLabel { font-size: 13px; color: var(--color-text-disabled); }
@@ -229,6 +230,7 @@ onMounted(load);
 }
 
 .note { flex: 1; min-width: 180px; }
+.directionSelect { width: 180px; }
 .input:focus-visible { outline: none; border-color: var(--color-input-border-focus); }
 
 .applyBtn {
@@ -249,10 +251,10 @@ onMounted(load);
 .panel {
     box-sizing: border-box;
     overflow-x: auto;
-    border: 1px solid var(--color-main-divider);
+    border: 1px solid var(--shop-card-border, var(--color-main-divider));
     border-radius: var(--radius-xl);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
+    background-color: var(--shop-card-bg, var(--color-main-surface));
+    color: var(--shop-card-text, var(--color-text-secondary));
 }
 
 .table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -262,13 +264,13 @@ onMounted(load);
     text-align: left;
     font-weight: 600;
     color: var(--color-text-disabled);
-    border-bottom: 1px solid var(--color-main-divider);
+    border-bottom: 1px solid var(--shop-card-border, var(--color-main-divider));
     white-space: nowrap;
 }
 
 .td {
     padding: 8px 12px;
-    border-bottom: 1px solid var(--color-main-divider);
+    border-bottom: 1px solid var(--shop-card-border, var(--color-main-divider));
     white-space: nowrap;
 }
 

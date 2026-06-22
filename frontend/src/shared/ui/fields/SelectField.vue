@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 
 export interface SelectFieldOption {
     label: string;
@@ -9,6 +9,7 @@ export interface SelectFieldOption {
 interface Props {
     disabled?: boolean;
     error?: string;
+    hideLabel?: boolean;
     label: string;
     modelValue?: string;
     name?: string;
@@ -24,6 +25,8 @@ const emit = defineEmits<{
 
 const isOpen = ref(false);
 const dropdown = ref<HTMLElement | null>(null);
+const menu = ref<HTMLElement | null>(null);
+const menuStyle = ref<Record<string, string>>({});
 const selectedLabel = computed(() => (
     props.options.find((option) => option.value === props.modelValue)?.label ?? props.placeholder
 ));
@@ -31,6 +34,7 @@ const selectedLabel = computed(() => (
 const props = withDefaults(defineProps<Props>(), {
     disabled: false,
     error: "",
+    hideLabel: false,
     modelValue: "",
     name: undefined,
     placeholder: "Placeholder",
@@ -43,6 +47,25 @@ function toggleDropdown(): void {
     }
 }
 
+function updateMenuPosition(): void {
+    const rect = dropdown.value?.getBoundingClientRect();
+    if (!rect) return;
+    const viewportGap = 12;
+    const width = Math.max(rect.width, 180);
+    const below = window.innerHeight - rect.bottom - viewportGap;
+    const above = rect.top - viewportGap;
+    const openUp = below < 180 && above > below;
+    const maxHeight = Math.max(140, Math.min(240, openUp ? above - 8 : below - 8));
+
+    menuStyle.value = {
+        left: `${Math.min(rect.left, window.innerWidth - width - viewportGap)}px`,
+        top: openUp ? "auto" : `${rect.bottom + 8}px`,
+        bottom: openUp ? `${window.innerHeight - rect.top + 8}px` : "auto",
+        width: `${width}px`,
+        maxHeight: `${maxHeight}px`,
+    };
+}
+
 function selectOption(value: string): void {
     emit("update:modelValue", value);
     emit("select", value);
@@ -50,7 +73,8 @@ function selectOption(value: string): void {
 }
 
 function closeOnOutsideClick(event: MouseEvent): void {
-    if (!dropdown.value?.contains(event.target as Node)) {
+    const target = event.target as Node;
+    if (!dropdown.value?.contains(target) && !menu.value?.contains(target)) {
         isOpen.value = false;
     }
 }
@@ -64,17 +88,27 @@ function closeOnEscape(event: KeyboardEvent): void {
 onMounted(() => {
     document.addEventListener("click", closeOnOutsideClick);
     document.addEventListener("keydown", closeOnEscape);
+    window.addEventListener("resize", updateMenuPosition);
+    window.addEventListener("scroll", updateMenuPosition, true);
 });
 
 onUnmounted(() => {
     document.removeEventListener("click", closeOnOutsideClick);
     document.removeEventListener("keydown", closeOnEscape);
+    window.removeEventListener("resize", updateMenuPosition);
+    window.removeEventListener("scroll", updateMenuPosition, true);
+});
+
+watch(isOpen, async (open) => {
+    if (!open) return;
+    await nextTick();
+    updateMenuPosition();
 });
 </script>
 
 <template>
     <div ref="dropdown" :class="[$style.dropdown, tone === 'dark' ? $style.dark : '']">
-        <span :class="$style.title" class="type-overline-r">{{ label }}</span>
+        <span :class="[$style.title, hideLabel ? $style.srOnly : '']" class="type-overline-r">{{ label }}</span>
         <input v-if="name" type="hidden" :name="name" :value="modelValue">
         <button
             type="button"
@@ -97,50 +131,93 @@ onUnmounted(() => {
                 aria-hidden="true"
             >
         </button>
-        <div v-if="isOpen" :class="$style.menu" role="listbox">
-            <button
-                v-for="option in options"
-                :key="option.value"
-                type="button"
-                :class="[$style.option, option.value === modelValue ? $style.selectedOption : '']"
-                class="type-body-small-r"
-                role="option"
-                :aria-selected="option.value === modelValue"
-                @click="selectOption(option.value)"
+        <Teleport to="body">
+            <div
+                v-if="isOpen"
+                ref="menu"
+                :class="[$style.menu, tone === 'dark' ? $style.darkMenu : '']"
+                :style="menuStyle"
+                role="listbox"
             >
-                {{ option.label }}
-            </button>
-            <span v-if="options.length === 0" :class="$style.emptyOption" class="type-overline-r">
-                No options
-            </span>
-        </div>
+                <button
+                    v-for="option in options"
+                    :key="option.value"
+                    type="button"
+                    :class="[$style.option, option.value === modelValue ? $style.selectedOption : '']"
+                    class="type-body-small-r"
+                    role="option"
+                    :aria-selected="option.value === modelValue"
+                    @click="selectOption(option.value)"
+                >
+                    {{ option.label }}
+                </button>
+                <span v-if="options.length === 0" :class="$style.emptyOption" class="type-overline-r">
+                    No options
+                </span>
+            </div>
+        </Teleport>
         <span v-if="error" :class="$style.supportText" class="type-overline-r">{{ error }}</span>
     </div>
 </template>
 
 <style module>
 .dropdown {
+    --select-panel: var(--color-input-bg);
+    --select-inset: var(--color-neutral-100);
+    --select-border: var(--color-input-border);
+    --select-text: var(--color-text-input);
+    --select-muted: var(--color-neutral-600);
+    --select-accent: var(--color-main-primary);
+
     position: relative;
     display: flex;
     flex-direction: column;
     width: 100%;
     gap: 8px;
-    /* Label sits on the dark main-surface; text-secondary stays legible in both themes. */
-    color: var(--color-text-secondary);
+    color: var(--select-muted);
+}
+
+:global(.dark) .dropdown,
+:global([data-theme="dark"]) .dropdown {
+    --select-panel: var(--color-main-surface);
+    --select-inset: #1f1f1f;
+    --select-border: var(--color-main-divider);
+    --select-text: var(--color-text-secondary);
+    --select-muted: #9aa6b4;
+
+    color: var(--select-muted);
 }
 
 .title {
     font-family: var(--font-sans);
 }
 
+.srOnly {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
 .dark {
-    color: var(--color-text-secondary);
+    --select-panel: var(--color-main-surface);
+    --select-inset: #1f1f1f;
+    --select-border: var(--color-main-divider);
+    --select-text: var(--color-text-secondary);
+    --select-muted: #9aa6b4;
+
+    color: var(--select-muted);
 }
 
 .dark .field {
-    border-color: var(--color-main-border);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
+    border-color: var(--select-border);
+    background-color: var(--select-panel);
+    color: var(--select-text);
 }
 
 .dark .field:hover:not(:disabled) {
@@ -155,16 +232,16 @@ onUnmounted(() => {
     width: 100%;
     height: 48px;
     padding: 0 16px;
-    border: 1px solid var(--color-input-border);
+    border: 1px solid var(--select-border);
     border-radius: var(--radius-xl);
-    background-color: var(--color-input-bg);
-    color: var(--color-text-input);
+    background-color: var(--select-panel);
+    color: var(--select-text);
     cursor: pointer;
     transition: border-color 160ms ease, background-color 160ms ease;
 }
 
 .field:hover:not(:disabled) {
-    border-color: var(--color-input-border-hover);
+    border-color: color-mix(in srgb, var(--select-accent) 45%, var(--select-border));
 }
 
 .field:focus-visible,
@@ -204,22 +281,23 @@ onUnmounted(() => {
 }
 
 .menu {
-    position: absolute;
-    top: calc(100% + 8px);
-    left: 0;
-    z-index: 5;
+    position: fixed;
+    z-index: 1100;
+    --select-panel: var(--color-input-bg);
+    --select-inset: var(--color-neutral-100);
+    --select-border: var(--color-input-border);
+    --select-text: var(--color-text-input);
+    --select-accent: var(--color-main-primary);
+
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
-    width: 100%;
-    max-height: 240px;
     padding: 6px;
     gap: 2px;
     overflow-y: auto;
-    border: 1px solid var(--color-main-border);
+    border: 1px solid var(--select-border);
     border-radius: var(--radius-xl);
-    background-color: var(--color-main-surface);
-    box-shadow: 0 16px 40px color-mix(in srgb, var(--color-text-input) 22%, transparent);
+    background-color: var(--select-panel);
     scrollbar-width: none;
 }
 
@@ -227,12 +305,22 @@ onUnmounted(() => {
     display: none;
 }
 
+.menu.darkMenu {
+    --select-panel: var(--color-main-surface);
+    --select-inset: #1f1f1f;
+    --select-border: var(--color-main-divider);
+    --select-text: var(--color-text-secondary);
+
+    border-color: var(--select-border);
+    background-color: var(--select-panel);
+}
+
 .option {
     padding: 8px 10px;
     border: 0;
     border-radius: var(--radius-lg);
     background-color: transparent;
-    color: var(--color-text-secondary);
+    color: var(--select-text);
     text-align: left;
     cursor: pointer;
     transition: background-color 160ms ease;
@@ -242,7 +330,17 @@ onUnmounted(() => {
 .option:focus-visible,
 .selectedOption {
     outline: 0;
-    background-color: var(--color-table-row-hover);
+    background-color: var(--select-inset);
+}
+
+.darkMenu .option {
+    color: var(--select-text);
+}
+
+.darkMenu .option:hover,
+.darkMenu .option:focus-visible,
+.darkMenu .selectedOption {
+    background-color: color-mix(in srgb, var(--select-accent) 14%, var(--select-inset));
 }
 
 .emptyOption {

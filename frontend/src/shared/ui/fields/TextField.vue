@@ -49,8 +49,11 @@ const emit = defineEmits<{
     flex-direction: column;
     width: 100%;
     gap: 8px;
-    /* Forms sit on main-surface (dark in both themes); text-secondary stays legible
-       even when the field is teleported outside the theme wrapper (e.g. modals). */
+    color: var(--color-neutral-600);
+}
+
+:global(.dark) .textField,
+:global([data-theme="dark"]) .textField {
     color: var(--color-text-secondary);
 }
 

@@ -28,7 +28,6 @@ const props = withDefaults(defineProps<Props>(), {
         { label: "Package", icon: "/images/icons/sidebar/package.svg", to: { name: "shop-package" } },
         { label: "Runtime", icon: "/images/icons/sidebar/package.svg", to: { name: "shop-runtime" } },
         { label: "Wallet", icon: "/images/icons/sidebar/wallet.svg", to: { name: "shop-wallet" } },
-        { label: "Guide", icon: "/images/icons/sidebar/privacy.svg", to: { name: "shop-guide" } },
         { label: "History", icon: "/images/icons/sidebar/history.svg" },
     ],
 });

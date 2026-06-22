@@ -4,7 +4,7 @@ import { useRoute } from "vue-router";
 import { AdminLayout, UserSubscriptionsPanel, UserWalletPanel } from "@/features/admin/components";
 import { useAdminStore } from "@/features/admin/stores";
 import { USER_ROLES, type AdminUser, type UpdateUserPayload } from "@/features/admin/config";
-import { StatusToast } from "@/shared/ui";
+import { SelectField, StatusToast, TextareaField, TextField, type SelectFieldOption } from "@/shared/ui";
 
 const route = useRoute();
 const adminStore = useAdminStore();
@@ -26,6 +26,7 @@ const form = reactive({
     githubUrl: "",
     role: "USER" as "USER" | "ADMIN",
 });
+const roleOptions: SelectFieldOption[] = USER_ROLES.map((role) => ({ label: role, value: role }));
 
 function hydrate(u: AdminUser): void {
     user.value = u;
@@ -104,32 +105,12 @@ onMounted(load);
                 <span :class="$style.readonlyValue">{{ user.email ?? "—" }}</span>
             </div>
 
-            <label :class="$style.field">
-                <span :class="$style.label">Username</span>
-                <input v-model="form.username" :class="$style.input" type="text" autocomplete="off">
-            </label>
-            <label :class="$style.field">
-                <span :class="$style.label">Display name</span>
-                <input v-model="form.displayName" :class="$style.input" type="text">
-            </label>
-            <label :class="$style.field">
-                <span :class="$style.label">Bio</span>
-                <textarea v-model="form.bio" :class="[$style.input, $style.textarea]" rows="2" />
-            </label>
-            <label :class="$style.field">
-                <span :class="$style.label">Website</span>
-                <input v-model="form.website" :class="$style.input" type="text">
-            </label>
-            <label :class="$style.field">
-                <span :class="$style.label">GitHub URL</span>
-                <input v-model="form.githubUrl" :class="$style.input" type="text">
-            </label>
-            <label :class="$style.field">
-                <span :class="$style.label">Role</span>
-                <select v-model="form.role" :class="$style.input">
-                    <option v-for="r in USER_ROLES" :key="r" :value="r">{{ r }}</option>
-                </select>
-            </label>
+            <TextField v-model="form.username" label="Username" placeholder="Username" autocomplete="off" />
+            <TextField v-model="form.displayName" label="Display name" placeholder="Display name" />
+            <TextareaField v-model="form.bio" :class="$style.wideField" label="Bio" placeholder="Bio" :rows="3" />
+            <TextField v-model="form.website" label="Website" placeholder="Website" type="url" />
+            <TextField v-model="form.githubUrl" label="GitHub URL" placeholder="GitHub URL" type="url" />
+            <SelectField v-model="form.role" label="Role" :options="roleOptions" />
 
             <div :class="$style.actions">
                 <button type="submit" :class="$style.saveBtn" :disabled="isSaving">
@@ -147,45 +128,32 @@ onMounted(load);
 
 <style module>
 .panel {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     gap: 14px;
     box-sizing: border-box;
-    max-width: 560px;
+    max-width: 960px;
     padding: 20px;
-    border: 1px solid var(--color-main-divider);
+    border: 1px solid var(--shop-card-border, var(--color-main-divider));
     border-radius: var(--radius-xl);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
+    background-color: var(--shop-card-bg, var(--color-main-surface));
+    color: var(--shop-card-text, var(--color-text-secondary));
 }
 
 .readonlyRow {
     display: flex;
     align-items: baseline;
     gap: 16px;
+    grid-column: 1 / -1;
 }
 
 .readonlyValue { word-break: break-word; font-size: 14px; }
 
-.field { display: flex; flex-direction: column; gap: 6px; }
+.wideField { grid-column: 1 / -1; }
 
 .label { font-size: 13px; color: var(--color-text-disabled); }
 
-.input {
-    box-sizing: border-box;
-    width: 100%;
-    padding: 9px 12px;
-    border: 1px solid var(--color-input-border);
-    border-radius: var(--radius-sm);
-    background-color: var(--color-input-bg);
-    color: var(--color-text-input);
-    font: inherit;
-}
-
-.textarea { resize: vertical; }
-.input:focus-visible { outline: none; border-color: var(--color-input-border-focus); }
-
-.actions { display: flex; justify-content: flex-end; }
+.actions { display: flex; justify-content: flex-end; grid-column: 1 / -1; }
 
 .saveBtn {
     padding: 10px 20px;
