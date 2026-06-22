@@ -264,6 +264,50 @@ export interface AdminDashboard {
     recentAudit: AdminAuditEntry[];
 }
 
+export interface AdminVpsNode {
+    id: string;
+    name: string;
+    label: string | null;
+    region: string | null;
+    status: string;
+    maxSlots: number;
+    reservedSlots: number;
+    usedSlots: number;
+    freeSlots: number;
+    orchestratorUrl: string | null;
+    hasServiceToken: boolean;
+    notes: string | null;
+    createdAt: string;
+}
+
+export interface AdminVpsSlot {
+    id: string;
+    slotIndex: number;
+    status: string;
+    occupied: boolean;
+    notes: string | null;
+}
+
+export interface AdminSeat {
+    nodeId: string;
+    nodeName: string;
+    nodeStatus: string;
+    slotId: string;
+    slotIndex: number;
+    occupancy: string;
+    runtimeId: string | null;
+    ownerUserId: string | null;
+    assignedBotId: string | null;
+    expiresAt: string | null;
+}
+
+export interface UpdateVpsNodePayload {
+    maxSlots?: number;
+    reservedSlots?: number;
+    status?: string;
+    notes?: string;
+}
+
 export interface AdminNavItem {
     label: string;
     icon: string;
@@ -279,6 +323,7 @@ export const adminNavItems: readonly AdminNavItem[] = [
     { label: "Users", icon: "/images/icons/sidebar/about.svg", to: { name: "admin-users" } },
     { label: "Pricing", icon: "/images/icons/sidebar/package.svg", to: { name: "admin-pricing" } },
     { label: "Bots", icon: "/images/icons/sidebar/projects.svg", to: { name: "admin-bots" } },
+    { label: "VPS", icon: "/images/icons/sidebar/performance.svg", to: { name: "admin-vps" } },
 ] satisfies readonly AdminNavItem[];
 
 /** satang ⇄ baht helpers — money is stored in satang (THB ×100) everywhere. */

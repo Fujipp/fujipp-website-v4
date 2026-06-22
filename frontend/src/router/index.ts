@@ -35,6 +35,7 @@ const AdminUserDetailView = () => import('@/features/admin/views/AdminUserDetail
 const AdminPricingView = () => import('@/features/admin/views/AdminPricingView.vue')
 const AdminBotsView = () => import('@/features/admin/views/AdminBotsView.vue')
 const AdminBotConfigView = () => import('@/features/admin/views/AdminBotConfigView.vue')
+const AdminVpsView = () => import('@/features/admin/views/AdminVpsView.vue')
 
 const AUTH_CALLBACK_QUERY_KEYS = ['code', 'error', 'error_code', 'error_description'] as const
 
@@ -87,6 +88,7 @@ const router = createRouter({
     { path: '/shop/admin/pricing', name: 'admin-pricing', component: AdminPricingView, meta: { requiresAuth: true, requiresAdmin: true } },
     { path: '/shop/admin/bots', name: 'admin-bots', component: AdminBotsView, meta: { requiresAuth: true, requiresAdmin: true } },
     { path: '/shop/admin/bots/:botId/config', name: 'admin-bot-config', component: AdminBotConfigView, meta: { requiresAuth: true, requiresAdmin: true } },
+    { path: '/shop/admin/vps', name: 'admin-vps', component: AdminVpsView, meta: { requiresAuth: true, requiresAdmin: true } },
 
     // Legacy admin URLs redirect into the shop admin namespace.
     { path: '/admin', redirect: { name: 'admin-dashboard' } },

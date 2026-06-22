@@ -58,6 +58,7 @@ function isActive(name: unknown): boolean {
     background-color: var(--color-main-background);
     color: var(--color-text-primary);
     font-family: var(--font-sans);
+    transition: background-color 300ms ease, color 300ms ease;
 }
 
 .content {
@@ -120,6 +121,7 @@ function isActive(name: unknown): boolean {
     border-radius: var(--radius-2xl);
     background-color: var(--color-main-surface);
     color: var(--color-text-secondary);
+    transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease;
 }
 
 .adminTab {
