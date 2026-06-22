@@ -23,6 +23,11 @@ import type {
     BotConfig,
     AdminDashboard,
     GrantBotFeaturePayload,
+    AdminVpsNode,
+    AdminVpsSlot,
+    AdminSeat,
+    AdminUnseatedRuntime,
+    UpdateVpsNodePayload,
 } from "@/features/admin/config";
 
 /**
@@ -219,8 +224,43 @@ export const useAdminStore = defineStore("admin", () => {
         });
     }
 
+    // ── VPS / runtime seats ─────────────────────────────────────────────────
+    async function fetchVpsNodes(): Promise<AdminVpsNode[]> {
+        return adminFetch<AdminVpsNode[]>("/api/admin/vps-nodes");
+    }
+
+    async function fetchVpsSlots(nodeId: string): Promise<AdminVpsSlot[]> {
+        return adminFetch<AdminVpsSlot[]>(`/api/admin/vps-nodes/${nodeId}/slots`);
+    }
+
+    async function fetchRuntimeCabinet(): Promise<AdminSeat[]> {
+        return adminFetch<AdminSeat[]>("/api/admin/runtime/cabinet");
+    }
+
+    async function fetchUnseatedRuntimes(): Promise<AdminUnseatedRuntime[]> {
+        return adminFetch<AdminUnseatedRuntime[]>("/api/admin/runtime/unseated");
+    }
+
+    async function updateVpsNode(nodeId: string, payload: UpdateVpsNodePayload): Promise<AdminVpsNode> {
+        return adminFetch<AdminVpsNode>(`/api/admin/vps-nodes/${nodeId}`, { method: "PATCH", body: payload });
+    }
+
+    async function setSlotStatus(nodeId: string, slotId: string, status: string): Promise<AdminVpsSlot> {
+        return adminFetch<AdminVpsSlot>(`/api/admin/vps-nodes/${nodeId}/slots/${slotId}`, {
+            method: "PATCH", body: { status },
+        });
+    }
+
+    async function moveRuntimeSeat(runtimeId: string, vpsSlotId: string): Promise<unknown> {
+        return adminFetch<unknown>(`/api/admin/runtime/${runtimeId}/move-seat`, {
+            method: "POST", body: { vpsSlotId },
+        });
+    }
+
     return {
         users, isLoading, error, adminFetch,
+        fetchVpsNodes, fetchVpsSlots, fetchRuntimeCabinet, fetchUnseatedRuntimes,
+        updateVpsNode, setSlotStatus, moveRuntimeSeat,
         fetchUsers, fetchUser, updateUser,
         fetchRuntimePlans, updateRuntimePlan,
         fetchFeatures, fetchFeaturePrices, createFeaturePrice, updateFeaturePrice,

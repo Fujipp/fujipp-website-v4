@@ -282,16 +282,17 @@ onUnmounted(() => {
 }
 
 .tableNav {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: var(--spacing-space-4);
     padding-block: 10px;
-    overflow: hidden;
 }
 
 .filterWrap {
     position: relative;
+    z-index: 2;
 }
 
 .filterMenu {
@@ -305,11 +306,11 @@ onUnmounted(() => {
     box-sizing: border-box;
     padding: 12px;
     gap: 12px;
-    border: 1px solid var(--color-main-border);
+    border: 1px solid var(--shop-card-border, var(--color-main-border));
     border-radius: var(--radius-xl);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
-    box-shadow: 0 16px 40px color-mix(in srgb, var(--color-text-input) 30%, transparent);
+    background-color: var(--shop-card-bg, var(--color-main-surface));
+    color: var(--shop-card-text, var(--color-text-secondary));
+    /* box-shadow: 0 16px 40px color-mix(in srgb, var(--color-text-input) 30%, transparent); */
 }
 
 .filterGroup {
@@ -384,9 +385,11 @@ onUnmounted(() => {
     box-sizing: border-box;
     padding: 10px;
     overflow: hidden;
+    border: 1px solid var(--shop-card-border, transparent);
     border-radius: var(--radius-xl);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
+    background-color: var(--shop-card-bg, var(--color-main-surface));
+    color: var(--shop-card-text, var(--color-text-secondary));
+    transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease;
 }
 
 .tableHeader,
@@ -405,7 +408,7 @@ onUnmounted(() => {
 }
 
 .tableRow:hover {
-    background-color: var(--color-table-row-hover);
+    background-color: var(--shop-row-hover, var(--color-table-row-hover));
 }
 
 .fillerRow:hover {
@@ -414,7 +417,7 @@ onUnmounted(() => {
 
 .divider {
     height: 1px;
-    background-color: var(--color-main-divider);
+    background-color: var(--shop-card-border, var(--color-main-divider));
 }
 
 .noCell {

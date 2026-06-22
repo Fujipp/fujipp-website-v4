@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted, watch } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import { BackgroundEffect, AppNavbar, UserControl } from '@/shared/layout'
 import { useUserStore } from '@/stores'
@@ -13,6 +13,9 @@ const shouldShowAppChrome = computed(() =>
   !route.path.startsWith('/shop')
   && !route.path.startsWith('/admin')
   && !['login', 'register'].includes(String(route.name)))
+const shouldShowUserControl = computed(() =>
+  !['login', 'register'].includes(String(route.name)))
+const isShopRoute = computed(() => route.path.startsWith('/shop'))
 
 let clickAudio: HTMLAudioElement | undefined
 
@@ -80,7 +83,16 @@ onMounted(() => {
   document.addEventListener('click', playClickSound, { capture: true })
 })
 
+watch(
+  isShopRoute,
+  (isActive) => {
+    document.documentElement.classList.toggle('shop-route', isActive)
+  },
+  { immediate: true },
+)
+
 onUnmounted(() => {
+  document.documentElement.classList.remove('shop-route')
   document.removeEventListener('click', playClickSound, { capture: true })
 })
 </script>
@@ -89,7 +101,7 @@ onUnmounted(() => {
   <RouterView />
   <BackgroundEffect />
   <AppNavbar v-if="shouldShowAppChrome" />
-  <UserControl v-if="shouldShowAppChrome" />
+  <UserControl v-if="shouldShowUserControl" />
 </template>
 
 <style scoped></style>

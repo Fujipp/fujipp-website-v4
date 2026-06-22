@@ -26,6 +26,7 @@ const props = withDefaults(defineProps<Props>(), {
     items: () => [
         { label: "Dashboard", icon: "/images/icons/sidebar/home.svg", to: { name: "shop-dashboard" } },
         { label: "Package", icon: "/images/icons/sidebar/package.svg", to: { name: "shop-package" } },
+        { label: "Runtime", icon: "/images/icons/sidebar/package.svg", to: { name: "shop-runtime" } },
         { label: "Wallet", icon: "/images/icons/sidebar/wallet.svg", to: { name: "shop-wallet" } },
         { label: "Guide", icon: "/images/icons/sidebar/privacy.svg", to: { name: "shop-guide" } },
         { label: "History", icon: "/images/icons/sidebar/history.svg" },
@@ -129,11 +130,11 @@ watch(isOpen, (value) => {
         :class="[$style.shopSidebar, isOpen ? $style.open : $style.closed]"
         :aria-label="isOpen ? 'Shop sidebar' : 'Collapsed shop sidebar'"
     >
-        <template v-if="isOpen">
-            <div :class="$style.mainGroup">
+        <div :class="[$style.sidebarShell, $style.expandedShell, isOpen ? $style.shellActive : $style.shellInactive]">
+            <div :class="$style.mainGroup" :aria-hidden="!isOpen">
                 <div :class="$style.brandGroup">
                     <div :class="$style.brandRow">
-                        <RouterLink to="/" :class="$style.brand" aria-label="Fujipp home">
+                        <RouterLink to="/" :class="$style.brand" aria-label="Fujipp home" :tabindex="isOpen ? undefined : -1">
                             <img
                                 src="/images/icons/navbar/fujipp.svg"
                                 alt=""
@@ -146,6 +147,7 @@ watch(isOpen, (value) => {
                             type="button"
                             :class="$style.toggleButton"
                             aria-label="Collapse shop sidebar"
+                            :tabindex="isOpen ? undefined : -1"
                             @click="toggleSidebar"
                         >
                             <img
@@ -169,6 +171,7 @@ watch(isOpen, (value) => {
                         :to="item.to"
                         :type="item.to ? undefined : 'button'"
                         :class="[$style.navItem, isRouteActive(item) ? $style.navItemActive : '']"
+                        :tabindex="isOpen ? undefined : -1"
                         :aria-current="isRouteActive(item) ? 'page' : undefined"
                         @click="selectItem(item)"
                     >
@@ -180,7 +183,7 @@ watch(isOpen, (value) => {
                 </nav>
             </div>
 
-            <div :class="[$style.userPanel, !isAuthenticated ? $style.guestPanel : '']">
+            <div :class="[$style.userPanel, !isAuthenticated ? $style.guestPanel : '']" :aria-hidden="!isOpen">
                 <template v-if="isAuthenticated">
                     <div :class="$style.userInfo">
                         <img
@@ -201,6 +204,7 @@ watch(isOpen, (value) => {
                         :class="$style.logoutButton"
                         aria-label="Sign out"
                         :disabled="userStore.isLoading"
+                        :tabindex="isOpen ? undefined : -1"
                         @click="handleLogOut"
                     >
                         <img
@@ -216,24 +220,15 @@ watch(isOpen, (value) => {
                     <PrimaryButton :to="signInRoute">Sign in</PrimaryButton>
                 </template>
             </div>
-        </template>
+        </div>
 
-        <template v-else>
-            <div :class="$style.collapsedMain">
-                <RouterLink to="/" :class="$style.collapsedBrand" aria-label="Fujipp home">
-                    <img
-                        src="/images/icons/navbar/fujipp.svg"
-                        alt=""
-                        aria-hidden="true"
-                        :class="$style.collapsedBrandIcon"
-                        draggable="false"
-                    >
-                </RouterLink>
-
+        <div :class="[$style.sidebarShell, $style.collapsedShell, isOpen ? $style.shellInactive : $style.shellActive]">
+            <div :class="$style.collapsedMain" :aria-hidden="isOpen">
                 <button
                     type="button"
                     :class="$style.collapsedToggle"
                     aria-label="Expand shop sidebar"
+                    :tabindex="isOpen ? -1 : undefined"
                     @click="toggleSidebar"
                 >
                     <img
@@ -254,6 +249,7 @@ watch(isOpen, (value) => {
                         :class="[$style.collapsedNavItem, isRouteActive(item) ? $style.collapsedNavItemActive : '']"
                         :aria-label="item.label"
                         :aria-current="isRouteActive(item) ? 'page' : undefined"
+                        :tabindex="isOpen ? -1 : undefined"
                         :title="item.label"
                         @click="selectItem(item)"
                     >
@@ -262,7 +258,7 @@ watch(isOpen, (value) => {
                 </nav>
             </div>
 
-            <div :class="$style.collapsedUtility">
+            <div :class="$style.collapsedUtility" :aria-hidden="isOpen">
                 <div :class="$style.collapsedThemeGroup" role="group" aria-label="Theme mode">
                     <button
                         v-for="theme in ThemeApp"
@@ -288,6 +284,7 @@ watch(isOpen, (value) => {
                     aria-label="Sign out"
                     title="Sign out"
                     :disabled="userStore.isLoading"
+                    :tabindex="isOpen ? -1 : undefined"
                     @click="handleLogOut"
                 >
                     <img
@@ -303,6 +300,7 @@ watch(isOpen, (value) => {
                     :class="$style.collapsedNavItem"
                     aria-label="Sign in"
                     title="Sign in"
+                    :tabindex="isOpen ? -1 : undefined"
                 >
                     <img
                         src="/images/icons/sidebar/contact.svg"
@@ -312,7 +310,7 @@ watch(isOpen, (value) => {
                     >
                 </RouterLink>
             </div>
-        </template>
+        </div>
     </aside>
 
     <button
@@ -330,32 +328,97 @@ watch(isOpen, (value) => {
     top: 0;
     left: 0;
     z-index: 40;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
     box-sizing: border-box;
     width: 194px;
     height: 100dvh;
     min-height: 100vh;
     padding: 10px;
-    overflow-y: auto;
+    overflow: hidden;
     overscroll-behavior: contain;
     background-color: var(--color-main-surface);
     color: var(--color-text-secondary);
     font-family: var(--font-sans);
-    transition: width 180ms ease;
+    transition: width 260ms cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: width;
 }
 
 .open {
     width: 194px;
-    justify-content: space-between;
-    gap: 10px;
 }
 
 .closed {
     width: 44px;
-    align-items: center;
+}
+
+.sidebarShell {
+    position: absolute;
+    inset: 10px;
+    display: flex;
+    flex-direction: column;
     justify-content: space-between;
+    box-sizing: border-box;
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--color-main-primary) 72%, transparent) transparent;
+    transition:
+        opacity 180ms ease,
+        transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
+        visibility 0s linear 180ms;
+    will-change: opacity, transform;
+}
+
+.sidebarShell::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.sidebarShell::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.sidebarShell::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: var(--radius-full);
+    background-color: color-mix(in srgb, var(--color-main-primary) 72%, transparent);
+    background-clip: content-box;
+}
+
+.sidebarShell::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-main-primary);
+}
+
+.expandedShell {
+    align-items: stretch;
+    gap: 10px;
+    transform-origin: left center;
+}
+
+.collapsedShell {
+    align-items: center;
+    transform-origin: left center;
+}
+
+.shellActive {
+    visibility: visible;
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    pointer-events: auto;
+    transition-delay: 70ms, 0ms, 0s;
+}
+
+.shellInactive {
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.expandedShell.shellInactive {
+    transform: translateX(-12px) scale(0.98);
+}
+
+.collapsedShell.shellInactive {
+    transform: translateX(12px) scale(0.96);
 }
 
 .mainGroup,

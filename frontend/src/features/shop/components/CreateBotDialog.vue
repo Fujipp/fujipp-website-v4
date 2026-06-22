@@ -36,7 +36,6 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{ submit: [payload: CreateBotPayload]; cancel: [] }>();
 
 const isEdit = computed(() => props.mode === "edit");
-const slotsFull = computed(() => props.availableSlots !== null && props.availableSlots <= 0);
 
 const form = reactive<CreateBotPayload>({
     name: "",
@@ -48,10 +47,6 @@ const form = reactive<CreateBotPayload>({
     runtimePlanId: "",
 });
 const error = ref("");
-
-function formatBaht(satang: number): string {
-    return (satang / 100).toLocaleString("th-TH", { minimumFractionDigits: 0 });
-}
 
 function reset(): void {
     form.name = props.initial.name ?? "";
@@ -69,10 +64,6 @@ watch(() => props.open, (open) => { if (open) reset(); });
 function submit(): void {
     if (!form.name.trim()) { error.value = "กรุณาตั้งชื่อบอท"; return; }
     if (!isEdit.value && !form.discordToken.trim()) { error.value = "กรุณากรอก Discord Bot Token"; return; }
-    if (!isEdit.value) {
-        if (slotsFull.value) { error.value = "ตอนนี้เครื่องเต็ม ไม่สามารถเพิ่มบอทได้"; return; }
-        if (!form.runtimePlanId) { error.value = "กรุณาเลือกแผน Runtime"; return; }
-    }
     error.value = "";
     emit("submit", { ...form });
 }
@@ -111,36 +102,16 @@ function submit(): void {
                             :disabled="submitting"
                         />
 
-                        <fieldset v-if="!isEdit" :class="$style.plans">
-                            <legend :class="$style.plansLegend">เลือกแผน Runtime — ตัดเครดิตทันทีเมื่อสร้างบอท</legend>
-                            <p v-if="availableSlots !== null" :class="[$style.slotNote, slotsFull && $style.slotFull]">
-                                {{ slotsFull ? "เครื่องเต็ม — ยังเพิ่มบอทไม่ได้" : `เหลือที่ว่าง ${availableSlots} slot` }}
-                            </p>
-                            <label
-                                v-for="plan in runtimePlans"
-                                :key="plan.id"
-                                :class="[$style.plan, form.runtimePlanId === plan.id && $style.planActive]"
-                            >
-                                <input
-                                    v-model="form.runtimePlanId"
-                                    type="radio"
-                                    name="runtime-plan"
-                                    :value="plan.id"
-                                    :disabled="submitting || slotsFull"
-                                    :class="$style.planRadio"
-                                />
-                                <span :class="$style.planName">{{ plan.name }} · {{ plan.durationMonths }} เดือน</span>
-                                <span :class="$style.planPrice">฿{{ formatBaht(plan.effectivePriceSatang) }}</span>
-                            </label>
-                            <p v-if="runtimePlans.length === 0" :class="$style.slotNote">ยังไม่มีแผน Runtime ให้เลือก</p>
-                        </fieldset>
+                        <p v-if="!isEdit" :class="$style.slotNote">
+                            สร้างบอทใช้ 1 Bot Slot — บอทจะ Offline จนกว่าจะซื้อ Runtime จากหน้า Runtime แล้ว assign ให้บอทตัวนี้
+                        </p>
 
                         <p v-if="error" :class="$style.error">{{ error }}</p>
                     </form>
 
                     <div :class="$style.actions">
                         <button type="button" :class="[$style.button, $style.cancel]" @click="emit('cancel')">ยกเลิก</button>
-                        <button type="button" :class="[$style.button, $style.confirm]" :disabled="submitting || (!isEdit && slotsFull)" @click="submit">
+                        <button type="button" :class="[$style.button, $style.confirm]" :disabled="submitting" @click="submit">
                             {{ submitting ? "กำลังบันทึก…" : (isEdit ? "บันทึก" : "สร้างบอท") }}
                         </button>
                     </div>
@@ -208,6 +179,28 @@ function submit(): void {
     gap: var(--spacing-space-4);
     overflow-y: auto;
     padding-right: var(--spacing-space-1);
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--color-main-primary) 72%, transparent) transparent;
+}
+
+.fields::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.fields::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.fields::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: var(--radius-full);
+    background-color: color-mix(in srgb, var(--color-main-primary) 72%, transparent);
+    background-clip: content-box;
+}
+
+.fields::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-main-primary);
 }
 
 .grid2 {

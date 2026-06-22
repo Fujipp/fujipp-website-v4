@@ -24,6 +24,7 @@ const NewProjectView = () => import('@/features/projects/views/NewProjectView.vu
 const ShopDashboardView = () => import('@/features/shop/views/ShopDashboardView.vue')
 const ShopWalletView = () => import('@/features/shop/views/ShopWalletView.vue')
 const ShopPackageView = () => import('@/features/shop/views/ShopPackageView.vue')
+const ShopRuntimeView = () => import('@/features/shop/views/ShopRuntimeView.vue')
 const ShopGuideView = () => import('@/features/shop/views/ShopGuideView.vue')
 const BotConfigView = () => import('@/features/shop/views/BotConfigView.vue')
 const EmbedDesignerView = () => import('@/features/shop/views/EmbedDesignerView.vue')
@@ -34,6 +35,7 @@ const AdminUserDetailView = () => import('@/features/admin/views/AdminUserDetail
 const AdminPricingView = () => import('@/features/admin/views/AdminPricingView.vue')
 const AdminBotsView = () => import('@/features/admin/views/AdminBotsView.vue')
 const AdminBotConfigView = () => import('@/features/admin/views/AdminBotConfigView.vue')
+const AdminVpsView = () => import('@/features/admin/views/AdminVpsView.vue')
 
 const AUTH_CALLBACK_QUERY_KEYS = ['code', 'error', 'error_code', 'error_description'] as const
 
@@ -74,6 +76,7 @@ const router = createRouter({
     { path: '/shop', name: 'shop-dashboard', component: ShopDashboardView, meta: { requiresAuth: true } },
     { path: '/shop/wallet', name: 'shop-wallet', component: ShopWalletView, meta: { requiresAuth: true } },
     { path: '/shop/package', name: 'shop-package', component: ShopPackageView, meta: { requiresAuth: true } },
+    { path: '/shop/runtime', name: 'shop-runtime', component: ShopRuntimeView, meta: { requiresAuth: true } },
     { path: '/shop/guide', name: 'shop-guide', component: ShopGuideView },
     { path: '/shop/bots/:botId/config', name: 'shop-bot-config', component: BotConfigView, meta: { requiresAuth: true } },
     { path: '/shop/bots/:botId/embeds', name: 'shop-bot-embeds', component: EmbedDesignerView, meta: { requiresAuth: true } },
@@ -85,6 +88,7 @@ const router = createRouter({
     { path: '/shop/admin/pricing', name: 'admin-pricing', component: AdminPricingView, meta: { requiresAuth: true, requiresAdmin: true } },
     { path: '/shop/admin/bots', name: 'admin-bots', component: AdminBotsView, meta: { requiresAuth: true, requiresAdmin: true } },
     { path: '/shop/admin/bots/:botId/config', name: 'admin-bot-config', component: AdminBotConfigView, meta: { requiresAuth: true, requiresAdmin: true } },
+    { path: '/shop/admin/vps', name: 'admin-vps', component: AdminVpsView, meta: { requiresAuth: true, requiresAdmin: true } },
 
     // Legacy admin URLs redirect into the shop admin namespace.
     { path: '/admin', redirect: { name: 'admin-dashboard' } },

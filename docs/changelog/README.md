@@ -36,5 +36,24 @@ Add one row to the top of the relevant area file, bumping its version per the ru
 Keep one line per change. If a single piece of work spans areas (e.g. a feature that
 touches frontend + database), add a row in **each** area's file with its own version bump.
 
+## Public wording rules
+
+These changelog rows are displayed on the public website, so write them as product release
+notes instead of internal engineering notes.
+
+- Use clear, formal wording that a visitor or customer can understand.
+- Lead with the visible outcome, then mention technical detail only when it helps explain trust,
+  reliability, security, or admin capability.
+- Keep each entry concise: ideally 1 sentence and under 140 characters when possible.
+- Avoid raw file paths, route paths, endpoint names, database table names, migration IDs,
+  dependency names, issue numbers, and implementation jargon unless they are the actual user-facing
+  feature.
+- Avoid temporary troubleshooting language such as "fix CI", "workaround", "stub", "WIP",
+  "hardcoded", "fake", or "sample" unless honesty requires it.
+- Prefer polished verbs: "Added", "Improved", "Refined", "Stabilized", "Connected",
+  "Protected", "Documented", "Prepared".
+- Do not describe secrets, private infrastructure details, or operational escape hatches in a way
+  that exposes how to attack or bypass the platform.
+
 > Historical rows (before 2026-06-05) were reconstructed from git history, so they map
 > roughly one commit → one version. Going forward, log changes as they happen.

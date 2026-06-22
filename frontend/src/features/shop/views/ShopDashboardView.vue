@@ -12,7 +12,7 @@ type ToastStatus = "info" | "success" | "warning" | "error";
 type BotAction = "start" | "stop" | "restart" | "edit";
 type NextAction =
     | { label: string; title: string; type: "create" }
-    | { label: string; title: string; type: "route"; to: "shop-dashboard" | "shop-package" | "shop-wallet" };
+    | { label: string; title: string; type: "route"; to: "shop-dashboard" | "shop-package" | "shop-wallet" | "shop-runtime" };
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -39,6 +39,19 @@ interface BotResponse {
     tokenConfigured: boolean;
     avatarUrl?: string | null;
     createdAt: string;
+    // Derived shop lifecycle from the bot's runtime (ONLINE/OFFLINE/EXPIRED or null).
+    runtimeStatus?: string | null;
+    runtimeExpiresAt?: string | null;
+    runtimeId?: string | null;
+}
+
+interface BotSlotInfo {
+    used: number;
+    freeCount: number;
+    paidSlots: number;
+    maxSlots: number;
+    canCreate: boolean;
+    priceSatang: number;
 }
 
 interface FeatureSubscriptionResponse {
@@ -57,12 +70,24 @@ interface FeatureSubscriptionResponse {
 interface RuntimeSubscriptionResponse {
     id: string;
     externalSubjectId: string;
+    vpsSlotId: string | null;
     runtimePlanId: string;
     status: string;
     currentPeriodStart: string | null;
     currentPeriodEnd: string | null;
     autoRenew: boolean;
     renewPriceSatang: number | null;
+}
+
+interface VpsSlotLite {
+    id: string;
+    slotIndex: number;
+}
+
+interface VpsNodeLite {
+    name: string;
+    label: string | null;
+    slots: VpsSlotLite[];
 }
 
 interface BotDashboardItem {
@@ -83,6 +108,7 @@ interface RuntimeDashboardItem {
     status: RuntimeStatus;
     autoRenew: boolean;
     currentPeriodEnd: string | null;
+    location: string;
 }
 
 const botRecords = ref<BotResponse[]>([]);
@@ -90,7 +116,21 @@ const catalogFeatures = ref<CatalogFeature[]>([]);
 const runtimePlans = ref<RuntimePlan[]>([]);
 const featureSubscriptions = ref<FeatureSubscriptionResponse[]>([]);
 const runtimeSubscriptions = ref<RuntimeSubscriptionResponse[]>([]);
-const availableSlots = ref<number | null>(null);
+const vpsNodes = ref<VpsNodeLite[]>([]);
+const botSlots = ref<BotSlotInfo | null>(null);
+const showBuySlot = ref(false);
+const isBuyingSlot = ref(false);
+
+// slotId → "Primary (shared) · ช่อง #3", so a runtime card can show where it lives.
+const slotLocation = computed(() => {
+    const map = new Map<string, string>();
+    for (const node of vpsNodes.value) {
+        for (const slot of node.slots) {
+            map.set(slot.id, `${node.label || node.name} · ช่อง #${slot.slotIndex}`);
+        }
+    }
+    return map;
+});
 
 const nextActions = computed(() => {
     if (isLoading.value) return [];
@@ -102,7 +142,7 @@ const nextActions = computed(() => {
     }
 
     if (runtimeSubscriptions.value.length === 0) {
-        actions.push({ type: "route", title: "Buy runtime", label: "ซื้อ Runtime", to: "shop-package" });
+        actions.push({ type: "route", title: "Buy runtime", label: "ซื้อ Runtime", to: "shop-runtime" });
     }
 
     if (featureSubscriptions.value.length === 0) {
@@ -129,9 +169,9 @@ const bots = computed<BotDashboardItem[]>(() => botRecords.value.map((bot) => {
         name: bot.name,
         image: bot.avatarUrl ?? undefined,
         renewPrice: formatMoney(runtime?.renewPriceSatang ?? 0),
-        runtime: formatPeriod(runtime?.currentPeriodEnd),
-        currentPeriodEnd: runtime?.currentPeriodEnd ?? null,
-        status: mapBotStatus(bot.status),
+        runtime: formatPeriod(bot.runtimeExpiresAt ?? runtime?.currentPeriodEnd),
+        currentPeriodEnd: bot.runtimeExpiresAt ?? runtime?.currentPeriodEnd ?? null,
+        status: mapBotStatus(bot),
     };
 }));
 
@@ -150,6 +190,7 @@ const features = computed<FeatureTableRow[]>(() => featureSubscriptions.value.ma
 const runtimes = computed<RuntimeDashboardItem[]>(() => runtimeSubscriptions.value.map((runtime) => {
     const plan = runtimePlanById.value.get(runtime.runtimePlanId);
     const bot = botById.value.get(runtime.externalSubjectId);
+    const location = runtime.vpsSlotId ? (slotLocation.value.get(runtime.vpsSlotId) ?? "") : "ยังไม่ได้ลงช่อง VPS";
 
     return {
         id: runtime.id,
@@ -159,12 +200,13 @@ const runtimes = computed<RuntimeDashboardItem[]>(() => runtimeSubscriptions.val
         status: mapRuntimeStatus(runtime.status),
         autoRenew: runtime.autoRenew,
         currentPeriodEnd: runtime.currentPeriodEnd,
+        location,
     };
 }));
 
 const overviewMetrics = computed<OverviewMetric[]>(() => {
     const onlineBotCount = bots.value.filter((bot) => bot.status === "online").length;
-    const offlineBotCount = bots.value.filter((bot) => bot.status === "offline").length;
+    const offlineBotCount = bots.value.filter((bot) => bot.status !== "online").length;
 
     return [
         { label: "Online Bot", value: onlineBotCount },
@@ -226,8 +268,13 @@ function formatBillingType(value: string): FeatureCategory {
     }
 }
 
-function mapBotStatus(status: string): BotStatus {
-    return status === "RUNNING" || status === "ONLINE" ? "online" : "offline";
+function mapBotStatus(bot: BotResponse): BotStatus {
+    // Prefer the runtime-derived lifecycle; fall back to the process status.
+    const rs = bot.runtimeStatus;
+    if (rs === "ONLINE") return "online";
+    if (rs === "EXPIRED") return "expired";
+    if (rs === "OFFLINE") return "offline";
+    return bot.status === "RUNNING" ? "online" : "offline";
 }
 
 function mapRuntimeStatus(status: string): RuntimeStatus {
@@ -244,13 +291,14 @@ async function loadDashboard(): Promise<void> {
             return;
         }
 
-        const [botsRes, featuresRes, plansRes, featureSubsRes, runtimeSubsRes, capacityRes] = await Promise.all([
+        const [botsRes, featuresRes, plansRes, featureSubsRes, runtimeSubsRes, slotsRes, vpsRes] = await Promise.all([
             fetch(`${API_BASE_URL}/api/bots`, { headers }),
             fetch(`${API_BASE_URL}/api/catalog/features`, { headers }),
             fetch(`${API_BASE_URL}/api/catalog/runtime-plans`, { headers }),
             fetch(`${API_BASE_URL}/api/subscriptions/features`, { headers }),
             fetch(`${API_BASE_URL}/api/subscriptions/runtime`, { headers }),
-            fetch(`${API_BASE_URL}/api/bots/capacity`, { headers }),
+            fetch(`${API_BASE_URL}/api/bots/slots`, { headers }),
+            fetch(`${API_BASE_URL}/api/runtime/vps`, { headers }),
         ]);
 
         if (!botsRes.ok || !featuresRes.ok || !plansRes.ok || !featureSubsRes.ok || !runtimeSubsRes.ok) {
@@ -262,16 +310,16 @@ async function loadDashboard(): Promise<void> {
         runtimePlans.value = await plansRes.json() as RuntimePlan[];
         featureSubscriptions.value = await featureSubsRes.json() as FeatureSubscriptionResponse[];
         runtimeSubscriptions.value = await runtimeSubsRes.json() as RuntimeSubscriptionResponse[];
-        availableSlots.value = capacityRes.ok
-            ? ((await capacityRes.json()) as { availableSlots: number }).availableSlots
-            : null;
+        vpsNodes.value = vpsRes.ok ? ((await vpsRes.json()) as VpsNodeLite[]) : [];
+        botSlots.value = slotsRes.ok ? ((await slotsRes.json()) as BotSlotInfo) : null;
     } catch {
         botRecords.value = [];
         catalogFeatures.value = [];
         runtimePlans.value = [];
         featureSubscriptions.value = [];
         runtimeSubscriptions.value = [];
-        availableSlots.value = null;
+        vpsNodes.value = [];
+        botSlots.value = null;
         loadError.value = "โหลด Dashboard ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
         notify("error", "โหลด Dashboard ไม่สำเร็จ", "ระบบไม่สามารถดึงข้อมูลบอทและ subscription ได้");
     } finally {
@@ -316,8 +364,45 @@ async function handleBotAction(botId: string, action: string): Promise<void> {
     }
 }
 
+const slotPrice = computed(() => formatMoney(botSlots.value?.priceSatang ?? 5000));
+
 function handleAddBot(): void {
+    // Out of slots → prompt to buy one; otherwise open the create form.
+    if (botSlots.value && !botSlots.value.canCreate) {
+        showBuySlot.value = true;
+        return;
+    }
     showAddBot.value = true;
+}
+
+async function buySlot(): Promise<void> {
+    const headers = await authHeaders();
+    if (!headers) {
+        await router.push({ name: "login", query: { redirect: "/shop" } });
+        return;
+    }
+    isBuyingSlot.value = true;
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/bots/slots/purchase`, { method: "POST", headers });
+        if (!res.ok) {
+            let reason = "";
+            try {
+                const body = await res.json();
+                reason = String(body.message ?? body.error ?? "");
+                const m = reason.match(/"(?:error|message)"\s*:\s*"([^"]+)"/);
+                if (m?.[1]) reason = m[1];
+            } catch { /* non-JSON body */ }
+            throw new Error(reason || `HTTP ${res.status}`);
+        }
+        botSlots.value = await res.json() as BotSlotInfo;
+        showBuySlot.value = false;
+        notify("success", "ซื้อ Bot Slot แล้ว", "ตอนนี้สร้างบอทเพิ่มได้อีก 1 ตัว");
+        showAddBot.value = true;
+    } catch (e) {
+        notify("error", "ซื้อ Slot ไม่สำเร็จ", (e as Error).message || "เครดิตอาจไม่พอ — เติมเงินแล้วลองใหม่");
+    } finally {
+        isBuyingSlot.value = false;
+    }
 }
 
 async function createBot(payload: CreateBotPayload): Promise<void> {
@@ -336,7 +421,6 @@ async function createBot(payload: CreateBotPayload): Promise<void> {
             discordPublicKey: payload.discordPublicKey,
             discordClientSecret: payload.discordClientSecret,
         };
-        if (payload.runtimePlanId) body.runtimePlanId = payload.runtimePlanId;
 
         const res = await fetch(`${API_BASE_URL}/api/bots`, {
             method: "POST",
@@ -354,7 +438,7 @@ async function createBot(payload: CreateBotPayload): Promise<void> {
             throw new Error(reason || `HTTP ${res.status}`);
         }
         showAddBot.value = false;
-        notify("success", "สร้างบอท + ซื้อ Runtime แล้ว", "ตั้งค่าบอทแล้วกดเริ่มรันได้เลย");
+        notify("success", "สร้างบอทแล้ว", "ไปที่หน้า Runtime เพื่อซื้อช่องเครื่องแล้ว assign ให้บอทตัวนี้");
         await loadDashboard();
     } catch (e) {
         notify("error", "สร้างบอทไม่สำเร็จ", (e as Error).message || "ชื่อบอทอาจซ้ำ หรือ token ไม่ถูกต้อง — ลองใหม่อีกครั้ง");
@@ -374,7 +458,7 @@ onUnmounted(clearToast);
         <main :class="[$style.content, isSidebarOpen ? $style.sidebarOpen : $style.sidebarClosed]">
             <section :class="$style.dashboardSection" aria-labelledby="shop-dashboard-title">
                 <div :class="$style.titleSection">
-                    <h1 id="shop-dashboard-title" :class="$style.pageTitle">DASHBOARD</h1>
+                    <h1 id="shop-dashboard-title" :class="$style.pageTitle">Dashboard</h1>
                     <div :class="$style.divider" aria-hidden="true" />
                 </div>
 
@@ -472,13 +556,14 @@ onUnmounted(clearToast);
                             :remaining="runtime.remaining"
                             :status="runtime.status"
                             :bot-name="runtime.botName"
+                            :location="runtime.location"
                             :current-period-end="runtime.currentPeriodEnd"
                         />
                     </template>
                 </div>
                 <section v-if="!isLoading && runtimes.length === 0" :class="$style.statePanel">
                     <h3 :class="$style.stateTitle">ยังไม่มี runtime ที่เปิดใช้งาน</h3>
-                    <p :class="$style.stateText">ซื้อ runtime package แล้วข้อมูลจะแสดงที่นี่</p>
+                    <p :class="$style.stateText">ไปหน้า Runtime เลือกช่องว่างในตู้ VPS เพื่อซื้อ — แล้วข้อมูลจะแสดงที่นี่</p>
                 </section>
             </section>
 
@@ -495,20 +580,62 @@ onUnmounted(clearToast);
         <CreateBotDialog
             :open="showAddBot"
             :submitting="isCreatingBot"
-            :runtime-plans="runtimePlans"
-            :available-slots="availableSlots"
             @submit="createBot"
             @cancel="showAddBot = false"
         />
+
+        <Teleport to="body">
+            <Transition name="dialog">
+                <div v-if="showBuySlot" :class="$style.buySlotBackdrop" @click.self="showBuySlot = false">
+                    <section :class="$style.buySlotModal" role="dialog" aria-modal="true" aria-labelledby="buy-slot-title">
+                        <h2 id="buy-slot-title" :class="$style.buySlotTitle">ซื้อ Bot Slot เพิ่ม</h2>
+                        <p :class="$style.buySlotText">
+                            คุณใช้ครบ {{ botSlots?.maxSlots ?? 3 }} slot แล้ว ({{ botSlots?.freeCount ?? 3 }} ฟรี +
+                            {{ botSlots?.paidSlots ?? 0 }} ที่ซื้อ) — ซื้อเพิ่มอีก 1 slot ถาวรเพื่อสร้างบอทได้อีกตัว
+                        </p>
+                        <p :class="$style.buySlotPrice">{{ slotPrice }} บาท</p>
+                        <div :class="$style.buySlotActions">
+                            <button type="button" :class="$style.buySlotCancel" @click="showBuySlot = false">ยกเลิก</button>
+                            <button
+                                type="button"
+                                :class="$style.buySlotConfirm"
+                                :disabled="isBuyingSlot"
+                                @click="buySlot"
+                            >
+                                {{ isBuyingSlot ? "กำลังซื้อ…" : "ซื้อ Slot" }}
+                            </button>
+                        </div>
+                    </section>
+                </div>
+            </Transition>
+        </Teleport>
     </div>
 </template>
 
 <style module>
 .shopDashboard {
+    /* Page-scoped card theme (light defaults + dark override below), so Shop cards
+       read like the Projects page instead of always-dark on a white page. Components
+       consume these via var(--shop-*, <dark fallback>). */
+    --shop-card-bg: var(--color-neutral-50);
+    --shop-card-border: var(--color-input-border);
+    --shop-card-text: var(--color-text-primary);
+    --shop-card-muted: var(--color-neutral-600);
+    --shop-row-hover: var(--color-neutral-100);
+
     display: flex;
     min-height: 100vh;
     background-color: var(--color-main-background);
     color: var(--color-text-primary);
+}
+
+:global(.dark) .shopDashboard,
+:global([data-theme="dark"]) .shopDashboard {
+    --shop-card-bg: var(--color-main-surface);
+    --shop-card-border: var(--color-main-border);
+    --shop-card-text: var(--color-text-secondary);
+    --shop-card-muted: var(--color-text-secondary);
+    --shop-row-hover: var(--color-table-row-hover);
 }
 
 .content {
@@ -519,7 +646,7 @@ onUnmounted(clearToast);
     box-sizing: border-box;
     padding: var(--spacing-space-6);
     gap: var(--spacing-space-6);
-    transition: margin-left 180ms ease;
+    transition: margin-left 260ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .sidebarOpen {
@@ -580,22 +707,23 @@ onUnmounted(clearToast);
     box-sizing: border-box;
     gap: var(--spacing-space-2);
     padding: var(--spacing-space-5) var(--spacing-space-6);
-    border: 1px solid var(--color-main-border);
+    border: 1px solid var(--shop-card-border, var(--color-main-border));
     border-radius: var(--radius-xl);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
+    background-color: var(--shop-card-bg, var(--color-main-surface));
+    color: var(--shop-card-text, var(--color-text-secondary));
     text-align: left;
+    transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease;
 }
 
 .metricValue {
-    color: var(--color-text-secondary);
+    color: var(--shop-card-text, var(--color-text-secondary));
     font-size: 32px;
     font-weight: 800;
     line-height: 1;
 }
 
 .metricLabel {
-    color: var(--color-text-secondary);
+    color: var(--shop-card-muted, var(--color-text-secondary));
     font-size: 14px;
     font-weight: 600;
     line-height: 1;
@@ -670,10 +798,10 @@ onUnmounted(clearToast);
     margin-inline: var(--spacing-space-5);
     padding: var(--spacing-space-6);
     gap: var(--spacing-space-4);
-    border: 1px solid var(--color-main-border);
+    border: 1px solid var(--shop-card-border, var(--color-main-border));
     border-radius: var(--radius-xl);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
+    background-color: var(--shop-card-bg, var(--color-main-surface));
+    color: var(--shop-card-text, var(--color-text-secondary));
 }
 
 .stateTitle,
@@ -725,6 +853,87 @@ onUnmounted(clearToast);
     bottom: var(--spacing-space-5);
     z-index: 60;
     width: min(360px, calc(100vw - var(--spacing-space-10)));
+}
+
+.buySlotBackdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-space-5);
+    background: color-mix(in srgb, #000 55%, transparent);
+    backdrop-filter: blur(4px);
+}
+
+.buySlotModal {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-space-4);
+    width: min(440px, 100%);
+    padding: var(--spacing-space-6);
+    border: 1px solid var(--color-main-border);
+    border-radius: var(--radius-xl);
+    background-color: var(--color-main-surface);
+    color: var(--color-text-primary);
+}
+
+.buySlotTitle {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.buySlotText {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: 16px;
+    line-height: 1.5;
+}
+
+.buySlotPrice {
+    margin: 0;
+    color: var(--color-main-primary);
+    font-size: 28px;
+    font-weight: 800;
+}
+
+.buySlotActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-space-3);
+}
+
+.buySlotCancel,
+.buySlotConfirm {
+    min-height: 42px;
+    padding: 0 var(--spacing-space-5);
+    border-radius: var(--radius-md);
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.buySlotCancel {
+    border: 1px solid var(--color-main-border);
+    background: transparent;
+    color: var(--color-text-primary);
+}
+
+.buySlotConfirm {
+    border: 0;
+    background-color: var(--color-button-primary-btn-bg);
+    color: var(--color-button-primary-btn-text-active);
+}
+
+.buySlotConfirm:hover {
+    background-color: var(--color-button-primary-btn-hover);
+}
+
+.buySlotConfirm:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
 @media (max-width: 920px) {

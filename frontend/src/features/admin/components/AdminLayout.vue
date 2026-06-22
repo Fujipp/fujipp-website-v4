@@ -22,7 +22,7 @@ function isActive(name: unknown): boolean {
 </script>
 
 <template>
-    <div :class="$style.shell">
+    <div :class="$style.shell" class="fp-admin">
         <ShopSidebar v-model="isSidebarOpen" />
 
         <main :class="[$style.content, isSidebarOpen ? $style.contentOpen : $style.contentClosed]">
@@ -58,6 +58,7 @@ function isActive(name: unknown): boolean {
     background-color: var(--color-main-background);
     color: var(--color-text-primary);
     font-family: var(--font-sans);
+    transition: background-color 300ms ease, color 300ms ease;
 }
 
 .content {
@@ -120,6 +121,7 @@ function isActive(name: unknown): boolean {
     border-radius: var(--radius-2xl);
     background-color: var(--color-main-surface);
     color: var(--color-text-secondary);
+    transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease;
 }
 
 .adminTab {
@@ -176,5 +178,59 @@ function isActive(name: unknown): boolean {
         flex: 1 1 calc(50% - var(--spacing-space-3));
         justify-content: center;
     }
+}
+</style>
+
+<!--
+  Theme-aware defaults for raw form controls + tables inside every admin page.
+  Scoped to .fp-admin and wrapped in :where() so the rules carry near-zero
+  specificity — a view's own class styles always win, but the many unstyled
+  white inputs/selects/checkboxes pick up a consistent, dark/light-aware look
+  that cross-fades on theme toggle.
+-->
+<style>
+:where(.fp-admin) :where(input[type="text"], input[type="number"], input[type="date"],
+                 input[type="search"], input[type="password"], input:not([type]),
+                 select, textarea) {
+    min-height: 38px;
+    box-sizing: border-box;
+    padding: 0 10px;
+    border: 1px solid var(--color-input-border);
+    border-radius: var(--radius-md);
+    background-color: var(--color-main-surface);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    transition: background-color 200ms ease, border-color 200ms ease, color 200ms ease;
+}
+
+:where(.fp-admin) :where(textarea) {
+    min-height: 88px;
+    padding: 8px 10px;
+    line-height: 1.5;
+    resize: vertical;
+}
+
+:where(.fp-admin) :where(input:hover:not(:disabled), select:hover:not(:disabled), textarea:hover:not(:disabled)) {
+    border-color: color-mix(in srgb, var(--color-main-primary) 60%, var(--color-input-border));
+}
+
+:where(.fp-admin) :where(input:focus-visible, select:focus-visible, textarea:focus-visible) {
+    outline: 2px solid var(--color-main-primary);
+    outline-offset: 1px;
+    border-color: var(--color-main-primary);
+}
+
+:where(.fp-admin) :where(input::placeholder, textarea::placeholder) {
+    color: var(--color-text-secondary);
+}
+
+:where(.fp-admin) :where(input[type="checkbox"], input[type="radio"]) {
+    width: 18px;
+    height: 18px;
+    min-height: 0;
+    padding: 0;
+    accent-color: var(--color-main-primary);
+    cursor: pointer;
 }
 </style>
