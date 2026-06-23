@@ -5,13 +5,19 @@
 // eats the bot's own message budget. Every category has its own on/off toggle.
 //
 // Config keys (mirror billing.feature_variable_templates 1:1):
-//   LOG_ENABLED            (BOOLEAN)    — master on/off
-//   LOG_CHANNEL_ID         (CHANNEL_ID) — channel the webhook posts into
-//   LOG_MESSAGE_EVENTS     (BOOLEAN)    — message edit / delete / bulk-delete
-//   LOG_MEMBER_EVENTS      (BOOLEAN)    — join / leave / nickname / role change
-//   LOG_MODERATION_EVENTS  (BOOLEAN)    — ban / unban / timeout
-//   LOG_CHANNEL_EVENTS     (BOOLEAN)    — channel create / delete / update
-//   LOG_VOICE_EVENTS       (BOOLEAN)    — voice join / leave / move
+//   LOG_ENABLED                   (BOOLEAN)    — master on/off
+//   LOG_CHANNEL_ID                (CHANNEL_ID) — DEFAULT channel the webhook posts into
+//   LOG_MESSAGE_EVENTS            (BOOLEAN)    — message edit / delete / bulk-delete
+//   LOG_MEMBER_EVENTS             (BOOLEAN)    — join / leave / nickname / role change
+//   LOG_MODERATION_EVENTS         (BOOLEAN)    — ban / unban / timeout
+//   LOG_CHANNEL_EVENTS            (BOOLEAN)    — channel create / delete / update
+//   LOG_VOICE_EVENTS              (BOOLEAN)    — voice join / leave / move
+//
+// Each category may ALSO be routed to its own room via an optional per-category
+// channel override; when the override is empty the category falls back to
+// LOG_CHANNEL_ID, so a bot with only the default channel set behaves as before:
+//   LOG_MESSAGE_CHANNEL_ID, LOG_MEMBER_CHANNEL_ID, LOG_MODERATION_CHANNEL_ID,
+//   LOG_CHANNEL_EVENTS_CHANNEL_ID, LOG_VOICE_CHANNEL_ID  (all CHANNEL_ID).
 //
 // Privileged intents: message + member coverage need Message Content / Server
 // Members enabled in the bot's Developer Portal. We only request a privileged
@@ -31,6 +37,15 @@ const flags = {
   moderation: (c) => c.bool('LOG_MODERATION_EVENTS', true),
   channel: (c) => c.bool('LOG_CHANNEL_EVENTS', true),
   voice: (c) => c.bool('LOG_VOICE_EVENTS', false),
+};
+
+// Per-category channel override key. Empty/unset → fall back to LOG_CHANNEL_ID.
+const channelKeys = {
+  message: 'LOG_MESSAGE_CHANNEL_ID',
+  member: 'LOG_MEMBER_CHANNEL_ID',
+  moderation: 'LOG_MODERATION_CHANNEL_ID',
+  channel: 'LOG_CHANNEL_EVENTS_CHANNEL_ID',
+  voice: 'LOG_VOICE_CHANNEL_ID',
 };
 
 // Only request a privileged intent when its category is enabled (login fails with
@@ -89,27 +104,34 @@ async function emit(client, ctx, channelId, part) {
   });
 }
 
-// Gate shared by every listener: master switch on, channel configured, has a guild,
-// and the event is NOT happening in the log channel itself (avoid feeding the log).
-function gate(ctx, guild, channelId) {
+// Resolve which channel a given category logs into: its own override if set, else
+// the default LOG_CHANNEL_ID.
+function logChannelFor(ctx, category) {
+  const override = ctx.config.get(channelKeys[category]);
+  return override || ctx.config.get('LOG_CHANNEL_ID') || null;
+}
+
+// Gate shared by every listener: master switch on, has a guild, and a channel is
+// resolved for this category (its override or the default). Returns the resolved
+// log channel id, or null when logging should be skipped.
+function gate(ctx, guild, category) {
   if (!ctx.config.bool('LOG_ENABLED', false)) return null;
   if (!guild) return null;
-  const logChannelId = ctx.config.get('LOG_CHANNEL_ID');
-  return logChannelId || null;
+  return logChannelFor(ctx, category);
 }
 
 const events = {
   // ── Messages ──
   async messageDelete(message, ctx) {
     if (!flags.message(ctx.config)) return;
-    const logChannelId = gate(ctx, message.guild, message.channelId);
+    const logChannelId = gate(ctx, message.guild, 'message');
     if (!logChannelId || message.channelId === logChannelId) return;
     if (message.author?.bot || message.webhookId) return; // skip bot/webhook noise
     await emit(message.client, ctx, logChannelId, fmt.messageDelete(message));
   },
   async messageUpdate(oldMessage, newMessage, ctx) {
     if (!flags.message(ctx.config)) return;
-    const logChannelId = gate(ctx, newMessage.guild, newMessage.channelId);
+    const logChannelId = gate(ctx, newMessage.guild, 'message');
     if (!logChannelId || newMessage.channelId === logChannelId) return;
     if (newMessage.author?.bot || newMessage.webhookId) return;
     if (oldMessage.content === newMessage.content) return; // embed/attachment-only edit
@@ -117,7 +139,7 @@ const events = {
   },
   async messageDeleteBulk(messages, channel, ctx) {
     if (!flags.message(ctx.config)) return;
-    const logChannelId = gate(ctx, channel?.guild, channel?.id);
+    const logChannelId = gate(ctx, channel?.guild, 'message');
     if (!logChannelId || channel?.id === logChannelId) return;
     await emit(channel.client, ctx, logChannelId, fmt.messageDeleteBulk(messages, channel));
   },
@@ -125,38 +147,44 @@ const events = {
   // ── Members ──
   async guildMemberAdd(member, ctx) {
     if (!flags.member(ctx.config)) return;
-    const logChannelId = gate(ctx, member.guild);
+    const logChannelId = gate(ctx, member.guild, 'member');
     if (!logChannelId) return;
     await emit(member.client, ctx, logChannelId, fmt.memberAdd(member));
   },
   async guildMemberRemove(member, ctx) {
     if (!flags.member(ctx.config)) return;
-    const logChannelId = gate(ctx, member.guild);
+    const logChannelId = gate(ctx, member.guild, 'member');
     if (!logChannelId) return;
     await emit(member.client, ctx, logChannelId, fmt.memberRemove(member));
   },
-  // One listener serves both member (nick/roles) and moderation (timeout) toggles.
+  // One listener serves both member (nick/roles) and moderation (timeout) toggles —
+  // each emits to its own resolved channel so they can land in different rooms.
   async guildMemberUpdate(oldMember, newMember, ctx) {
-    const logChannelId = gate(ctx, newMember.guild);
-    if (!logChannelId) return;
+    if (!ctx.config.bool('LOG_ENABLED', false) || !newMember.guild) return;
     if (flags.member(ctx.config)) {
-      await emit(newMember.client, ctx, logChannelId, fmt.memberUpdate(oldMember, newMember));
+      const memberChannel = logChannelFor(ctx, 'member');
+      if (memberChannel) {
+        await emit(newMember.client, ctx, memberChannel, fmt.memberUpdate(oldMember, newMember));
+      }
     }
     if (flags.moderation(ctx.config)) {
-      await emit(newMember.client, ctx, logChannelId, fmt.timeout(oldMember, newMember));
+      const modChannel = logChannelFor(ctx, 'moderation');
+      if (modChannel) {
+        await emit(newMember.client, ctx, modChannel, fmt.timeout(oldMember, newMember));
+      }
     }
   },
 
   // ── Moderation ──
   async guildBanAdd(ban, ctx) {
     if (!flags.moderation(ctx.config)) return;
-    const logChannelId = gate(ctx, ban.guild);
+    const logChannelId = gate(ctx, ban.guild, 'moderation');
     if (!logChannelId) return;
     await emit(ban.client, ctx, logChannelId, fmt.banAdd(ban));
   },
   async guildBanRemove(ban, ctx) {
     if (!flags.moderation(ctx.config)) return;
-    const logChannelId = gate(ctx, ban.guild);
+    const logChannelId = gate(ctx, ban.guild, 'moderation');
     if (!logChannelId) return;
     await emit(ban.client, ctx, logChannelId, fmt.banRemove(ban));
   },
@@ -164,19 +192,19 @@ const events = {
   // ── Channels (ride on the Guilds intent) ──
   async channelCreate(channel, ctx) {
     if (!flags.channel(ctx.config)) return;
-    const logChannelId = gate(ctx, channel.guild);
+    const logChannelId = gate(ctx, channel.guild, 'channel');
     if (!logChannelId) return;
     await emit(channel.client, ctx, logChannelId, fmt.channelCreate(channel));
   },
   async channelDelete(channel, ctx) {
     if (!flags.channel(ctx.config)) return;
-    const logChannelId = gate(ctx, channel.guild);
+    const logChannelId = gate(ctx, channel.guild, 'channel');
     if (!logChannelId) return;
     await emit(channel.client, ctx, logChannelId, fmt.channelDelete(channel));
   },
   async channelUpdate(oldChannel, newChannel, ctx) {
     if (!flags.channel(ctx.config)) return;
-    const logChannelId = gate(ctx, newChannel.guild);
+    const logChannelId = gate(ctx, newChannel.guild, 'channel');
     if (!logChannelId) return;
     await emit(newChannel.client, ctx, logChannelId, fmt.channelUpdate(oldChannel, newChannel));
   },
@@ -184,7 +212,7 @@ const events = {
   // ── Voice ──
   async voiceStateUpdate(oldState, newState, ctx) {
     if (!flags.voice(ctx.config)) return;
-    const logChannelId = gate(ctx, newState.guild);
+    const logChannelId = gate(ctx, newState.guild, 'voice');
     if (!logChannelId) return;
     await emit(newState.client, ctx, logChannelId, fmt.voiceUpdate(oldState, newState));
   },
