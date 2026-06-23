@@ -81,10 +81,13 @@ public class RuntimeController {
 
     /** The bot a runtime is currently assigned to (before we change it), or null. */
     private String currentBotOf(UUID userId, UUID runtimeId) {
+        // map() AFTER findFirst(): an unassigned runtime has a null externalSubjectId,
+        // and Stream.findFirst() throws NPE on a null element (Optional.of). Optional.map
+        // tolerates the null and collapses to empty → orElse(null).
         return billing.runtimeSubs(userId).stream()
             .filter(r -> runtimeId.equals(r.id()))
-            .map(BillingClient.RuntimeSubView::externalSubjectId)
             .findFirst()
+            .map(BillingClient.RuntimeSubView::externalSubjectId)
             .orElse(null);
     }
 
