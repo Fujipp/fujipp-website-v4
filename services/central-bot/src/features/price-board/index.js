@@ -65,16 +65,18 @@ async function postBoard(client, ctx) {
   await channel.send(await buildBoard(ctx));
 }
 
-// Category button click → reply with that category's price embed (ephemeral) + the
-// order-room link button. The link url comes from the slot's btn_buy.url if set, else
-// the PRICE_BOARD_BUY_CHANNEL_URL config.
+// Category button click → reply PUBLICLY (like the legacy bot) with that category's
+// price embed + the order-room link button, plus an optional content line above it
+// (the slot's `content`, with {{member}} → the clicker's mention, e.g. the tag line).
+// The link url comes from the slot's btn_buy.url if set, else PRICE_BOARD_BUY_CHANNEL_URL.
 async function onCategoryClick(interaction, ctx) {
   const n = Number(interaction.customId.slice(ID_PREFIX.length));
   if (!CATEGORIES.includes(n)) return;
   const slot = `price_cat${n}`;
+  const mention = `<@${interaction.user.id}>`;
 
   const cfg = await ctx.services.embeds.getConfig(slot);
-  const embed = await ctx.services.embeds.renderEmbed(slot, { member: `<@${interaction.user.id}>` });
+  const embed = await ctx.services.embeds.renderEmbed(slot, { member: mention });
 
   const rows = [];
   const buy = (cfg.components && cfg.components.btn_buy) || {};
@@ -84,7 +86,19 @@ async function onCategoryClick(interaction, ctx) {
       applyButton(new ButtonBuilder().setStyle(ButtonStyle.Link).setURL(url), buy, 'ห้องสั่งซื้อสินค้า'),
     ));
   }
-  await interaction.reply({ embeds: [embed], components: rows, ephemeral: true });
+
+  const content = typeof cfg.content === 'string'
+    ? cfg.content.replace(/\{\{member\}\}/g, mention).trim()
+    : '';
+
+  // Public reply; only the clicker may be pinged (so a stray role/@everyone in the
+  // configured content can't mass-mention).
+  await interaction.reply({
+    content: content || undefined,
+    embeds: [embed],
+    components: rows,
+    allowedMentions: { users: [interaction.user.id] },
+  });
 }
 
 // /price-board — admin posts the board into the current channel.
