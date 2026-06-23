@@ -48,24 +48,55 @@ jobs:
             cp -n public/assets/*.js dist/assets/
           fi
 
-      - name: Deploy dist/ over FTP (lftp mirror)
+      - name: Deploy dist/ over FTP, then verify the entry chunk serves as JS
         env:
           FTP_HOST: ${{ secrets.FTP_HOST }}
           FTP_PORT: ${{ secrets.FTP_PORT }}
           FTP_USER: ${{ secrets.FTP_USER }}
           FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
           FTP_REMOTE_DIR: ${{ secrets.FTP_REMOTE_DIR }}
+          SITE_URL: https://fujipp.com
         run: |
           sudo apt-get update -qq && sudo apt-get install -y lftp
-          # Try FTPS if the server offers it, fall back to plain FTP; don't verify the cert.
-          # Keep old hashed assets so cached index/main chunks from a previous deploy
-          # can still load their lazy route chunks instead of receiving index.html.
-          lftp -c "
-            set ftp:ssl-allow true;
-            set ftp:ssl-protect-data true;
-            set ssl:verify-certificate no;
-            set net:max-retries 2;
-            set net:timeout 20;
-            open -u '$FTP_USER','$FTP_PASSWORD' -p ${FTP_PORT:-21} '$FTP_HOST';
-            mirror -R --parallel=4 --verbose dist/ '$FTP_REMOTE_DIR';
-          "
+
+          # The entry module index.html points at. If THIS file is missing on the
+          # server, every page fails with "Expected a JavaScript module … got text/html"
+          # because the SPA fallback serves index.html for the absent asset.
+          entry="$(grep -oE '/assets/index-[A-Za-z0-9_-]+\.js' dist/index.html | head -1)"
+          echo "Entry chunk: ${entry:-<none found>}"
+
+          # Upload serially (parallel FTPS data connections on this shared host silently
+          # drop large files — that is the flaky-deploy root cause). clobber on so changed
+          # hashed files are overwritten. Old hashed assets are kept (no --delete) so
+          # clients on a previous index.html can still load their lazy chunks.
+          upload() {
+            lftp -c "
+              set ftp:ssl-allow true;
+              set ftp:ssl-protect-data true;
+              set ssl:verify-certificate no;
+              set net:max-retries 3;
+              set net:timeout 30;
+              set net:reconnect-interval-base 5;
+              set xfer:clobber on;
+              open -u '$FTP_USER','$FTP_PASSWORD' -p ${FTP_PORT:-21} '$FTP_HOST';
+              mirror -R --parallel=1 --verbose dist/ '$FTP_REMOTE_DIR';
+            "
+          }
+
+          # Upload, then confirm the live server actually serves the entry chunk as
+          # JavaScript. Retry the whole upload if a transfer dropped — a flaky deploy
+          # now fails loudly (and self-heals) instead of reporting a false success.
+          for attempt in 1 2 3; do
+            echo "=== Upload attempt $attempt ==="
+            upload || echo "lftp exited non-zero on attempt $attempt"
+            if [ -n "$entry" ]; then
+              ct="$(curl -s -o /dev/null -w '%{content_type}' "$SITE_URL$entry" || true)"
+              echo "Entry served as: $ct"
+              case "$ct" in *javascript*) echo "Verified ✅"; exit 0;; esac
+              echo "Entry not served as JS yet — retrying upload…"; sleep 8
+            else
+              echo "Could not parse entry chunk from index.html — skipping verify"; exit 0
+            fi
+          done
+          echo "::error::Deploy incomplete — entry chunk never served as JavaScript"
+          exit 1
