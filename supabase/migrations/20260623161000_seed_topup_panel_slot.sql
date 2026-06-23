@@ -15,8 +15,6 @@ VALUES
    'หน้าตาแผงเติมเงินที่โพสต์ด้วยคำสั่ง /topup-panel — มีปุ่มให้สมาชิกกดเติมเงินเข้ากระเป๋า '
    || 'ใช้ได้โดยไม่ต้องมีฟีเจอร์ Roblox. ปุ่ม "เติมเงิน" ปรับหน้าตาได้ที่ component btn_topup.',
    ARRAY[]::text[],
-   '{"color": 3066993, "title": "💰 เติมเงินเข้ากระเป๋า", '
-   || '"description": "กดปุ่ม **เติมเงิน** ด้านล่างเพื่อเลือกช่องทางและเติมเงินเข้ากระเป๋าเงินของคุณ", '
-   || '"components": {"btn_topup": {"label": "เติมเงิน", "emoji": "💰", "style": "primary"}}}'::jsonb,
+   $j$ {"color": 3066993, "title": "💰 เติมเงินเข้ากระเป๋า", "description": "กดปุ่ม **เติมเงิน** ด้านล่างเพื่อเลือกช่องทางและเติมเงินเข้ากระเป๋าเงินของคุณ", "components": {"btn_topup": {"label": "เติมเงิน", "emoji": "💰", "style": "primary"}}} $j$::jsonb,
    15)
 ON CONFLICT (feature_code, slot_key) DO NOTHING;
