@@ -40,6 +40,8 @@ const widget = computed(() => {
             return "json";
         case "STRING_LIST":
             return "list";
+        case "ENUM":
+            return "enum";
         case "NUMBER":
             return "number";
         case "BOOLEAN":
@@ -55,6 +57,11 @@ const widget = computed(() => {
 });
 
 const textType = computed(() => (widget.value === "secret" ? "password" : widget.value === "number" ? "number" : "text"));
+
+// ENUM choices live on the field itself (seeded in the backbone), not fetched from Discord.
+const enumOptions = computed<SelectFieldOption[]>(() =>
+    (props.field.options ?? []).map((o) => ({ label: o.label, value: o.value })),
+);
 
 // STRING_LIST is stored as a JSON string array but edited as one input box per item
 // (add / remove rows). The user never types brackets, quotes, or commas.
@@ -139,6 +146,16 @@ function removeItem(index: number): void {
             :label="labelText"
             :model-value="modelValue"
             :options="booleanOptions"
+            :error="error"
+            :disabled="disabled"
+            @update:model-value="update"
+        />
+        <SelectField
+            v-else-if="widget === 'enum'"
+            :label="labelText"
+            :model-value="modelValue"
+            :options="enumOptions"
+            placeholder="เลือก…"
             :error="error"
             :disabled="disabled"
             @update:model-value="update"
