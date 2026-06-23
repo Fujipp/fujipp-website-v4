@@ -60,6 +60,11 @@ const BUTTON_STYLES = [
 ];
 const roles = computed<Role[]>(() => COMPONENT_ROLES[selectedKey.value] ?? []);
 
+// Slots whose bot reply also sends message text above the embed (the Price Board
+// per-category embeds use it for the tag line). Other slots' senders ignore content,
+// so only expose the editor where it actually does something.
+const supportsContent = computed(() => selectedKey.value.startsWith("price_cat"));
+
 // Collapsible editor sections (mirrors Discohook's grouping). All open by default.
 type SectionKey = "author" | "body" | "images" | "fields" | "footer" | "components";
 const openSections = ref<Record<SectionKey, boolean>>({
@@ -221,6 +226,7 @@ function cleanComponent(role: Role, cfg: ComponentConfig): ComponentConfig | nul
 
 function clean(embed: EmbedObject): EmbedObject {
     const e: EmbedObject = cloneEmbed(embed);
+    if (!e.content || !e.content.trim()) delete e.content;
     if (!e.url || !e.url.trim()) delete e.url;
     if (!e.timestamp) delete e.timestamp;
     if (!e.image?.url) delete e.image;
@@ -350,6 +356,11 @@ watch(() => props.botId, loadConfigValues);
                             <span>เนื้อหา (body)</span>
                         </button>
                         <div v-show="openSections.body" :class="$style.sectionBody">
+                            <template v-if="supportsContent">
+                                <label :class="$style.fieldLabel">ข้อความนำหน้า (content)</label>
+                                <textarea v-model="draft.content" :class="$style.textarea" rows="2" placeholder="ข้อความเหนือ embed — ใส่ {{member}} เพื่อ tag คนที่กดปุ่ม + custom emoji ได้" />
+                            </template>
+
                             <label :class="$style.colorRow">
                                 <span>สี</span>
                                 <input v-model="colorHex" type="color" :class="$style.colorInput" />

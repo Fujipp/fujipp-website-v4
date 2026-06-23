@@ -15,6 +15,7 @@ export interface ComponentConfig {
     url?: string;
 }
 export interface EmbedObject {
+    content?: string; // message text shown ABOVE the embed (e.g. a tag line)
     color?: number;
     title?: string;
     description?: string;
@@ -244,6 +245,9 @@ const buttonRoles = computed(() => previewRoles.value.filter((r) => r.type !== "
 const staticButtons = computed(() => (props.slotKey ? STATIC_ROLES[props.slotKey] ?? [] : []));
 const hasComponents = computed(() => previewRoles.value.length > 0 || staticButtons.value.length > 0);
 
+// Message text shown above the embed; {{member}} mocks the clicker's mention.
+const contentText = computed(() => (props.embed.content ?? "").replace(/\{\{member\}\}/g, "@สมาชิก").trim());
+
 function component(role: PreviewRole): ComponentConfig {
     return props.embed.components?.[role.key] ?? {};
 }
@@ -284,6 +288,7 @@ function buttonClass(role: PreviewRole): string {
 
 <template>
     <div :class="$style.wrap">
+        <p v-if="contentText" :class="$style.content">{{ contentText }}</p>
         <div :class="$style.embed" :style="{ borderColor: barColor }">
             <div :class="$style.body">
                 <div v-if="authorName" :class="$style.author">
@@ -412,6 +417,7 @@ function buttonClass(role: PreviewRole): string {
 .embed :global(code.block) { display: block; padding: 6px 8px; margin: 2px 0; white-space: pre-wrap; }
 .embed :global(.quote) { display: inline-block; border-left: 3px solid #4e5058; padding-left: 8px; }
 
+.content { color: #dbdee1; white-space: pre-wrap; word-break: break-word; margin: 0 0 4px; font-size: 14px; line-height: 1.4; }
 .components { display: flex; flex-direction: column; gap: 8px; max-width: 432px; margin-top: 8px; }
 .selectBlock { display: flex; flex-direction: column; gap: 4px; }
 .selectPreview { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 12px; border: 1px solid #3f4147; border-radius: 4px; background: #2b2d31; color: #b5bac1; font-size: 14px; }
