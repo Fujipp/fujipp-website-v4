@@ -1,9 +1,10 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.25.2`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.26`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.26` | 2026-06-23 | Added the Price Board bot feature: posts a Roblox price board with category buttons that open per-category price embeds, with optional scheduled re-posting |
 | `0.0.25.2` | 2026-06-23 | A bot whose privileged intents aren't enabled now stays online with those features paused, instead of failing to start entirely |
 | `0.0.25.1` | 2026-06-23 | Documented that database migrations apply automatically on release, so contributors don't run a manual step |
 | `0.0.25` | 2026-06-23 | The Roblox shop panel resumes its live updates after a bot restart, and a new top-up panel command lets members top up without the Roblox feature |
