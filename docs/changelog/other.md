@@ -1,9 +1,10 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.23`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.23.1`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.23.1` | 2026-06-23 | Made the website deploy reliable: uploads are now verified so a dropped file fails and retries instead of leaving the site unable to load |
 | `0.0.23` | 2026-06-23 | Bot embeds now render author and title links plus a footer timestamp set in the Embed Designer |
 | `0.0.22` | 2026-06-23 | Server Log now lets each activity category log into its own channel, falling back to the default channel |
 | `0.0.21` | 2026-06-22 | Added the Server Log bot feature: webhook-based audit logging of server activity with per-category toggles |
