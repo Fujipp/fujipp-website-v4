@@ -13,7 +13,14 @@ export type ConfigValueType =
     | "SECRET"
     | "JSON"
     // Stored as a JSON string array, but edited as one item per line (no brackets/quotes).
-    | "STRING_LIST";
+    | "STRING_LIST"
+    // Fixed dropdown — choices come from the field's `options`.
+    | "ENUM";
+
+export interface ConfigFieldOption {
+    value: string;
+    label: string;
+}
 
 export interface FeatureConfigField {
     variableKey: string;
@@ -24,6 +31,8 @@ export interface FeatureConfigField {
     isSensitive: boolean;
     defaultValue?: string;
     sortOrder: number;
+    // Present only for ENUM fields.
+    options?: ConfigFieldOption[];
 }
 
 export interface FeatureDefinition {
