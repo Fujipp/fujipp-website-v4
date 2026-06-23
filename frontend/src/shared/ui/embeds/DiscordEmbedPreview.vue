@@ -52,6 +52,9 @@ export const SLOT_ROLES: Record<string, PreviewRole[]> = {
         { key: "btn_promptpay", label: "ปุ่ม พร้อมเพย์", type: "button", fallback: "พร้อมเพย์ธนาคาร", emoji: "🏧", style: "primary" },
         { key: "btn_truemoney", label: "ปุ่ม ทรูมันนี่", type: "button", fallback: "ซองอั่งเปาทรูมันนี่", emoji: "🧧", style: "success" },
     ],
+    topup_panel: [
+        { key: "btn_topup", label: "ปุ่ม เติมเงิน", type: "button", fallback: "เติมเงิน", emoji: "💰", style: "primary" },
+    ],
     buy_eligible: [
         { key: "pkg_select", label: "เมนูเลือกแพ็กเกจ", type: "select", fallback: "🎮 เลือก Robux Package" },
     ],
