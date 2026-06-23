@@ -93,6 +93,11 @@ function buildEmbed(json, slotKey) {
   const title = clip(str(json.title), LIMIT.title);
   const description = clip(str(json.description), LIMIT.description);
   if (title) e.setTitle(title);
+  // A url only renders as a clickable title, so apply it only when a title exists.
+  if (title) {
+    const titleUrl = httpUrl(json.url);
+    if (titleUrl) e.setURL(titleUrl);
+  }
   if (description) e.setDescription(description);
   // An embed must carry at least one visible element.
   if (!title && !description && !Array.isArray(json.fields)) e.setDescription(slotKey);
@@ -106,7 +111,16 @@ function buildEmbed(json, slotKey) {
     e.setFooter({ text: clip(str(json.footer.text), LIMIT.footer), iconURL: httpUrl(json.footer.icon_url) || undefined });
   }
   if (json.author && str(json.author.name)) {
-    e.setAuthor({ name: clip(str(json.author.name), LIMIT.author), iconURL: httpUrl(json.author.icon_url) || undefined });
+    e.setAuthor({
+      name: clip(str(json.author.name), LIMIT.author),
+      iconURL: httpUrl(json.author.icon_url) || undefined,
+      url: httpUrl(json.author.url) || undefined,
+    });
+  }
+  // Footer timestamp (ISO string). Ignore an unparseable value rather than throwing.
+  if (str(json.timestamp)) {
+    const ts = new Date(str(json.timestamp));
+    if (!Number.isNaN(ts.getTime())) e.setTimestamp(ts);
   }
   if (Array.isArray(json.fields)) {
     const fields = json.fields
