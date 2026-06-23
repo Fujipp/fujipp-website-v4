@@ -103,6 +103,18 @@ async function handlePostBoard(interaction, ctx) {
 // nodes would double-post — same single-node assumption as the panel refresher.)
 let repostTimer = null;
 
+// Asia/Bangkok has a fixed +7h offset (no DST), so we can align to wall-clock hours
+// without a tz library: shift epoch by +7h and align to multiples of the period. This
+// reproduces the legacy cron's "post at 00:00, 02:00, 04:00…" behaviour (aligned to
+// Bangkok midnight) for any period that divides 24h (2 = the legacy default).
+const BANGKOK_OFFSET_MS = 7 * 3600_000;
+
+function msUntilNextAligned(nowMs, periodMs) {
+  const bkk = nowMs + BANGKOK_OFFSET_MS; // Bangkok wall-clock as ms-from-epoch
+  const next = Math.floor(bkk / periodMs) * periodMs + periodMs;
+  return next - bkk;
+}
+
 async function onReady(client, ctx) {
   if (ctx.config.bool('PRICE_BOARD_SEND_ON_STARTUP', false)) {
     await postBoard(client, ctx).catch((err) => {
@@ -112,13 +124,20 @@ async function onReady(client, ctx) {
 
   if (ctx.config.bool('PRICE_BOARD_AUTO_REPOST', false)) {
     const hours = Math.max(0.25, ctx.config.number('PRICE_BOARD_REPOST_HOURS', 2));
-    if (repostTimer) clearInterval(repostTimer);
-    repostTimer = setInterval(() => {
-      postBoard(client, ctx).catch((err) => {
-        console.error('[central-bot] price-board: auto-repost failed:', err.message);
-      });
-    }, hours * 3600_000);
-    console.log(`[central-bot] price-board: auto-repost every ${hours}h`);
+    const periodMs = hours * 3600_000;
+    if (repostTimer) clearTimeout(repostTimer); // clearTimeout clears both kinds in Node
+
+    const post = () => postBoard(client, ctx).catch((err) => {
+      console.error('[central-bot] price-board: auto-repost failed:', err.message);
+    });
+
+    // Wait until the next aligned Bangkok slot, post, then repeat every period exactly.
+    repostTimer = setTimeout(() => {
+      post();
+      repostTimer = setInterval(post, periodMs);
+    }, msUntilNextAligned(Date.now(), periodMs));
+
+    console.log(`[central-bot] price-board: auto-repost every ${hours}h (aligned to Bangkok clock)`);
   }
 }
 
