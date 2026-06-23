@@ -11,6 +11,7 @@ const {
 const roblox = require('./roblox');
 const { isAdmin } = require('../../lib/perms');
 const buy = require('./buy');
+const db = require('../../lib/db');
 const { buttonStyle, parseEmoji, applyButton } = require('../../lib/components');
 
 // Fixed component ids (routed by prefix in bot.js).
@@ -159,6 +160,63 @@ function buildComponents(ctx, groups, stock, comp = {}) {
   return rows;
 }
 
+// ─── Panel persistence (resume refresh after a restart) ──────────────────────
+// The live updater's timer is in-memory, so a bot restart used to stop refreshing
+// the posted panel until an admin ran /panel again. We remember where the panel was
+// posted (channel + message) per bot and re-attach the refresher on the next boot.
+// All best-effort: a DB hiccup or a missing table must never break /panel itself.
+async function savePanelRef(ctx, channelId, messageId) {
+  if (!ctx.config.subjectId) return;
+  try {
+    await db.query(
+      `INSERT INTO shop.roblox_panels (external_subject_id, channel_id, message_id, updated_at)
+       VALUES ($1, $2, $3, now())
+       ON CONFLICT (external_subject_id)
+         DO UPDATE SET channel_id = $2, message_id = $3, updated_at = now()`,
+      [ctx.config.subjectId, channelId, messageId],
+    );
+  } catch (err) {
+    console.error('[central-bot] panel: save ref failed:', err.message);
+  }
+}
+
+async function clearPanelRef(ctx) {
+  try {
+    await db.query('DELETE FROM shop.roblox_panels WHERE external_subject_id = $1', [ctx.config.subjectId]);
+  } catch (_e) { /* best-effort */ }
+}
+
+// onReady: re-attach the auto-refresher to the panel this bot posted before restart.
+async function onReady(client, ctx) {
+  if (!ctx.config.subjectId) return;
+  let ref;
+  try {
+    const { rows } = await db.query(
+      'SELECT channel_id, message_id FROM shop.roblox_panels WHERE external_subject_id = $1',
+      [ctx.config.subjectId],
+    );
+    ref = rows[0];
+  } catch (err) {
+    console.error('[central-bot] panel: load ref failed:', err.message);
+    return;
+  }
+  if (!ref) return;
+
+  try {
+    const channel = client.channels.cache.get(ref.channel_id)
+      || (await client.channels.fetch(ref.channel_id));
+    const message = await channel.messages.fetch(ref.message_id);
+    if (message) {
+      startPanelRefresh(message, ctx);
+      console.log('[central-bot] panel: resumed auto-refresh on restart');
+    }
+  } catch (_e) {
+    // Channel/message deleted while the bot was down — drop the stale pointer.
+    await clearPanelRef(ctx);
+    console.log('[central-bot] panel: stored message gone; cleared ref');
+  }
+}
+
 // /panel — admin posts the shop panel into the channel.
 async function handlePanel(interaction, ctx) {
   if (!isAdmin(interaction, ctx)) {
@@ -177,6 +235,8 @@ async function handlePanel(interaction, ctx) {
     components: buildComponents(ctx, groups, stock, cfg.components || {}),
   });
   startPanelRefresh(message, ctx);
+  // Remember this panel so the refresher resumes automatically after a restart.
+  await savePanelRef(ctx, message.channelId, message.id);
   await interaction.editReply({ content: 'โพสต์แผงร้านแล้ว ✅ (ยอดกลุ่ม + นับถอยหลังอัปเดตอัตโนมัติ)' });
 }
 
@@ -229,6 +289,7 @@ module.exports = {
   panelCommand: () =>
     new SlashCommandBuilder().setName('panel').setDescription('โพสต์แผงร้าน (แอดมินเท่านั้น)').toJSON(),
   handlePanel,
+  onReady,
   components: {
     [ID.balance]: onBalance,
     [ID.topup]: onTopup,

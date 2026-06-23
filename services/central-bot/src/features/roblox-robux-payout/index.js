@@ -25,5 +25,7 @@ module.exports = {
   handlers: {
     panel: panel.handlePanel,
   },
+  // Re-attach the panel auto-refresher to the message posted before a restart.
+  onReady: panel.onReady,
   components: panel.components,
 };
