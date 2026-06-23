@@ -141,7 +141,10 @@ Example: `20260601143909_create_projects.sql`
 - Admin-only write operations must check `profiles.role = 'ADMIN'` via a subquery against `auth.uid()`.
 - Do not run destructive SQL (DROP TABLE, TRUNCATE) without explicit user approval.
 
-Apply migrations: `supabase db push` (linked project) or `supabase migration up` (local).
+Applying migrations: **prod auto-applies** — Supabase is connected to this repo via the
+Supabase GitHub integration, so migrations land on the linked project when their PR merges
+to `main` (no manual step). `supabase db push` / `supabase migration up` are only for a
+local/linked dev database.
 
 ---
 
