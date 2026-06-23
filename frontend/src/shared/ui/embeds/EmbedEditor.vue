@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import DiscordEmbedPreview from "./DiscordEmbedPreview.vue";
-import type { EmbedObject, ComponentConfig } from "./DiscordEmbedPreview.vue";
+import DiscordEmbedPreview, { SLOT_ROLES } from "./DiscordEmbedPreview.vue";
+import type { EmbedObject, ComponentConfig, PreviewRole } from "./DiscordEmbedPreview.vue";
 import { TextField } from "@/shared/ui/fields";
 import { StatusToast } from "@/shared/ui/toasts";
 import { API_BASE_URL } from "@/config";
@@ -13,9 +13,10 @@ import { supabase } from "@/shared/lib/supabase";
  * Reusable Discord embed editor. Drives the per-bot embed slots over a configurable
  * API base path so both the shop ("/api/bots") and admin ("/api/admin/bots") reuse it.
  */
-const props = withDefaults(defineProps<{ botId: string; basePath?: string }>(), {
-    basePath: "/api/bots",
-});
+const props = withDefaults(
+    defineProps<{ botId: string; basePath?: string; featureCode?: string }>(),
+    { basePath: "/api/bots", featureCode: "" },
+);
 
 type ToastStatus = "info" | "success" | "warning" | "error";
 
@@ -34,6 +35,9 @@ const router = useRouter();
 const userStore = useUserStore();
 
 const slots = ref<EmbedSlot[]>([]);
+// The bot's saved config values — used to mock the preview realistically (e.g. how
+// many Roblox groups / which packages to show), so editing reflects the real setup.
+const configValues = ref<Record<string, string>>({});
 const selectedKey = ref("");
 const draft = ref<EmbedObject | null>(null);
 const isLoading = ref(false);
@@ -43,21 +47,11 @@ const toast = ref<{ status: ToastStatus; title: string; description?: string } |
 
 const selected = computed(() => slots.value.find((s) => s.slotKey === selectedKey.value) ?? null);
 
-// Editable component roles per slot (custom_id/behavior stay fixed in the bot).
-type RoleType = "button" | "select" | "link";
-interface Role { key: string; label: string; type: RoleType }
-const COMPONENT_ROLES: Record<string, Role[]> = {
-    shop_panel: [
-        { key: "group_select", label: "เมนูเลือกกลุ่ม", type: "select" },
-        { key: "btn_topup", label: "ปุ่ม เติมเงิน", type: "button" },
-        { key: "btn_buy", label: "ปุ่ม ซื้อสินค้า", type: "button" },
-        { key: "btn_balance", label: "ปุ่ม เช็คยอด", type: "button" },
-        { key: "btn_link", label: "ปุ่ม ลิงก์กลุ่ม", type: "link" },
-    ],
-    topup_method: [
-        { key: "method_select", label: "เมนูช่องทางเติมเงิน", type: "select" },
-    ],
-};
+// Editable component roles per slot come from the shared SLOT_ROLES map (kept in
+// DiscordEmbedPreview so the form and preview never drift). custom_id/behaviour
+// stay fixed in the bot — only label/emoji/style are editable here.
+type Role = PreviewRole;
+const COMPONENT_ROLES = SLOT_ROLES;
 const BUTTON_STYLES = [
     { value: "primary", label: "น้ำเงิน (primary)" },
     { value: "secondary", label: "เทา (secondary)" },
@@ -65,6 +59,20 @@ const BUTTON_STYLES = [
     { value: "danger", label: "แดง (danger)" },
 ];
 const roles = computed<Role[]>(() => COMPONENT_ROLES[selectedKey.value] ?? []);
+
+// Collapsible editor sections (mirrors Discohook's grouping). All open by default.
+type SectionKey = "author" | "body" | "images" | "fields" | "footer" | "components";
+const openSections = ref<Record<SectionKey, boolean>>({
+    author: true,
+    body: true,
+    images: true,
+    fields: true,
+    footer: true,
+    components: true,
+});
+function toggleSection(key: SectionKey): void {
+    openSections.value[key] = !openSections.value[key];
+}
 
 function notify(status: ToastStatus, title: string, description?: string): void {
     toast.value = { status, title, description };
@@ -138,6 +146,27 @@ function insertVar(name: string): void {
     draft.value.description = `${draft.value.description ?? ""}${varToken(name)}`;
 }
 
+// Footer timestamp (ISO) edited as separate date + time inputs, like Discohook.
+function setTimestamp(date: string, time: string): void {
+    if (!draft.value) return;
+    if (!date && !time) { draft.value.timestamp = undefined; return; }
+    const d = date || new Date().toISOString().slice(0, 10);
+    const t = time || "00:00";
+    const composed = new Date(`${d}T${t}`);
+    draft.value.timestamp = Number.isNaN(composed.getTime()) ? undefined : composed.toISOString();
+}
+const tsDate = computed<string>({
+    get: () => (draft.value?.timestamp ? draft.value.timestamp.slice(0, 10) : ""),
+    set: (d) => setTimestamp(d, tsTime.value),
+});
+const tsTime = computed<string>({
+    get: () => {
+        const m = draft.value?.timestamp?.match(/T(\d{2}:\d{2})/);
+        return m?.[1] ?? "";
+    },
+    set: (t: string) => setTimestamp(tsDate.value, t),
+});
+
 function addField(): void {
     if (!draft.value) return;
     if (!draft.value.fields) draft.value.fields = [];
@@ -146,6 +175,25 @@ function addField(): void {
 
 function removeField(index: number): void {
     draft.value?.fields?.splice(index, 1);
+}
+
+function moveField(index: number, dir: -1 | 1): void {
+    const fields = draft.value?.fields;
+    if (!fields) return;
+    const target = index + dir;
+    if (target < 0 || target >= fields.length) return;
+    const a = fields[index];
+    const b = fields[target];
+    if (!a || !b) return;
+    fields[index] = b;
+    fields[target] = a;
+}
+
+function duplicateField(index: number): void {
+    const fields = draft.value?.fields;
+    if (!fields) return;
+    const copy = JSON.parse(JSON.stringify(fields[index]));
+    fields.splice(index + 1, 0, copy);
 }
 
 function componentConfig(roleKey: string): ComponentConfig {
@@ -173,10 +221,12 @@ function cleanComponent(role: Role, cfg: ComponentConfig): ComponentConfig | nul
 
 function clean(embed: EmbedObject): EmbedObject {
     const e: EmbedObject = cloneEmbed(embed);
+    if (!e.url || !e.url.trim()) delete e.url;
+    if (!e.timestamp) delete e.timestamp;
     if (!e.image?.url) delete e.image;
     if (!e.thumbnail?.url) delete e.thumbnail;
     if (!e.footer?.text && !e.footer?.icon_url) delete e.footer;
-    if (!e.author?.name && !e.author?.icon_url) delete e.author;
+    if (!e.author?.name && !e.author?.icon_url && !e.author?.url) delete e.author;
     if (e.fields) {
         e.fields = e.fields.filter((f) => (f.name && f.name.trim()) || (f.value && f.value.trim()));
         if (e.fields.length === 0) delete e.fields;
@@ -208,7 +258,11 @@ async function loadSlots(): Promise<void> {
             try { body = (await res.text()).slice(0, 300); } catch { /* ignore */ }
             throw new Error(`HTTP ${res.status}${body ? ` — ${body}` : ""}`);
         }
-        slots.value = (await res.json()) as EmbedSlot[];
+        let loaded = (await res.json()) as EmbedSlot[];
+        // When opened for a specific feature, only show that feature's slots so the
+        // user isn't faced with every bot embed at once.
+        if (props.featureCode) loaded = loaded.filter((s) => s.featureCode === props.featureCode);
+        slots.value = loaded;
         const first = slots.value[0];
         if (first) selectSlot(first.slotKey);
         else { selectedKey.value = ""; draft.value = null; }
@@ -244,8 +298,20 @@ async function save(): Promise<void> {
     }
 }
 
-onMounted(loadSlots);
-watch(() => props.botId, loadSlots);
+// Pull the bot config so the preview can mock {{vars}} / dynamic lists from real data.
+async function loadConfigValues(): Promise<void> {
+    if (!props.botId) return;
+    try {
+        const res = await authedFetch(`${API_BASE_URL}${props.basePath}/${props.botId}/config`);
+        if (!res || !res.ok) return;
+        const data = (await res.json()) as { values?: Record<string, string> };
+        configValues.value = data.values ?? {};
+    } catch { /* non-blocking — preview falls back to sample data */ }
+}
+
+onMounted(() => { loadSlots(); loadConfigValues(); });
+watch(() => [props.botId, props.featureCode], loadSlots);
+watch(() => props.botId, loadConfigValues);
 </script>
 
 <template>
@@ -277,100 +343,167 @@ watch(() => props.botId, loadSlots);
                 <div :class="$style.formCol">
                     <p :class="$style.slotDesc" class="type-body-small-r">{{ selected.description }}</p>
 
-                    <label :class="$style.colorRow">
-                        <span>สี</span>
-                        <input v-model="colorHex" type="color" :class="$style.colorInput" />
-                    </label>
+                    <!-- ── Body ── -->
+                    <section :class="$style.section">
+                        <button type="button" :class="$style.sectionHead" @click="toggleSection('body')">
+                            <span :class="[$style.chevron, openSections.body ? $style.chevronOpen : '']">›</span>
+                            <span>เนื้อหา (body)</span>
+                        </button>
+                        <div v-show="openSections.body" :class="$style.sectionBody">
+                            <label :class="$style.colorRow">
+                                <span>สี</span>
+                                <input v-model="colorHex" type="color" :class="$style.colorInput" />
+                            </label>
 
-                    <TextField v-model="draft.title" label="หัวข้อ (title)" placeholder="ใส่ข้อความ + emoji ได้" />
+                            <TextField v-model="draft.title" label="หัวข้อ (title)" placeholder="ใส่ข้อความ + emoji ได้" />
+                            <TextField v-model="draft.url" label="ลิงก์หัวข้อ (title url)" placeholder="https:// (กดหัวข้อแล้วเปิดลิงก์)" />
 
-                    <label :class="$style.fieldLabel">รายละเอียด (description)</label>
-                    <textarea v-model="draft.description" :class="$style.textarea" rows="5" placeholder="รองรับ markdown + ตัวแปร + custom emoji" />
+                            <label :class="$style.fieldLabel">รายละเอียด (description)</label>
+                            <textarea v-model="draft.description" :class="$style.textarea" rows="5" placeholder="รองรับ markdown + ตัวแปร + custom emoji" />
 
-                    <div v-if="selected.availableVars.length" :class="$style.vars">
-                        <span :class="$style.varsLabel">ตัวแปร:</span>
-                        <button
-                            v-for="v in selected.availableVars"
-                            :key="v"
-                            type="button"
-                            :class="$style.varChip"
-                            @click="insertVar(v)"
-                        >{{ varToken(v) }}</button>
-                    </div>
-
-                    <div :class="$style.grid2">
-                        <TextField v-model="draft.image!.url" label="รูปใหญ่ (image url)" placeholder="https://" />
-                        <TextField v-model="draft.thumbnail!.url" label="รูปย่อ (thumbnail url)" placeholder="https://" />
-                    </div>
-                    <div :class="$style.grid2">
-                        <TextField v-model="draft.author!.name" label="ผู้เขียน (author)" placeholder="(ไม่บังคับ)" />
-                        <TextField v-model="draft.author!.icon_url" label="ไอคอนผู้เขียน (author icon url)" placeholder="https://" />
-                    </div>
-                    <div :class="$style.grid2">
-                        <TextField v-model="draft.footer!.text" label="ท้าย (footer)" placeholder="(ไม่บังคับ)" />
-                        <TextField v-model="draft.footer!.icon_url" label="ไอคอนท้าย (footer icon url)" placeholder="https://" />
-                    </div>
-
-                    <div :class="$style.fieldsEditor">
-                        <div :class="$style.fieldsHead">
-                            <span :class="$style.fieldLabel">ช่อง (fields)</span>
-                            <button type="button" :class="$style.addBtn" @click="addField">+ เพิ่มช่อง</button>
-                        </div>
-                        <div v-for="(f, i) in draft.fields ?? []" :key="i" :class="$style.fieldRow">
-                            <TextField v-model="f.name" label="ชื่อช่อง" placeholder="ชื่อ + emoji" />
-                            <TextField v-model="f.value" label="ค่า" placeholder="รองรับ markdown + ตัวแปร" />
-                            <label :class="$style.inlineToggle"><input type="checkbox" v-model="f.inline" /> inline</label>
-                            <button type="button" :class="$style.removeBtn" @click="removeField(i)">ลบ</button>
-                        </div>
-                    </div>
-
-                    <div v-if="roles.length" :class="$style.componentsEditor">
-                        <div :class="$style.fieldsHead">
-                            <span :class="$style.fieldLabel">ปุ่ม / Dropdown</span>
-                            <span :class="$style.helperText">แก้เฉพาะหน้าตา · custom_id คงที่</span>
-                        </div>
-
-                        <div v-for="role in roles" :key="role.key" :class="$style.componentRow">
-                            <div :class="$style.componentTitle">
-                                <span>{{ role.label }}</span>
-                                <code>{{ role.key }}</code>
+                            <div v-if="selected.availableVars.length" :class="$style.vars">
+                                <span :class="$style.varsLabel">ตัวแปร:</span>
+                                <button
+                                    v-for="v in selected.availableVars"
+                                    :key="v"
+                                    type="button"
+                                    :class="$style.varChip"
+                                    @click="insertVar(v)"
+                                >{{ varToken(v) }}</button>
                             </div>
+                        </div>
+                    </section>
 
+                    <!-- ── Author ── -->
+                    <section :class="$style.section">
+                        <button type="button" :class="$style.sectionHead" @click="toggleSection('author')">
+                            <span :class="[$style.chevron, openSections.author ? $style.chevronOpen : '']">›</span>
+                            <span>ผู้เขียน (author)</span>
+                        </button>
+                        <div v-show="openSections.author" :class="$style.sectionBody">
+                            <TextField v-model="draft.author!.name" label="ชื่อผู้เขียน" placeholder="(ไม่บังคับ)" />
                             <div :class="$style.grid2">
-                                <TextField
-                                    v-if="role.type !== 'select'"
-                                    v-model="componentConfig(role.key).label"
-                                    label="Label"
-                                    placeholder="ข้อความบนปุ่ม"
-                                />
-                                <TextField v-model="componentConfig(role.key).emoji" label="Emoji" placeholder="😀 หรือ <:name:id>" />
+                                <TextField v-model="draft.author!.url" label="ลิงก์ผู้เขียน (author url)" placeholder="https://" />
+                                <TextField v-model="draft.author!.icon_url" label="ไอคอนผู้เขียน (icon url)" placeholder="https://" />
                             </div>
-
-                            <div v-if="role.type === 'button'" :class="$style.selectField">
-                                <label :class="$style.fieldLabel">Style</label>
-                                <select v-model="componentConfig(role.key).style" :class="$style.nativeSelect">
-                                    <option value="">ค่าเริ่มต้น</option>
-                                    <option v-for="style in BUTTON_STYLES" :key="style.value" :value="style.value">
-                                        {{ style.label }}
-                                    </option>
-                                </select>
-                            </div>
-
-                            <TextField
-                                v-if="role.type === 'select'"
-                                v-model="componentConfig(role.key).placeholder"
-                                label="Placeholder"
-                                placeholder="ข้อความใน dropdown"
-                            />
-
-                            <TextField
-                                v-if="role.type === 'link'"
-                                v-model="componentConfig(role.key).url"
-                                label="URL"
-                                placeholder="https://"
-                            />
                         </div>
-                    </div>
+                    </section>
+
+                    <!-- ── Images ── -->
+                    <section :class="$style.section">
+                        <button type="button" :class="$style.sectionHead" @click="toggleSection('images')">
+                            <span :class="[$style.chevron, openSections.images ? $style.chevronOpen : '']">›</span>
+                            <span>รูปภาพ (images)</span>
+                        </button>
+                        <div v-show="openSections.images" :class="$style.sectionBody">
+                            <div :class="$style.grid2">
+                                <TextField v-model="draft.image!.url" label="รูปใหญ่ (image url)" placeholder="https://" />
+                                <TextField v-model="draft.thumbnail!.url" label="รูปย่อ (thumbnail url)" placeholder="https://" />
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- ── Fields ── -->
+                    <section :class="$style.section">
+                        <button type="button" :class="$style.sectionHead" @click="toggleSection('fields')">
+                            <span :class="[$style.chevron, openSections.fields ? $style.chevronOpen : '']">›</span>
+                            <span>ช่อง (fields)</span>
+                        </button>
+                        <div v-show="openSections.fields" :class="$style.sectionBody">
+                            <div :class="$style.fieldsHead">
+                                <span :class="$style.helperText">{{ (draft.fields ?? []).length }} ช่อง</span>
+                                <button type="button" :class="$style.addBtn" @click="addField">+ เพิ่มช่อง</button>
+                            </div>
+                            <div v-for="(f, i) in draft.fields ?? []" :key="i" :class="$style.fieldRow">
+                                <div :class="$style.fieldInputs">
+                                    <TextField v-model="f.name" label="ชื่อช่อง" placeholder="ชื่อ + emoji" />
+                                    <TextField v-model="f.value" label="ค่า" placeholder="รองรับ markdown + ตัวแปร" />
+                                </div>
+                                <div :class="$style.fieldActions">
+                                    <label :class="$style.inlineToggle"><input type="checkbox" v-model="f.inline" /> inline</label>
+                                    <button type="button" :class="$style.iconBtn" title="เลื่อนขึ้น" :disabled="i === 0" @click="moveField(i, -1)">↑</button>
+                                    <button type="button" :class="$style.iconBtn" title="เลื่อนลง" :disabled="i === (draft.fields?.length ?? 0) - 1" @click="moveField(i, 1)">↓</button>
+                                    <button type="button" :class="$style.iconBtn" title="ทำซ้ำ" @click="duplicateField(i)">⧉</button>
+                                    <button type="button" :class="$style.removeBtn" @click="removeField(i)">ลบ</button>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- ── Footer ── -->
+                    <section :class="$style.section">
+                        <button type="button" :class="$style.sectionHead" @click="toggleSection('footer')">
+                            <span :class="[$style.chevron, openSections.footer ? $style.chevronOpen : '']">›</span>
+                            <span>ท้าย (footer)</span>
+                        </button>
+                        <div v-show="openSections.footer" :class="$style.sectionBody">
+                            <div :class="$style.grid2">
+                                <TextField v-model="draft.footer!.text" label="ข้อความท้าย" placeholder="(ไม่บังคับ)" />
+                                <TextField v-model="draft.footer!.icon_url" label="ไอคอนท้าย (icon url)" placeholder="https://" />
+                            </div>
+                            <div :class="$style.grid2">
+                                <div :class="$style.selectField">
+                                    <label :class="$style.fieldLabel">วันที่ (timestamp)</label>
+                                    <input v-model="tsDate" type="date" :class="$style.nativeSelect" />
+                                </div>
+                                <div :class="$style.selectField">
+                                    <label :class="$style.fieldLabel">เวลา</label>
+                                    <input v-model="tsTime" type="time" :class="$style.nativeSelect" />
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- ── Components ── -->
+                    <section v-if="roles.length" :class="$style.section">
+                        <button type="button" :class="$style.sectionHead" @click="toggleSection('components')">
+                            <span :class="[$style.chevron, openSections.components ? $style.chevronOpen : '']">›</span>
+                            <span>ปุ่ม / Dropdown</span>
+                            <span :class="$style.helperText">แก้เฉพาะหน้าตา · custom_id คงที่</span>
+                        </button>
+                        <div v-show="openSections.components" :class="$style.sectionBody">
+                            <div v-for="role in roles" :key="role.key" :class="$style.componentRow">
+                                <div :class="$style.componentTitle">
+                                    <span>{{ role.label }}</span>
+                                    <code>{{ role.key }}</code>
+                                </div>
+
+                                <div :class="$style.grid2">
+                                    <TextField
+                                        v-if="role.type !== 'select'"
+                                        v-model="componentConfig(role.key).label"
+                                        label="Label"
+                                        placeholder="ข้อความบนปุ่ม"
+                                    />
+                                    <TextField v-model="componentConfig(role.key).emoji" label="Emoji" placeholder="😀 หรือ <:name:id>" />
+                                </div>
+
+                                <div v-if="role.type === 'button'" :class="$style.selectField">
+                                    <label :class="$style.fieldLabel">Style</label>
+                                    <select v-model="componentConfig(role.key).style" :class="$style.nativeSelect">
+                                        <option value="">ค่าเริ่มต้น</option>
+                                        <option v-for="style in BUTTON_STYLES" :key="style.value" :value="style.value">
+                                            {{ style.label }}
+                                        </option>
+                                    </select>
+                                </div>
+
+                                <TextField
+                                    v-if="role.type === 'select'"
+                                    v-model="componentConfig(role.key).placeholder"
+                                    label="Placeholder"
+                                    placeholder="ข้อความใน dropdown"
+                                />
+
+                                <TextField
+                                    v-if="role.type === 'link'"
+                                    v-model="componentConfig(role.key).url"
+                                    label="URL"
+                                    placeholder="https://"
+                                />
+                            </div>
+                        </div>
+                    </section>
 
                     <button type="button" :class="$style.saveButton" :disabled="isSaving" @click="save">
                         {{ isSaving ? "กำลังบันทึก…" : "บันทึก Embed" }}
@@ -379,7 +512,7 @@ watch(() => props.botId, loadSlots);
 
                 <div :class="$style.previewCol">
                     <span :class="$style.previewLabel" class="type-body-small-r">พรีวิว</span>
-                    <DiscordEmbedPreview :embed="draft" :slot-key="selectedKey" />
+                    <DiscordEmbedPreview :embed="draft" :slot-key="selectedKey" :config-values="configValues" />
                     <p :class="$style.previewHint" class="type-body-small-r">
                         custom emoji วาง <code>&lt;:name:id&gt;</code> จากเซิร์ฟเวอร์ Discord ได้
                     </p>
@@ -424,24 +557,35 @@ watch(() => props.botId, loadSlots);
 
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-space-3); }
 
-.fieldsEditor { display: flex; flex-direction: column; gap: var(--spacing-space-2); }
+/* Collapsible sections */
+.section { border: 1px solid var(--color-main-border); border-radius: var(--radius-lg); overflow: hidden; }
+.sectionHead { display: flex; align-items: center; gap: var(--spacing-space-2); width: 100%; padding: 10px 12px; border: 0; background: var(--color-main-background); color: var(--color-text-primary); font-size: 14px; font-weight: 600; cursor: pointer; text-align: left; }
+.sectionHead:hover { background: color-mix(in srgb, var(--color-text-primary) 5%, transparent); }
+.chevron { display: inline-block; transition: transform 0.15s ease; color: var(--color-text-primary); font-size: 16px; line-height: 1; }
+.chevronOpen { transform: rotate(90deg); }
+.sectionBody { display: flex; flex-direction: column; gap: var(--spacing-space-3); padding: var(--spacing-space-3); border-top: 1px solid var(--color-main-border); }
+
 .fieldsHead { display: flex; align-items: center; justify-content: space-between; }
-.helperText { color: var(--color-text-primary); font-size: 12px; }
+.helperText { color: var(--color-text-primary); font-size: 12px; margin-left: auto; }
 .addBtn { padding: 4px 10px; border: 1px solid var(--color-main-border); border-radius: var(--radius-full); background: var(--color-main-background); color: var(--color-text-primary); font-size: 13px; cursor: pointer; }
 .addBtn:hover { border-color: var(--color-main-primary); color: var(--color-text-primary); }
-.fieldRow { display: grid; grid-template-columns: 1fr 1fr auto auto; align-items: end; gap: var(--spacing-space-2); padding: var(--spacing-space-2); border: 1px solid var(--color-main-border); border-radius: var(--radius-lg); }
-.inlineToggle { display: inline-flex; align-items: center; gap: 4px; color: var(--color-text-primary); font-size: 12px; white-space: nowrap; padding-bottom: 10px; }
+.fieldRow { display: flex; flex-direction: column; gap: var(--spacing-space-2); padding: var(--spacing-space-2); border: 1px solid var(--color-main-border); border-radius: var(--radius-lg); }
+.fieldInputs { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-space-2); }
+.fieldActions { display: flex; align-items: center; gap: var(--spacing-space-2); flex-wrap: wrap; }
+.inlineToggle { display: inline-flex; align-items: center; gap: 4px; color: var(--color-text-primary); font-size: 12px; white-space: nowrap; margin-right: auto; }
 .inlineToggle input { accent-color: var(--color-main-primary); }
-.removeBtn { height: 34px; padding: 0 10px; border: 0; border-radius: var(--radius-lg); background: var(--color-status-error); color: #fff; font-size: 13px; cursor: pointer; }
+.iconBtn { height: 30px; min-width: 30px; padding: 0 8px; border: 1px solid var(--color-main-border); border-radius: var(--radius-lg); background: var(--color-main-background); color: var(--color-text-primary); font-size: 14px; cursor: pointer; }
+.iconBtn:hover:not(:disabled) { border-color: var(--color-main-primary); }
+.iconBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+.removeBtn { height: 30px; padding: 0 10px; border: 0; border-radius: var(--radius-lg); background: var(--color-status-error); color: #fff; font-size: 13px; cursor: pointer; }
 
-.componentsEditor { display: flex; flex-direction: column; gap: var(--spacing-space-2); margin-top: var(--spacing-space-2); }
 .componentRow { display: flex; flex-direction: column; gap: var(--spacing-space-2); padding: var(--spacing-space-3); border: 1px solid var(--color-main-border); border-radius: var(--radius-lg); background: var(--color-main-background); }
 .componentTitle { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-space-2); color: var(--color-text-primary); font-size: 14px; font-weight: 600; }
 .componentTitle code { color: var(--color-text-primary); font-family: monospace; font-size: 12px; font-weight: 400; }
 .selectField { display: flex; flex-direction: column; gap: 6px; }
 .nativeSelect { width: 100%; height: 40px; padding: 0 12px; border: 1px solid var(--color-main-border); border-radius: var(--radius-lg); background: var(--color-main-background); color: var(--color-text-primary); font-family: var(--font-sans); font-size: 14px; }
 
-@media (max-width: 700px) { .fieldRow { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 700px) { .fieldInputs { grid-template-columns: 1fr; } }
 
 .saveButton { margin-top: var(--spacing-space-2); height: 44px; border: 0; border-radius: var(--radius-xl); background: var(--color-button-primary-btn-bg); color: var(--color-button-primary-btn-text-active); font-weight: 600; font-size: 15px; cursor: pointer; }
 .saveButton:disabled { opacity: 0.55; cursor: not-allowed; }

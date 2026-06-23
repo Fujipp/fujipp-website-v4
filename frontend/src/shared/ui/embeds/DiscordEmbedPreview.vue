@@ -1,6 +1,7 @@
-<script setup lang="ts">
-import { computed } from "vue";
-
+<script lang="ts">
+// Shared types + the slot→component map. Declared in a plain <script> block (not
+// <script setup>) so they can be exported as real module bindings and imported by
+// EmbedEditor — keeping the editor form and this preview perfectly in sync.
 export interface EmbedField {
     name?: string;
     value?: string;
@@ -21,32 +22,132 @@ export interface EmbedObject {
     image?: { url?: string };
     thumbnail?: { url?: string };
     footer?: { text?: string; icon_url?: string };
-    author?: { name?: string; icon_url?: string };
+    author?: { name?: string; icon_url?: string; url?: string };
+    timestamp?: string;
     fields?: EmbedField[];
     components?: Record<string, ComponentConfig>;
 }
 
-const props = defineProps<{ embed: EmbedObject; slotKey?: string }>();
-
-interface PreviewRole {
+export interface PreviewRole {
     key: string;
     label: string;
     type: "button" | "select" | "link";
     fallback: string;
+    emoji?: string; // default emoji the bot uses when none is configured
+    style?: string; // default button style the bot uses when none is configured
 }
 
-const COMPONENT_ROLES: Record<string, PreviewRole[]> = {
+/**
+ * Editable component roles per embed slot — mirrors the bot's real components 1:1
+ * (custom_id / behaviour stay fixed in the bot; only label/emoji/style are editable).
+ */
+export const SLOT_ROLES: Record<string, PreviewRole[]> = {
     shop_panel: [
         { key: "group_select", label: "เมนูเลือกกลุ่ม", type: "select", fallback: "เลือกกลุ่มที่ต้องการซื้อ" },
-        { key: "btn_topup", label: "ปุ่ม เติมเงิน", type: "button", fallback: "เติมเงิน" },
-        { key: "btn_buy", label: "ปุ่ม ซื้อสินค้า", type: "button", fallback: "ซื้อสินค้า" },
-        { key: "btn_balance", label: "ปุ่ม เช็คยอด", type: "button", fallback: "เช็คยอดคงเหลือ" },
+        { key: "btn_topup", label: "ปุ่ม เติมเงิน", type: "button", fallback: "เติมเงิน", style: "primary" },
+        { key: "btn_balance", label: "ปุ่ม เช็คยอด", type: "button", fallback: "เช็คยอดคงเหลือ", style: "secondary" },
         { key: "btn_link", label: "ปุ่ม ลิงก์กลุ่ม", type: "link", fallback: "ลิงก์กลุ่ม" },
     ],
     topup_method: [
-        { key: "method_select", label: "เมนูช่องทางเติมเงิน", type: "select", fallback: "เลือกช่องทางการเติมเงิน" },
+        { key: "btn_promptpay", label: "ปุ่ม พร้อมเพย์", type: "button", fallback: "พร้อมเพย์ธนาคาร", emoji: "🏧", style: "primary" },
+        { key: "btn_truemoney", label: "ปุ่ม ทรูมันนี่", type: "button", fallback: "ซองอั่งเปาทรูมันนี่", emoji: "🧧", style: "success" },
+    ],
+    buy_eligible: [
+        { key: "pkg_select", label: "เมนูเลือกแพ็กเกจ", type: "select", fallback: "🎮 เลือก Robux Package" },
     ],
 };
+
+// Buttons the bot renders with FIXED labels (not configurable) — shown so the preview
+// looks like the real message, but they aren't exposed in the editor.
+const STATIC_ROLES: Record<string, { label: string; style: string }[]> = {
+    buy_confirm: [
+        { label: "ยืนยัน", style: "success" },
+        { label: "ยกเลิก", style: "danger" },
+    ],
+};
+</script>
+
+<script setup lang="ts">
+import { computed } from "vue";
+
+const props = defineProps<{
+    embed: EmbedObject;
+    slotKey?: string;
+    configValues?: Record<string, string>;
+}>();
+
+function cfg(key: string): string {
+    return (props.configValues?.[key] ?? "").trim();
+}
+
+// Groups configured for the Roblox feature (ROBLOX_GROUP_ID_1..3 / _NAME_1..3, plus
+// the legacy single-group keys). The COUNT drives how many stock fields + select
+// options the preview shows — so 2 configured groups render as 2, not a fixed 3.
+function configuredGroups(): { name: string }[] {
+    const out: { name: string }[] = [];
+    for (let i = 1; i <= 3; i++) {
+        const id = cfg(`ROBLOX_GROUP_ID_${i}`);
+        const name = cfg(`ROBLOX_GROUP_NAME_${i}`);
+        if (id || name) out.push({ name: name || `Robux กลุ่ม ${i}` });
+    }
+    if (out.length === 0) {
+        const id = cfg("ROBLOX_GROUP_ID");
+        const name = cfg("ROBLOX_GROUP_NAME");
+        if (id || name) out.push({ name: name || "Robux กลุ่ม 1" });
+    }
+    // Always show at least one so the panel doesn't look broken before setup.
+    if (out.length === 0) out.push({ name: "Robux กลุ่ม 1" });
+    return out;
+}
+
+// Packages from ROBUX_PACKAGES (JSON [{robux, price}]), else derived from ROBUX_RATE.
+function configuredPackages(): { robux: number; price: number }[] {
+    const raw = cfg("ROBUX_PACKAGES");
+    if (raw) {
+        try {
+            const arr = JSON.parse(raw) as { robux?: number; price?: number }[];
+            const valid = (Array.isArray(arr) ? arr : [])
+                .filter((p) => p && typeof p.robux === "number" && typeof p.price === "number")
+                .map((p) => ({ robux: p.robux as number, price: p.price as number }));
+            if (valid.length) return valid.slice(0, 25);
+        } catch { /* fall through to rate-derived sample */ }
+    }
+    const rate = Number(cfg("ROBUX_RATE")) || 4;
+    return [100, 500, 1000].map((robux) => ({ robux, price: Math.max(1, Math.round(robux / rate)) }));
+}
+
+// Sample values for {{vars}} so embeds render filled-in instead of showing blanks.
+// Config-derived where it matters (group name / package / rate).
+const mockVars = computed<Record<string, string>>(() => {
+    const groups = configuredGroups();
+    const pkgs = configuredPackages();
+    const now = new Date().toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" });
+    return {
+        member: "@ลูกค้า",
+        balance: "฿100.00",
+        balance_after: "฿65.00",
+        robux: (pkgs[0]?.robux ?? 1000).toLocaleString(),
+        price: String(pkgs[0]?.price ?? 250),
+        roblox_id: "1234567890",
+        username: "RobloxPlayer",
+        datetime: now,
+        time: now,
+        detail: "กำลังประมวลผล…",
+        reason: "ตัวอย่างข้อความแจ้งเตือน",
+        error: "ตัวอย่างข้อผิดพลาด",
+        message: "พร้อมซื้อ Robux",
+        rate: cfg("ROBUX_RATE") || "4",
+        group_robux: "120,000",
+        group_name: groups[0]?.name ?? "Robux กลุ่ม 1",
+        queue: "1",
+        avatar: "",
+    };
+});
+
+function subst(text: string | undefined): string {
+    return (text ?? "").replace(/\{\{(\w+)\}\}/g, (_m, k: string) =>
+        (mockVars.value[k] != null ? mockVars.value[k] : ""));
+}
 
 function escapeHtml(s: string): string {
     return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -55,7 +156,7 @@ function escapeHtml(s: string): string {
 // Render a subset of Discord markdown to safe HTML. Input is escaped first, so only
 // the controlled tags we add below are ever emitted (no raw user HTML).
 function renderText(raw: string | undefined): string {
-    let s = escapeHtml(raw ?? "");
+    let s = escapeHtml(subst(raw));
     s = s.replace(/```([\s\S]*?)```/g, (_m, c) => `<code class="block">${c}</code>`);
     s = s.replace(/`([^`]+)`/g, "<code>$1</code>");
     // custom emoji <a:name:id> / <:name:id>  (angle brackets are now &lt; &gt;)
@@ -83,33 +184,82 @@ const barColor = computed(() => {
 });
 const titleHtml = computed(() => renderText(props.embed.title));
 const descHtml = computed(() => renderText(props.embed.description));
-const fields = computed(() => (props.embed.fields ?? []).filter((f) => f.name || f.value));
+const authorName = computed(() => subst(props.embed.author?.name));
+const footerText = computed(() => subst(props.embed.footer?.text));
+
+// Fields the bot appends at runtime (config-driven). shop_panel shows one stock field
+// per configured group; other slots add nothing here.
+const dynamicFields = computed<EmbedField[]>(() => {
+    if (props.slotKey !== "shop_panel") return [];
+    const stock = [120_000, 85_000, 64_000, 40_000, 25_000];
+    return configuredGroups().map((g, i) => ({
+        name: `Robux ${g.name}`,
+        value: "```" + (stock[i % stock.length] ?? 0).toLocaleString() + "```",
+        inline: true,
+    }));
+});
+const fields = computed<EmbedField[]>(() => [
+    ...(props.embed.fields ?? []).filter((f) => f.name || f.value),
+    ...dynamicFields.value,
+]);
+
 const image = computed(() => safeUrl(props.embed.image?.url));
 const thumbnail = computed(() => safeUrl(props.embed.thumbnail?.url));
 const authorIcon = computed(() => safeUrl(props.embed.author?.icon_url));
+const authorUrl = computed(() => safeUrl(props.embed.author?.url));
+const titleUrl = computed(() => safeUrl(props.embed.url));
 const footerIcon = computed(() => safeUrl(props.embed.footer?.icon_url));
-const previewRoles = computed(() => (props.slotKey ? COMPONENT_ROLES[props.slotKey] ?? [] : []));
+// Footer timestamp like Discord's "DD/MM/YYYY HH:MM". Empty/invalid → no text.
+const timestampText = computed(() => {
+    const raw = props.embed.timestamp;
+    if (!raw) return "";
+    const d = new Date(raw);
+    return Number.isNaN(d.getTime())
+        ? ""
+        : d.toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" });
+});
+
+const previewRoles = computed(() => (props.slotKey ? SLOT_ROLES[props.slotKey] ?? [] : []));
+const selectRoles = computed(() => previewRoles.value.filter((r) => r.type === "select"));
+const buttonRoles = computed(() => previewRoles.value.filter((r) => r.type !== "select"));
+const staticButtons = computed(() => (props.slotKey ? STATIC_ROLES[props.slotKey] ?? [] : []));
+const hasComponents = computed(() => previewRoles.value.length > 0 || staticButtons.value.length > 0);
 
 function component(role: PreviewRole): ComponentConfig {
     return props.embed.components?.[role.key] ?? {};
 }
 
 function componentText(role: PreviewRole): string {
-    const cfg = component(role);
-    return role.type === "select" ? (cfg.placeholder || role.fallback) : (cfg.label || role.fallback);
+    const c = component(role);
+    return role.type === "select" ? (c.placeholder || role.fallback) : (c.label || role.fallback);
 }
 
 function componentEmoji(role: PreviewRole): string {
-    return component(role).emoji || "";
+    return component(role).emoji || role.emoji || "";
 }
 
-function buttonClass(role: PreviewRole): string {
-    const style = role.type === "link" ? "link" : (component(role).style || "");
+// The collapsed select only shows a placeholder in Discord, so list the resolved
+// options below it as muted chips — that's how the user verifies group/package count.
+function selectOptions(role: PreviewRole): string[] {
+    if (role.key === "group_select") return configuredGroups().map((g) => g.name);
+    if (role.key === "pkg_select") {
+        return configuredPackages().map((p) => `${p.robux.toLocaleString()} Robux — ฿${p.price.toLocaleString()}`);
+    }
+    return [];
+}
+
+function styleClass(style: string | undefined, fallback = "secondary"): string {
     if (style === "primary") return "primary";
     if (style === "success") return "success";
     if (style === "danger") return "danger";
     if (style === "link") return "link";
-    return "secondary";
+    if (style === "secondary") return "secondary";
+    return fallback;
+}
+
+function buttonClass(role: PreviewRole): string {
+    if (role.type === "link") return "link";
+    return styleClass(component(role).style || role.style);
 }
 </script>
 
@@ -117,11 +267,20 @@ function buttonClass(role: PreviewRole): string {
     <div :class="$style.wrap">
         <div :class="$style.embed" :style="{ borderColor: barColor }">
             <div :class="$style.body">
-                <div v-if="embed.author?.name" :class="$style.author">
+                <div v-if="authorName" :class="$style.author">
                     <img v-if="authorIcon" :class="$style.authorIcon" :src="authorIcon" alt="" />
-                    <span>{{ embed.author.name }}</span>
+                    <a v-if="authorUrl" :href="authorUrl" target="_blank" rel="noopener noreferrer" :class="$style.authorLink">{{ authorName }}</a>
+                    <span v-else>{{ authorName }}</span>
                 </div>
-                <div v-if="embed.title" :class="$style.title" v-html="titleHtml" />
+                <a
+                    v-if="embed.title && titleUrl"
+                    :href="titleUrl"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    :class="[$style.title, $style.titleLink]"
+                    v-html="titleHtml"
+                />
+                <div v-else-if="embed.title" :class="$style.title" v-html="titleHtml" />
                 <div v-if="embed.description" :class="$style.desc" v-html="descHtml" />
 
                 <div v-if="fields.length" :class="$style.fields">
@@ -137,33 +296,45 @@ function buttonClass(role: PreviewRole): string {
 
                 <img v-if="image" :class="$style.image" :src="image" alt="" />
 
-                <div v-if="embed.footer?.text" :class="$style.footer">
+                <div v-if="footerText || timestampText" :class="$style.footer">
                     <img v-if="footerIcon" :class="$style.footerIcon" :src="footerIcon" alt="" />
-                    <span>{{ embed.footer.text }}</span>
+                    <span v-if="footerText">{{ footerText }}</span>
+                    <span v-if="footerText && timestampText" :class="$style.footerSep">•</span>
+                    <span v-if="timestampText">{{ timestampText }}</span>
                 </div>
             </div>
             <img v-if="thumbnail" :class="$style.thumb" :src="thumbnail" alt="" />
         </div>
 
-        <div v-if="previewRoles.length" :class="$style.components">
-            <div
-                v-for="role in previewRoles.filter((r) => r.type === 'select')"
-                :key="role.key"
-                :class="$style.selectPreview"
-            >
-                <span v-if="componentEmoji(role)" v-html="renderText(componentEmoji(role))" />
-                <span>{{ componentText(role) }}</span>
-                <span :class="$style.chevron">⌄</span>
+        <div v-if="hasComponents" :class="$style.components">
+            <div v-for="role in selectRoles" :key="role.key" :class="$style.selectBlock">
+                <div :class="$style.selectPreview">
+                    <span v-if="componentEmoji(role)" v-html="renderText(componentEmoji(role))" />
+                    <span>{{ componentText(role) }}</span>
+                    <span :class="$style.chevron">⌄</span>
+                </div>
+                <div v-if="selectOptions(role).length" :class="$style.optionList">
+                    <span v-for="(opt, i) in selectOptions(role)" :key="i" :class="$style.optionChip">{{ opt }}</span>
+                </div>
             </div>
-            <div :class="$style.buttonRow">
+
+            <div v-if="buttonRoles.length || staticButtons.length" :class="$style.buttonRow">
                 <button
-                    v-for="role in previewRoles.filter((r) => r.type !== 'select')"
+                    v-for="role in buttonRoles"
                     :key="role.key"
                     type="button"
                     :class="[$style.previewButton, $style[buttonClass(role)]]"
                 >
                     <span v-if="componentEmoji(role)" v-html="renderText(componentEmoji(role))" />
                     <span>{{ componentText(role) }}</span>
+                </button>
+                <button
+                    v-for="(btn, i) in staticButtons"
+                    :key="`static-${i}`"
+                    type="button"
+                    :class="[$style.previewButton, $style[styleClass(btn.style)]]"
+                >
+                    <span>{{ btn.label }}</span>
                 </button>
             </div>
         </div>
@@ -195,8 +366,12 @@ function buttonClass(role: PreviewRole): string {
 
 .author { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-weight: 600; font-size: 13px; color: #f2f3f5; }
 .authorIcon { width: 24px; height: 24px; border-radius: 50%; }
+.authorLink { color: #f2f3f5; text-decoration: none; }
+.authorLink:hover { text-decoration: underline; }
 
 .title { font-weight: 600; color: #f2f3f5; margin-bottom: 6px; }
+.titleLink { display: block; color: #00a8fc; text-decoration: none; }
+.titleLink:hover { text-decoration: underline; }
 .desc { white-space: normal; word-break: break-word; }
 
 .fields { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
@@ -208,8 +383,9 @@ function buttonClass(role: PreviewRole): string {
 .image { max-width: 100%; border-radius: 6px; margin-top: 10px; }
 .thumb { width: 80px; height: 80px; object-fit: cover; border-radius: 6px; flex-shrink: 0; }
 
-.footer { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 12px; color: #b5bac1; }
+.footer { display: flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 12px; color: #b5bac1; }
 .footerIcon { width: 20px; height: 20px; border-radius: 50%; }
+.footerSep { color: #b5bac1; }
 
 .embed :global(.emoji) { display: inline-block; width: 1.375em; height: 1.375em; vertical-align: -0.2em; object-fit: contain; }
 .embed :global(.mention) { background: rgba(88,101,242,0.3); color: #c9cdfb; border-radius: 3px; padding: 0 2px; }
@@ -218,14 +394,17 @@ function buttonClass(role: PreviewRole): string {
 .embed :global(.quote) { display: inline-block; border-left: 3px solid #4e5058; padding-left: 8px; }
 
 .components { display: flex; flex-direction: column; gap: 8px; max-width: 432px; margin-top: 8px; }
+.selectBlock { display: flex; flex-direction: column; gap: 4px; }
 .selectPreview { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 12px; border: 1px solid #3f4147; border-radius: 4px; background: #2b2d31; color: #b5bac1; font-size: 14px; }
 .chevron { margin-left: auto; color: #949ba4; font-size: 18px; line-height: 1; }
+.optionList { display: flex; flex-wrap: wrap; gap: 4px; padding-left: 4px; }
+.optionChip { padding: 2px 8px; border: 1px solid #3f4147; border-radius: 10px; background: #232428; color: #b5bac1; font-size: 12px; }
 .buttonRow { display: flex; flex-wrap: wrap; gap: 8px; }
 .previewButton { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 38px; padding: 0 14px; border: 0; border-radius: 4px; color: #fff; font-weight: 600; font-size: 14px; cursor: default; }
 .primary { background: #5865f2; }
 .secondary { background: #4e5058; }
 .success { background: #248046; }
 .danger { background: #da373c; }
-.link { background: #5865f2; }
+.link { background: #4e5058; }
 .components :global(.emoji) { width: 1.25em; height: 1.25em; vertical-align: bottom; object-fit: contain; }
 </style>
