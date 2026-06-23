@@ -12,6 +12,7 @@ const {
   ButtonBuilder, ButtonStyle,
 } = require('discord.js');
 const { grantTopupRole } = require('./topup-role');
+const { parseEmoji, buttonStyle } = require('../../lib/components');
 
 const thb = (satang) => `฿${(satang / 100).toLocaleString('th-TH')}`;
 const GIFT_RE = /^https:\/\/gift\.truemoney\.com\/campaign\/\?v=/;
@@ -234,8 +235,55 @@ async function onTmnModal(interaction, ctx) {
   ctx.services.rankSync?.(interaction.guild)?.catch(() => {});
 }
 
+// Build the top-up method picker (PromptPay / TrueMoney buttons) on the topup_method
+// embed. Buttons keep fixed styles (only label/emoji are configurable, like the
+// Roblox panel's เติมเงิน flow) and reuse the existing kanom:topup:btn: handlers.
+async function buildTopupMethod(ctx) {
+  const cfg = await ctx.services.embeds.getConfig('topup_method');
+  const roles = (cfg && cfg.components) || {};
+  const embed = await ctx.services.embeds.renderEmbed('topup_method');
+  const mkButton = (id, label, style, fallbackEmoji, roleKey) => {
+    const role = roles[roleKey] || {};
+    const btn = new ButtonBuilder()
+      .setCustomId(id)
+      .setLabel(String(role.label || label).slice(0, 80))
+      .setStyle(style);
+    const emoji = parseEmoji(role.emoji) || fallbackEmoji;
+    if (emoji) { try { btn.setEmoji(emoji); } catch (_e) { /* skip invalid emoji */ } }
+    return btn;
+  };
+  const row = new ActionRowBuilder().addComponents(
+    mkButton('kanom:topup:btn:promptpay', 'พร้อมเพย์ธนาคาร', ButtonStyle.Primary, '🏧', 'btn_promptpay'),
+    mkButton('kanom:topup:btn:truemoney', 'ซองอั่งเปาทรูมันนี่', ButtonStyle.Success, '🧧', 'btn_truemoney'),
+  );
+  return { embeds: [embed], components: [row] };
+}
+
+// Build the standalone top-up panel (topup_panel embed + a "เติมเงิน" button). Posted
+// by /topup-panel so members can top up WITHOUT the Roblox Robux Payout feature.
+async function buildTopupPanel(ctx) {
+  const cfg = await ctx.services.embeds.getConfig('topup_panel');
+  const role = ((cfg && cfg.components) || {}).btn_topup || {};
+  const embed = await ctx.services.embeds.renderEmbed('topup_panel');
+  const btn = new ButtonBuilder()
+    .setCustomId('kanom:topup:open')
+    .setLabel(String(role.label || 'เติมเงิน').slice(0, 80))
+    .setStyle(buttonStyle(role.style, ButtonStyle.Primary));
+  const emoji = parseEmoji(role.emoji) || '💰';
+  if (emoji) { try { btn.setEmoji(emoji); } catch (_e) { /* skip invalid emoji */ } }
+  return { embeds: [embed], components: [new ActionRowBuilder().addComponents(btn)] };
+}
+
+// Member clicked เติมเงิน on the standalone panel → show the method picker (ephemeral).
+async function onOpenTopup(interaction, ctx) {
+  await interaction.reply({ ...(await buildTopupMethod(ctx)), ephemeral: true });
+}
+
 module.exports = {
+  buildTopupMethod,
+  buildTopupPanel,
   components: {
+    'kanom:topup:open': onOpenTopup,
     'kanom:topup:btn:': onTopupMethod,
     'kanom:topup:tmn:modal': onTmnModal,
     'kanom:topup:pp:modal': onPpModal,

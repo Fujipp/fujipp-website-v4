@@ -67,6 +67,18 @@ async function handleWalletAdd(interaction, ctx) {
   ctx.services.rankSync?.(interaction.guild)?.catch(() => {});
 }
 
+// /topup-panel — admin posts a standalone top-up panel into the channel. Members
+// click เติมเงิน to open the method picker, so top-up works without the Roblox feature.
+async function handleTopupPanel(interaction, ctx) {
+  if (!isAdmin(interaction, ctx)) {
+    await interaction.reply({ content: 'คุณไม่มีสิทธิ์ใช้คำสั่งนี้ (เฉพาะแอดมินเซิร์ฟเวอร์)', ephemeral: true });
+    return;
+  }
+  await interaction.deferReply({ ephemeral: true });
+  await interaction.channel.send(await topup.buildTopupPanel(ctx));
+  await interaction.editReply({ content: 'โพสต์แผงเติมเงินแล้ว ✅' });
+}
+
 module.exports = {
   code: 'wallet-topup',
   name: 'Shop Wallet & Top-up',
@@ -88,12 +100,17 @@ module.exports = {
         .addUserOption((o) => o.setName('member').setDescription('สมาชิก').setRequired(true))
         .addIntegerOption((o) => o.setName('amount').setDescription('จำนวนเงิน (บาท)').setRequired(true).setMinValue(1))
         .toJSON(),
+      new SlashCommandBuilder()
+        .setName('topup-panel')
+        .setDescription('โพสต์แผงเติมเงิน (แอดมินเท่านั้น)')
+        .toJSON(),
     ];
   },
 
   handlers: {
     wallet: handleWallet,
     'wallet-add': handleWalletAdd,
+    'topup-panel': handleTopupPanel,
   },
 
   // Top-up flow components (TrueMoney voucher + PromptPay QR).
