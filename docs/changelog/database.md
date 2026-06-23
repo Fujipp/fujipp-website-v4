@@ -1,9 +1,10 @@
 # Changelog — Database
 
-**Current version: `0.2.8`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.2.9`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.2.9` | 2026-06-23 | Added the Price Board feature definition and its board + per-category price embed designs for customer bots |
 | `0.2.8` | 2026-06-23 | Added a standalone top-up panel design and storage so the Roblox shop panel resumes its live updates after a restart |
 | `0.2.7` | 2026-06-23 | Server Log can now route each kind of activity to its own channel, with a default channel as fallback |
 | `0.2.6` | 2026-06-22 | Prepared runtime hosting to be moved between bots and tracked per server seat |
