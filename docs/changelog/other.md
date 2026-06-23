@@ -1,9 +1,10 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.25`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.25.1`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.25.1` | 2026-06-23 | Documented that database migrations apply automatically on release, so contributors don't run a manual step |
 | `0.0.25` | 2026-06-23 | The Roblox shop panel resumes its live updates after a bot restart, and a new top-up panel command lets members top up without the Roblox feature |
 | `0.0.24` | 2026-06-23 | Bots that were running now restart automatically after a platform update, instead of staying offline until started by hand |
 | `0.0.23.1` | 2026-06-23 | Made the website deploy reliable: uploads are now verified so a dropped file fails and retries instead of leaving the site unable to load |
