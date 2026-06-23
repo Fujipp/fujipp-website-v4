@@ -1,9 +1,10 @@
 # Changelog — Database
 
-**Current version: `0.2.9`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.2.9.1`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.2.9.1` | 2026-06-23 | Gave each Price Board category a default tag-line message that mentions the member who clicked |
 | `0.2.9` | 2026-06-23 | Added the Price Board feature definition and its board + per-category price embed designs for customer bots |
 | `0.2.8` | 2026-06-23 | Added a standalone top-up panel design and storage so the Roblox shop panel resumes its live updates after a restart |
 | `0.2.7` | 2026-06-23 | Server Log can now route each kind of activity to its own channel, with a default channel as fallback |
