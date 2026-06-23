@@ -8,6 +8,7 @@ const route = useRoute();
 const router = useRouter();
 
 const botId = computed(() => String(route.params.botId ?? ""));
+const featureCode = computed(() => String(route.query.feature ?? ""));
 const isSidebarOpen = ref(typeof window === "undefined" ? true : window.innerWidth > 760);
 </script>
 
@@ -19,7 +20,9 @@ const isSidebarOpen = ref(typeof window === "undefined" ? true : window.innerWid
             <section :class="$style.titleSection">
                 <div>
                     <h1 :class="$style.pageTitle" class="type-h1-page-title-sb">EMBED DESIGNER</h1>
-                    <p :class="$style.subtitle" class="type-body-small-r">ปรับแต่งหน้าตา embed ของบอท · {{ botId || "—" }}</p>
+                    <p :class="$style.subtitle" class="type-body-small-r">
+                        ปรับแต่งหน้าตา embed ของบอท{{ featureCode ? ` · ฟีเจอร์ ${featureCode}` : "" }} · {{ botId || "—" }}
+                    </p>
                 </div>
                 <button type="button" :class="$style.backButton" @click="router.push({ name: 'shop-bot-config', params: { botId } })">
                     ← กลับไป Config
@@ -27,7 +30,7 @@ const isSidebarOpen = ref(typeof window === "undefined" ? true : window.innerWid
             </section>
             <div :class="$style.divider" aria-hidden="true" />
 
-            <EmbedEditor :bot-id="botId" />
+            <EmbedEditor :bot-id="botId" :feature-code="featureCode" />
         </main>
     </div>
 </template>

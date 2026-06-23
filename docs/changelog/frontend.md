@@ -1,9 +1,12 @@
 # Changelog — Frontend
 
-**Current version: `0.6.5`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.6.7`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.6.7` | 2026-06-23 | The Embed Designer preview now mirrors the real message — actual buttons, menus, and sample data drawn from the bot's own settings (e.g. shows your configured group count) |
+| `0.6.6.1` | 2026-06-23 | Fixed dropdown colors in dark mode and scoped the Embed Designer to the selected feature, with the Embed panel shown only when that feature has embeds |
+| `0.6.6` | 2026-06-23 | Expanded the Embed Designer with collapsible sections, author/title links, footer date & time, and field reorder/duplicate |
 | `0.6.5` | 2026-06-22 | Admins can rename a VPS (display name) from the VPS page |
 | `0.6.4` | 2026-06-22 | Refined shop and admin controls with consistent tables, dropdowns, activity sorting, and removed the Guide entry |
 | `0.6.3` | 2026-06-22 | The admin VPS page now lists seatless runtimes and lets admins assign them to a free seat |

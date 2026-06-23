@@ -67,6 +67,11 @@ const activeFeature = computed<FeatureDefinition | null>(
     () => features.value.find((f) => f.code === activeFeatureCode.value) ?? null,
 );
 
+// Feature codes that own at least one embed slot — drives whether the Embed Setting
+// panel shows for the selected feature.
+const embedFeatureCodes = ref<Set<string>>(new Set());
+const activeFeatureHasEmbed = computed(() => embedFeatureCodes.value.has(activeFeatureCode.value));
+
 // Keep the active tab valid as features (re)load.
 watch(features, (list) => {
     if (!list.some((f) => f.code === activeFeatureCode.value)) {
@@ -230,8 +235,24 @@ async function saveFeature(payload: Record<string, string>): Promise<void> {
     }
 }
 
+async function loadEmbedFeatures(): Promise<void> {
+    const headers = await authHeaders();
+    if (!headers) return;
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/bots/${botId.value}/embeds`, { headers });
+        if (!res.ok) return;
+        const slots = (await res.json()) as { featureCode: string }[];
+        embedFeatureCodes.value = new Set(slots.map((s) => s.featureCode));
+    } catch { /* non-blocking — Embed Setting just stays hidden */ }
+}
+
+// Open the designer scoped to the active feature so it shows only that feature's embeds.
 function openEmbedDesigner(): void {
-    router.push({ name: "shop-bot-embeds", params: { botId: botId.value } });
+    router.push({
+        name: "shop-bot-embeds",
+        params: { botId: botId.value },
+        query: activeFeatureCode.value ? { feature: activeFeatureCode.value } : {},
+    });
 }
 
 // ── review-credit counter (shop.review_credit_state) ─────────────────────────
@@ -309,7 +330,7 @@ onMounted(async () => {
         await router.push({ name: "login", query: { redirect: `/shop/bots/${botId.value}/config` } });
         return;
     }
-    await Promise.all([loadConfig(), loadBot(), loadRuntime()]);
+    await Promise.all([loadConfig(), loadBot(), loadRuntime(), loadEmbedFeatures()]);
     if (hasReviewCredit.value) await loadReviewCount();
 });
 </script>
@@ -499,14 +520,16 @@ onMounted(async () => {
                 </div>
             </section>
 
-            <!-- ── Embed Setting ───────────────────────────────────────────── -->
-            <section :class="$style.block">
+            <!-- ── Embed Setting — only for the selected feature that has embeds ── -->
+            <section v-if="activeFeatureHasEmbed && activeFeature" :class="$style.block">
                 <h2 :class="$style.blockTitle" class="type-subtitle-sb">Embed Setting</h2>
                 <div :class="$style.card">
-                    <p :class="$style.cardLead">ออกแบบหน้าตา embed ของบอท (panel ร้าน, การเติมเงิน, แจ้งเตือน) ด้วย Embed Designer</p>
+                    <p :class="$style.cardLead">
+                        ออกแบบหน้าตา embed ของฟีเจอร์ <strong>{{ activeFeature.name }}</strong> ด้วย Embed Designer
+                    </p>
                     <div :class="$style.cardActions">
                         <button type="button" :class="$style.primaryAction" @click="openEmbedDesigner">
-                            เปิด Embed Designer
+                            เปิด Embed Designer — {{ activeFeature.name }}
                         </button>
                     </div>
                 </div>
