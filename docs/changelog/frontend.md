@@ -1,9 +1,10 @@
 # Changelog — Frontend
 
-**Current version: `0.6.7.2`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.6.7.3`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.6.7.3` | 2026-06-23 | The Embed Designer can now edit the tag-line message above each Price Board category embed, with a live preview |
 | `0.6.7.2` | 2026-06-23 | The Embed Designer can now style the Price Board category buttons and each category's order-room link button |
 | `0.6.7.1` | 2026-06-23 | The Embed Designer can now style the standalone top-up panel button |
 | `0.6.7` | 2026-06-23 | The Embed Designer preview now mirrors the real message — actual buttons, menus, and sample data drawn from the bot's own settings (e.g. shows your configured group count) |
