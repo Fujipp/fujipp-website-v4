@@ -315,6 +315,34 @@ watch(isOpen, async (open) => {
     background-color: var(--select-panel);
 }
 
+/* The menu is teleported to <body>, so a `tone="dark"` prop isn't always passed
+   (e.g. the bot config dropdowns). Fall back to the app's global theme attribute
+   so the menu matches dark mode instead of rendering on a light panel. */
+:global([data-theme="dark"]) .menu,
+:global(.dark) .menu {
+    --select-panel: var(--color-main-surface);
+    --select-inset: #1f1f1f;
+    --select-border: var(--color-main-divider);
+    --select-text: var(--color-text-secondary);
+
+    border-color: var(--select-border);
+    background-color: var(--select-panel);
+}
+
+:global([data-theme="dark"]) .menu .option,
+:global(.dark) .menu .option {
+    color: var(--select-text);
+}
+
+:global([data-theme="dark"]) .menu .option:hover,
+:global([data-theme="dark"]) .menu .option:focus-visible,
+:global([data-theme="dark"]) .menu .selectedOption,
+:global(.dark) .menu .option:hover,
+:global(.dark) .menu .option:focus-visible,
+:global(.dark) .menu .selectedOption {
+    background-color: color-mix(in srgb, var(--select-accent) 14%, var(--select-inset));
+}
+
 .option {
     padding: 8px 10px;
     border: 0;
