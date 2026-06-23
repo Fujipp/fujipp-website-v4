@@ -1,9 +1,10 @@
 # Changelog — Backend
 
-**Current version: `0.4.8`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.4.8.1`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.4.8.1` | 2026-06-24 | Fixed a server error when assigning a bot to a runtime seat that was currently unassigned |
 | `0.4.8` | 2026-06-22 | Admins can see active runtimes that hold no server seat and assign them to a free one |
 | `0.4.7` | 2026-06-22 | Assigning or moving runtime now brings the affected bots online/offline automatically |
 | `0.4.6` | 2026-06-22 | Admins can review every hosting seat with its owner and relocate a runtime to another seat |
