@@ -58,6 +58,22 @@ export const SLOT_ROLES: Record<string, PreviewRole[]> = {
     buy_eligible: [
         { key: "pkg_select", label: "เมนูเลือกแพ็กเกจ", type: "select", fallback: "🎮 เลือก Robux Package" },
     ],
+    // Price Board: the parent board exposes one editable button per category
+    // (btn_cat1..8); a category stays hidden until its button has a label.
+    price_board: Array.from({ length: 8 }, (_, i) => ({
+        key: `btn_cat${i + 1}`,
+        label: `ปุ่ม หมวด ${i + 1}`,
+        type: "button",
+        fallback: `หมวด ${i + 1}`,
+        style: "primary",
+    })) as PreviewRole[],
+    // Each per-category price embed (price_cat1..8) exposes its order-room link button.
+    ...Object.fromEntries(
+        Array.from({ length: 8 }, (_, i) => [
+            `price_cat${i + 1}`,
+            [{ key: "btn_buy", label: "ปุ่ม ห้องสั่งซื้อ", type: "link", fallback: "ห้องสั่งซื้อสินค้า" }] as PreviewRole[],
+        ]),
+    ),
 };
 
 // Buttons the bot renders with FIXED labels (not configurable) — shown so the preview
