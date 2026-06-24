@@ -1,9 +1,10 @@
 # Changelog — Database
 
-**Current version: `0.3.6`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.3.7`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.3.7` | 2026-06-24 | Added a ROLE_TIER_LIST config field type and applied it to บันทึกยอดเติม's amount-tier roles for a friendlier amount+role editor |
 | `0.3.6` | 2026-06-24 | บันทึกยอดเติม now supports multiple upgrade-role tiers by amount, with toggles to stack tiers and to count purchase frequency |
 | `0.3.5` | 2026-06-24 | Moved the "use your own database" toggle into the renamed บันทึกยอดเติม (กรอกเอง) feature and removed the standalone BYO Database add-on |
 | `0.3.4` | 2026-06-24 | Added the Admin Message Tools feature so bots can DM members and send/edit channel messages |
