@@ -164,12 +164,16 @@ function emitTiers(): void {
 }
 
 function setTierAmount(index: number, value: string): void {
-    tiers.value[index].amount = value;
+    const row = tiers.value[index];
+    if (!row) return;
+    row.amount = value;
     emitTiers();
 }
 
 function setTierRole(index: number, value: string): void {
-    tiers.value[index].roleId = value;
+    const row = tiers.value[index];
+    if (!row) return;
+    row.roleId = value;
     emitTiers();
 }
 
