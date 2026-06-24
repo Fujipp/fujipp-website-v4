@@ -11,11 +11,11 @@ import java.util.UUID;
  * Safe view of a bot — never exposes the encrypted token.
  *
  * {@code status} is the orchestrator process state (CREATED/RUNNING/…). The
- * shop-facing lifecycle is {@code runtimeStatus}, DERIVED from the runtime assigned
- * to this bot:
- *   ONLINE  — an active runtime is assigned and not past its period end
+ * shop-facing lifecycle is {@code runtimeStatus}, DERIVED from both the runtime
+ * assigned to this bot AND whether its process is actually running:
+ *   ONLINE  — entitled (active runtime, not past its period end) AND the process is RUNNING
+ *   OFFLINE — no runtime assigned, or entitled but the process is stopped/crashed
  *   EXPIRED — a runtime is assigned but lapsed (suspended/past-due/past end)
- *   OFFLINE — no runtime assigned
  *   null    — not computed for this response (e.g. a create/settings-save echo)
  */
 public record BotResponse(
@@ -42,9 +42,15 @@ public record BotResponse(
             return build(bot, "OFFLINE", null, null);
         }
         LocalDate expiresAt = runtime.currentPeriodEnd();
-        boolean online = "ACTIVE".equals(runtime.status())
+        boolean entitled = "ACTIVE".equals(runtime.status())
             && expiresAt != null && !expiresAt.isBefore(LocalDate.now());
-        return build(bot, online ? "ONLINE" : "EXPIRED", expiresAt, runtime.id());
+        if (!entitled) {
+            return build(bot, "EXPIRED", expiresAt, runtime.id());
+        }
+        // Entitled — but the tag must reflect whether the bot process is actually up.
+        // The orchestrator writes bot_instances.status RUNNING on start, STOPPED on stop.
+        boolean running = "RUNNING".equals(bot.getStatus());
+        return build(bot, running ? "ONLINE" : "OFFLINE", expiresAt, runtime.id());
     }
 
     private static BotResponse build(BotInstance bot, String runtimeStatus,
