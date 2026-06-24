@@ -1,9 +1,10 @@
 # Changelog — Database
 
-**Current version: `0.3.0.1`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.3.1`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.3.1` | 2026-06-24 | Give every bot (existing + newly created) the free Bot Presence add-on automatically |
 | `0.3.0.1` | 2026-06-24 | Store ENUM field options as text (billing-service can't map jsonb), fixing a 500 on the bot config page |
 | `0.3.0` | 2026-06-24 | Added the Bot Presence feature (status + looping activity text) and a dropdown (ENUM) config field type |
 | `0.2.9.1` | 2026-06-23 | Gave each Price Board category a default tag-line message that mentions the member who clicked |
