@@ -10,8 +10,9 @@
 // admin-entered and nothing is tied to a payment flow. Command: /topup, Top5 (not Top10).
 //
 // Config keys (injected as env per subject): SPENDING_FIRST_ROLE_ID,
-// SPENDING_UPGRADED_ROLE_ID, SPENDING_TOP1_ROLE_ID, SPENDING_TOP5_ROLE_ID,
-// SPENDING_UPGRADE_AMOUNT (บาท), SPENDING_UPGRADE_COUNT.
+// SPENDING_UPGRADE_TIERS (JSON [{amount(บาท), roleId}]), SPENDING_TIER_STACK (bool),
+// SPENDING_COUNT_ENABLED (bool), SPENDING_UPGRADE_COUNT, SPENDING_TOP1_ROLE_ID,
+// SPENDING_TOP5_ROLE_ID, plus SPENDING_DB_USE_OWN / SPENDING_DB_URL (own database).
 
 const {
   SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle,
@@ -25,13 +26,24 @@ const baht = (satang) => (Number(satang) / 100).toLocaleString('th-TH');
 const toUserId = (input) => (String(input || '').match(/\d{16,20}/) || [''])[0];
 
 // ─── config helpers ──────────────────────────────────────────────────────────
+// Amount tiers: [{amount(baht), roleId}] sorted ascending. Invalid entries dropped.
+function parseTiers(ctx) {
+  const raw = ctx.config.json('SPENDING_UPGRADE_TIERS', null);
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((t) => ({ amount: Number(t?.amount), roleId: String(t?.roleId || '').trim() }))
+    .filter((t) => Number.isFinite(t.amount) && t.amount > 0 && t.roleId)
+    .sort((a, b) => a.amount - b.amount);
+}
+
 function cfg(ctx) {
   return {
     firstRoleId: ctx.config.get('SPENDING_FIRST_ROLE_ID'),
-    upgradedRoleId: ctx.config.get('SPENDING_UPGRADED_ROLE_ID'),
     top1RoleId: ctx.config.get('SPENDING_TOP1_ROLE_ID'),
     top5RoleId: ctx.config.get('SPENDING_TOP5_ROLE_ID'),
-    upgradeAmountBaht: ctx.config.number('SPENDING_UPGRADE_AMOUNT', 2000),
+    tiers: parseTiers(ctx),
+    tierStack: ctx.config.bool('SPENDING_TIER_STACK', true),
+    countEnabled: ctx.config.bool('SPENDING_COUNT_ENABLED', false),
     upgradeCount: ctx.config.number('SPENDING_UPGRADE_COUNT', 5),
   };
 }
@@ -39,7 +51,8 @@ function cfg(ctx) {
 function rolesConfigured(config) {
   return Boolean(
     config.get('SPENDING_TOP1_ROLE_ID') || config.get('SPENDING_TOP5_ROLE_ID')
-    || config.get('SPENDING_FIRST_ROLE_ID') || config.get('SPENDING_UPGRADED_ROLE_ID'),
+    || config.get('SPENDING_FIRST_ROLE_ID')
+    || String(config.get('SPENDING_UPGRADE_TIERS', '')).trim(),
   );
 }
 
@@ -54,20 +67,48 @@ function requireAdmin(interaction, ctx) {
   return false;
 }
 
-// ─── role helpers (safe add: checks existence + perm + hierarchy) ─────────────
-async function addRoleSafe(member, roleId) {
-  if (!roleId) return;
+// ─── role helpers (safe: check existence + perm + hierarchy before add/remove) ─
+async function canManageRole(member, roleId) {
+  if (!roleId) return null;
   const role = member.guild.roles.cache.get(String(roleId));
-  if (!role) return;
+  if (!role) return null;
   const me = await member.guild.members.fetchMe();
-  const canManage = me.permissions.has(PermissionFlagsBits.ManageRoles)
+  const ok = me.permissions.has(PermissionFlagsBits.ManageRoles)
     && me.roles.highest.comparePositionTo(role) > 0;
-  if (!canManage) return;
-  if (!member.roles.cache.has(role.id)) await member.roles.add(role).catch(() => {});
+  return ok ? role : null;
 }
 
-function shouldUpgrade(amountBaht, count, c) {
-  return amountBaht >= c.upgradeAmountBaht || count >= c.upgradeCount;
+async function addRoleSafe(member, roleId) {
+  const role = await canManageRole(member, roleId);
+  if (role && !member.roles.cache.has(role.id)) await member.roles.add(role).catch(() => {});
+}
+
+async function removeRoleSafe(member, roleId) {
+  const role = await canManageRole(member, roleId);
+  if (role && member.roles.cache.has(role.id)) await member.roles.remove(role).catch(() => {});
+}
+
+// Grant the amount-tier roles a member now qualifies for. A tier qualifies by amount
+// (baht ≥ tier.amount); when count is enabled, reaching the count threshold also
+// qualifies the lowest tier. When stacking is on the member keeps every qualified tier;
+// when off, only the highest qualified tier is kept and lower tier roles are stripped.
+async function applyTierRoles(member, amountBaht, txCount, c) {
+  const { tiers } = c;
+  if (tiers.length === 0) return;
+  const qualified = new Set(tiers.filter((t) => amountBaht >= t.amount));
+  if (c.countEnabled && c.upgradeCount > 0 && txCount >= c.upgradeCount) qualified.add(tiers[0]);
+
+  if (c.tierStack) {
+    for (const t of tiers) if (qualified.has(t)) await addRoleSafe(member, t.roleId);
+    return;
+  }
+  // only-highest: tiers are ascending, so the last qualified one is the highest.
+  let highest = null;
+  for (const t of tiers) if (qualified.has(t)) highest = t;
+  for (const t of tiers) {
+    if (t === highest) await addRoleSafe(member, t.roleId);
+    else await removeRoleSafe(member, t.roleId);
+  }
 }
 
 // Refresh Top1 / Top5 reward roles from the leaderboard. Top1 → rank 1, Top5 → ranks 2–5.
@@ -157,7 +198,7 @@ async function subAdd(interaction, ctx) {
   const c = cfg(ctx);
   if (member) {
     await addRoleSafe(member, c.firstRoleId);
-    if (shouldUpgrade(amountSatang / 100, txCount, c)) await addRoleSafe(member, c.upgradedRoleId);
+    await applyTierRoles(member, amountSatang / 100, txCount, c);
   }
   await refreshRanks(interaction.guild, ctx);
 
