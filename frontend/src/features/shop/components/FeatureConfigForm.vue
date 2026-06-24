@@ -37,7 +37,7 @@ watch(() => [props.feature, props.modelValue], seed, { immediate: true, deep: tr
 
 function optionsFor(valueType: string): readonly SelectFieldOption[] {
     if (valueType === "CHANNEL_ID") return props.channelOptions;
-    if (valueType === "ROLE_ID") return props.roleOptions;
+    if (valueType === "ROLE_ID" || valueType === "ROLE_TIER_LIST") return props.roleOptions;
     return [];
 }
 

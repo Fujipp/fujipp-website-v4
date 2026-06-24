@@ -15,7 +15,9 @@ export type ConfigValueType =
     // Stored as a JSON string array, but edited as one item per line (no brackets/quotes).
     | "STRING_LIST"
     // Fixed dropdown — choices come from the field's `options`.
-    | "ENUM";
+    | "ENUM"
+    // Repeatable "amount (บาท) + role" rows; stored as JSON [{ amount, roleId }].
+    | "ROLE_TIER_LIST";
 
 export interface ConfigFieldOption {
     value: string;
