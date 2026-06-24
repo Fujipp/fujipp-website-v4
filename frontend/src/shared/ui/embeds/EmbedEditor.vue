@@ -256,9 +256,16 @@ function clean(embed: EmbedObject): EmbedObject {
         const kept: Record<string, ComponentConfig> = {};
         for (const role of editableRoles) {
             const cfg = e.components[role.key];
-            if (!cfg) continue;
-            const cleaned = cleanComponent(role, cfg);
-            if (cleaned) kept[role.key] = cleaned;
+            const cleaned = cfg ? cleanComponent(role, cfg) : null;
+            if (cleaned) {
+                kept[role.key] = cleaned;
+            } else if (role.optional) {
+                // Persist an explicit empty override for an emptied optional button.
+                // The effective embed is `default.components || override.components`
+                // (shallow, per role key), so omitting it would let the seeded default
+                // label re-appear; an explicit {} overrides that default to "hidden".
+                kept[role.key] = {};
+            }
         }
         if (Object.keys(kept).length) e.components = kept;
         else delete e.components;
