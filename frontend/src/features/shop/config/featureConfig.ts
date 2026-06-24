@@ -31,8 +31,10 @@ export interface FeatureConfigField {
     isSensitive: boolean;
     defaultValue?: string;
     sortOrder: number;
-    // Present only for ENUM fields.
-    options?: ConfigFieldOption[];
+    // Present only for ENUM fields — a raw JSON array string [{"value","label"}, …]
+    // (the billing-service has no Jackson on its compile classpath, so it can't emit
+    // a nested array). Already-parsed arrays are tolerated too.
+    options?: string | ConfigFieldOption[];
 }
 
 export interface FeatureDefinition {
