@@ -1,9 +1,10 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.27.1`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.27.2`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.27.2` | 2026-06-24 | Map the ENUM options column as plain text in billing-service (Jackson 3 vs Hibernate's Jackson-2 JSON mapper), fixing the config 500 |
 | `0.0.27.1` | 2026-06-24 | Fixed the billing-service build: serve ENUM options as a raw JSON string (no Jackson on its compile classpath) |
 | `0.0.27` | 2026-06-24 | Added the Bot Presence add-on (central-bot status + looping activity text) and ENUM options pass-through in billing-service |
 | `0.0.26.2` | 2026-06-23 | Clicking a Price Board category now replies publicly with a tag line that mentions the member, instead of a private message |
