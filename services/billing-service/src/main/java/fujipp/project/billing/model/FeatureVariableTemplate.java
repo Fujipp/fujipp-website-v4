@@ -9,8 +9,6 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -44,9 +42,13 @@ public class FeatureVariableTemplate {
     @Column(name = "value_type", nullable = false)
     private String valueType = "STRING";
 
-    /** ENUM choices as raw JSON text ([{"value":…,"label":…}, …]); null for non-ENUM fields. */
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "options", columnDefinition = "jsonb")
+    /**
+     * ENUM choices as raw JSON text ([{"value":…,"label":…}, …]); null for non-ENUM fields.
+     * Stored in a plain text column (not jsonb): this service runs on Jackson 3 while
+     * Hibernate 7.2 only auto-wires a JSON FormatMapper for Jackson 2, so a jsonb mapping
+     * fails at runtime. The frontend parses this string.
+     */
+    @Column(name = "options")
     private String options;
 
     @Column(name = "is_required", nullable = false)
