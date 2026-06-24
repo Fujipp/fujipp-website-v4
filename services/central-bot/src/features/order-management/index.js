@@ -4,9 +4,9 @@
 // log channel (ORDER_LOG_CHANNEL_ID) and keeps a running order count it stamps onto
 // that channel's name (ORDER_CHANNEL_NAME_TEMPLATE, {count} = the order number).
 //
-// The counter is stored per-bot in shop.order_counters via lib/shop-store-db, which
-// routes to our database or the shop's own database (byo-database add-on). First time
-// a channel is seen we seed the count from its existing embed count, matching legacy.
+// The counter is stored per-bot in shop.order_counters (our database) via
+// lib/shop-store-db. First time a channel is seen we seed the count from its existing
+// embed count, matching legacy.
 //
 // Config keys (injected as env per subject):
 //   ORDER_LOG_CHANNEL_ID        (CHANNEL_ID) — channel embeds are posted into + renamed

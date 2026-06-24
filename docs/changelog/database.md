@@ -1,9 +1,10 @@
 # Changelog — Database
 
-**Current version: `0.3.4`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.3.5`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.3.5` | 2026-06-24 | Moved the "use your own database" toggle into the renamed บันทึกยอดเติม (กรอกเอง) feature and removed the standalone BYO Database add-on |
 | `0.3.4` | 2026-06-24 | Added the Admin Message Tools feature so bots can DM members and send/edit channel messages |
 | `0.3.3` | 2026-06-24 | Added the Member Spending Card feature: manual spend tracking with an editable membership card and Top 1/Top 5 reward roles |
 | `0.3.2` | 2026-06-24 | Added the Order Management feature and order-count storage, plus a free "use your own database" add-on every bot can enable to store shop data in its own Postgres/Neon |

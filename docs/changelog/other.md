@@ -1,9 +1,10 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.30`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.31`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.31` | 2026-06-24 | The manual top-up tracker now carries its own "use your own database" toggle; order data always uses our database |
 | `0.0.30` | 2026-06-24 | Added the Admin Message Tools bot feature: /dm a member and /message send, send a file, or edit a bot message via modals |
 | `0.0.29` | 2026-06-24 | Added the Member Spending Card bot feature: /topup manually records a member's spend, posts an editable membership card, and refreshes Top 1/Top 5 roles |
 | `0.0.28` | 2026-06-24 | Added the Order Management bot feature (/order logs a sale and keeps an order count on the channel name), with a per-bot option to store its data in the shop's own database |

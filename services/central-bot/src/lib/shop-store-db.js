@@ -1,28 +1,28 @@
 // src/lib/shop-store-db.js
-// Shop-data store router for the "bring your own database" (byo-database) add-on.
+// Shop-data store router. DB-backed shop features read/write their data through a pool
+// resolved here instead of importing lib/db.js directly.
 //
-// DB-backed shop features (e.g. order-management) read/write their data through a
-// pool resolved here instead of importing lib/db.js directly. By default that pool IS
-// the platform pool (our Supabase). When the bot opts into BYO-DB — config keys
-// SHOP_USE_OWN_DB=true AND a non-empty SHOP_DB_URL (injected as env by the
-// orchestrator's buildEnv) — it points at the shop's own Postgres/Neon instead.
+// - order-management always uses the platform pool (our Supabase).
+// - member-spending lets the bot choose its database: by default the platform pool, but
+//   when its own config opts in — SPENDING_DB_USE_OWN=true AND a non-empty SPENDING_DB_URL
+//   (injected as env by the orchestrator's buildEnv) — it points at the shop's own
+//   Postgres/Neon instead. The choice lives on the member-spending feature, not a separate
+//   add-on, and is resolved ONCE per process (config is injected as env at start, so a
+//   change auto-restarts the bot).
 //
-// The choice is per-bot global and resolved ONCE per process (config is injected as
-// env at start, so a change auto-restarts the bot). On a customer's fresh database the
-// required tables are auto-created on first use (ensureBootstrapped); on ours that DDL
-// is a no-op because the migrations already created shop.order_counters. Keep the
-// bootstrap DDL in sync with supabase/migrations/*_create_shop_order_counters.sql.
+// On a customer's fresh database the required tables are auto-created on first use
+// (ensureBootstrapped); on ours that DDL is a no-op because the migrations already created
+// them. Keep the bootstrap DDL in sync with supabase/migrations/*_create_shop_*.sql.
 
 const { Pool } = require('pg');
 const { pool: platformPool } = require('./db');
 
-let resolved = null; // { pool, isOwn } — memoised for the life of the process
-let bootstrapPromise = null;
-
-function resolvePool() {
-  if (resolved) return resolved;
-  const useOwn = /^(1|true|yes|on)$/i.test(String(process.env.SHOP_USE_OWN_DB || '').trim());
-  const url = String(process.env.SHOP_DB_URL || '').trim();
+// member-spending's own-DB pool, memoised for the life of the process.
+let spendingResolved = null;
+function resolveSpendingPool() {
+  if (spendingResolved) return spendingResolved;
+  const useOwn = /^(1|true|yes|on)$/i.test(String(process.env.SPENDING_DB_USE_OWN || '').trim());
+  const url = String(process.env.SPENDING_DB_URL || '').trim();
   if (useOwn && url) {
     const needsSsl = /sslmode=require/i.test(url) || /neon\.tech/i.test(url);
     const ownPool = new Pool({
@@ -30,20 +30,22 @@ function resolvePool() {
       ssl: needsSsl ? { rejectUnauthorized: false } : undefined,
       max: 2,
     });
-    ownPool.on('error', (err) => console.error('[central-bot] BYO-DB pool error:', err.message));
-    resolved = { pool: ownPool, isOwn: true };
+    ownPool.on('error', (err) => console.error('[central-bot] member-spending own-DB pool error:', err.message));
+    spendingResolved = { pool: ownPool, isOwn: true };
   } else {
-    resolved = { pool: platformPool, isOwn: false };
+    spendingResolved = { pool: platformPool, isOwn: false };
   }
-  return resolved;
+  return spendingResolved;
 }
 
-// Create schema + tables if missing. Idempotent and runs once per process; on failure
-// the promise is cleared so the next call can retry (e.g. transient connect error).
-// Keep each table's columns in sync with its supabase/migrations/*_create_shop_*.sql.
-async function ensureBootstrapped(pool) {
-  if (!bootstrapPromise) {
-    bootstrapPromise = (async () => {
+// Create schema + tables if missing. Idempotent and memoised PER POOL (so each distinct
+// database — ours and any customer DB — bootstraps once). On failure the entry is cleared
+// so the next call can retry (e.g. a transient connect error).
+const bootstrapState = new WeakMap(); // pool -> Promise
+function ensureBootstrapped(pool) {
+  let promise = bootstrapState.get(pool);
+  if (!promise) {
+    promise = (async () => {
       await pool.query('CREATE SCHEMA IF NOT EXISTS shop');
       await pool.query(`CREATE TABLE IF NOT EXISTS shop.order_counters (
         external_subject_id TEXT        NOT NULL,
@@ -61,16 +63,19 @@ async function ensureBootstrapped(pool) {
         CONSTRAINT member_spending_pkey PRIMARY KEY (external_subject_id, member_discord_id)
       )`);
     })().catch((err) => {
-      bootstrapPromise = null;
+      bootstrapState.delete(pool);
       throw err;
     });
+    bootstrapState.set(pool, promise);
   }
-  return bootstrapPromise;
+  return promise;
 }
 
 // Per-subject order counter store, scoped by external_subject_id + channel_id.
+// order-management always uses our database.
 function getOrderStore(subjectId) {
-  const { pool, isOwn } = resolvePool();
+  const pool = platformPool;
+  const isOwn = false;
 
   // Read the current count for a channel, or null if it has never been counted.
   async function peek(channelId) {
@@ -104,9 +109,10 @@ function getOrderStore(subjectId) {
 }
 
 // Per-subject manual member-spending store, scoped by external_subject_id +
-// member_discord_id. All amounts are satang. Backs the member-spending feature.
+// member_discord_id. All amounts are satang. Backs the member-spending feature, whose
+// own config (SPENDING_DB_USE_OWN / SPENDING_DB_URL) decides which database it uses.
 function getSpendingStore(subjectId) {
-  const { pool, isOwn } = resolvePool();
+  const { pool, isOwn } = resolveSpendingPool();
 
   // Add a spend and bump the transaction count. Returns the new totals plus whether
   // this was the member's first ever entry (drives the welcome vs returning card).
