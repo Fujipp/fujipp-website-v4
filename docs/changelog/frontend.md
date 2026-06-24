@@ -4,6 +4,7 @@
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.6.9.1` | 2026-06-24 | Fix the production build for the amount-tier role editor (guard array access under strict TS) |
 | `0.6.9` | 2026-06-24 | Bot config: amount-tier role rewards are edited as repeatable "amount + role" rows with add/remove, instead of a raw JSON box |
 | `0.6.8.3` | 2026-06-24 | Fix: removing a Price Board category button now persists — it saves an explicit empty override so the seeded default no longer re-appears after refresh |
 | `0.6.8.2` | 2026-06-24 | Embed Designer: a "ลบปุ่มนี้" control removes unused Price Board category buttons, and the preview now hides categories without a label (matching the bot) |
