@@ -36,6 +36,9 @@ export interface PreviewRole {
     fallback: string;
     emoji?: string; // default emoji the bot uses when none is configured
     style?: string; // default button style the bot uses when none is configured
+    // Optional roles can be removed by the user (e.g. Price Board category buttons):
+    // the bot hides them when they have no configured label, and so does the preview.
+    optional?: boolean;
 }
 
 /**
@@ -67,6 +70,7 @@ export const SLOT_ROLES: Record<string, PreviewRole[]> = {
         type: "button",
         fallback: `หมวด ${i + 1}`,
         style: "primary",
+        optional: true,
     })) as PreviewRole[],
     // Each per-category price embed (price_cat1..8) exposes its order-room link button.
     ...Object.fromEntries(
@@ -241,7 +245,11 @@ const timestampText = computed(() => {
 
 const previewRoles = computed(() => (props.slotKey ? SLOT_ROLES[props.slotKey] ?? [] : []));
 const selectRoles = computed(() => previewRoles.value.filter((r) => r.type === "select"));
-const buttonRoles = computed(() => previewRoles.value.filter((r) => r.type !== "select"));
+// Optional buttons (e.g. Price Board categories) stay hidden until they have a label —
+// exactly how the bot renders them, so the preview reflects what the channel will show.
+const buttonRoles = computed(() => previewRoles.value.filter(
+    (r) => r.type !== "select" && !(r.optional && !component(r).label?.trim()),
+));
 const staticButtons = computed(() => (props.slotKey ? STATIC_ROLES[props.slotKey] ?? [] : []));
 const hasComponents = computed(() => previewRoles.value.length > 0 || staticButtons.value.length > 0);
 

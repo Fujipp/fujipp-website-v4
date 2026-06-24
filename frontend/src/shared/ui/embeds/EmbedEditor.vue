@@ -208,6 +208,20 @@ function componentConfig(roleKey: string): ComponentConfig {
     return draft.value.components[roleKey];
 }
 
+// Whether an optional component (e.g. a Price Board category button) is currently in
+// use — the bot only shows it when it has a label.
+function roleInUse(roleKey: string): boolean {
+    return Boolean(draft.value?.components?.[roleKey]?.label?.trim());
+}
+
+// "Remove" an optional component: wipe its label/emoji/style so it's dropped on save
+// and hidden by the bot. The slot stays in the editor so it can be re-added later.
+function removeComponent(roleKey: string): void {
+    if (!draft.value) return;
+    draft.value.components = draft.value.components ?? {};
+    draft.value.components[roleKey] = {};
+}
+
 function cleanComponent(role: Role, cfg: ComponentConfig): ComponentConfig | null {
     const out: ComponentConfig = {};
     const label = cfg.label?.trim();
@@ -478,6 +492,16 @@ watch(() => props.botId, loadConfigValues);
                                     <span>{{ role.label }}</span>
                                     <code>{{ role.key }}</code>
                                 </div>
+                                <div v-if="role.optional" :class="$style.optionalBar">
+                                    <span v-if="roleInUse(role.key)" :class="$style.shownTag">● แสดงอยู่</span>
+                                    <span v-else :class="$style.hiddenTag">○ ซ่อนอยู่ — ใส่ Label เพื่อแสดงปุ่มนี้</span>
+                                    <button
+                                        v-if="roleInUse(role.key)"
+                                        type="button"
+                                        :class="$style.removeRole"
+                                        @click="removeComponent(role.key)"
+                                    >ลบปุ่มนี้</button>
+                                </div>
 
                                 <div :class="$style.grid2">
                                     <TextField
@@ -593,6 +617,11 @@ watch(() => props.botId, loadConfigValues);
 .componentRow { display: flex; flex-direction: column; gap: var(--spacing-space-2); padding: var(--spacing-space-3); border: 1px solid var(--color-main-border); border-radius: var(--radius-lg); background: var(--color-main-background); }
 .componentTitle { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-space-2); color: var(--color-text-primary); font-size: 14px; font-weight: 600; }
 .componentTitle code { color: var(--color-text-primary); font-family: monospace; font-size: 12px; font-weight: 400; }
+.optionalBar { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-space-2); }
+.shownTag { font-size: 12px; color: var(--color-status-success); }
+.hiddenTag { font-size: 12px; color: var(--color-text-disabled); }
+.removeRole { padding: 4px 10px; border: 1px solid var(--color-input-border); border-radius: var(--radius-full); background: var(--color-main-background); color: var(--color-text-secondary); font: inherit; font-size: 12px; cursor: pointer; transition: border-color 0.15s ease, color 0.15s ease; }
+.removeRole:hover { border-color: var(--color-status-error); color: var(--color-status-error); }
 .selectField { display: flex; flex-direction: column; gap: 6px; }
 .nativeSelect { width: 100%; height: 40px; padding: 0 12px; border: 1px solid var(--color-main-border); border-radius: var(--radius-lg); background: var(--color-main-background); color: var(--color-text-primary); font-family: var(--font-sans); font-size: 14px; }
 
