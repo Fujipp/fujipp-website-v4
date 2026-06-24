@@ -1,9 +1,12 @@
 # Changelog — Database
 
-**Current version: `0.3.1`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.3.4`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.3.4` | 2026-06-24 | Added the Admin Message Tools feature so bots can DM members and send/edit channel messages |
+| `0.3.3` | 2026-06-24 | Added the Member Spending Card feature: manual spend tracking with an editable membership card and Top 1/Top 5 reward roles |
+| `0.3.2` | 2026-06-24 | Added the Order Management feature and order-count storage, plus a free "use your own database" add-on every bot can enable to store shop data in its own Postgres/Neon |
 | `0.3.1` | 2026-06-24 | Give every bot (existing + newly created) the free Bot Presence add-on automatically |
 | `0.3.0.1` | 2026-06-24 | Store ENUM field options as text (billing-service can't map jsonb), fixing a 500 on the bot config page |
 | `0.3.0` | 2026-06-24 | Added the Bot Presence feature (status + looping activity text) and a dropdown (ENUM) config field type |

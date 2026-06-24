@@ -22,9 +22,12 @@ const voiceKeeper = require('./voice-keeper');
 const serverLog = require('./server-log');
 const priceBoard = require('./price-board');
 const botPresence = require('./bot-presence');
+const orderManagement = require('./order-management');
+const memberSpending = require('./member-spending');
+const adminMessageTools = require('./admin-message-tools');
 
 // wallet-topup first so its ctx.services.wallet exists before features that use it.
-const ALL = [walletTopup, robloxRobuxPayout, walletHistory, topSpenderRank, reviewCredit, voiceKeeper, serverLog, priceBoard, botPresence];
+const ALL = [walletTopup, robloxRobuxPayout, walletHistory, topSpenderRank, reviewCredit, voiceKeeper, serverLog, priceBoard, botPresence, orderManagement, memberSpending, adminMessageTools];
 
 function loadEnabled(config) {
   return ALL.filter((f) => config.isFeatureEnabled(f.code));
