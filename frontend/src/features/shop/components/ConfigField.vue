@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { TextField, TextareaField, SelectField, type SelectFieldOption } from "@/shared/ui";
-import type { FeatureConfigField } from "@/features/shop/config/featureConfig";
+import type { FeatureConfigField, ConfigFieldOption } from "@/features/shop/config/featureConfig";
 
 interface Props {
     field: FeatureConfigField;
@@ -59,9 +59,22 @@ const widget = computed(() => {
 const textType = computed(() => (widget.value === "secret" ? "password" : widget.value === "number" ? "number" : "text"));
 
 // ENUM choices live on the field itself (seeded in the backbone), not fetched from Discord.
-const enumOptions = computed<SelectFieldOption[]>(() =>
-    (props.field.options ?? []).map((o) => ({ label: o.label, value: o.value })),
-);
+// The API sends them as a raw JSON array string; an already-parsed array is tolerated too.
+const enumOptions = computed<SelectFieldOption[]>(() => {
+    const raw = props.field.options;
+    let parsed: ConfigFieldOption[] = [];
+    if (typeof raw === "string") {
+        try {
+            const json = JSON.parse(raw);
+            if (Array.isArray(json)) parsed = json;
+        } catch {
+            parsed = [];
+        }
+    } else if (Array.isArray(raw)) {
+        parsed = raw;
+    }
+    return parsed.map((o) => ({ label: o.label, value: o.value }));
+});
 
 // STRING_LIST is stored as a JSON string array but edited as one input box per item
 // (add / remove rows). The user never types brackets, quotes, or commas.

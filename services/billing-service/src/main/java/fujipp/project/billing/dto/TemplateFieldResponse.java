@@ -1,7 +1,5 @@
 package fujipp.project.billing.dto;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import fujipp.project.billing.model.FeatureVariableTemplate;
 
 /** One config field definition (mirrors the frontend FeatureConfigField). */
@@ -14,10 +12,10 @@ public record TemplateFieldResponse(
     boolean isSensitive,
     String defaultValue,
     int sortOrder,
-    JsonNode options
+    // ENUM choices as raw JSON text ([{"value":…,"label":…}, …]); the frontend parses it.
+    // Kept as a String so this service needs no Jackson dependency on its compile classpath.
+    String options
 ) {
-    private static final ObjectMapper MAPPER = new ObjectMapper();
-
     public static TemplateFieldResponse from(FeatureVariableTemplate t) {
         return new TemplateFieldResponse(
             t.getVariableKey(),
@@ -28,17 +26,7 @@ public record TemplateFieldResponse(
             t.isSensitive(),
             t.getDefaultValue(),
             t.getSortOrder(),
-            parseOptions(t.getOptions())
+            t.getOptions()
         );
-    }
-
-    /** ENUM choices arrive as raw JSON text; emit them as a real array (null when absent). */
-    private static JsonNode parseOptions(String raw) {
-        if (raw == null || raw.isBlank()) return null;
-        try {
-            return MAPPER.readTree(raw);
-        } catch (Exception e) {
-            return null;
-        }
     }
 }

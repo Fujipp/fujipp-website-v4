@@ -1,9 +1,10 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.27`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.27.1`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.27.1` | 2026-06-24 | Fixed the billing-service build: serve ENUM options as a raw JSON string (no Jackson on its compile classpath) |
 | `0.0.27` | 2026-06-24 | Added the Bot Presence add-on (central-bot status + looping activity text) and ENUM options pass-through in billing-service |
 | `0.0.26.2` | 2026-06-23 | Clicking a Price Board category now replies publicly with a tag line that mentions the member, instead of a private message |
 | `0.0.26.1` | 2026-06-23 | Price Board auto-repost now lands on the clock (e.g. 14:00, 16:00 Bangkok time) instead of every N hours from when the bot started |
