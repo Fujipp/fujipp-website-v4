@@ -83,20 +83,51 @@ jobs:
             "
           }
 
-          # Upload, then confirm the live server actually serves the entry chunk as
-          # JavaScript. Retry the whole upload if a transfer dropped — a flaky deploy
-          # now fails loudly (and self-heals) instead of reporting a false success.
-          for attempt in 1 2 3; do
+          # Re-upload a single asset the mirror dropped (shared-host FTPS silently loses
+          # some transfers — verifying only the entry chunk let dropped lazy chunks slip
+          # through as false successes). Puts one local file into the remote assets dir.
+          put_one() {
+            lftp -c "
+              set ftp:ssl-allow true;
+              set ftp:ssl-protect-data true;
+              set ssl:verify-certificate no;
+              set net:max-retries 3;
+              set net:timeout 30;
+              set xfer:clobber on;
+              open -u '$FTP_USER','$FTP_PASSWORD' -p ${FTP_PORT:-21} '$FTP_HOST';
+              put -O '$FTP_REMOTE_DIR/assets' 'dist/assets/$1';
+            "
+          }
+
+          # Verify EVERY hashed JS chunk serves as JavaScript (not the SPA fallback HTML),
+          # re-uploading any that don't. Returns the count still missing.
+          heal_missing() {
+            miss=0
+            for f in dist/assets/*.js; do
+              [ -e "$f" ] || continue
+              name="$(basename "$f")"
+              ct="$(curl -s -o /dev/null -w '%{content_type}' "$SITE_URL/assets/$name" || true)"
+              case "$ct" in
+                *javascript*) ;;
+                *) echo "  ↻ missing on server: $name ($ct) — re-uploading"; put_one "$name" || true; miss=$((miss + 1));;
+              esac
+            done
+            return $miss
+          }
+
+          # Upload, then confirm the WHOLE asset set serves as JS. Retry the upload +
+          # targeted re-put of any dropped chunk — a flaky deploy now self-heals every
+          # missing chunk and only fails loudly when one truly can't be delivered.
+          for attempt in 1 2 3 4; do
             echo "=== Upload attempt $attempt ==="
             upload || echo "lftp exited non-zero on attempt $attempt"
             if [ -n "$entry" ]; then
-              ct="$(curl -s -o /dev/null -w '%{content_type}' "$SITE_URL$entry" || true)"
-              echo "Entry served as: $ct"
-              case "$ct" in *javascript*) echo "Verified ✅"; exit 0;; esac
-              echo "Entry not served as JS yet — retrying upload…"; sleep 8
-            else
-              echo "Could not parse entry chunk from index.html — skipping verify"; exit 0
+              echo "Entry served as: $(curl -s -o /dev/null -w '%{content_type}' "$SITE_URL$entry" || true)"
             fi
+            if heal_missing; then
+              echo "All JS chunks served as JavaScript ✅"; exit 0
+            fi
+            echo "Re-uploaded missing chunk(s) — re-verifying after a pause…"; sleep 8
           done
-          echo "::error::Deploy incomplete — entry chunk never served as JavaScript"
+          echo "::error::Deploy incomplete — some JS chunks never served as JavaScript"
           exit 1
