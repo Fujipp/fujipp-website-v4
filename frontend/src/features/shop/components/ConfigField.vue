@@ -40,6 +40,8 @@ const widget = computed(() => {
             return "json";
         case "STRING_LIST":
             return "list";
+        case "ROLE_TIER_LIST":
+            return "tierlist";
         case "ENUM":
             return "enum";
         case "NUMBER":
@@ -118,6 +120,67 @@ function removeItem(index: number): void {
     items.value.splice(index, 1);
     emitItems();
 }
+
+// ROLE_TIER_LIST is stored as JSON [{ amount, roleId }] but edited as repeatable
+// "amount (บาท) + role" rows. Mirrors the STRING_LIST add/remove flow; the role cell is
+// a dropdown of the guild's roles (props.options), falling back to a text input for the
+// role id when no roles are loaded yet (bot not in the server).
+interface TierRow {
+    amount: string;
+    roleId: string;
+}
+const tiers = ref<TierRow[]>([]);
+let lastTierEmitted = "";
+
+function parseTiers(raw?: string): TierRow[] {
+    const s = (raw ?? "").trim();
+    if (!s) return [];
+    try {
+        const parsed = JSON.parse(s);
+        if (Array.isArray(parsed)) {
+            return parsed.map((t) => ({
+                amount: t?.amount != null ? String(t.amount) : "",
+                roleId: t?.roleId != null ? String(t.roleId) : "",
+            }));
+        }
+    } catch {
+        // not valid JSON yet — start empty
+    }
+    return [];
+}
+
+watch(() => props.modelValue, (v) => {
+    if (props.field.valueType !== "ROLE_TIER_LIST") return;
+    if (v === lastTierEmitted) return;
+    tiers.value = parseTiers(v);
+}, { immediate: true });
+
+function emitTiers(): void {
+    const cleaned = tiers.value
+        .map((t) => ({ amount: Number(t.amount), roleId: t.roleId.trim() }))
+        .filter((t) => Number.isFinite(t.amount) && t.amount > 0 && t.roleId);
+    lastTierEmitted = cleaned.length ? JSON.stringify(cleaned) : "";
+    update(lastTierEmitted);
+}
+
+function setTierAmount(index: number, value: string): void {
+    tiers.value[index].amount = value;
+    emitTiers();
+}
+
+function setTierRole(index: number, value: string): void {
+    tiers.value[index].roleId = value;
+    emitTiers();
+}
+
+function addTier(): void {
+    tiers.value.push({ amount: "", roleId: "" });
+}
+
+function removeTier(index: number): void {
+    tiers.value.splice(index, 1);
+    emitTiers();
+}
 </script>
 
 <template>
@@ -142,6 +205,51 @@ function removeItem(index: number): void {
                 >×</button>
             </div>
             <button type="button" :class="$style.addBtn" :disabled="disabled" @click="addItem">+ เพิ่มรายการ</button>
+            <p v-if="error" :class="$style.listError">{{ error }}</p>
+        </div>
+        <div v-else-if="widget === 'tierlist'" :class="$style.list">
+            <span :class="$style.listLabel">{{ labelText }}</span>
+            <div v-for="(tier, index) in tiers" :key="index" :class="$style.tierRow">
+                <input
+                    :value="tier.amount"
+                    type="number"
+                    min="1"
+                    :class="[$style.listInput, $style.tierAmount]"
+                    placeholder="ยอด (บาท)"
+                    aria-label="ยอดสะสม (บาท)"
+                    :disabled="disabled"
+                    @input="setTierAmount(index, ($event.target as HTMLInputElement).value)"
+                >
+                <select
+                    v-if="options.length"
+                    :value="tier.roleId"
+                    :class="$style.tierRole"
+                    aria-label="ยศ"
+                    :disabled="disabled"
+                    @change="setTierRole(index, ($event.target as HTMLSelectElement).value)"
+                >
+                    <option value="">เลือกยศ…</option>
+                    <option v-for="opt in options" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                </select>
+                <input
+                    v-else
+                    :value="tier.roleId"
+                    type="text"
+                    :class="[$style.listInput, $style.tierRole]"
+                    placeholder="Role ID"
+                    aria-label="Role ID"
+                    :disabled="disabled"
+                    @input="setTierRole(index, ($event.target as HTMLInputElement).value)"
+                >
+                <button
+                    type="button"
+                    :class="$style.removeBtn"
+                    :disabled="disabled"
+                    aria-label="ลบยศ"
+                    @click="removeTier(index)"
+                >×</button>
+            </div>
+            <button type="button" :class="$style.addBtn" :disabled="disabled" @click="addTier">+ เพิ่มยศตามยอด</button>
             <p v-if="error" :class="$style.listError">{{ error }}</p>
         </div>
         <TextareaField
@@ -242,6 +350,34 @@ function removeItem(index: number): void {
 }
 
 .listInput:focus-visible {
+    outline: none;
+    border-color: var(--color-main-primary);
+}
+
+.tierRow {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-space-2);
+}
+
+.tierAmount {
+    flex: 0 0 120px;
+}
+
+.tierRole {
+    flex: 1;
+    min-width: 0;
+    height: 40px;
+    box-sizing: border-box;
+    padding: 0 12px;
+    border: 1px solid var(--color-input-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-main-background);
+    color: var(--color-text-primary);
+    font: inherit;
+}
+
+.tierRole:focus-visible {
     outline: none;
     border-color: var(--color-main-primary);
 }

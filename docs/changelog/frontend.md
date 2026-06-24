@@ -1,9 +1,10 @@
 # Changelog — Frontend
 
-**Current version: `0.6.8.3`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.6.9`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.6.9` | 2026-06-24 | Bot config: amount-tier role rewards are edited as repeatable "amount + role" rows with add/remove, instead of a raw JSON box |
 | `0.6.8.3` | 2026-06-24 | Fix: removing a Price Board category button now persists — it saves an explicit empty override so the seeded default no longer re-appears after refresh |
 | `0.6.8.2` | 2026-06-24 | Embed Designer: a "ลบปุ่มนี้" control removes unused Price Board category buttons, and the preview now hides categories without a label (matching the bot) |
 | `0.6.8.1` | 2026-06-24 | Parse ENUM field options from the raw JSON string the API now sends (dropdown choices) |
