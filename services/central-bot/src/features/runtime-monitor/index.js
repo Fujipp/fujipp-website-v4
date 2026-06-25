@@ -3,9 +3,10 @@
 // instance on the platform with its owner, avatar, and current status, so the
 // platform operator can check things from inside their own Discord bot.
 //
-// Gated strictly to AUTHORIZED_USER_IDS (ctx.config.isAuthorized) — NOT the
-// guild's Administrator permission — because it exposes every customer's bot
-// and owner. A server admin who isn't the platform operator must not see it.
+// Gated to the operator via the platform's standard admin check (lib/perms.isAdmin):
+// a user with the server's Administrator permission OR an id in AUTHORIZED_USER_IDS.
+// This matches the other owner-only commands (/panel, /wallet-add, /robux-payout).
+// The bot lives in the operator's own server, so Administrator there == the operator.
 //
 // Status shown is bots.bot_instances.status (a snapshot updated on
 // start/stop/restart), not live pm2 state — a crashed bot may still read
@@ -16,6 +17,7 @@
 
 const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
 const db = require('../../lib/db');
+const { isAdmin } = require('../../lib/perms');
 
 // Discord allows at most 10 embeds per message.
 const EMBEDS_PER_MESSAGE = 10;
@@ -54,9 +56,9 @@ function botEmbed(row) {
 }
 
 async function handleRuntime(interaction, ctx) {
-  // Platform-operator-only — strict, not guild Administrator.
-  if (!ctx.config.isAuthorized(interaction.user.id)) {
-    await interaction.reply({ content: 'คำสั่งนี้ใช้ได้เฉพาะผู้ดูแลแพลตฟอร์มเท่านั้น', flags: MessageFlags.Ephemeral }).catch(() => {});
+  // Operator-only: server Administrator or an id in AUTHORIZED_USER_IDS.
+  if (!isAdmin(interaction, ctx)) {
+    await interaction.reply({ content: 'คำสั่งนี้ใช้ได้เฉพาะผู้ดูแลเท่านั้น', flags: MessageFlags.Ephemeral }).catch(() => {});
     return;
   }
 
