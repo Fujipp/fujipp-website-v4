@@ -212,9 +212,19 @@ export interface AdminBot {
     ownerEmail: string | null;
     discordApplicationId: string | null;
     discordGuildId: string | null;
+    discordAvatarUrl: string | null;
     tokenConfigured: boolean;
     vpsNodeId: string | null;
     createdAt: string;
+}
+
+/** Live pm2 runtime status for a bot, from GET /api/admin/bots/{botId}/status. */
+export interface AdminBotLiveStatus {
+    state: string;
+    restarts: number | null;
+    uptime: number | null;
+    cpu: number | null;
+    memory: number | null;
 }
 
 export interface BotConfigField {
