@@ -47,8 +47,9 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-      # bun.lock drifts from package.json (vue beta + overrides), so don't freeze it here.
-      - run: bun install
+      # vue + @vue/* are pinned to an exact beta (not the moving `beta` tag), so the
+      # lockfile is reproducible — freeze it to build the exact deps committed.
+      - run: bun install --frozen-lockfile
       - name: Type-check and build
         run: bun run build
 
