@@ -29,8 +29,9 @@ jobs:
         with:
           bun-version: latest
 
-      # bun.lock drifts from package.json (vue beta + overrides), so don't freeze it here.
-      - run: bun install
+      # vue + @vue/* are pinned to an exact beta (not the moving `beta` tag), so the
+      # lockfile is reproducible — freeze it so prod builds the exact deps committed.
+      - run: bun install --frozen-lockfile
 
       - name: Write production env
         # FRONTEND_ENV_FILE holds VITE_API_BASE_URL, VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
@@ -69,6 +70,12 @@ jobs:
           # drop large files — that is the flaky-deploy root cause). clobber on so changed
           # hashed files are overwritten. Old hashed assets are kept (no --delete) so
           # clients on a previous index.html can still load their lazy chunks.
+          #
+          # CRITICAL ordering: this mirror EXCLUDES index.html (-X index.html). We upload
+          # every hashed chunk first, prove they all serve, and only then put index.html
+          # (see below). That makes the rollover atomic from a client's view: the live
+          # index.html keeps pointing at the OLD chunks (still present, never deleted)
+          # until the NEW chunks are fully on disk — no white-screen window mid-deploy.
           upload() {
             lftp -c "
               set ftp:ssl-allow true;
@@ -79,7 +86,23 @@ jobs:
               set net:reconnect-interval-base 5;
               set xfer:clobber on;
               open -u '$FTP_USER','$FTP_PASSWORD' -p ${FTP_PORT:-21} '$FTP_HOST';
-              mirror -R --parallel=1 --verbose dist/ '$FTP_REMOTE_DIR';
+              mirror -R --parallel=1 --verbose -X index.html dist/ '$FTP_REMOTE_DIR';
+            "
+          }
+
+          # Put the entry document LAST, after every chunk is confirmed serving. This is
+          # the single flip that makes new chunks go live, so it must never run before
+          # heal_missing() has passed.
+          put_index() {
+            lftp -c "
+              set ftp:ssl-allow true;
+              set ftp:ssl-protect-data true;
+              set ssl:verify-certificate no;
+              set net:max-retries 3;
+              set net:timeout 30;
+              set xfer:clobber on;
+              open -u '$FTP_USER','$FTP_PASSWORD' -p ${FTP_PORT:-21} '$FTP_HOST';
+              put -O '$FTP_REMOTE_DIR' 'dist/index.html';
             "
           }
 
@@ -115,19 +138,23 @@ jobs:
             return $miss
           }
 
-          # Upload, then confirm the WHOLE asset set serves as JS. Retry the upload +
-          # targeted re-put of any dropped chunk — a flaky deploy now self-heals every
-          # missing chunk and only fails loudly when one truly can't be delivered.
+          # Upload every chunk (NOT index.html), then confirm the WHOLE asset set serves
+          # as JS. Retry the upload + targeted re-put of any dropped chunk — a flaky
+          # deploy now self-heals every missing chunk and only fails loudly when one
+          # truly can't be delivered. Only once all chunks pass do we flip index.html,
+          # so a half-uploaded deploy never strands clients on a missing chunk.
           for attempt in 1 2 3 4; do
-            echo "=== Upload attempt $attempt ==="
+            echo "=== Upload attempt $attempt (chunks only) ==="
             upload || echo "lftp exited non-zero on attempt $attempt"
-            if [ -n "$entry" ]; then
-              echo "Entry served as: $(curl -s -o /dev/null -w '%{content_type}' "$SITE_URL$entry" || true)"
-            fi
             if heal_missing; then
-              echo "All JS chunks served as JavaScript ✅"; exit 0
+              echo "All JS chunks served as JavaScript ✅ — flipping index.html"
+              put_index || { echo "::error::index.html upload failed"; exit 1; }
+              if [ -n "$entry" ]; then
+                echo "Entry now served as: $(curl -s -o /dev/null -w '%{content_type}' "$SITE_URL$entry" || true)"
+              fi
+              echo "Deploy complete ✅"; exit 0
             fi
             echo "Re-uploaded missing chunk(s) — re-verifying after a pause…"; sleep 8
           done
-          echo "::error::Deploy incomplete — some JS chunks never served as JavaScript"
+          echo "::error::Deploy incomplete — some JS chunks never served as JavaScript (index.html left untouched)"
           exit 1
