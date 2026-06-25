@@ -62,6 +62,14 @@ function ensureBootstrapped(pool) {
         updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
         CONSTRAINT member_spending_pkey PRIMARY KEY (external_subject_id, member_discord_id)
       )`);
+      await pool.query(`CREATE TABLE IF NOT EXISTS shop.shop_status_messages (
+        external_subject_id TEXT        NOT NULL,
+        channel_id          TEXT        NOT NULL,
+        message_id          TEXT        NOT NULL,
+        status              TEXT        NOT NULL,
+        updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+        CONSTRAINT shop_status_messages_pkey PRIMARY KEY (external_subject_id, channel_id)
+      )`);
     })().catch((err) => {
       bootstrapState.delete(pool);
       throw err;
@@ -205,4 +213,36 @@ function getSpendingStore(subjectId) {
   return { addAmount, setAmounts, get, remove, leaderboard, totals, isOwnDb: isOwn };
 }
 
-module.exports = { getOrderStore, getSpendingStore };
+// Per-subject shop-status announcement store, scoped by external_subject_id + channel_id.
+// Remembers the message the bot last posted/edited in an announce channel so /status
+// edits it in place instead of spamming. shop-status always uses our database.
+function getStatusStore(subjectId) {
+  const pool = platformPool;
+
+  // The remembered announcement for a channel, or null if none.
+  async function get(channelId) {
+    await ensureBootstrapped(pool);
+    const { rows } = await pool.query(
+      `SELECT message_id, status FROM shop.shop_status_messages
+        WHERE external_subject_id = $1 AND channel_id = $2`,
+      [subjectId, channelId],
+    );
+    return rows[0] ? { messageId: rows[0].message_id, status: rows[0].status } : null;
+  }
+
+  // Remember (or update) the announcement message + last status for a channel.
+  async function set(channelId, messageId, status) {
+    await ensureBootstrapped(pool);
+    await pool.query(
+      `INSERT INTO shop.shop_status_messages (external_subject_id, channel_id, message_id, status, updated_at)
+       VALUES ($1, $2, $3, $4, now())
+       ON CONFLICT (external_subject_id, channel_id)
+       DO UPDATE SET message_id = $3, status = $4, updated_at = now()`,
+      [subjectId, channelId, String(messageId), String(status)],
+    );
+  }
+
+  return { get, set };
+}
+
+module.exports = { getOrderStore, getSpendingStore, getStatusStore };
