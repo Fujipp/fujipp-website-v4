@@ -16,6 +16,7 @@ public record AdminBotResponse(
     String ownerEmail,
     String discordApplicationId,
     String discordGuildId,
+    String discordAvatarUrl,
     boolean tokenConfigured,
     UUID vpsNodeId,
     OffsetDateTime createdAt
@@ -30,6 +31,7 @@ public record AdminBotResponse(
             owner != null ? owner.getEmail() : null,
             bot.getDiscordApplicationId(),
             bot.getDiscordGuildId(),
+            bot.getDiscordAvatarUrl(),
             bot.getDiscordTokenCipher() != null && !bot.getDiscordTokenCipher().isBlank(),
             bot.getVpsNodeId(),
             bot.getCreatedAt()

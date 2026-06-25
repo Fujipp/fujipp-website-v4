@@ -1,9 +1,10 @@
 # Changelog — Backend
 
-**Current version: `0.4.8.2`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.4.8.3`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.4.8.3` | 2026-06-25 | Admin bot directory response now includes the bot's Discord avatar URL |
 | `0.4.8.2` | 2026-06-24 | Bot card Online/Offline tag now reflects whether the bot process is actually running, not just whether its runtime is paid |
 | `0.4.8.1` | 2026-06-24 | Fixed a server error when assigning a bot to a runtime seat that was currently unassigned |
 | `0.4.8` | 2026-06-22 | Admins can see active runtimes that hold no server seat and assign them to a free one |
