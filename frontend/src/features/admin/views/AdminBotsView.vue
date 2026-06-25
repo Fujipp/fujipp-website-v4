@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { AdminLayout } from "@/features/admin/components";
 import { useAdminStore } from "@/features/admin/stores";
-import type { AdminBot, AdminUser } from "@/features/admin/config";
+import type { AdminBot, AdminBotLiveStatus, AdminUser } from "@/features/admin/config";
 import { SearchField, StatusToast } from "@/shared/ui";
 
 const router = useRouter();
@@ -36,6 +36,45 @@ const filteredUsers = computed<AdminUser[]>(() => {
 
 // Per-row runtime action in flight (botId), so its buttons disable while it runs.
 const runtimeBusyId = ref<string | null>(null);
+
+// Live pm2 status fetched on-demand per row (botId → status). Empty until refreshed.
+const liveStatus = ref<Record<string, AdminBotLiveStatus>>({});
+const statusBusyId = ref<string | null>(null);
+
+const STATE_TONE: Record<string, string> = {
+    online: "ok",
+    stopped: "muted",
+    errored: "error",
+    stopping: "muted",
+    launching: "ok",
+};
+
+function stateTone(state: string): string {
+    return STATE_TONE[state] ?? "muted";
+}
+
+function formatUptime(startedMs: number | null): string {
+    if (!startedMs) return "";
+    const secs = Math.max(0, Math.floor((Date.now() - startedMs) / 1000));
+    const d = Math.floor(secs / 86400);
+    const h = Math.floor((secs % 86400) / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    if (d > 0) return `${d}d ${h}h`;
+    if (h > 0) return `${h}h ${m}m`;
+    return `${m}m`;
+}
+
+async function refreshStatus(bot: AdminBot): Promise<void> {
+    statusBusyId.value = bot.id;
+    try {
+        const status = await adminStore.botStatus(bot.id);
+        liveStatus.value = { ...liveStatus.value, [bot.id]: status };
+    } catch (cause) {
+        showToast("error", cause instanceof Error ? cause.message : "Status check failed");
+    } finally {
+        statusBusyId.value = null;
+    }
+}
 
 const toast = ref<{ status: "success" | "error"; title: string } | null>(null);
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
@@ -132,9 +171,40 @@ onMounted(load);
                 </thead>
                 <tbody>
                     <tr v-for="bot in bots" :key="bot.id">
-                        <td :class="$style.td">{{ bot.name }}</td>
+                        <td :class="$style.td">
+                            <span :class="$style.botCell">
+                                <img
+                                    v-if="bot.discordAvatarUrl"
+                                    :class="$style.avatar"
+                                    :src="bot.discordAvatarUrl"
+                                    :alt="`${bot.name} avatar`"
+                                    loading="lazy"
+                                >
+                                <span v-else :class="$style.avatarFallback" aria-hidden="true">{{ bot.name.slice(0, 1).toUpperCase() }}</span>
+                                <span>{{ bot.name }}</span>
+                            </span>
+                        </td>
                         <td :class="$style.td">{{ bot.ownerName ?? bot.ownerEmail ?? bot.ownerId.slice(0, 8) }}</td>
-                        <td :class="$style.td">{{ bot.status }}</td>
+                        <td :class="$style.td">
+                            <span :class="$style.statusCell">
+                                <template v-if="liveStatus[bot.id]">
+                                    <span :class="[$style.badge, $style[`badge--${stateTone(liveStatus[bot.id]?.state ?? '')}`]]">
+                                        {{ liveStatus[bot.id]?.state }}
+                                    </span>
+                                    <span v-if="liveStatus[bot.id]?.state === 'online'" :class="$style.statusMeta">
+                                        ↑ {{ formatUptime(liveStatus[bot.id]?.uptime ?? null) }} · ⟳ {{ liveStatus[bot.id]?.restarts ?? 0 }}
+                                    </span>
+                                </template>
+                                <span v-else :class="$style.statusMeta">{{ bot.status }}</span>
+                                <button
+                                    type="button"
+                                    :class="$style.refreshBtn"
+                                    :disabled="statusBusyId === bot.id"
+                                    title="Refresh live status"
+                                    @click="refreshStatus(bot)"
+                                >{{ statusBusyId === bot.id ? "…" : "↻" }}</button>
+                            </span>
+                        </td>
                         <td :class="$style.td">{{ bot.discordApplicationId ?? "—" }}</td>
                         <td :class="$style.td">{{ bot.tokenConfigured ? "✓" : "—" }}</td>
                         <td :class="$style.td">{{ formatDate(bot.createdAt) }}</td>
@@ -222,6 +292,66 @@ onMounted(load);
 }
 
 .rowActions { display: inline-flex; gap: 8px; }
+
+.botCell { display: inline-flex; align-items: center; gap: 10px; }
+
+.avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.avatarFallback {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background-color: var(--color-input-bg);
+    color: var(--color-text-disabled);
+    font-size: 13px;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.statusCell { display: inline-flex; align-items: center; gap: 8px; }
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 10px;
+    border-radius: var(--radius-pill, 999px);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+.badge--ok { background-color: color-mix(in srgb, var(--color-status-success) 16%, transparent); color: var(--color-status-success); }
+.badge--error { background-color: color-mix(in srgb, var(--color-status-error) 16%, transparent); color: var(--color-status-error); }
+.badge--muted { background-color: var(--color-input-bg); color: var(--color-text-disabled); }
+
+.statusMeta { font-size: 12px; color: var(--color-text-disabled); }
+
+.refreshBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 1px solid var(--shop-card-border, var(--color-input-border));
+    border-radius: var(--radius-sm);
+    background: var(--color-input-bg);
+    color: var(--shop-card-text, var(--color-text-secondary));
+    font: inherit;
+    line-height: 1;
+    cursor: pointer;
+    transition: border-color 140ms ease, color 140ms ease;
+}
+.refreshBtn:hover:not(:disabled) { border-color: var(--color-main-primary); color: var(--color-main-primary); }
+.refreshBtn:disabled { cursor: not-allowed; opacity: 0.6; }
 
 .ghostBtn {
     padding: 6px 14px;

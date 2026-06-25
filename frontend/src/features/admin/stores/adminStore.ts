@@ -20,6 +20,7 @@ import type {
     WalletAdjustPayload,
     UpdateUserPayload,
     AdminBot,
+    AdminBotLiveStatus,
     BotConfig,
     AdminDashboard,
     GrantBotFeaturePayload,
@@ -201,8 +202,8 @@ export const useAdminStore = defineStore("admin", () => {
         return adminFetch<unknown>(`/api/admin/bots/${botId}/${action}`, { method: "POST" });
     }
 
-    function botStatus(botId: string): Promise<{ state?: string }> {
-        return adminFetch<{ state?: string }>(`/api/admin/bots/${botId}/status`);
+    function botStatus(botId: string): Promise<AdminBotLiveStatus> {
+        return adminFetch<AdminBotLiveStatus>(`/api/admin/bots/${botId}/status`);
     }
 
     // ── per-bot subscriptions (runtime + features for this bot) ──────────────────
