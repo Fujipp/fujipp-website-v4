@@ -18,7 +18,7 @@
     "@tailwindcss/vite": "^4.3.0",
     "pinia": "^3.0.4",
     "tailwindcss": "^4.3.0",
-    "vue": "beta",
+    "vue": "3.6.0-beta.12",
     "vue-i18n": "^11.4.4",
     "vue-router": "^5.0.4"
   },
@@ -37,18 +37,18 @@
     "node": "^20.19.0 || >=22.12.0"
   },
   "overrides": {
-    "vue": "beta",
-    "@vue/compiler-core": "beta",
-    "@vue/compiler-dom": "beta",
-    "@vue/compiler-sfc": "beta",
-    "@vue/compiler-ssr": "beta",
-    "@vue/compiler-vapor": "beta",
-    "@vue/reactivity": "beta",
-    "@vue/runtime-core": "beta",
-    "@vue/runtime-dom": "beta",
-    "@vue/runtime-vapor": "beta",
-    "@vue/server-renderer": "beta",
-    "@vue/shared": "beta",
-    "@vue/compat": "beta"
+    "vue": "3.6.0-beta.12",
+    "@vue/compiler-core": "3.6.0-beta.12",
+    "@vue/compiler-dom": "3.6.0-beta.12",
+    "@vue/compiler-sfc": "3.6.0-beta.12",
+    "@vue/compiler-ssr": "3.6.0-beta.12",
+    "@vue/compiler-vapor": "3.6.0-beta.12",
+    "@vue/reactivity": "3.6.0-beta.12",
+    "@vue/runtime-core": "3.6.0-beta.12",
+    "@vue/runtime-dom": "3.6.0-beta.12",
+    "@vue/runtime-vapor": "3.6.0-beta.12",
+    "@vue/server-renderer": "3.6.0-beta.12",
+    "@vue/shared": "3.6.0-beta.12",
+    "@vue/compat": "3.6.0-beta.12"
   }
 }
