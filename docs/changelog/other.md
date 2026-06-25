@@ -1,9 +1,10 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.33`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.34`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.34` | 2026-06-25 | Added the runtime-monitor central-bot feature: an operator-only /runtime command listing every platform bot with owner, avatar, and status |
 | `0.0.33` | 2026-06-24 | Frontend deploy now verifies every JS chunk serves correctly and re-uploads any the FTP transfer dropped, instead of checking only the entry chunk |
 | `0.0.32` | 2026-06-24 | บันทึกยอดเติม grants tiered upgrade roles by accumulated amount, optionally stacking them and optionally counting purchase frequency |
 | `0.0.31` | 2026-06-24 | The manual top-up tracker now carries its own "use your own database" toggle; order data always uses our database |

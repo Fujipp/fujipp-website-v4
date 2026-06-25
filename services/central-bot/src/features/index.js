@@ -25,9 +25,10 @@ const botPresence = require('./bot-presence');
 const orderManagement = require('./order-management');
 const memberSpending = require('./member-spending');
 const adminMessageTools = require('./admin-message-tools');
+const runtimeMonitor = require('./runtime-monitor');
 
 // wallet-topup first so its ctx.services.wallet exists before features that use it.
-const ALL = [walletTopup, robloxRobuxPayout, walletHistory, topSpenderRank, reviewCredit, voiceKeeper, serverLog, priceBoard, botPresence, orderManagement, memberSpending, adminMessageTools];
+const ALL = [walletTopup, robloxRobuxPayout, walletHistory, topSpenderRank, reviewCredit, voiceKeeper, serverLog, priceBoard, botPresence, orderManagement, memberSpending, adminMessageTools, runtimeMonitor];
 
 function loadEnabled(config) {
   return ALL.filter((f) => config.isFeatureEnabled(f.code));
