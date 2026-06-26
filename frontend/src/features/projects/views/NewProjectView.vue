@@ -615,8 +615,8 @@ onUnmounted(() => {
             </nav>
 
             <section :class="$style.basicSelectors" aria-label="Project classification">
-                <SelectField v-model="form.category" label="Category" :options="categories" tone="dark" />
-                <SelectField v-model="form.status" label="Status" :options="statuses" tone="dark" />
+                <SelectField v-model="form.category" label="Category" :options="categories" />
+                <SelectField v-model="form.status" label="Status" :options="statuses" />
             </section>
 
             <section :class="$style.gallery" aria-label="Project gallery">
@@ -698,7 +698,6 @@ onUnmounted(() => {
                                     label="My Role"
                                     :options="availableRoleOptions"
                                     placeholder="Select role"
-                                    tone="dark"
                                     @select="addRole"
                                 />
                                 <div v-if="form.roles.length" :class="$style.roleChips">
@@ -759,7 +758,6 @@ onUnmounted(() => {
                                 label="My Role"
                                 :options="availableRoleOptions"
                                 placeholder="Select role"
-                                tone="dark"
                                 @select="addRole"
                             />
                             <div v-if="form.roles.length" :class="$style.roleChips">
@@ -841,7 +839,6 @@ onUnmounted(() => {
                                     :label="group.label"
                                     :options="getAvailableStackOptions(group)"
                                     placeholder="Select"
-                                    tone="dark"
                                     @select="addTechStack($event, group)"
                                 />
                                 <div v-if="form.techStack[group.key].length" :class="$style.techStackItems">
@@ -902,7 +899,6 @@ onUnmounted(() => {
                                     :label="group.label"
                                     :options="getAvailableStackOptions(group)"
                                     placeholder="Select"
-                                    tone="dark"
                                     @select="addTechStack($event, group)"
                                 />
                                 <div v-if="form.techStack[group.key].length" :class="$style.techStackItems">
@@ -1059,6 +1055,14 @@ onUnmounted(() => {
 
 <style module>
 .newProject {
+    --projects-band-bg: var(--color-main-background);
+    --projects-band-text: var(--color-text-primary);
+    --projects-card-bg: var(--color-neutral-50);
+    --projects-card-border: var(--color-input-border);
+    --projects-card-text: var(--color-text-primary);
+    --projects-card-muted: var(--color-neutral-600);
+    --projects-card-inset-bg: var(--color-input-placeholder-bg);
+
     display: flex;
     flex-direction: column;
     height: 100dvh;
@@ -1066,6 +1070,20 @@ onUnmounted(() => {
     gap: var(--spacing-space-16);
     overflow-y: auto;
     scrollbar-width: none;
+    background-color: var(--projects-band-bg);
+    color: var(--projects-band-text);
+    transition: background-color 300ms ease, color 300ms ease;
+}
+
+:global(.dark) .newProject,
+:global([data-theme="dark"]) .newProject {
+    --projects-band-bg: var(--color-main-section-background);
+    --projects-band-text: var(--color-text-secondary);
+    --projects-card-bg: var(--color-main-surface);
+    --projects-card-border: var(--color-main-border);
+    --projects-card-text: var(--color-text-secondary);
+    --projects-card-muted: var(--color-text-secondary);
+    --projects-card-inset-bg: var(--color-main-surface);
 }
 
 .newProject::-webkit-scrollbar {
@@ -1127,7 +1145,7 @@ onUnmounted(() => {
     align-items: center;
     justify-content: center;
     overflow: hidden;
-    background-color: var(--color-text-secondary);
+    background-color: var(--projects-card-inset-bg);
     cursor: pointer;
 }
 
@@ -1182,9 +1200,10 @@ onUnmounted(() => {
     box-sizing: border-box;
     padding: var(--spacing-space-4);
     gap: 10px;
+    border: 1px solid var(--projects-card-border);
     border-radius: var(--radius-2xl);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
+    background-color: var(--projects-card-bg);
+    color: var(--projects-card-text);
 }
 
 .descriptionPanel,
@@ -1197,21 +1216,12 @@ onUnmounted(() => {
     flex-direction: column;
 }
 
-.descriptionPanel :global(label),
-.overviewFeaturesBody :global(label),
-.architectureStackBody :global(label),
-.challengesLearnedBody :global(label),
-.linkBody :global(label),
-.panelBody :global(label) {
-    color: var(--color-text-secondary);
-}
-
 .panelDivider {
     width: 100%;
     height: 1px;
     margin: 0;
     border: 0;
-    border-top: 1px solid var(--color-main-divider);
+    border-top: 1px solid var(--projects-card-border);
 }
 
 .desktopOverviewFeatures,
@@ -1236,12 +1246,16 @@ onUnmounted(() => {
 }
 
 .panelTab {
+    position: relative;
+    z-index: 1;
     align-self: flex-start;
-    margin: 0;
+    margin: 0 0 -1px;
     padding: 8px 10px;
+    border: 1px solid var(--projects-card-border);
+    border-bottom: 0;
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
+    background-color: var(--projects-card-bg);
+    color: var(--projects-card-text);
 }
 
 .rightTab {
@@ -1271,7 +1285,7 @@ onUnmounted(() => {
     bottom: 0;
     left: 50%;
     width: 1px;
-    background-color: var(--color-main-divider);
+    background-color: var(--projects-card-border);
     content: "";
     transform: translateX(-50%);
 }
@@ -1299,10 +1313,10 @@ onUnmounted(() => {
 
 .roleChip {
     padding: 6px 10px;
-    border: 1px solid var(--color-main-border);
+    border: 1px solid var(--projects-card-border);
     border-radius: var(--radius-full);
     background-color: transparent;
-    color: var(--color-text-secondary);
+    color: var(--projects-card-text);
     cursor: pointer;
 }
 
@@ -1369,7 +1383,7 @@ onUnmounted(() => {
     padding: 4px 10px;
     gap: 6px;
     overflow-x: auto;
-    border: 1px solid var(--color-main-border);
+    border: 1px solid var(--projects-card-border);
     border-radius: var(--radius-full);
     scrollbar-width: none;
 }
@@ -1384,7 +1398,7 @@ onUnmounted(() => {
     padding: 0;
     border: 0;
     background: transparent;
-    color: var(--color-text-secondary);
+    color: var(--projects-card-text);
     cursor: pointer;
 }
 
@@ -1408,7 +1422,7 @@ onUnmounted(() => {
     display: flex;
     flex-direction: column;
     gap: 6px;
-    color: var(--color-text-secondary);
+    color: var(--projects-card-text);
 }
 
 .certificateControl {
@@ -1438,8 +1452,9 @@ onUnmounted(() => {
     height: 48px;
     overflow: hidden;
     padding: 0 14px;
+    border: 1px solid var(--projects-card-border);
     border-radius: var(--radius-lg);
-    background-color: var(--color-text-secondary);
+    background-color: var(--color-input-bg);
     color: var(--color-text-input);
     text-align: left;
     text-overflow: ellipsis;

@@ -65,7 +65,6 @@ const emit = defineEmits<{
             :model-value="status"
             label="Status"
             :options="statusOptions"
-            tone="dark"
             @update:model-value="emit('update:status', $event)"
         />
 
@@ -126,11 +125,20 @@ const emit = defineEmits<{
     box-sizing: border-box;
     width: 100%;
     gap: 10px;
-    border: 2px solid var(--color-main-border);
+    border: 2px solid var(--color-input-border);
     border-radius: var(--radius-xl);
+    background-color: var(--color-neutral-50);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+}
+
+:global(.dark) .timelineCard,
+:global([data-theme="dark"]) .timelineCard,
+:global(.dark) .milestoneCard,
+:global([data-theme="dark"]) .milestoneCard {
+    border-color: var(--color-main-border);
     background-color: var(--color-main-surface);
     color: var(--color-text-secondary);
-    font-family: var(--font-sans);
 }
 
 .timelineCard {
