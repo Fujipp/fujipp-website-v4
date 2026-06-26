@@ -1,9 +1,10 @@
 # Changelog — Frontend
 
-**Current version: `0.7.0`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.7.0.1`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.7.0.1` | 2026-06-26 | The Add / Edit Project page now follows light and dark themes to match the rest of the Projects experience |
 | `0.7.0` | 2026-06-25 | Admin Bots list now shows each bot's avatar and a live runtime status badge (online/stopped/errored + uptime), fetched on-demand per row |
 | `0.6.9.1` | 2026-06-24 | Fix the production build for the amount-tier role editor (guard array access under strict TS) |
 | `0.6.9` | 2026-06-24 | Bot config: amount-tier role rewards are edited as repeatable "amount + role" rows with add/remove, instead of a raw JSON box |

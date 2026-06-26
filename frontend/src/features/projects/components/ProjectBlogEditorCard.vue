@@ -56,11 +56,18 @@ const emit = defineEmits<{
     padding: 10px;
     gap: 10px;
     overflow: hidden;
-    border: 2px solid var(--color-main-border);
+    border: 2px solid var(--color-input-border);
     border-radius: var(--radius-xl);
+    background-color: var(--color-neutral-50);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+}
+
+:global(.dark) .blogCard,
+:global([data-theme="dark"]) .blogCard {
+    border-color: var(--color-main-border);
     background-color: var(--color-main-surface);
     color: var(--color-text-secondary);
-    font-family: var(--font-sans);
 }
 
 .cardHeader {
