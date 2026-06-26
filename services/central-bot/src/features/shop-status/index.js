@@ -166,9 +166,11 @@ async function handleStatus(interaction, ctx) {
     return;
   }
 
-  // Rename the target channel first (best-effort), then post/edit the announcement.
-  await renameTarget(interaction.client, ctx, meta);
-
+  // Post/edit the announcement and reply FIRST. The channel rename below is rate-limited
+  // by Discord (~2 renames per 10 min) and discord.js waits out that limit instead of
+  // failing fast, so awaiting it here would hang the interaction for minutes. Do it after
+  // the reply, fire-and-forget, so the status change is instant and the rename catches up
+  // in the background when the rate limit clears.
   try {
     const payload = await buildPayload(ctx, key, meta);
     const msg = await announce(ctx, announceChannel, key, payload);
@@ -176,7 +178,12 @@ async function handleStatus(interaction, ctx) {
   } catch (err) {
     console.error('[central-bot] shop-status announce failed:', err.message);
     await interaction.editReply('❌ ประกาศไม่สำเร็จ — ตรวจสอบสิทธิ์บอทในห้องประกาศ');
+    return;
   }
+
+  renameTarget(interaction.client, ctx, meta).catch((err) => {
+    console.error('[central-bot] shop-status rename failed:', err.message);
+  });
 }
 
 module.exports = {
