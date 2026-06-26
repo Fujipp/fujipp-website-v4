@@ -488,8 +488,8 @@ onMounted(async () => {
                 </template>
             </section>
 
-            <!-- ── Review Credit counter ───────────────────────────────────── -->
-            <section v-if="hasReviewCredit" :class="$style.block">
+            <!-- ── Review Credit counter — only under the selected Review Credit feature ── -->
+            <section v-if="activeFeature?.code === REVIEW_CREDIT" :class="$style.block">
                 <h2 :class="$style.blockTitle" class="type-subtitle-sb">Review Credit — ตัวนับรีวิว</h2>
                 <div :class="$style.card">
                     <p :class="$style.cardLead">
