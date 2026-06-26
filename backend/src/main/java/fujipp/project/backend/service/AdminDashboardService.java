@@ -36,10 +36,20 @@ public class AdminDashboardService {
         long adminUsers = profiles.countByRole("ADMIN");
         long totalBots = bots.count();
         long runningBots = bots.countByStatus("RUNNING");
-        long slotsUsed = bots.countByVpsNodeIdNotNull();
 
         List<VpsNode> nodes = vpsNodes.findAll();
         long slotsTotal = nodes.stream().mapToLong(VpsNode::getMaxSlots).sum();
+
+        // Used seats = seats held by an active runtime (billing's occupancy), so this card
+        // matches the VPS view's per-node free count. Best-effort: if billing is down, fall
+        // back to the placed-bot count rather than failing the whole dashboard.
+        long slotsUsed;
+        try {
+            slotsUsed = billing.occupiedSlotIds().size();
+        } catch (RuntimeException e) {
+            log.warn("Dashboard: occupied-slot count unavailable, using placed-bot count", e);
+            slotsUsed = bots.countByVpsNodeIdNotNull();
+        }
 
         // Billing metrics are best-effort — a dashboard should still render if billing is down.
         long revenue30d = 0;
