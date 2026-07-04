@@ -1,0 +1,113 @@
+name: fujipp-new-vps
+
+x-log-policy: &log-policy
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+x-spring-health: &spring-health
+  interval: 30s
+  timeout: 5s
+  retries: 5
+  start_period: 90s
+
+services:
+  backend:
+    image: ${BACKEND_IMAGE}
+    restart: unless-stopped
+    env_file:
+      - /opt/fujipp/env/platform.env
+    environment:
+      BILLING_BASE_URL: http://billing:8081
+      RUNTIME_BASE_URL: http://runtime:8090
+      DB_POOL_MAX_SIZE: ${BACKEND_DB_POOL_MAX_SIZE:-4}
+      DB_POOL_MIN_IDLE: ${BACKEND_DB_POOL_MIN_IDLE:-1}
+      RUNTIME_AUTOMATION_ENABLED: ${RUNTIME_AUTOMATION_ENABLED:-false}
+    ports:
+      - "127.0.0.1:3600:8080"
+    mem_limit: 768m
+    memswap_limit: 768m
+    depends_on:
+      billing:
+        condition: service_started
+      runtime:
+        condition: service_started
+    networks:
+      - fujipp
+    logging: *log-policy
+    healthcheck:
+      <<: *spring-health
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/8080' 2>/dev/null || exit 1"]
+
+  billing:
+    image: ${BILLING_IMAGE}
+    restart: unless-stopped
+    env_file:
+      - /opt/fujipp/env/platform.env
+    environment:
+      DB_POOL_MAX_SIZE: ${BILLING_DB_POOL_MAX_SIZE:-3}
+      DB_POOL_MIN_IDLE: ${BILLING_DB_POOL_MIN_IDLE:-1}
+    expose:
+      - "8081"
+    mem_limit: 640m
+    memswap_limit: 640m
+    networks:
+      - fujipp
+    logging: *log-policy
+    healthcheck:
+      <<: *spring-health
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/8081' 2>/dev/null || exit 1"]
+
+  voucher:
+    image: ${VOUCHER_IMAGE}
+    restart: unless-stopped
+    env_file:
+      - /opt/fujipp/env/platform.env
+    environment:
+      VOUCHER_SERVER_PORT: 8082
+      DB_POOL_MAX_SIZE: ${VOUCHER_DB_POOL_MAX_SIZE:-2}
+      DB_POOL_MIN_IDLE: ${VOUCHER_DB_POOL_MIN_IDLE:-1}
+    ports:
+      - "127.0.0.1:3611:8082"
+    mem_limit: 384m
+    memswap_limit: 384m
+    networks:
+      - fujipp
+    logging: *log-policy
+    healthcheck:
+      <<: *spring-health
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/8082' 2>/dev/null || exit 1"]
+
+  runtime:
+    image: ${RUNTIME_IMAGE}
+    restart: unless-stopped
+    env_file:
+      - /opt/fujipp/env/platform.env
+    environment:
+      SERVICE_TOKEN: ${RUNTIME_SERVICE_TOKEN}
+      PORT: 8090
+      NODE_ENV: production
+      NODE_OPTIONS: ${RUNTIME_NODE_OPTIONS:---max-old-space-size=128}
+      DB_SSL_NO_VERIFY: ${DB_SSL_NO_VERIFY:-true}
+      VOUCHER_BASE_URL: ${VOUCHER_BASE_URL:-http://voucher:8082}
+      RESUME_ON_BOOT: ${RESUME_ON_BOOT:-false}
+      RESUME_STAGGER_MS: ${RESUME_STAGGER_MS:-2500}
+      RUNTIME_NODE_ID: ${RUNTIME_NODE_ID:-}
+    ports:
+      - "127.0.0.1:8090:8090"
+    mem_limit: 4096m
+    memswap_limit: 4096m
+    networks:
+      - fujipp
+    logging: *log-policy
+    healthcheck:
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/8090' 2>/dev/null || exit 1"]
+
+networks:
+  fujipp:
+    driver: bridge

@@ -1,9 +1,11 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.35.3`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.35.5`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.35.5` | 2026-07-05 | Added a manual branch image build workflow for the new VPS without touching the existing production server |
+| `0.0.35.4` | 2026-07-05 | Prepared a clean new-VPS runtime plan with fixed memory budgets, safe defaults, and isolated deployment notes |
 | `0.0.35.3` | 2026-06-27 | /runtime now posts a public, self-updating panel (refreshes every minute) in the channel it was run in, showing VPS/slot usage plus every bot's status in one embed, instead of a private per-bot list |
 | `0.0.35.2` | 2026-06-27 | Shop Status now confirms the status change instantly instead of stalling while the channel name is updated |
 | `0.0.35.1` | 2026-06-27 | Top spender reward roles now update only when a member's rank actually changes, so a top-up no longer momentarily strips and re-adds everyone's roles |
