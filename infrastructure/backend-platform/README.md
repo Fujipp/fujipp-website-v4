@@ -19,11 +19,8 @@ server. Treat this stack as the current backend platform baseline.
 - App root: `/opt/fujipp`
 - Runtime node role: `main-runtime-th-01`
 
-> Current production keeps the original live app directory
-> `/opt/fujipp/apps/new-vps` and Compose project name `fujipp-new-vps` to avoid
-> accidental container recreation. New documentation and repository paths use
-> Backend Platform naming; migrate the live filesystem path separately during a
-> planned maintenance window.
+Production uses `/opt/fujipp/apps/backend-platform` and Compose project name
+`fujipp-backend-platform`.
 
 ## Runtime Goal
 

@@ -1,6 +1,4 @@
-# Legacy project name retained on the primary runtime node until the live
-# filesystem/app-dir migration is done in a planned maintenance window.
-name: fujipp-new-vps
+name: fujipp-backend-platform
 
 x-log-policy: &log-policy
   driver: json-file
