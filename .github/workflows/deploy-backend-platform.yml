@@ -64,7 +64,7 @@ jobs:
           SSH_USER: ${{ secrets.BACKEND_PLATFORM_SSH_USER }}
         run: |
           scp -P "${SSH_PORT:-22}" -i ~/.ssh/id_backend_platform \
-            infrastructure/new-vps/compose.yml \
+            infrastructure/backend-platform/compose.yml \
             "$SSH_USER@$SSH_HOST:/opt/fujipp/apps/new-vps/compose.yml"
 
       - name: Pin images and roll services
@@ -83,6 +83,9 @@ jobs:
             "REGISTRY='${{ env.REGISTRY }}' OWNER='$OWNER' IMAGE_TAG='$IMAGE_TAG' SERVICES_INPUT='$SERVICES_INPUT' SMOKE_TEST='$SMOKE_TEST' GHCR_TOKEN='$GHCR_TOKEN' GHCR_USER='$GHCR_USER' bash -se" <<'REMOTE'
           set -euo pipefail
 
+          # The primary node still uses the original app dir/compose project
+          # name. Migrate the live filesystem path in a separate maintenance
+          # window to avoid duplicate Compose projects and port conflicts.
           app_dir=/opt/fujipp/apps/new-vps
           env_file=/opt/fujipp/env/platform.env
 

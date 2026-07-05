@@ -1,11 +1,13 @@
-# New VPS Runtime Foundation
+# Backend Platform Runtime Foundation
 
-Greenfield deployment notes for the new Fujipp backend VPS.
+Deployment notes for Fujipp's Backend Platform stack and the primary runtime
+node. The stack can be extended with more runtime nodes later, but this folder
+describes the main host that currently runs backend, billing, voucher, and the
+runtime orchestrator.
 
 This path is intentionally separate from `docker/docker-compose.prod.yml`, which
 documents the older shared VPS. Do not use this plan to migrate or mutate the old
-server. Treat the old server as production/reference and this server as a clean
-runtime rebuild.
+server. Treat this stack as the current backend platform baseline.
 
 ## Target Host
 
@@ -15,6 +17,13 @@ runtime rebuild.
 - RAM: 8 GB
 - Disk: 70 GB class, about 67 GB mounted at `/`
 - App root: `/opt/fujipp`
+- Runtime node role: `main-runtime-th-01`
+
+> Current production keeps the original live app directory
+> `/opt/fujipp/apps/new-vps` and Compose project name `fujipp-new-vps` to avoid
+> accidental container recreation. New documentation and repository paths use
+> Backend Platform naming; migrate the live filesystem path separately during a
+> planned maintenance window.
 
 ## Runtime Goal
 
@@ -41,31 +50,32 @@ sudo mkdir -p /opt/fujipp/{apps,env,logs,backups}
 sudo chown -R deploy:deploy /opt/fujipp
 ```
 
-Copy this folder to the server:
+Copy this folder to a new server:
 
 ```bash
-rsync -av infrastructure/new-vps/ deploy@YOUR_NEW_VPS_IP:/opt/fujipp/apps/new-vps/
+rsync -av infrastructure/backend-platform/ deploy@YOUR_NEW_VPS_IP:/opt/fujipp/apps/backend-platform/
 ```
 
 Create the runtime env from the template:
 
 ```bash
-cp /opt/fujipp/apps/new-vps/env.example /opt/fujipp/env/platform.env
+cp /opt/fujipp/apps/backend-platform/env.example /opt/fujipp/env/platform.env
 nano /opt/fujipp/env/platform.env
 ```
 
 Start the stack only after secrets are filled:
 
 ```bash
-cd /opt/fujipp/apps/new-vps
+cd /opt/fujipp/apps/backend-platform
 docker compose --env-file /opt/fujipp/env/platform.env up -d
 ```
 
-## Branch Image Build
+## Image Build And Deploy
 
-Do not use the old production deploy workflow for this greenfield server. From a
-feature branch, run **Build New VPS Images** manually in GitHub Actions. It builds
-and pushes all four images from the selected branch without deploying to any VPS.
+Use **Backend Platform** in GitHub Actions for normal backend/service releases.
+On `main`, backend and service changes build only the changed images and deploy
+those services to the primary runtime node. Manual dispatch can also build a
+chosen branch, tag, or SHA and optionally copy compose before rolling services.
 
 After it succeeds, copy the four image lines from the workflow summary into:
 
@@ -85,7 +95,7 @@ RUNTIME_IMAGE=ghcr.io/fujipp/fujipp-runtime:<commit-sha>
 Then pull again:
 
 ```bash
-cd /opt/fujipp/apps/new-vps
+cd /opt/fujipp/apps/backend-platform
 docker compose --env-file /opt/fujipp/env/platform.env pull
 ```
 
