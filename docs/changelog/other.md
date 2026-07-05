@@ -1,9 +1,10 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.35.9`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.36`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.36` | 2026-07-06 | Prepared Backend Platform naming for a main runtime node while leaving room for future VPS expansion |
 | `0.0.35.9` | 2026-07-06 | Backend Platform automation now builds and deploys changed services automatically while keeping manual rollback available |
 | `0.0.35.8` | 2026-07-05 | Updated Backend Platform compose/env defaults to keep Supabase pooler usage low on the new VPS |
 | `0.0.35.7` | 2026-07-05 | Renamed the new server automation to Backend Platform terminology with dedicated production environment secrets |

@@ -172,8 +172,9 @@ refused with a clear "all hosts are full" error. To add capacity on a new Thai V
 4. **Verify** with `GET /api/admin/vps-nodes/{id}/health` — returns `reachable` plus
    `maxSlots` / `usedSlots` / `freeSlots` for that host.
 
-> The primary shared VPS leaves `orchestratorUrl`/`serviceToken` NULL and uses the
-> backend's default `runtime.*` env — it isn't health-probed by the register flow.
+> The main runtime node leaves `orchestratorUrl`/`serviceToken` NULL and uses the
+> backend's default `runtime.*` env — additional runtime nodes are health-probed
+> by the register flow.
 
 **Logs:** `docker compose -p fujipp logs -f backend` (or `billing`).
 
