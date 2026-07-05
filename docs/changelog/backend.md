@@ -1,9 +1,10 @@
 # Changelog — Backend
 
-**Current version: `0.4.8.6`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.4.8.7`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.4.8.7` | 2026-07-05 | Reduced bot-runtime config loading from multiple Supabase round trips to one combined query with a short invalidatable cache |
 | `0.4.8.6` | 2026-07-05 | Reduced default Supabase pooler usage by shrinking service pools, releasing idle connections, and making health monitoring database writes/probes opt-in |
 | `0.4.8.5` | 2026-07-05 | Tuned billing-service database pooling so the new VPS can run with a smaller, steadier connection footprint |
 | `0.4.8.4` | 2026-06-27 | Admin dashboard "VPS slots" now counts seats actually held by an active runtime, matching the VPS view, instead of under-counting placed bots |

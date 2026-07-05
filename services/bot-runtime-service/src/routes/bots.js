@@ -4,7 +4,7 @@
 const express = require('express');
 const db = require('../db');
 const runner = require('../runner');
-const { buildEnv } = require('../config-loader');
+const { buildEnv, invalidateConfig } = require('../config-loader');
 
 const router = express.Router();
 
@@ -20,7 +20,7 @@ async function setStatus(subjectId, status, field) {
 router.post('/:subjectId/start', async (req, res) => {
   const { subjectId } = req.params;
   try {
-    const { env, codes } = await buildEnv(subjectId);
+    const { env, codes } = await buildEnv(subjectId, { forceFresh: true });
     await runner.start(subjectId, env);
     await setStatus(subjectId, 'RUNNING', 'last_started_at');
     res.json({ subjectId, status: 'RUNNING', features: codes });
@@ -34,6 +34,7 @@ router.post('/:subjectId/stop', async (req, res) => {
   const { subjectId } = req.params;
   try {
     await runner.stop(subjectId);
+    invalidateConfig(subjectId);
     await setStatus(subjectId, 'STOPPED', 'last_stopped_at');
     res.json({ subjectId, status: 'STOPPED' });
   } catch (err) {
@@ -45,7 +46,7 @@ router.post('/:subjectId/stop', async (req, res) => {
 router.post('/:subjectId/restart', async (req, res) => {
   const { subjectId } = req.params;
   try {
-    const { env, codes } = await buildEnv(subjectId);
+    const { env, codes } = await buildEnv(subjectId, { forceFresh: true });
     await runner.restart(subjectId, env);
     await setStatus(subjectId, 'RUNNING', 'last_started_at');
     res.json({ subjectId, status: 'RUNNING', features: codes });
