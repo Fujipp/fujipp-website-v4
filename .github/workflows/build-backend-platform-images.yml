@@ -1,33 +1,171 @@
-name: Build Backend Platform Images
+name: Backend Platform
 
-# Manual-only image build for the backend platform host. This intentionally does
-# not deploy anywhere, so it is safe to run from a feature branch without rolling
-# live backend services.
+# Builds Backend Platform images and deploys only the changed services to the
+# current backend VPS. Manual dispatch remains available for rollbacks and
+# operator-picked service rolls.
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'services/**'
+      - 'infrastructure/new-vps/**'
   workflow_dispatch:
     inputs:
       source_ref:
         description: "Branch, tag, or SHA to build images from"
         required: true
         default: "main"
+      services:
+        description: "auto, all, backend, billing, voucher, runtime, or a space-separated list"
+        required: true
+        default: "auto"
+      deploy:
+        description: "Deploy after building"
+        type: boolean
+        required: true
+        default: true
+      copy_compose:
+        description: "Copy the Backend Platform compose.yml before rolling"
+        type: boolean
+        required: true
+        default: true
+      smoke_test:
+        description: "Run local health checks after deployment"
+        type: boolean
+        required: true
+        default: true
 
 concurrency:
-  group: build-backend-platform-images-${{ github.ref }}
+  group: backend-platform
   cancel-in-progress: false
 
 env:
   REGISTRY: ghcr.io
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.decide.outputs.backend }}
+      billing: ${{ steps.decide.outputs.billing }}
+      voucher: ${{ steps.decide.outputs.voucher }}
+      runtime: ${{ steps.decide.outputs.runtime }}
+      any: ${{ steps.decide.outputs.any }}
+      services: ${{ steps.decide.outputs.services }}
+      copy_compose: ${{ steps.decide.outputs.copy_compose }}
+      deploy: ${{ steps.decide.outputs.deploy }}
+      smoke_test: ${{ steps.decide.outputs.smoke_test }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.source_ref || github.sha }}
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        if: github.event_name == 'push'
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+            billing:
+              - 'services/billing-service/**'
+            voucher:
+              - 'services/voucher-service/**'
+            runtime:
+              - 'services/bot-runtime-service/**'
+              - 'services/central-bot/**'
+            platform:
+              - 'infrastructure/new-vps/**'
+
+      - name: Decide build and deploy scope
+        id: decide
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_SERVICES: ${{ inputs.services || 'auto' }}
+          INPUT_DEPLOY: ${{ inputs.deploy }}
+          INPUT_COPY_COMPOSE: ${{ inputs.copy_compose }}
+          INPUT_SMOKE_TEST: ${{ inputs.smoke_test }}
+          FILTER_BACKEND: ${{ steps.filter.outputs.backend || 'false' }}
+          FILTER_BILLING: ${{ steps.filter.outputs.billing || 'false' }}
+          FILTER_VOUCHER: ${{ steps.filter.outputs.voucher || 'false' }}
+          FILTER_RUNTIME: ${{ steps.filter.outputs.runtime || 'false' }}
+          FILTER_PLATFORM: ${{ steps.filter.outputs.platform || 'false' }}
+        run: |
+          set -euo pipefail
+
+          backend=false
+          billing=false
+          voucher=false
+          runtime=false
+          copy_compose=false
+          deploy=true
+          smoke_test=true
+
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            deploy="$INPUT_DEPLOY"
+            copy_compose="$INPUT_COPY_COMPOSE"
+            smoke_test="$INPUT_SMOKE_TEST"
+            case " $INPUT_SERVICES " in
+              *" all "*|*" auto "*) backend=true; billing=true; voucher=true; runtime=true ;;
+              *) ;;
+            esac
+            case " $INPUT_SERVICES " in *" backend "*) backend=true ;; esac
+            case " $INPUT_SERVICES " in *" billing "*) billing=true ;; esac
+            case " $INPUT_SERVICES " in *" voucher "*) voucher=true ;; esac
+            case " $INPUT_SERVICES " in *" runtime "*) runtime=true ;; esac
+          elif [ "$FILTER_PLATFORM" = "true" ]; then
+            backend=true
+            billing=true
+            voucher=true
+            runtime=true
+            copy_compose=true
+          else
+            backend="$FILTER_BACKEND"
+            billing="$FILTER_BILLING"
+            voucher="$FILTER_VOUCHER"
+            runtime="$FILTER_RUNTIME"
+          fi
+
+          services=""
+          [ "$backend" = "true" ] && services="$services backend"
+          [ "$billing" = "true" ] && services="$services billing"
+          [ "$voucher" = "true" ] && services="$services voucher"
+          [ "$runtime" = "true" ] && services="$services runtime"
+          services="${services# }"
+
+          if [ -n "$services" ]; then
+            any=true
+          else
+            any=false
+          fi
+
+          {
+            echo "backend=$backend"
+            echo "billing=$billing"
+            echo "voucher=$voucher"
+            echo "runtime=$runtime"
+            echo "any=$any"
+            echo "services=$services"
+            echo "copy_compose=$copy_compose"
+            echo "deploy=$deploy"
+            echo "smoke_test=$smoke_test"
+          } >> "$GITHUB_OUTPUT"
+
   build:
+    needs: changes
+    if: needs.changes.outputs.any == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    outputs:
+      sha: ${{ steps.source.outputs.sha }}
+      owner: ${{ steps.vars.outputs.owner }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.source_ref }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.source_ref || github.sha }}
 
       - name: Resolve source commit
         id: source
@@ -47,6 +185,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push backend
+        if: needs.changes.outputs.backend == 'true'
         uses: docker/build-push-action@v6
         with:
           context: ./backend
@@ -57,6 +196,7 @@ jobs:
           cache-to: type=gha,scope=backend-platform-backend,mode=max
 
       - name: Build and push billing
+        if: needs.changes.outputs.billing == 'true'
         uses: docker/build-push-action@v6
         with:
           context: ./services/billing-service
@@ -67,6 +207,7 @@ jobs:
           cache-to: type=gha,scope=backend-platform-billing,mode=max
 
       - name: Build and push voucher
+        if: needs.changes.outputs.voucher == 'true'
         uses: docker/build-push-action@v6
         with:
           context: ./services/voucher-service
@@ -77,6 +218,7 @@ jobs:
           cache-to: type=gha,scope=backend-platform-voucher,mode=max
 
       - name: Build and push runtime
+        if: needs.changes.outputs.runtime == 'true'
         uses: docker/build-push-action@v6
         with:
           context: ./services
@@ -87,12 +229,13 @@ jobs:
           cache-from: type=gha,scope=backend-platform-runtime
           cache-to: type=gha,scope=backend-platform-runtime,mode=max
 
-      - name: Write deployment summary
+      - name: Write image summary
         run: |
           {
             echo "## Backend Platform image tags"
             echo
-            echo "Built from: ${{ inputs.source_ref }} (${{ steps.source.outputs.sha }})"
+            echo "Built from: ${{ github.event_name == 'workflow_dispatch' && inputs.source_ref || github.sha }} (${{ steps.source.outputs.sha }})"
+            echo "Services: \`${{ needs.changes.outputs.services }}\`"
             echo
             echo '```dotenv'
             echo "BACKEND_IMAGE=${REGISTRY}/${{ steps.vars.outputs.owner }}/fujipp-backend:${{ steps.source.outputs.sha }}"
@@ -100,4 +243,127 @@ jobs:
             echo "VOUCHER_IMAGE=${REGISTRY}/${{ steps.vars.outputs.owner }}/fujipp-voucher:${{ steps.source.outputs.sha }}"
             echo "RUNTIME_IMAGE=${REGISTRY}/${{ steps.vars.outputs.owner }}/fujipp-runtime:${{ steps.source.outputs.sha }}"
             echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    needs: [changes, build]
+    if: needs.changes.outputs.deploy == 'true' && needs.changes.outputs.any == 'true'
+    runs-on: ubuntu-latest
+    environment: backend-production
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.source_ref || github.sha }}
+
+      - name: Set up SSH
+        env:
+          SSH_KEY: ${{ secrets.BACKEND_PLATFORM_SSH_KEY }}
+          SSH_HOST: ${{ secrets.BACKEND_PLATFORM_SSH_HOST }}
+          SSH_PORT: ${{ secrets.BACKEND_PLATFORM_SSH_PORT }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_backend_platform
+          chmod 600 ~/.ssh/id_backend_platform
+          ssh-keyscan -p "${SSH_PORT:-22}" -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Copy Backend Platform compose file
+        if: needs.changes.outputs.copy_compose == 'true'
+        env:
+          SSH_HOST: ${{ secrets.BACKEND_PLATFORM_SSH_HOST }}
+          SSH_PORT: ${{ secrets.BACKEND_PLATFORM_SSH_PORT }}
+          SSH_USER: ${{ secrets.BACKEND_PLATFORM_SSH_USER }}
+        run: |
+          scp -P "${SSH_PORT:-22}" -i ~/.ssh/id_backend_platform \
+            infrastructure/new-vps/compose.yml \
+            "$SSH_USER@$SSH_HOST:/opt/fujipp/apps/new-vps/compose.yml"
+
+      - name: Pin images and roll changed services
+        env:
+          SSH_HOST: ${{ secrets.BACKEND_PLATFORM_SSH_HOST }}
+          SSH_PORT: ${{ secrets.BACKEND_PLATFORM_SSH_PORT }}
+          SSH_USER: ${{ secrets.BACKEND_PLATFORM_SSH_USER }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+          OWNER: ${{ needs.build.outputs.owner }}
+          IMAGE_TAG: ${{ needs.build.outputs.sha }}
+          SERVICES_INPUT: ${{ needs.changes.outputs.services }}
+          SMOKE_TEST: ${{ needs.changes.outputs.smoke_test }}
+        run: |
+          ssh -p "${SSH_PORT:-22}" -i ~/.ssh/id_backend_platform "$SSH_USER@$SSH_HOST" \
+            "REGISTRY='${{ env.REGISTRY }}' OWNER='$OWNER' IMAGE_TAG='$IMAGE_TAG' SERVICES_INPUT='$SERVICES_INPUT' SMOKE_TEST='$SMOKE_TEST' GHCR_TOKEN='$GHCR_TOKEN' GHCR_USER='$GHCR_USER' bash -se" <<'REMOTE'
+          set -euo pipefail
+
+          app_dir=/opt/fujipp/apps/new-vps
+          env_file=/opt/fujipp/env/platform.env
+
+          cd "$app_dir"
+
+          set_env() {
+            key="$1"
+            value="$2"
+            if grep -q "^${key}=" "$env_file"; then
+              sed -i "s|^${key}=.*|${key}=${value}|" "$env_file"
+            else
+              printf '\n%s=%s\n' "$key" "$value" >> "$env_file"
+            fi
+          }
+
+          for service in $SERVICES_INPUT; do
+            case "$service" in
+              backend) set_env BACKEND_IMAGE "$REGISTRY/$OWNER/fujipp-backend:$IMAGE_TAG" ;;
+              billing) set_env BILLING_IMAGE "$REGISTRY/$OWNER/fujipp-billing:$IMAGE_TAG" ;;
+              voucher) set_env VOUCHER_IMAGE "$REGISTRY/$OWNER/fujipp-voucher:$IMAGE_TAG" ;;
+              runtime) set_env RUNTIME_IMAGE "$REGISTRY/$OWNER/fujipp-runtime:$IMAGE_TAG" ;;
+              *) echo "Unknown service: $service"; exit 1 ;;
+            esac
+          done
+
+          if [ -n "${GHCR_TOKEN:-}" ]; then
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+          fi
+
+          docker compose --env-file "$env_file" pull $SERVICES_INPUT
+          docker compose --env-file "$env_file" up -d --no-deps $SERVICES_INPUT
+
+          if [ "$SMOKE_TEST" = "true" ]; then
+            if echo " $SERVICES_INPUT " | grep -q " backend "; then
+              backend_code=""
+              for i in $(seq 1 40); do
+                backend_code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3600/api/public/health || true)
+                [ "$backend_code" = "200" ] && break
+                sleep 3
+              done
+              echo "backend health -> $backend_code"
+              [ "$backend_code" = "200" ] || { docker compose --env-file "$env_file" logs --tail=120 backend; exit 1; }
+            fi
+
+            if echo " $SERVICES_INPUT " | grep -q " runtime "; then
+              runtime_code=""
+              for i in $(seq 1 30); do
+                runtime_code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8090/healthz || true)
+                [ "$runtime_code" = "200" ] && break
+                sleep 2
+              done
+              echo "runtime health -> $runtime_code"
+              [ "$runtime_code" = "200" ] || { docker compose --env-file "$env_file" logs --tail=120 runtime; exit 1; }
+            fi
+          fi
+
+          docker image prune -f
+          docker compose --env-file "$env_file" ps
+          REMOTE
+
+      - name: Write deployment summary
+        run: |
+          {
+            echo "## Backend Platform deployment"
+            echo
+            echo "Image tag: \`${{ needs.build.outputs.sha }}\`"
+            echo "Services: \`${{ needs.changes.outputs.services }}\`"
+            echo "Compose copied: \`${{ needs.changes.outputs.copy_compose }}\`"
+            echo
+            echo "Target uses GitHub environment: \`backend-production\`"
           } >> "$GITHUB_STEP_SUMMARY"

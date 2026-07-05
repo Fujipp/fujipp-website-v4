@@ -1,7 +1,8 @@
 name: Deploy Backend Platform
 
-# Manual-only rollout for the backend platform host. This intentionally uses a
-# dedicated GitHub environment/secrets set so it cannot target the retired VPS.
+# Manual-only rollback/rollout for the Backend Platform host. Normal main-branch
+# backend/service changes deploy through the Backend Platform workflow; this one
+# remains as the operator escape hatch for pinning an already-built image tag.
 on:
   workflow_dispatch:
     inputs:
