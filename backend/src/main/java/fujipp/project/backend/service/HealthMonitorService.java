@@ -149,6 +149,7 @@ public class HealthMonitorService {
                 STATUS_DEGRADED, now,
                 new PublicHealthResponse.Backend("online", backendUptimeSeconds(), null, appVersion),
                 new PublicHealthResponse.Frontend("unknown", null, null, List.of(), List.of(), "Served by Rukcom hosting."),
+                new PublicHealthResponse.Server(null, null, null, 0, 0, 0, 0),
                 new PublicHealthResponse.Shop("unknown", List.of()));
         }
     }
@@ -260,6 +261,7 @@ public class HealthMonitorService {
             now,
             new PublicHealthResponse.Backend(backendStatus, backendUptimeSeconds(), dbLatency, appVersion),
             frontend,
+            publicServer(host),
             new PublicHealthResponse.Shop(shopStatus, services));
 
         this.latest = response;
@@ -463,6 +465,17 @@ public class HealthMonitorService {
 
     private static PublicHealthResponse.Service service(String name, String status, Integer latencyMs) {
         return new PublicHealthResponse.Service(name, status, latencyMs);
+    }
+
+    private PublicHealthResponse.Server publicServer(SystemMetricsService.HostSnapshot host) {
+        return new PublicHealthResponse.Server(
+            host.cpuPercent(),
+            host.memPercent(),
+            host.diskPercent(),
+            host.networkInKbps(),
+            host.networkOutKbps(),
+            host.uptimeSeconds(),
+            host.cpuCores());
     }
 
     private MetricSnapshot frontendSnapshot(OffsetDateTime at, ProbeResult probe) {

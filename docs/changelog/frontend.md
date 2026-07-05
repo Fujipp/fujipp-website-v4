@@ -1,9 +1,10 @@
 # Changelog — Frontend
 
-**Current version: `0.7.0.2`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.7.0.3`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.7.0.3` | 2026-07-05 | Performance now focuses on the backend platform server snapshot and avoids database-backed monitoring requests |
 | `0.7.0.2` | 2026-06-27 | The Review Credit counter on the bot configuration page now appears only under its own feature tab, instead of showing under every feature |
 | `0.7.0.1` | 2026-06-26 | The Add / Edit Project page now follows light and dark themes to match the rest of the Projects experience |
 | `0.7.0` | 2026-06-25 | Admin Bots list now shows each bot's avatar and a live runtime status badge (online/stopped/errored + uptime), fetched on-demand per row |

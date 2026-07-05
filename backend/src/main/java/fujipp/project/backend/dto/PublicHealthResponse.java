@@ -6,16 +6,28 @@ import java.util.List;
 /**
  * Public, non-sensitive platform health. Served from a cached snapshot the
  * scheduled collector refreshes, so it is fast and never probes per request.
- * Deliberately excludes server internals (raw CPU/RAM/disk, hostnames, configs).
+ * Exposes coarse server resource percentages for the public Performance page,
+ * but excludes hostnames, secrets, config values, and raw infrastructure detail.
  */
 public record PublicHealthResponse(
     String status,                 // online | degraded | down
     OffsetDateTime checkedAt,
     Backend backend,
     Frontend frontend,
+    Server server,
     Shop shop
 ) {
     public record Backend(String status, long uptimeSeconds, Integer latencyMs, String version) {}
+
+    public record Server(
+        Double cpuPercent,
+        Double ramPercent,
+        Double diskPercent,
+        double networkInKbps,
+        double networkOutKbps,
+        long uptimeSeconds,
+        int cpuCores
+    ) {}
 
     /**
      * The public site, probed over HTTP from the backend (like an external uptime

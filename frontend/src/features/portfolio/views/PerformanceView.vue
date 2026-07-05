@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { AppFooter } from "@/shared/layout";
-import { useUserStore } from "@/stores";
 import { useMonitoringStore } from "@/features/portfolio/stores";
 
 /* ----------------------------------------------------------------------------
@@ -175,14 +174,11 @@ function trackFrames(frameTime: number): void {
 
 type ServiceTone = "up" | "warn" | "down";
 
-const userStore = useUserStore();
 const monitoring = useMonitoringStore();
-const isAdmin = computed(() => userStore.isAdmin);
 
-// Section data sources: "live" (real backend), "sample" (backend unreachable),
-// "restricted" (backend reachable but detailed data is admin-only).
+// Section data sources: "live" (cached backend snapshot) or "sample" (backend unreachable).
 const healthLive = computed(() => monitoring.healthAvailable && monitoring.health !== null);
-const vpsLive = computed(() => monitoring.vpsAvailable && monitoring.vps !== null);
+const serverLive = computed(() => healthLive.value && monitoring.health?.server !== undefined);
 
 function statusTone(status: string): ServiceTone {
     const value = status.toLowerCase();
@@ -196,12 +192,6 @@ function statusLabel(status: string): string {
     return status.charAt(0).toUpperCase() + status.slice(1);
 }
 
-function severityTone(severity: string): ServiceTone {
-    if (severity === "down") return "down";
-    if (severity === "warning") return "warn";
-    return "warn";
-}
-
 function formatUptime(seconds: number): string {
     if (!Number.isFinite(seconds) || seconds <= 0) return "--";
     const days = Math.floor(seconds / 86400);
@@ -210,11 +200,6 @@ function formatUptime(seconds: number): string {
     if (days > 0) return `${days}d ${hours.toString().padStart(2, "0")}h`;
     if (hours > 0) return `${hours}h ${minutes.toString().padStart(2, "0")}m`;
     return `${minutes}m`;
-}
-
-function formatGB(bytes: number): string {
-    if (!Number.isFinite(bytes) || bytes <= 0) return "0 GB";
-    return `${(bytes / 1_000_000_000).toFixed(1)} GB`;
 }
 
 function formatMbps(kbps: number): string {
@@ -290,7 +275,6 @@ const ramSeed = makeSeries(40, 4231, 61, 10, 40, 86);
 const netInSeed = makeSeries(40, 7741, 48, 36, 4, 100);
 const netOutSeed = makeSeries(40, 9123, 30, 28, 2, 96);
 const diskSeed = makeSeries(40, 3357, 47, 3, 42, 58);
-const responseSeed = makeSeries(40, 5519, 180, 70, 96, 320);
 
 // Reactive copies that scroll on an interval so the sample charts feel alive.
 // Decorative only — every panel that uses these is clearly badged "Sample data".
@@ -299,7 +283,6 @@ const ramSeriesSample = ref<number[]>([...ramSeed]);
 const netInSeriesSample = ref<number[]>([...netInSeed]);
 const netOutSeriesSample = ref<number[]>([...netOutSeed]);
 const diskSeriesSample = ref<number[]>([...diskSeed]);
-const responseSeries = ref<number[]>([...responseSeed]);
 
 const animatedSampleSeries: { series: typeof cpuSeriesSample; swing: number; floor: number; ceil: number }[] = [
     { series: cpuSeriesSample, swing: 16, floor: 6, ceil: 95 },
@@ -307,7 +290,6 @@ const animatedSampleSeries: { series: typeof cpuSeriesSample; swing: number; flo
     { series: netInSeriesSample, swing: 32, floor: 2, ceil: 100 },
     { series: netOutSeriesSample, swing: 26, floor: 2, ceil: 98 },
     { series: diskSeriesSample, swing: 1.6, floor: 42, ceil: 60 },
-    { series: responseSeries, swing: 52, floor: 88, ceil: 330 },
 ];
 
 // Random-walk each sample series one step (drop oldest, append a new point).
@@ -319,20 +301,6 @@ function stepSampleSeries(): void {
         series.value = [...current.slice(1), Math.round(next * 10) / 10];
     }
 }
-
-const frontendUptime = [
-    { label: "Uptime (30d)", value: "99.95%", detail: "sample target for the Rukcom-hosted frontend" },
-    { label: "Avg response", value: `${Math.round(average(responseSeed))} ms`, detail: "edge response across sample checks" },
-    { label: "Check interval", value: "1 min", detail: "how often a sample probe would run" },
-    { label: "Last incident", value: "12d ago", detail: "sample last degraded window" },
-];
-
-const uptimeRibbon: ServiceTone[] = (() => {
-    const dots = makeSeries(90, 2207, 50, 100, 0, 100).map((): ServiceTone => "up");
-    [21, 53, 78].forEach((index) => (dots[index] = "warn"));
-    dots[64] = "down";
-    return dots;
-})();
 
 const sampleServiceRows = [
     { name: "Auth", description: "Supabase sign-in & session", tone: "up" as ServiceTone, status: "Operational", latency: "58 ms" },
@@ -350,8 +318,7 @@ const sampleChecks = [
 ];
 
 const sampleServerInfo = [
-    { label: "Provider", value: "VPS · Bangkok" },
-    { label: "OS", value: "Ubuntu 22.04 LTS" },
+    { label: "Provider", value: "Backend Platform VPS" },
     { label: "Runtime", value: "Java 21 · Spring Boot" },
     { label: "System uptime", value: "14d 06h" },
 ];
@@ -368,20 +335,14 @@ const overviewCards = computed<OverviewCard[]>(() => {
     const h = monitoring.health;
     if (!healthLive.value || !h) {
         return [
-            { label: "Frontend (Rukcom)", status: "Online", tone: "up", detail: "uptime 99.95% · sample" },
             { label: "Backend (VPS)", status: "Online", tone: "up", detail: "API 42 ms · up 14d · sample" },
             { label: "Shop Services", status: "Degraded", tone: "warn", detail: "5 / 6 services healthy · sample" },
+            { label: "Runtime", status: "Operational", tone: "up", detail: "bot orchestrator ready · sample" },
         ];
     }
     const services = h.shop.services ?? [];
     const healthy = services.filter((s) => statusTone(s.status) === "up").length;
     return [
-        {
-            label: "Frontend (Rukcom)",
-            status: "Online",
-            tone: "up",
-            detail: "served to your browser",
-        },
         {
             label: "Backend (VPS)",
             status: statusLabel(h.backend.status),
@@ -393,6 +354,12 @@ const overviewCards = computed<OverviewCard[]>(() => {
             status: statusLabel(h.shop.status),
             tone: statusTone(h.shop.status),
             detail: `${healthy} / ${services.length} services healthy`,
+        },
+        {
+            label: "Runtime",
+            status: statusLabel(services.find((service) => service.name === "Runtime control")?.status ?? "unknown"),
+            tone: statusTone(services.find((service) => service.name === "Runtime control")?.status ?? "unknown"),
+            detail: "bot orchestrator from cached backend snapshot",
         },
     ];
 });
@@ -420,34 +387,21 @@ const shopServices = computed(() => {
     }));
 });
 
-const incidentRows = computed(() => {
-    if (!healthLive.value) return null; // signal sample mode to the template
-    return monitoring.incidents.map((incident) => ({
-        time: formatRelative(incident.startedAt),
-        service: incident.service,
-        message:
-            incident.status === "resolved"
-                ? `${incident.title} — resolved`
-                : incident.title,
-        tone: severityTone(incident.severity),
+const recentCheckRows = computed(() => {
+    if (!healthLive.value) return sampleChecks;
+    return shopServices.value.map((service) => ({
+        time: formatRelative(monitoring.health?.checkedAt ?? new Date().toISOString()),
+        service: service.name,
+        message: `${service.status}${service.latency === "--" ? "" : ` · ${service.latency}`}`,
+        tone: service.tone,
     }));
 });
 
-// ── Backend (VPS) live series ─────────────────────────────────────────────
-function historySeries(pick: (sample: { cpuPercent: number | null; ramPercent: number | null; diskPercent: number | null; networkInKbps: number | null; networkOutKbps: number | null }) => number | null): number[] {
-    const v = monitoring.vps;
-    if (!v) return [];
-    return v.history.map((sample) => {
-        const value = pick(sample);
-        return value === null || !Number.isFinite(value) ? 0 : value;
-    });
+// ── Backend Platform server snapshot ──────────────────────────────────────
+function flatSeries(value: number | null | undefined): number[] {
+    const next = typeof value === "number" && Number.isFinite(value) ? value : 0;
+    return Array.from({ length: 24 }, () => next);
 }
-
-const cpuSeries = computed(() => (vpsLive.value ? historySeries((s) => s.cpuPercent) : cpuSeriesSample.value));
-const ramSeries = computed(() => (vpsLive.value ? historySeries((s) => s.ramPercent) : ramSeriesSample.value));
-const diskSeries = computed(() => (vpsLive.value ? historySeries((s) => s.diskPercent) : diskSeriesSample.value));
-const netInSeries = computed(() => (vpsLive.value ? historySeries((s) => s.networkInKbps) : netInSeriesSample.value));
-const netOutSeries = computed(() => (vpsLive.value ? historySeries((s) => s.networkOutKbps) : netOutSeriesSample.value));
 
 interface VpsCard {
     key: string;
@@ -460,44 +414,46 @@ interface VpsCard {
 }
 
 const vpsCards = computed<VpsCard[]>(() => {
-    const v = monitoring.vps;
-    if (vpsLive.value && v) {
-        const netMax = Math.max(...netInSeries.value, ...netOutSeries.value, 1);
+    const server = monitoring.health?.server;
+    if (serverLive.value && server) {
+        const netIn = server.networkInKbps;
+        const netOut = server.networkOutKbps;
+        const netMax = Math.max(netIn, netOut, 1);
         return [
             {
                 key: "cpu",
                 label: "CPU usage",
-                value: `${Math.round(v.cpu.currentPercent)}%`,
-                caption: `avg ${Math.round(v.cpu.averagePercent)}% · peak ${Math.round(v.cpu.maxPercent)}% · ${v.cpu.cores} cores`,
+                value: server.cpuPercent === null ? "--" : `${Math.round(server.cpuPercent)}%`,
+                caption: `${server.cpuCores} cores · cached server snapshot`,
                 accent: "var(--color-status-info)",
-                samples: cpuSeries.value,
+                samples: flatSeries(server.cpuPercent),
                 max: 100,
             },
             {
                 key: "ram",
                 label: "RAM usage",
-                value: `${Math.round(v.ram.percent)}%`,
-                caption: `${formatGB(v.ram.usedBytes)} of ${formatGB(v.ram.totalBytes)}`,
+                value: server.ramPercent === null ? "--" : `${Math.round(server.ramPercent)}%`,
+                caption: "cached server snapshot",
                 accent: "var(--color-data-pastel-7)",
-                samples: ramSeries.value,
+                samples: flatSeries(server.ramPercent),
                 max: 100,
             },
             {
                 key: "disk",
                 label: "Disk usage",
-                value: `${Math.round(v.disk.percent)}%`,
-                caption: `${formatGB(v.disk.usedBytes)} of ${formatGB(v.disk.totalBytes)}`,
+                value: server.diskPercent === null ? "--" : `${Math.round(server.diskPercent)}%`,
+                caption: "cached server snapshot",
                 accent: "var(--color-data-pastel-3)",
-                samples: diskSeries.value,
+                samples: flatSeries(server.diskPercent),
                 max: 100,
             },
             {
                 key: "net",
                 label: "Network I/O",
-                value: `${formatMbps(v.network.inKbps)} in`,
-                caption: `out ${formatMbps(v.network.outKbps)}`,
+                value: `${formatMbps(netIn)} in`,
+                caption: `out ${formatMbps(netOut)} · cached server snapshot`,
                 accent: "var(--color-status-success)",
-                samples: netInSeries.value,
+                samples: flatSeries(netIn),
                 max: netMax,
             },
         ];
@@ -543,16 +499,23 @@ const vpsCards = computed<VpsCard[]>(() => {
     ];
 });
 
+const netOutChartSeries = computed(() => {
+    const server = monitoring.health?.server;
+    if (serverLive.value && server) return flatSeries(server.networkOutKbps);
+    return netOutSeriesSample.value;
+});
+
 const serverInfo = computed(() => {
-    const v = monitoring.vps;
-    if (vpsLive.value && v) {
+    const h = monitoring.health;
+    const server = h?.server;
+    if (serverLive.value && h && server) {
         return [
-            { label: "Operating system", value: v.server.os },
-            { label: "Runtime", value: v.server.runtime },
-            { label: "App version", value: `v${v.server.version}` },
-            { label: "System uptime", value: formatUptime(v.systemUptimeSeconds) },
-            { label: "CPU cores", value: String(v.cpu.cores) },
-            { label: "JVM heap", value: `${Math.round(v.jvm.percent)}% used` },
+            { label: "Platform", value: "Backend Platform VPS" },
+            { label: "Runtime", value: "Java 21 · Spring Boot" },
+            { label: "App version", value: `v${h.backend.version}` },
+            { label: "System uptime", value: formatUptime(server.uptimeSeconds) },
+            { label: "CPU cores", value: String(server.cpuCores) },
+            { label: "Data source", value: "cached health snapshot" },
         ];
     }
     return sampleServerInfo;
@@ -561,65 +524,7 @@ const serverInfo = computed(() => {
 // Mode labels for the data-source badges.
 const overviewBadge = computed(() => (healthLive.value ? "live" : "sample"));
 const shopBadge = computed(() => (healthLive.value ? "live" : "sample"));
-const backendBadge = computed(() => {
-    if (vpsLive.value) return "live-admin";
-    if (healthLive.value) return "restricted";
-    return "sample";
-});
-
-// ── Frontend (Rukcom) monitoring — live from the backend's HTTP uptime probe ──
-const frontendLive = computed(() => healthLive.value && monitoring.health?.frontend?.status !== "unknown");
-
-const frontendStats = computed(() => {
-    const f = monitoring.health?.frontend;
-    if (frontendLive.value && f) {
-        const latencies = f.responseHistory.filter((v): v is number => typeof v === "number");
-        const avg = latencies.length ? Math.round(average(latencies)) : f.latencyMs ?? 0;
-        return [
-            {
-                label: "Uptime (recent)",
-                value: f.uptimePercent === null ? "--" : `${f.uptimePercent.toFixed(2)}%`,
-                detail: "operational checks in the recent window",
-            },
-            {
-                label: "Response now",
-                value: f.latencyMs === null ? "--" : `${f.latencyMs} ms`,
-                detail: "latest HTTP probe from the backend",
-            },
-            { label: "Avg response", value: `${avg} ms`, detail: "average across recent probes" },
-            { label: "Status", value: statusLabel(f.status), detail: "current frontend probe result" },
-        ];
-    }
-    return frontendUptime;
-});
-
-const frontendResponse = computed<number[]>(() => {
-    const f = monitoring.health?.frontend;
-    if (frontendLive.value && f && f.responseHistory.length) {
-        return f.responseHistory.map((v) => (typeof v === "number" ? v : 0));
-    }
-    return responseSeries.value;
-});
-
-const frontendResponseMax = computed(() => Math.max(...frontendResponse.value, 1));
-
-const frontendRibbon = computed<ServiceTone[]>(() => {
-    const f = monitoring.health?.frontend;
-    if (frontendLive.value && f && f.statusHistory.length) {
-        return f.statusHistory.map((status) => statusTone(status));
-    }
-    return uptimeRibbon;
-});
-
-// Real page-load metrics from THIS browser session (always live, no backend needed).
-const pageLoadStats = computed(() => [
-    { label: "Full load", value: formatMs(loadTime.value), detail: "this session · window load" },
-    { label: "DOM ready", value: formatMs(domReadyTime.value), detail: "this session · DOMContentLoaded" },
-    { label: "First contentful", value: formatMs(firstContentfulPaintTime.value), detail: "this session · FCP" },
-    { label: "First paint", value: formatMs(firstPaintTime.value), detail: "this session · FP" },
-]);
-
-const frontendBadge = computed(() => (frontendLive.value ? "live" : "sample"));
+const backendBadge = computed(() => (serverLive.value ? "live" : "sample"));
 
 onMounted(() => {
     refreshPerformanceMetrics();
@@ -642,14 +547,10 @@ onMounted(() => {
 
     // Live platform monitoring — best effort; falls back to sample on failure.
     void monitoring.fetchPublicHealth();
-    void monitoring.fetchIncidents();
-    if (isAdmin.value) void monitoring.fetchVpsMetrics();
 
     healthTimer = setInterval(() => {
         void monitoring.fetchPublicHealth();
-        void monitoring.fetchIncidents();
-        if (isAdmin.value) void monitoring.fetchVpsMetrics();
-    }, 15000);
+    }, 30000);
 });
 
 onUnmounted(() => {
@@ -704,15 +605,14 @@ const toneText: Record<ServiceTone, string> = {
                 <strong class="type-caption-sb text-status-info">Data sources:</strong>
                 <strong class="type-caption-sb">Browser Runtime</strong> is your live session.
                 <template v-if="healthLive">
-                    <strong class="type-caption-sb">Overview, Backend &amp; Shop</strong> are live from the platform
-                    backend.
-                    <template v-if="!vpsLive">Detailed VPS metrics (CPU/RAM/disk/network) are admin-only.</template>
+                    <strong class="type-caption-sb">Overview, Backend Platform &amp; Shop</strong> are live from the
+                    platform backend's cached snapshot.
                 </template>
                 <template v-else>
                     The platform backend is unreachable right now, so Overview / Backend / Shop panels show
                     <strong class="type-caption-sb">sample display data</strong>.
                 </template>
-                Frontend (Rukcom) hosting cannot be probed server-side and stays sample.
+                This page does not fetch incident history or admin database-backed metrics.
             </p>
 
             <!-- OVERVIEW -->
@@ -858,103 +758,22 @@ const toneText: Record<ServiceTone, string> = {
                 </section>
             </section>
 
-            <!-- FRONTEND MONITORING (SAMPLE — host not server-probeable) -->
-            <section :class="$style.board" aria-labelledby="frontend-heading">
-                <header :class="$style.boardHead">
-                    <div>
-                        <p class="type-overline-sb text-main-primary">Frontend Monitoring</p>
-                        <h2 id="frontend-heading" class="type-h3-card-title-sb">Rukcom hosting &amp; delivery</h2>
-                    </div>
-                    <span
-                        :class="[$style.tag, frontendBadge === 'live' ? $style.tagLive : $style.tagSample]"
-                        class="type-overline-sb"
-                    >
-                        {{ frontendBadge === "live" ? "Live data" : "Sample data" }}
-                    </span>
-                </header>
-
-                <div :class="$style.statGrid">
-                    <article v-for="stat in frontendStats" :key="stat.label" :class="$style.statCard">
-                        <span class="type-overline-r">{{ stat.label }}</span>
-                        <strong class="type-h3-card-title-sb">{{ stat.value }}</strong>
-                        <p class="type-overline-r">{{ stat.detail }}</p>
-                    </article>
-                </div>
-
-                <section :class="$style.chartPanel" :style="{ '--accent': 'var(--color-status-info)' }">
-                    <header :class="$style.panelHeader">
-                        <div>
-                            <p class="type-overline-sb text-main-primary">Response time</p>
-                            <h3 class="type-subtitle-sb">
-                                {{ frontendLive ? "Edge response (live probe)" : "Edge response (sample)" }}
-                            </h3>
-                        </div>
-                        <strong class="type-caption-sb">{{ Math.round(last(frontendResponse)) }} ms</strong>
-                    </header>
-                    <svg :class="$style.spark" viewBox="0 0 100 36" preserveAspectRatio="none" role="img"
-                        aria-label="Frontend response time over recent checks">
-                        <polygon :class="$style.sparkArea" :points="sparkArea(frontendResponse, frontendResponseMax)" />
-                        <polyline :class="$style.sparkLine" :points="sparkPoints(frontendResponse, frontendResponseMax)" />
-                    </svg>
-                </section>
-
-                <section :class="$style.chartPanel">
-                    <header :class="$style.panelHeader">
-                        <div>
-                            <p class="type-overline-sb text-main-primary">Recent uptime</p>
-                            <h3 class="type-subtitle-sb">
-                                {{ frontendLive ? "Recent checks" : "Recent checks (sample)" }}
-                            </h3>
-                        </div>
-                    </header>
-                    <div :class="$style.ribbon" aria-label="Frontend uptime across recent checks">
-                        <span
-                            v-for="(day, index) in frontendRibbon"
-                            :key="index"
-                            :class="[$style.ribbonDot, $style[toneDot[day]]]"
-                        />
-                    </div>
-                </section>
-
-                <section :class="$style.chartPanel">
-                    <header :class="$style.panelHeader">
-                        <div>
-                            <p class="type-overline-sb text-main-primary">Page load</p>
-                            <h3 class="type-subtitle-sb">Your session (live)</h3>
-                        </div>
-                        <span :class="[$style.tag, $style.tagLive]" class="type-overline-sb">Live browser data</span>
-                    </header>
-                    <div :class="$style.statGrid">
-                        <article v-for="stat in pageLoadStats" :key="stat.label" :class="$style.statCard">
-                            <span class="type-overline-r">{{ stat.label }}</span>
-                            <strong class="type-h3-card-title-sb">{{ stat.value }}</strong>
-                            <p class="type-overline-r">{{ stat.detail }}</p>
-                        </article>
-                    </div>
-                </section>
-            </section>
-
-            <!-- BACKEND MONITORING (LIVE for admins, status-only for public, sample if offline) -->
+            <!-- BACKEND PLATFORM MONITORING (cached public snapshot, no DB metrics) -->
             <section :class="$style.board" aria-labelledby="backend-heading">
                 <header :class="$style.boardHead">
                     <div>
-                        <p class="type-overline-sb text-main-primary">Backend Monitoring</p>
+                        <p class="type-overline-sb text-main-primary">Backend Platform</p>
                         <h2 id="backend-heading" class="type-h3-card-title-sb">VPS server &amp; runtime</h2>
                     </div>
                     <span
-                        :class="[$style.tag, backendBadge === 'live-admin' ? $style.tagLive : $style.tagSample]"
+                        :class="[$style.tag, backendBadge === 'live' ? $style.tagLive : $style.tagSample]"
                         class="type-overline-sb"
                     >
-                        {{ backendBadge === "live-admin" ? "Live · admin" : backendBadge === "restricted" ? "Admin-only detail" : "Sample data" }}
+                        {{ backendBadge === "live" ? "Cached live data" : "Sample data" }}
                     </span>
                 </header>
 
-                <p v-if="backendBadge === 'restricted'" :class="$style.notice" class="type-caption-r">
-                    Detailed CPU / RAM / disk / network metrics are visible to admins only. Backend status,
-                    uptime, latency, and version above are live.
-                </p>
-
-                <div v-if="backendBadge !== 'restricted'" :class="$style.metricChartGrid">
+                <div :class="$style.metricChartGrid">
                     <section
                         v-for="metric in vpsCards"
                         :key="metric.key"
@@ -975,7 +794,7 @@ const toneText: Record<ServiceTone, string> = {
                                 v-if="metric.key === 'net'"
                                 :class="$style.sparkLine"
                                 :style="{ stroke: 'var(--color-status-warning)' }"
-                                :points="sparkPoints(netOutSeries, metric.max)"
+                                :points="sparkPoints(netOutChartSeries, metric.max)"
                             />
                         </svg>
                         <p class="type-overline-r">{{ metric.caption }}</p>
@@ -987,7 +806,7 @@ const toneText: Record<ServiceTone, string> = {
                         <div>
                             <p class="type-overline-sb text-main-primary">Server info</p>
                             <h3 class="type-subtitle-sb">
-                                {{ vpsLive ? "Runtime environment" : "Runtime environment (sample)" }}
+                                {{ serverLive ? "Runtime environment" : "Runtime environment (sample)" }}
                             </h3>
                         </div>
                     </header>
@@ -1034,20 +853,16 @@ const toneText: Record<ServiceTone, string> = {
                 <section :class="$style.chartPanel">
                     <header :class="$style.panelHeader">
                         <div>
-                            <p class="type-overline-sb text-main-primary">Recent incidents</p>
+                            <p class="type-overline-sb text-main-primary">Recent checks</p>
                             <h3 class="type-subtitle-sb">
-                                {{ healthLive ? "Service incident log" : "Latest probes (sample)" }}
+                                {{ healthLive ? "Cached service snapshot" : "Latest probes (sample)" }}
                             </h3>
                         </div>
                     </header>
 
-                    <p v-if="incidentRows && incidentRows.length === 0" :class="$style.empty" class="type-caption-r">
-                        No incidents recorded — all monitored services have been healthy.
-                    </p>
-
-                    <ul v-else :class="$style.checkList">
+                    <ul :class="$style.checkList">
                         <li
-                            v-for="(check, index) in (incidentRows ?? sampleChecks)"
+                            v-for="(check, index) in recentCheckRows"
                             :key="index"
                             :class="$style.checkRow"
                         >
