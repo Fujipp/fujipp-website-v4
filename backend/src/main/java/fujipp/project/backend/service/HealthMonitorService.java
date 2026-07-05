@@ -25,7 +25,9 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -77,6 +79,15 @@ public class HealthMonitorService {
     @Value("${monitoring.retention.days:7}")
     private int retentionDays;
 
+    @Value("${monitoring.persist.enabled:false}")
+    private boolean persistHistory;
+
+    @Value("${monitoring.incidents.enabled:false}")
+    private boolean incidentsEnabled;
+
+    @Value("${monitoring.db-probe.enabled:false}")
+    private boolean dbProbeEnabled;
+
     @Value("${monitoring.discord.probe-url:https://discord.com/api/v10/gateway}")
     private String discordProbeUrl;
 
@@ -85,6 +96,8 @@ public class HealthMonitorService {
 
     /** Last successfully composed public snapshot. Volatile: written by the scheduler, read by requests. */
     private volatile PublicHealthResponse latest;
+    private final Deque<MetricSnapshot> systemHistory = new ArrayDeque<>();
+    private final Deque<MetricSnapshot> frontendHistory = new ArrayDeque<>();
 
     public HealthMonitorService(
             SystemMetricsService systemMetrics,
@@ -143,6 +156,9 @@ public class HealthMonitorService {
     /** Recent incidents for the public status page (no internal detail). */
     @Transactional(readOnly = true)
     public List<IncidentResponse> recentIncidents(int limit) {
+        if (!incidentsEnabled) {
+            return List.of();
+        }
         return incidents.findAllByOrderByStartedAtDesc(PageRequest.of(0, Math.max(1, Math.min(limit, 50))))
             .stream()
             .map(IncidentResponse::from)
@@ -157,8 +173,9 @@ public class HealthMonitorService {
         SystemMetricsService.HostSnapshot host = systemMetrics.capture();
         double[] heap = systemMetrics.jvmHeap();
 
-        List<MetricSnapshot> recent = snapshots.findByServiceOrderByCapturedAtDesc(
-            SYSTEM_SERIES, PageRequest.of(0, Math.max(1, historyLimit)));
+        List<MetricSnapshot> recent = persistHistory
+            ? snapshots.findByServiceOrderByCapturedAtDesc(SYSTEM_SERIES, PageRequest.of(0, Math.max(1, historyLimit)))
+            : recentInMemory(systemHistory);
 
         // History is newest-first from the query; present oldest → newest for charting.
         List<VpsMetricsResponse.Sample> history = new ArrayList<>(recent.size());
@@ -200,9 +217,10 @@ public class HealthMonitorService {
         OffsetDateTime now = OffsetDateTime.now();
         SystemMetricsService.HostSnapshot host = systemMetrics.capture();
 
-        // Backend reachability proxied by a DB round-trip.
-        Integer dbLatency = pingDatabase();
-        boolean dbUp = dbLatency != null;
+        // DB probing is optional because Supabase pooler egress is billed; when
+        // disabled, public health reports app liveness without a database round-trip.
+        Integer dbLatency = dbProbeEnabled ? pingDatabase() : null;
+        boolean dbUp = !dbProbeEnabled || dbLatency != null;
         String backendStatus = dbUp ? "online" : STATUS_DOWN;
 
         // Billing service powers wallet + bot-config; probe once, reuse.
@@ -247,8 +265,10 @@ public class HealthMonitorService {
         this.latest = response;
 
         persistSnapshot(now, host, dbLatency, overall);
-        reconcileIncidents(services, backendStatus);
-        reconcileFrontendIncident(frontendProbe.status());
+        if (incidentsEnabled) {
+            reconcileIncidents(services, backendStatus);
+            reconcileFrontendIncident(frontendProbe.status());
+        }
         pruneOldSnapshots();
 
         return response;
@@ -278,12 +298,12 @@ public class HealthMonitorService {
 
     private void persistFrontendSnapshot(OffsetDateTime at, ProbeResult probe) {
         try {
-            MetricSnapshot snapshot = new MetricSnapshot();
-            snapshot.setCapturedAt(at);
-            snapshot.setService(FRONTEND_SERIES);
-            snapshot.setStatus(probe.status());
-            snapshot.setLatencyMs(probe.latencyMs());
-            snapshots.save(snapshot);
+            MetricSnapshot snapshot = frontendSnapshot(at, probe);
+            if (persistHistory) {
+                snapshots.save(snapshot);
+            } else {
+                remember(frontendHistory, snapshot);
+            }
         } catch (RuntimeException e) {
             log.warn("Failed to persist frontend snapshot", e);
         }
@@ -291,8 +311,9 @@ public class HealthMonitorService {
 
     /** Build the public Frontend view from the latest probe + recent stored history. */
     private PublicHealthResponse.Frontend buildFrontendHealth(ProbeResult current) {
-        List<MetricSnapshot> recent = snapshots.findByServiceOrderByCapturedAtDesc(
-            FRONTEND_SERIES, PageRequest.of(0, Math.max(1, historyLimit)));
+        List<MetricSnapshot> recent = persistHistory
+            ? snapshots.findByServiceOrderByCapturedAtDesc(FRONTEND_SERIES, PageRequest.of(0, Math.max(1, historyLimit)))
+            : recentInMemory(frontendHistory);
         List<Integer> responseHistory = new ArrayList<>(recent.size());
         List<String> statusHistory = new ArrayList<>(recent.size());
         int up = 0;
@@ -326,17 +347,12 @@ public class HealthMonitorService {
 
     private void persistSnapshot(OffsetDateTime at, SystemMetricsService.HostSnapshot host, Integer latencyMs, String status) {
         try {
-            MetricSnapshot snapshot = new MetricSnapshot();
-            snapshot.setCapturedAt(at);
-            snapshot.setService(SYSTEM_SERIES);
-            snapshot.setStatus(status);
-            snapshot.setCpuPercent(host.cpuPercent());
-            snapshot.setRamPercent(host.memPercent());
-            snapshot.setDiskPercent(host.diskPercent());
-            snapshot.setNetworkInKbps(host.networkInKbps());
-            snapshot.setNetworkOutKbps(host.networkOutKbps());
-            snapshot.setLatencyMs(latencyMs);
-            snapshots.save(snapshot);
+            MetricSnapshot snapshot = systemSnapshot(at, host, latencyMs, status);
+            if (persistHistory) {
+                snapshots.save(snapshot);
+            } else {
+                remember(systemHistory, snapshot);
+            }
         } catch (RuntimeException e) {
             log.warn("Failed to persist metric snapshot", e);
         }
@@ -390,6 +406,9 @@ public class HealthMonitorService {
     }
 
     private void pruneOldSnapshots() {
+        if (!persistHistory) {
+            return;
+        }
         try {
             snapshots.deleteByCapturedAtBefore(OffsetDateTime.now().minusDays(Math.max(1, retentionDays)));
         } catch (RuntimeException e) {
@@ -444,6 +463,46 @@ public class HealthMonitorService {
 
     private static PublicHealthResponse.Service service(String name, String status, Integer latencyMs) {
         return new PublicHealthResponse.Service(name, status, latencyMs);
+    }
+
+    private MetricSnapshot frontendSnapshot(OffsetDateTime at, ProbeResult probe) {
+        MetricSnapshot snapshot = new MetricSnapshot();
+        snapshot.setCapturedAt(at);
+        snapshot.setService(FRONTEND_SERIES);
+        snapshot.setStatus(probe.status());
+        snapshot.setLatencyMs(probe.latencyMs());
+        return snapshot;
+    }
+
+    private MetricSnapshot systemSnapshot(OffsetDateTime at, SystemMetricsService.HostSnapshot host,
+                                          Integer latencyMs, String status) {
+        MetricSnapshot snapshot = new MetricSnapshot();
+        snapshot.setCapturedAt(at);
+        snapshot.setService(SYSTEM_SERIES);
+        snapshot.setStatus(status);
+        snapshot.setCpuPercent(host.cpuPercent());
+        snapshot.setRamPercent(host.memPercent());
+        snapshot.setDiskPercent(host.diskPercent());
+        snapshot.setNetworkInKbps(host.networkInKbps());
+        snapshot.setNetworkOutKbps(host.networkOutKbps());
+        snapshot.setLatencyMs(latencyMs);
+        return snapshot;
+    }
+
+    private void remember(Deque<MetricSnapshot> history, MetricSnapshot snapshot) {
+        synchronized (history) {
+            history.addFirst(snapshot);
+            int max = Math.max(1, historyLimit);
+            while (history.size() > max) {
+                history.removeLast();
+            }
+        }
+    }
+
+    private List<MetricSnapshot> recentInMemory(Deque<MetricSnapshot> history) {
+        synchronized (history) {
+            return new ArrayList<>(history);
+        }
     }
 
     /** Worst status wins: down > degraded > operational. */

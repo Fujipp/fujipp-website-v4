@@ -1,9 +1,10 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.35.7`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.35.8`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.35.8` | 2026-07-05 | Updated Backend Platform compose/env defaults to keep Supabase pooler usage low on the new VPS |
 | `0.0.35.7` | 2026-07-05 | Renamed the new server automation to Backend Platform terminology with dedicated production environment secrets |
 | `0.0.35.6` | 2026-07-05 | Added a manual new-VPS deployment workflow that pins GHCR image tags and rolls selected services without touching the old VPS |
 | `0.0.35.5` | 2026-07-05 | Added a manual branch image build workflow for the new VPS without touching the existing production server |

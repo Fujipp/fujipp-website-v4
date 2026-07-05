@@ -1,9 +1,11 @@
 # Changelog — Backend
 
-**Current version: `0.4.8.4`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.4.8.6`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.4.8.6` | 2026-07-05 | Reduced default Supabase pooler usage by shrinking service pools, releasing idle connections, and making health monitoring database writes/probes opt-in |
+| `0.4.8.5` | 2026-07-05 | Tuned billing-service database pooling so the new VPS can run with a smaller, steadier connection footprint |
 | `0.4.8.4` | 2026-06-27 | Admin dashboard "VPS slots" now counts seats actually held by an active runtime, matching the VPS view, instead of under-counting placed bots |
 | `0.4.8.3` | 2026-06-25 | Admin bot directory response now includes the bot's Discord avatar URL |
 | `0.4.8.2` | 2026-06-24 | Bot card Online/Offline tag now reflects whether the bot process is actually running, not just whether its runtime is paid |

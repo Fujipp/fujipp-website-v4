@@ -9,7 +9,9 @@ const ssl = process.env.DB_SSL_NO_VERIFY === 'true' ? { rejectUnauthorized: fals
 const pool = new Pool({
   connectionString: resolveDatabaseUrl(),
   ssl,
-  max: 5,
+  max: Number(process.env.DB_POOL_MAX_SIZE) || 3,
+  idleTimeoutMillis: Number(process.env.DB_POOL_IDLE_TIMEOUT_MS) || 30_000,
+  connectionTimeoutMillis: Number(process.env.DB_POOL_CONNECTION_TIMEOUT_MS) || 5_000,
 });
 
 pool.on('error', (err) => console.error('[runtime] pg pool error:', err.message));

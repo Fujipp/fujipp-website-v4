@@ -79,10 +79,12 @@ VITE_SUPABASE_ANON_KEY=<supabase-anon-key>
 # BACKEND_ENV_FILE — read by both backend & billing (Spring ignores keys it doesn't use).
 # BILLING_BASE_URL is injected by compose (http://billing:8081) — do not set it here.
 
-# Supabase Postgres (use the pooler host)
-DB_URL=jdbc:postgresql://<pooler-host>:5432/postgres?sslmode=require
+# Supabase Postgres (use the transaction pooler host)
+DB_URL=jdbc:postgresql://<pooler-host>:6543/postgres?sslmode=require&prepareThreshold=0
 DB_USERNAME=postgres.<project-ref>
 DB_PASSWORD=<database-password>
+DB_POOL_MAX_SIZE=3
+DB_POOL_MIN_IDLE=0
 
 # Supabase auth
 SUPABASE_URL=https://<project-ref>.supabase.co
