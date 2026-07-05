@@ -1,9 +1,10 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.36.2`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.36.3`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.36.3` | 2026-07-06 | Prevented legacy frontend chunks from being copied into each production build |
 | `0.0.36.2` | 2026-07-06 | Streamlined frontend deployment so releases upload and verify only the current build assets |
 | `0.0.36.1` | 2026-07-06 | Completed Backend Platform runtime naming for the live deployment path and compose project |
 | `0.0.36` | 2026-07-06 | Prepared Backend Platform naming for a main runtime node while leaving room for future VPS expansion |

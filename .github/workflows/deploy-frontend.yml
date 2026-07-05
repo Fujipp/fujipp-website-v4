@@ -44,6 +44,13 @@ jobs:
         # FRONTEND_ENV_FILE holds VITE_API_BASE_URL, VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
         run: printf '%s' "${{ secrets.FRONTEND_ENV_FILE }}" > .env.production
 
+      - name: Exclude previously deployed chunks from build input
+        # Vite copies public/** into dist/. The public/assets folder only stores
+        # old hashed chunks for compatibility, so remove it in CI before build.
+        # The FTP deploy does not delete remote files, so those old chunks stay
+        # available on the server without slowing every new release.
+        run: rm -rf public/assets
+
       - name: Build
         run: bun run build
 
