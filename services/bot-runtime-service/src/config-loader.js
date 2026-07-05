@@ -35,13 +35,13 @@ async function loadRuntimeConfig(subjectId) {
      runtime AS (
        SELECT COALESCE(bool_or(status = 'ACTIVE'), FALSE) AS active
          FROM billing.runtime_subscriptions
-        WHERE external_subject_id = $1
+        WHERE external_subject_id = $1::text
      ),
      features AS (
        SELECT COALESCE(array_agg(DISTINCT fc.code ORDER BY fc.code), ARRAY[]::text[]) AS codes
          FROM bot b
          JOIN billing.feature_subscriptions fs
-           ON ( (fs.scope = 'BOT' AND fs.external_subject_id = $1)
+           ON ( (fs.scope = 'BOT' AND fs.external_subject_id = $1::text)
              OR (fs.scope = 'ACCOUNT' AND fs.user_id = b.user_id) )
          JOIN billing.feature_catalog fc ON fc.id = fs.feature_id
         WHERE fc.is_active = TRUE
@@ -60,7 +60,7 @@ async function loadRuntimeConfig(subjectId) {
               '[]'::jsonb
             ) AS values
          FROM billing.feature_config_values
-        WHERE external_subject_id = $1
+        WHERE external_subject_id = $1::text
      )
      SELECT b.*, runtime.active AS runtime_active, features.codes, configs.values AS config_values
        FROM bot b
