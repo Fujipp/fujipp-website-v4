@@ -29,6 +29,13 @@ jobs:
         with:
           bun-version: latest
 
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('frontend/bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
       # vue + @vue/* are pinned to an exact beta (not the moving `beta` tag), so the
       # lockfile is reproducible — freeze it so prod builds the exact deps committed.
       - run: bun install --frozen-lockfile
@@ -40,16 +47,7 @@ jobs:
       - name: Build
         run: bun run build
 
-      - name: Restore legacy cached assets
-        # Keep previously-deployed hashed chunks available so clients still running an
-        # older index.html can load their lazy route chunks during the rollover.
-        run: |
-          if [ -d public/assets ]; then
-            mkdir -p dist/assets
-            cp -n public/assets/*.js dist/assets/
-          fi
-
-      - name: Deploy dist/ over FTP, then verify the entry chunk serves as JS
+      - name: Deploy current dist/ over FTP, then verify current JS chunks
         env:
           FTP_HOST: ${{ secrets.FTP_HOST }}
           FTP_PORT: ${{ secrets.FTP_PORT }}
@@ -67,9 +65,9 @@ jobs:
           echo "Entry chunk: ${entry:-<none found>}"
 
           # Upload serially (parallel FTPS data connections on this shared host silently
-          # drop large files — that is the flaky-deploy root cause). clobber on so changed
-          # hashed files are overwritten. Old hashed assets are kept (no --delete) so
-          # clients on a previous index.html can still load their lazy chunks.
+          # drop large files — that is the flaky-deploy root cause). The build output is
+          # current-release only; old hashed assets are kept on the server because this
+          # mirror does not delete remote files.
           #
           # CRITICAL ordering: this mirror EXCLUDES index.html (-X index.html). We upload
           # every hashed chunk first, prove they all serve, and only then put index.html
@@ -122,8 +120,10 @@ jobs:
             "
           }
 
-          # Verify EVERY hashed JS chunk serves as JavaScript (not the SPA fallback HTML),
-          # re-uploading any that don't. Returns the count still missing.
+          # Verify every JS chunk from the current build serves as JavaScript (not the
+          # SPA fallback HTML), re-uploading any that don't. Returns the count still
+          # missing. Historical chunks stay on the server but are not copied into dist/
+          # or re-verified during normal deploys.
           heal_missing() {
             miss=0
             for f in dist/assets/*.js; do
@@ -138,7 +138,7 @@ jobs:
             return $miss
           }
 
-          # Upload every chunk (NOT index.html), then confirm the WHOLE asset set serves
+          # Upload every chunk (NOT index.html), then confirm the current asset set serves
           # as JS. Retry the upload + targeted re-put of any dropped chunk — a flaky
           # deploy now self-heals every missing chunk and only fails loudly when one
           # truly can't be delivered. Only once all chunks pass do we flip index.html,
