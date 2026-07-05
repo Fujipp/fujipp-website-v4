@@ -1,0 +1,154 @@
+name: Deploy Backend Platform
+
+# Manual-only rollout for the backend platform host. This intentionally uses a
+# dedicated GitHub environment/secrets set so it cannot target the retired VPS.
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image tag/commit SHA already pushed by Build Backend Platform Images"
+        required: true
+      services:
+        description: "Services to roll: all, backend, billing, voucher, runtime, or a space-separated list"
+        required: true
+        default: "all"
+      copy_compose:
+        description: "Copy the backend platform compose.yml before rolling"
+        type: boolean
+        required: true
+        default: true
+      smoke_test:
+        description: "Run local health checks after deployment"
+        type: boolean
+        required: true
+        default: true
+
+concurrency:
+  group: deploy-backend-platform
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: backend-production
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lowercase owner for GHCR
+        id: vars
+        run: echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up SSH
+        env:
+          SSH_KEY: ${{ secrets.BACKEND_PLATFORM_SSH_KEY }}
+          SSH_HOST: ${{ secrets.BACKEND_PLATFORM_SSH_HOST }}
+          SSH_PORT: ${{ secrets.BACKEND_PLATFORM_SSH_PORT }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_backend_platform
+          chmod 600 ~/.ssh/id_backend_platform
+          ssh-keyscan -p "${SSH_PORT:-22}" -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Copy backend platform compose file
+        if: inputs.copy_compose
+        env:
+          SSH_HOST: ${{ secrets.BACKEND_PLATFORM_SSH_HOST }}
+          SSH_PORT: ${{ secrets.BACKEND_PLATFORM_SSH_PORT }}
+          SSH_USER: ${{ secrets.BACKEND_PLATFORM_SSH_USER }}
+        run: |
+          scp -P "${SSH_PORT:-22}" -i ~/.ssh/id_backend_platform \
+            infrastructure/new-vps/compose.yml \
+            "$SSH_USER@$SSH_HOST:/opt/fujipp/apps/new-vps/compose.yml"
+
+      - name: Pin images and roll services
+        env:
+          SSH_HOST: ${{ secrets.BACKEND_PLATFORM_SSH_HOST }}
+          SSH_PORT: ${{ secrets.BACKEND_PLATFORM_SSH_PORT }}
+          SSH_USER: ${{ secrets.BACKEND_PLATFORM_SSH_USER }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+          OWNER: ${{ steps.vars.outputs.owner }}
+          IMAGE_TAG: ${{ inputs.image_tag }}
+          SERVICES_INPUT: ${{ inputs.services }}
+          SMOKE_TEST: ${{ inputs.smoke_test }}
+        run: |
+          ssh -p "${SSH_PORT:-22}" -i ~/.ssh/id_backend_platform "$SSH_USER@$SSH_HOST" \
+            "REGISTRY='${{ env.REGISTRY }}' OWNER='$OWNER' IMAGE_TAG='$IMAGE_TAG' SERVICES_INPUT='$SERVICES_INPUT' SMOKE_TEST='$SMOKE_TEST' GHCR_TOKEN='$GHCR_TOKEN' GHCR_USER='$GHCR_USER' bash -se" <<'REMOTE'
+          set -euo pipefail
+
+          app_dir=/opt/fujipp/apps/new-vps
+          env_file=/opt/fujipp/env/platform.env
+
+          cd "$app_dir"
+
+          set_env() {
+            key="$1"
+            value="$2"
+            if grep -q "^${key}=" "$env_file"; then
+              sed -i "s|^${key}=.*|${key}=${value}|" "$env_file"
+            else
+              printf '\n%s=%s\n' "$key" "$value" >> "$env_file"
+            fi
+          }
+
+          set_env BACKEND_IMAGE "$REGISTRY/$OWNER/fujipp-backend:$IMAGE_TAG"
+          set_env BILLING_IMAGE "$REGISTRY/$OWNER/fujipp-billing:$IMAGE_TAG"
+          set_env VOUCHER_IMAGE "$REGISTRY/$OWNER/fujipp-voucher:$IMAGE_TAG"
+          set_env RUNTIME_IMAGE "$REGISTRY/$OWNER/fujipp-runtime:$IMAGE_TAG"
+
+          case "$SERVICES_INPUT" in
+            all) services="backend billing voucher runtime" ;;
+            *) services="$SERVICES_INPUT" ;;
+          esac
+
+          if [ -n "${GHCR_TOKEN:-}" ]; then
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+          fi
+
+          docker compose --env-file "$env_file" pull $services
+          docker compose --env-file "$env_file" up -d --no-deps $services
+
+          if [ "$SMOKE_TEST" = "true" ]; then
+            if echo " $services " | grep -q " backend "; then
+              backend_code=""
+              for i in $(seq 1 40); do
+                backend_code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3600/api/public/health || true)
+                [ "$backend_code" = "200" ] && break
+                sleep 3
+              done
+              echo "backend health -> $backend_code"
+              [ "$backend_code" = "200" ] || { docker compose --env-file "$env_file" logs --tail=120 backend; exit 1; }
+            fi
+
+            if echo " $services " | grep -q " runtime "; then
+              runtime_code=""
+              for i in $(seq 1 30); do
+                runtime_code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8090/healthz || true)
+                [ "$runtime_code" = "200" ] && break
+                sleep 2
+              done
+              echo "runtime health -> $runtime_code"
+              [ "$runtime_code" = "200" ] || { docker compose --env-file "$env_file" logs --tail=120 runtime; exit 1; }
+            fi
+          fi
+
+          docker image prune -f
+          docker compose --env-file "$env_file" ps
+          REMOTE
+
+      - name: Write deployment summary
+        run: |
+          {
+            echo "## Backend Platform deployment"
+            echo
+            echo "Image tag: \`${{ inputs.image_tag }}\`"
+            echo "Services: \`${{ inputs.services }}\`"
+            echo
+            echo "Target uses GitHub environment: \`backend-production\`"
+          } >> "$GITHUB_STEP_SUMMARY"

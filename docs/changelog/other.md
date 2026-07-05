@@ -1,9 +1,11 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.35.5`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.35.7`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.35.7` | 2026-07-05 | Renamed the new server automation to Backend Platform terminology with dedicated production environment secrets |
+| `0.0.35.6` | 2026-07-05 | Added a manual new-VPS deployment workflow that pins GHCR image tags and rolls selected services without touching the old VPS |
 | `0.0.35.5` | 2026-07-05 | Added a manual branch image build workflow for the new VPS without touching the existing production server |
 | `0.0.35.4` | 2026-07-05 | Prepared a clean new-VPS runtime plan with fixed memory budgets, safe defaults, and isolated deployment notes |
 | `0.0.35.3` | 2026-06-27 | /runtime now posts a public, self-updating panel (refreshes every minute) in the channel it was run in, showing VPS/slot usage plus every bot's status in one embed, instead of a private per-bot list |

@@ -1,8 +1,8 @@
-name: Build New VPS Images
+name: Build Backend Platform Images
 
-# Manual-only image build for the greenfield VPS. This intentionally does not
-# deploy anywhere, so it is safe to run from a feature branch without touching
-# the old production VPS.
+# Manual-only image build for the backend platform host. This intentionally does
+# not deploy anywhere, so it is safe to run from a feature branch without rolling
+# live backend services.
 on:
   workflow_dispatch:
     inputs:
@@ -12,7 +12,7 @@ on:
         default: "main"
 
 concurrency:
-  group: build-new-vps-images-${{ github.ref }}
+  group: build-backend-platform-images-${{ github.ref }}
   cancel-in-progress: false
 
 env:
@@ -53,8 +53,8 @@ jobs:
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ steps.vars.outputs.owner }}/fujipp-backend:${{ steps.source.outputs.sha }}
-          cache-from: type=gha,scope=new-vps-backend
-          cache-to: type=gha,scope=new-vps-backend,mode=max
+          cache-from: type=gha,scope=backend-platform-backend
+          cache-to: type=gha,scope=backend-platform-backend,mode=max
 
       - name: Build and push billing
         uses: docker/build-push-action@v6
@@ -63,8 +63,8 @@ jobs:
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ steps.vars.outputs.owner }}/fujipp-billing:${{ steps.source.outputs.sha }}
-          cache-from: type=gha,scope=new-vps-billing
-          cache-to: type=gha,scope=new-vps-billing,mode=max
+          cache-from: type=gha,scope=backend-platform-billing
+          cache-to: type=gha,scope=backend-platform-billing,mode=max
 
       - name: Build and push voucher
         uses: docker/build-push-action@v6
@@ -73,8 +73,8 @@ jobs:
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ steps.vars.outputs.owner }}/fujipp-voucher:${{ steps.source.outputs.sha }}
-          cache-from: type=gha,scope=new-vps-voucher
-          cache-to: type=gha,scope=new-vps-voucher,mode=max
+          cache-from: type=gha,scope=backend-platform-voucher
+          cache-to: type=gha,scope=backend-platform-voucher,mode=max
 
       - name: Build and push runtime
         uses: docker/build-push-action@v6
@@ -84,13 +84,13 @@ jobs:
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ steps.vars.outputs.owner }}/fujipp-runtime:${{ steps.source.outputs.sha }}
-          cache-from: type=gha,scope=new-vps-runtime
-          cache-to: type=gha,scope=new-vps-runtime,mode=max
+          cache-from: type=gha,scope=backend-platform-runtime
+          cache-to: type=gha,scope=backend-platform-runtime,mode=max
 
       - name: Write deployment summary
         run: |
           {
-            echo "## New VPS image tags"
+            echo "## Backend Platform image tags"
             echo
             echo "Built from: ${{ inputs.source_ref }} (${{ steps.source.outputs.sha }})"
             echo
