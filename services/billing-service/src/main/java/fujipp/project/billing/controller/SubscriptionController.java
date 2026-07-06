@@ -53,6 +53,17 @@ public class SubscriptionController {
         return ResponseEntity.ok(subscriptionService.setRuntimeAutoRenew(userId, id, request.autoRenew()));
     }
 
+    /** Assign / move / unassign a BOT-scoped feature. Body externalSubjectId null = unassign. */
+    @PostMapping("/features/{id}/assign")
+    public ResponseEntity<FeatureSubscriptionResponse> assignFeature(
+            @RequestHeader("X-User-Id") UUID userId,
+            @PathVariable UUID id,
+            @RequestBody AssignFeatureRequest request) {
+        return ResponseEntity.ok(subscriptionService.assignFeature(userId, id, request.externalSubjectId()));
+    }
+
+    public record AssignFeatureRequest(String externalSubjectId) {}
+
     @PostMapping("/features/{id}/renew")
     public ResponseEntity<FeatureSubscriptionResponse> renewFeature(
             @RequestHeader("X-User-Id") UUID userId,

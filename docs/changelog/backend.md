@@ -1,9 +1,11 @@
 # Changelog — Backend
 
-**Current version: `0.4.8.9`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.4.8.11`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.4.8.11` | 2026-07-06 | Feature purchases (RENT_MONTHLY / RENT_PERMANENT) no longer require a bot: billing-service allows a null externalSubjectId so items land in the user's unassigned stack (duplicate/runtime-active gates now apply only when buying directly onto a bot; the stack may hold duplicates) |
+| `0.4.8.10` | 2026-07-06 | Feature subscriptions can now be assigned/moved/unassigned between a user's bots: billing-service POST /features/{id}/assign (BOT-scope only, ownership-checked, no duplicate feature per bot) proxied by the gateway as POST /api/subscriptions/features/{id}/assign, which best-effort restarts the affected online bots so ENABLED_FEATURES refreshes |
 | `0.4.8.9` | 2026-07-05 | Public health now includes a cached server resource snapshot for the lightweight Performance dashboard |
 | `0.4.8.8` | 2026-07-05 | Fixed runtime config cache query casts so text subject ids and UUID bot ids compare correctly during resume-on-boot |
 | `0.4.8.7` | 2026-07-05 | Reduced bot-runtime config loading from multiple Supabase round trips to one combined query with a short invalidatable cache |

@@ -142,10 +142,9 @@ public class OrderService {
 
                 String subject;
                 switch (price.getKind()) {
-                    // Features are per-bot: both the (legacy) monthly rental and the
-                    // permanent purchase are tied to one subject (bot).
-                    case "RENT_MONTHLY", "RENT_PERMANENT" ->
-                        subject = requireSubject(item.externalSubjectId(), price.getKind());
+                    // Features are per-bot but can be bought into the unassigned stack
+                    // (subject null) and pointed at a bot later via the assign endpoint.
+                    case "RENT_MONTHLY", "RENT_PERMANENT" -> subject = blankToNull(item.externalSubjectId());
                     case "SOURCE_CODE" -> subject = null; // user-owned, not tied to a bot
                     default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "Unsupported price kind: " + price.getKind());
@@ -156,20 +155,26 @@ public class OrderService {
             }
         }
 
-        // Second pass: gating + duplicate checks (before any charge)
+        // Second pass: gating + duplicate checks (before any charge).
+        // Subjectless feature lines skip both — the stack may hold duplicates, and
+        // the runtime gate applies when the item is assigned to a bot, not bought.
         for (ResolvedLine line : lines) {
             switch (line.kind()) {
                 case "RENT_MONTHLY" -> {
+                    if (line.subject() == null) break;
                     requireRuntimeActive(line.subject(), runtimeSubjectsInRequest);
                     featureSubscriptionRepository
                         .findByFeatureIdAndExternalSubjectId(line.featureId(), line.subject())
                         .filter(s -> isLive(s.getStatus()))
                         .ifPresent(s -> { throw conflict("Feature already rented for this subject"); });
                 }
-                case "RENT_PERMANENT" -> featureSubscriptionRepository
-                    .findByFeatureIdAndExternalSubjectId(line.featureId(), line.subject())
-                    .filter(s -> isLive(s.getStatus()))
-                    .ifPresent(s -> { throw conflict("Feature already owned for this bot"); });
+                case "RENT_PERMANENT" -> {
+                    if (line.subject() == null) break;
+                    featureSubscriptionRepository
+                        .findByFeatureIdAndExternalSubjectId(line.featureId(), line.subject())
+                        .filter(s -> isLive(s.getStatus()))
+                        .ifPresent(s -> { throw conflict("Feature already owned for this bot"); });
+                }
                 case "SOURCE_CODE" -> sourceCodeEntitlementRepository
                     .findByUserIdAndFeatureId(userId, line.featureId())
                     .ifPresent(s -> { throw conflict("Source code already owned"); });
@@ -290,6 +295,10 @@ public class OrderService {
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────
+
+    private static String blankToNull(String s) {
+        return s == null || s.isBlank() ? null : s;
+    }
 
     private static String requireSubject(String subject, String kind) {
         if (subject == null || subject.isBlank()) {
