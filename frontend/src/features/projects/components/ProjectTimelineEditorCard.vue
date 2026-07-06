@@ -76,7 +76,7 @@ const emit = defineEmits<{
             <header :class="$style.milestoneHeader">
                 <h4 :class="$style.milestoneTitle">Milestone {{ index + 1 }}</h4>
                 <ActionButton
-                    variant="delete"
+                    action="delete"
                     :aria-label="`Delete milestone ${index + 1}`"
                     @click="emit('deleteMilestone', index)"
                 />
@@ -112,7 +112,7 @@ const emit = defineEmits<{
         </section>
 
         <div :class="$style.addRow">
-            <ActionButton variant="add" aria-label="Add milestone" @click="emit('addMilestone')" />
+            <ActionButton action="add" aria-label="Add milestone" @click="emit('addMilestone')" />
         </div>
     </article>
 </template>
@@ -201,7 +201,7 @@ const emit = defineEmits<{
 
 .monthInput {
     padding-right: 48px;
-    background-image: url("/images/icons/common/calendar.svg");
+    background-image: url("/icons/common/calendar.svg");
     background-repeat: no-repeat;
     background-position: right 16px center;
     background-size: var(--spacing-icon-md) var(--spacing-icon-md);

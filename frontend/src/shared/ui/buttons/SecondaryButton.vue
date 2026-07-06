@@ -1,258 +1,211 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, useAttrs, useSlots } from "vue";
 import type { RouteLocationRaw } from "vue-router";
+import { getIconColorMode } from "@/config";
+
+type ButtonWidthMode = "fill" | "hug" | "fixed";
+
+defineOptions({
+    inheritAttrs: false,
+});
 
 interface Props {
     ariaLabel?: string;
     disabled?: boolean;
     href?: string;
     icon?: string;
+    leadingIcon?: string;
     rel?: string;
     target?: string;
     to?: RouteLocationRaw;
+    trailingIcon?: string;
     type?: "button" | "submit" | "reset";
     variant?: "text" | "icon" | "icon-reveal";
+    fixedWidth?: string;
+    widthMode?: ButtonWidthMode;
 }
 
 const props = withDefaults(defineProps<Props>(), {
     disabled: false,
-    icon: "/images/icons/navbar/theme/slide.svg",
+    fixedWidth: "160px",
     type: "button",
     variant: "text",
+    widthMode: "fill",
 });
 
-const variantClass = computed(() => {
-    if (props.variant === "icon") return "iconButton";
-    if (props.variant === "icon-reveal") return "iconReveal";
-    return "text";
-});
+const attrs = useAttrs();
+const slots = useSlots();
+const leadingIconSrc = computed(() => props.leadingIcon ?? props.icon);
+const trailingIconSrc = computed(() => props.variant === "icon-reveal" ? undefined : props.trailingIcon);
+const isIconOnly = computed(() => props.variant === "icon" || Boolean((leadingIconSrc.value || trailingIconSrc.value) && !slots.default));
+const buttonClass = computed(() => [
+    "secondaryButton",
+    props.widthMode,
+    isIconOnly.value ? "iconOnly" : "",
+    props.variant === "icon-reveal" ? "iconReveal" : "",
+]);
+const buttonStyle = computed(() => ({
+    "--button-fixed-width": props.fixedWidth,
+}));
 
-function updateGlassPointer(event: PointerEvent): void {
+function isOriginalColorIcon(icon: string): boolean {
+    return getIconColorMode(icon) === "original";
+}
+
+function iconMaskStyle(icon: string): Record<string, string> {
+    return {
+        "--button-icon-src": `url(${icon})`,
+    };
+}
+
+function updateButtonTilt(event: PointerEvent): void {
     const target = event.currentTarget as HTMLElement | null;
 
     if (!target) return;
 
     const rect = target.getBoundingClientRect();
-    target.style.setProperty("--glass-pointer-x", `${event.clientX - rect.left}px`);
-    target.style.setProperty("--glass-pointer-y", `${event.clientY - rect.top}px`);
+    const x = ((event.clientX - rect.left) / rect.width - 0.5) * 2;
+    const y = ((event.clientY - rect.top) / rect.height - 0.5) * 2;
+
+    target.style.setProperty("--button-tilt-x", `${x * 3}deg`);
+    target.style.setProperty("--button-tilt-y", `${y * -3}deg`);
 }
 
-function resetGlassPointer(event: PointerEvent): void {
+function resetButtonTilt(event: PointerEvent | FocusEvent): void {
     const target = event.currentTarget as HTMLElement | null;
 
     if (!target) return;
 
-    target.style.removeProperty("--glass-pointer-x");
-    target.style.removeProperty("--glass-pointer-y");
+    target.style.setProperty("--button-tilt-x", "0deg");
+    target.style.setProperty("--button-tilt-y", "0deg");
 }
 </script>
 
 <template>
-    <RouterLink
-        v-if="to"
-        :to="to"
-        :class="[$style.secondaryButton, $style[variantClass]]"
-        :aria-label="ariaLabel"
-        @pointermove="updateGlassPointer"
-        @pointerleave="resetGlassPointer"
-    >
-        <img
-            v-if="variant === 'icon'"
-            :class="$style.buttonIcon"
-            :src="icon"
-            alt=""
-            aria-hidden="true"
-            draggable="false"
-        >
-        <template v-else-if="variant === 'icon-reveal'">
-            <img
-                :class="$style.brandIcon"
-                :src="icon"
-                alt=""
-                aria-hidden="true"
-                draggable="false"
-            >
-            <span :class="$style.revealLabel"><slot /></span>
-        </template>
-        <slot v-else />
-    </RouterLink>
     <a
-        v-else-if="href"
+        v-if="href"
+        v-bind="attrs"
+        :class="buttonClass.map((className) => className && $style[className])"
+        :style="buttonStyle"
         :href="href"
-        :class="[$style.secondaryButton, $style[variantClass]]"
-        :aria-label="ariaLabel"
         :target="target"
         :rel="rel"
-        @pointermove="updateGlassPointer"
-        @pointerleave="resetGlassPointer"
+        :aria-label="ariaLabel"
+        @pointermove="updateButtonTilt"
+        @pointerleave="resetButtonTilt"
+        @blur="resetButtonTilt"
     >
-        <img
-            v-if="variant === 'icon'"
-            :class="$style.buttonIcon"
-            :src="icon"
-            alt=""
-            aria-hidden="true"
-            draggable="false"
-        >
-        <template v-else-if="variant === 'icon-reveal'">
-            <img
-                :class="$style.brandIcon"
-                :src="icon"
-                alt=""
-                aria-hidden="true"
-                draggable="false"
-            >
-            <span :class="$style.revealLabel"><slot /></span>
-        </template>
-        <slot v-else />
+        <slot name="leading-icon">
+            <img v-if="leadingIconSrc && isOriginalColorIcon(leadingIconSrc)" :class="$style.icon" :src="leadingIconSrc" alt="" aria-hidden="true">
+            <span v-else-if="leadingIconSrc" :class="[$style.icon, $style.maskIcon]" :style="iconMaskStyle(leadingIconSrc)" aria-hidden="true" />
+        </slot>
+        <span :class="$style.label"><slot /></span>
+        <slot name="trailing-icon">
+            <img v-if="trailingIconSrc && isOriginalColorIcon(trailingIconSrc)" :class="$style.icon" :src="trailingIconSrc" alt="" aria-hidden="true">
+            <span v-else-if="trailingIconSrc" :class="[$style.icon, $style.maskIcon]" :style="iconMaskStyle(trailingIconSrc)" aria-hidden="true" />
+        </slot>
     </a>
+    <RouterLink
+        v-else-if="to"
+        v-bind="attrs"
+        :class="buttonClass.map((className) => className && $style[className])"
+        :style="buttonStyle"
+        :to="to"
+        :aria-label="ariaLabel"
+        @pointermove="updateButtonTilt"
+        @pointerleave="resetButtonTilt"
+        @blur="resetButtonTilt"
+    >
+        <slot name="leading-icon">
+            <img v-if="leadingIconSrc && isOriginalColorIcon(leadingIconSrc)" :class="$style.icon" :src="leadingIconSrc" alt="" aria-hidden="true">
+            <span v-else-if="leadingIconSrc" :class="[$style.icon, $style.maskIcon]" :style="iconMaskStyle(leadingIconSrc)" aria-hidden="true" />
+        </slot>
+        <span :class="$style.label"><slot /></span>
+        <slot name="trailing-icon">
+            <img v-if="trailingIconSrc && isOriginalColorIcon(trailingIconSrc)" :class="$style.icon" :src="trailingIconSrc" alt="" aria-hidden="true">
+            <span v-else-if="trailingIconSrc" :class="[$style.icon, $style.maskIcon]" :style="iconMaskStyle(trailingIconSrc)" aria-hidden="true" />
+        </slot>
+    </RouterLink>
     <button
         v-else
+        v-bind="attrs"
         :type="type"
         :disabled="disabled"
-        :class="[$style.secondaryButton, $style[variantClass]]"
+        :class="buttonClass.map((className) => className && $style[className])"
+        :style="buttonStyle"
         :aria-label="ariaLabel"
-        @pointermove="updateGlassPointer"
-        @pointerleave="resetGlassPointer"
+        @pointermove="updateButtonTilt"
+        @pointerleave="resetButtonTilt"
+        @blur="resetButtonTilt"
     >
-        <img
-            v-if="variant === 'icon'"
-            :class="$style.buttonIcon"
-            :src="icon"
-            alt=""
-            aria-hidden="true"
-            draggable="false"
-        >
-        <template v-else-if="variant === 'icon-reveal'">
-            <img
-                :class="$style.brandIcon"
-                :src="icon"
-                alt=""
-                aria-hidden="true"
-                draggable="false"
-            >
-            <span :class="$style.revealLabel"><slot /></span>
-        </template>
-        <slot v-else />
+        <slot name="leading-icon">
+            <img v-if="leadingIconSrc && isOriginalColorIcon(leadingIconSrc)" :class="$style.icon" :src="leadingIconSrc" alt="" aria-hidden="true">
+            <span v-else-if="leadingIconSrc" :class="[$style.icon, $style.maskIcon]" :style="iconMaskStyle(leadingIconSrc)" aria-hidden="true" />
+        </slot>
+        <span :class="$style.label"><slot /></span>
+        <slot name="trailing-icon">
+            <img v-if="trailingIconSrc && isOriginalColorIcon(trailingIconSrc)" :class="$style.icon" :src="trailingIconSrc" alt="" aria-hidden="true">
+            <span v-else-if="trailingIconSrc" :class="[$style.icon, $style.maskIcon]" :style="iconMaskStyle(trailingIconSrc)" aria-hidden="true" />
+        </slot>
     </button>
 </template>
 
 <style module>
 .secondaryButton {
-    --glass-foreground: var(--color-neutral-700);
-    --glass-border: color-mix(in srgb, var(--color-neutral-600) 24%, transparent);
-    --glass-border-hover: color-mix(in srgb, var(--color-neutral-700) 34%, transparent);
-    --glass-highlight: color-mix(in srgb, var(--color-neutral-50) 82%, transparent);
-    --glass-highlight-soft: color-mix(in srgb, var(--color-neutral-50) 48%, transparent);
-    --glass-lowlight: color-mix(in srgb, var(--color-neutral-400) 40%, transparent);
-    --glass-shadow: color-mix(in srgb, var(--color-neutral-900) 22%, transparent);
-    --glass-shadow-hover: color-mix(in srgb, var(--color-neutral-900) 26%, transparent);
-    --glass-icon-filter: brightness(0) saturate(100%) invert(34%) sepia(12%) saturate(842%) hue-rotate(182deg) brightness(91%) contrast(88%);
-    --glass-icon-shadow: color-mix(in srgb, var(--color-neutral-900) 20%, transparent);
-    --glass-pointer-color: color-mix(in srgb, var(--color-main-primary) 24%, var(--color-neutral-50) 54%);
-    --glass-pointer-x: 50%;
-    --glass-pointer-y: 50%;
+    --button-tilt-x: 0deg;
+    --button-tilt-y: 0deg;
+    --button-fixed-width: 160px;
 
     position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     box-sizing: border-box;
-    flex-shrink: 0;
+    width: 100%;
+    min-height: 44px;
+    gap: 10px;
     overflow: hidden;
-    isolation: isolate;
-    border: 1px solid var(--glass-border);
-    background:
-        linear-gradient(
-            150deg,
-            var(--glass-highlight) 0%,
-            var(--glass-highlight-soft) 42%,
-            var(--glass-lowlight) 100%
-        );
-    box-shadow:
-        inset 0 1px 1px color-mix(in srgb, var(--color-neutral-50) 72%, transparent),
-        inset 0 -8px 16px var(--glass-lowlight),
-        0 6px 18px var(--glass-shadow);
-    backdrop-filter: blur(24px) saturate(180%) brightness(1.1);
-    -webkit-backdrop-filter: blur(24px) saturate(180%) brightness(1.1);
-    color: var(--glass-foreground);
+    border: 1px solid var(--color-button-border);
+    border-radius: var(--radius-xl);
+    background: var(--color-button-secondary);
+    box-shadow: 0 4px 4px rgb(0 0 0 / 10%);
+    padding: 10px;
+    color: var(--color-button-text);
     font-family: var(--font-sans);
-    font-weight: 300;
+    font-size: var(--type-size-button);
+    font-weight: 600;
     line-height: normal;
     letter-spacing: 0;
+    text-align: center;
     text-decoration: none;
     cursor: pointer;
     transition:
-        background 220ms ease,
-        border-color 220ms ease,
-        box-shadow 220ms ease,
-        opacity 220ms ease,
-        transform 220ms ease;
-}
-
-:global(.dark) .secondaryButton,
-:global([data-theme="dark"]) .secondaryButton {
-    --glass-foreground: var(--color-neutral-50);
-    --glass-border: color-mix(in srgb, var(--color-neutral-50) 16%, transparent);
-    --glass-border-hover: color-mix(in srgb, var(--color-neutral-50) 26%, transparent);
-    --glass-highlight: color-mix(in srgb, var(--color-neutral-50) 14%, transparent);
-    --glass-highlight-soft: color-mix(in srgb, var(--color-neutral-50) 4%, transparent);
-    --glass-lowlight: color-mix(in srgb, var(--color-neutral-900) 28%, transparent);
-    --glass-shadow: color-mix(in srgb, var(--color-neutral-900) 35%, transparent);
-    --glass-shadow-hover: color-mix(in srgb, var(--color-neutral-900) 40%, transparent);
-    --glass-icon-filter: brightness(0) invert(1);
-    --glass-icon-shadow: color-mix(in srgb, var(--color-neutral-50) 30%, transparent);
-    --glass-pointer-color: color-mix(in srgb, var(--color-neutral-50) 36%, var(--color-main-primary) 24%);
-}
-
-.secondaryButton::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    background:
-        radial-gradient(
-            120% 80% at 50% -20%,
-            color-mix(in srgb, var(--color-neutral-50) 62%, transparent) 0%,
-            transparent 60%
-        );
-    opacity: 0.7;
-    pointer-events: none;
-    z-index: -1;
-}
-
-.secondaryButton::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    border-radius: inherit;
-    background:
-        radial-gradient(
-            circle 76px at var(--glass-pointer-x) var(--glass-pointer-y),
-            var(--glass-pointer-color) 0%,
-            transparent 68%
-        );
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 180ms ease;
-}
-
-.secondaryButton:hover:not(:disabled)::after,
-.secondaryButton:focus-visible::after {
-    opacity: 0.82;
+        background 180ms ease,
+        border-color 180ms ease,
+        box-shadow 180ms ease,
+        opacity 180ms ease,
+        transform 180ms ease;
 }
 
 .secondaryButton:hover:not(:disabled) {
-    border-color: var(--glass-border-hover);
-    box-shadow:
-        inset 0 1px 1px color-mix(in srgb, var(--color-neutral-50) 78%, transparent),
-        inset 0 -8px 16px var(--glass-lowlight),
-        0 8px 22px var(--glass-shadow-hover);
+    background: color-mix(in srgb, var(--color-button-secondary) 88%, var(--color-button-primary));
+    border-color: color-mix(in srgb, var(--color-button-border) 82%, var(--color-button-text));
+    box-shadow: 0 8px 12px rgb(0 0 0 / 14%);
+    transform:
+        perspective(700px)
+        rotateX(var(--button-tilt-y))
+        rotateY(var(--button-tilt-x))
+        translateY(-1px);
 }
 
 .secondaryButton:active:not(:disabled) {
-    transform: scale(0.97);
+    box-shadow: 0 3px 4px rgb(0 0 0 / 10%);
+    transform:
+        perspective(700px)
+        rotateX(var(--button-tilt-y))
+        rotateY(var(--button-tilt-x))
+        translateY(1px)
+        scale(0.99);
 }
 
 .secondaryButton:focus-visible {
@@ -265,66 +218,73 @@ function resetGlassPointer(event: PointerEvent): void {
     opacity: 0.45;
 }
 
-.text {
-    width: 160px;
-    height: 48px;
-    padding: 12px 16px;
-    border-radius: 999px;
-    font-size: 1rem;
+.icon,
+.label {
+    position: relative;
+    z-index: 1;
 }
 
-.buttonIcon {
-    width: 6px;
-    height: 9px;
-    filter: var(--glass-icon-filter) drop-shadow(0 0 10px var(--glass-icon-shadow));
-    transform: rotate(180deg);
-    user-select: none;
-    -webkit-user-drag: none;
-}
-
-.iconButton {
-    width: 32px;
-    height: 32px;
-    padding: 0;
-    border-radius: var(--radius-full);
-}
-
-.iconButton .buttonIcon {
-    width: 6px;
-    height: 9px;
-}
-
-.iconReveal {
-    width: auto;
-    height: 48px;
-    padding: 0 13px;
-    gap: 0;
-    border-radius: var(--radius-full);
-}
-
-.brandIcon {
-    width: 22px;
-    height: 22px;
+.icon {
+    width: var(--spacing-icon-md);
+    height: var(--spacing-icon-md);
     flex-shrink: 0;
     object-fit: contain;
     user-select: none;
     -webkit-user-drag: none;
 }
 
-.revealLabel {
+.maskIcon {
+    background-color: currentColor;
+    mask: var(--button-icon-src) center / contain no-repeat;
+    -webkit-mask: var(--button-icon-src) center / contain no-repeat;
+}
+
+.label {
+    font-weight: 600;
+}
+
+.label:empty {
+    display: none;
+}
+
+.fill {
+    width: 100%;
+}
+
+.hug {
+    width: fit-content;
+}
+
+.fixed {
+    width: var(--button-fixed-width);
+    flex-shrink: 0;
+}
+
+.iconOnly {
+    width: 44px;
+    min-width: 44px;
+    padding: 10px;
+}
+
+.iconReveal {
+    width: auto;
+    min-width: 44px;
+}
+
+.iconReveal .label {
     display: inline-block;
     max-width: 0;
     overflow: hidden;
     opacity: 0;
-    font-size: 1rem;
     white-space: nowrap;
-    transition: max-width 260ms ease, margin-left 260ms ease, opacity 200ms ease;
+    transition:
+        max-width 220ms ease,
+        opacity 180ms ease;
 }
 
-.iconReveal:hover .revealLabel,
-.iconReveal:focus-visible .revealLabel {
+.iconReveal:hover .label,
+.iconReveal:focus-visible .label {
     max-width: 160px;
-    margin-left: 8px;
     opacity: 1;
 }
 </style>

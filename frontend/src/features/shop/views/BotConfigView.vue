@@ -2,7 +2,6 @@
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
-    ShopSidebar,
     FeatureConfigForm,
     RobloxRobuxConfigForm,
     CreateBotDialog,
@@ -337,7 +336,6 @@ onMounted(async () => {
 
 <template>
     <div :class="$style.botConfig">
-        <ShopSidebar v-model="isSidebarOpen" />
 
         <main :class="[$style.content, isSidebarOpen ? $style.sidebarOpen : $style.sidebarClosed]">
             <section :class="$style.titleSection">

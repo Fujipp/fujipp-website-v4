@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { ShopSidebar } from "@/features/shop/components";
 import { EmbedEditor } from "@/shared/ui/embeds";
 
 const route = useRoute();
@@ -14,7 +13,6 @@ const isSidebarOpen = ref(typeof window === "undefined" ? true : window.innerWid
 
 <template>
     <div :class="$style.page">
-        <ShopSidebar v-model="isSidebarOpen" />
 
         <main :class="[$style.content, isSidebarOpen ? $style.sidebarOpen : $style.sidebarClosed]">
             <section :class="$style.titleSection">

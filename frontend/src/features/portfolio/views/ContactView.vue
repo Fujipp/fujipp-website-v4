@@ -34,7 +34,7 @@ interface LanyardSocketMessage {
 
 const DISCORD_USER_ID = "1108816021915176962";
 const DISCORD_FALLBACK_AVATAR = "https://cdn.discordapp.com/embed/avatars/0.png";
-const CONTACT_ICON_PATH = "/images/icons/contacts";
+const CONTACT_ICON_PATH = "/icons/link";
 const openCardId = ref<ContactId | null>(null);
 const lanyardData = ref<LanyardData | null>(null);
 const discordAvatarFailed = ref(false);

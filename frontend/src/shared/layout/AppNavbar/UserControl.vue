@@ -256,7 +256,7 @@ onUnmounted(() => {
                 title="Dashboard"
                 @click="isExpanded = false"
             >
-                <img :class="$style.actionIcon" src="/images/icons/sidebar/home.svg" alt="" aria-hidden="true" draggable="false">
+                <img :class="$style.actionIcon" src="/icons/navigation/home.svg" alt="" aria-hidden="true" draggable="false">
             </RouterLink>
             <RouterLink
                 :class="[$style.actionButton, $style.actionUsers]"
@@ -266,7 +266,7 @@ onUnmounted(() => {
                 title="Users"
                 @click="isExpanded = false"
             >
-                <img :class="$style.actionIcon" src="/images/icons/sidebar/about.svg" alt="" aria-hidden="true" draggable="false">
+                <img :class="$style.actionIcon" src="/icons/navigation/about.svg" alt="" aria-hidden="true" draggable="false">
             </RouterLink>
             <RouterLink
                 :class="[$style.actionButton, $style.actionPricing]"
@@ -276,7 +276,7 @@ onUnmounted(() => {
                 title="Pricing"
                 @click="isExpanded = false"
             >
-                <img :class="$style.actionIcon" src="/images/icons/sidebar/package.svg" alt="" aria-hidden="true" draggable="false">
+                <img :class="$style.actionIcon" src="/icons/navigation/package.svg" alt="" aria-hidden="true" draggable="false">
             </RouterLink>
             <button
                 :class="[$style.actionButton, $style.logOutButton]"
@@ -287,7 +287,7 @@ onUnmounted(() => {
                 title="Log out"
                 @click="handleLogOut"
             >
-                <img :class="$style.actionIcon" src="/images/icons/sidebar/logout.svg" alt="" aria-hidden="true" draggable="false">
+                <img :class="$style.actionIcon" src="/icons/navigation/logout.svg" alt="" aria-hidden="true" draggable="false">
             </button>
         </nav>
     </aside>

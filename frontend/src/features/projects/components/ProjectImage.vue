@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import ImageModal from "./ImageModal.vue";
 
 interface Props {
     images: readonly string[];
@@ -9,7 +8,6 @@ interface Props {
 
 const props = defineProps<Props>();
 const activeIndex = ref(0);
-const isImageModalOpen = ref(false);
 
 const visibleImages = computed(() => props.images.slice(0, 5));
 const activeImage = computed(() => visibleImages.value[activeIndex.value] ?? "");
@@ -22,31 +20,21 @@ watch(visibleImages, (images) => {
 </script>
 
 <template>
-    <section
-        :class="[$style.gallery, visibleImages.length < 2 ? $style.singleColumnGallery : '']"
-        :aria-label="`${projectName} gallery`"
-    >
-        <button
+    <section :class="$style.gallery" :aria-label="`${projectName} gallery`">
+        <img
             v-if="activeImage"
-            type="button"
-            :class="$style.mainImageButton"
-            :aria-label="`Open ${projectName} preview ${activeIndex + 1}`"
-            @click="isImageModalOpen = true"
+            :class="$style.mainImage"
+            :src="activeImage"
+            :alt="`${projectName} preview ${activeIndex + 1}`"
+            draggable="false"
         >
-            <img
-                :class="$style.mainImage"
-                :src="activeImage"
-                :alt="`${projectName} preview ${activeIndex + 1}`"
-                draggable="false"
-            >
-        </button>
         <div
             v-else
             :class="[$style.mainImage, $style.placeholder]"
             role="img"
             :aria-label="`${projectName} has no gallery image`"
         >
-            <img src="/images/icons/common/gallery.svg" alt="" aria-hidden="true">
+            <img src="/icons/common/image.svg" alt="" aria-hidden="true">
         </div>
         <div v-if="visibleImages.length > 1" :class="$style.thumbnailList">
             <button
@@ -54,7 +42,7 @@ watch(visibleImages, (images) => {
                 v-show="index !== activeIndex"
                 :key="image"
                 type="button"
-                :class="[$style.thumbnailButton, index === activeIndex ? $style.activeThumbnail : '']"
+                :class="$style.thumbnailButton"
                 :aria-label="`Show ${projectName} preview ${index + 1}`"
                 @click="activeIndex = index"
             >
@@ -66,63 +54,34 @@ watch(visibleImages, (images) => {
                 >
             </button>
         </div>
-        <ImageModal
-            v-if="isImageModalOpen && activeImage"
-            :src="activeImage"
-            :alt="`${projectName} preview ${activeIndex + 1}`"
-            @close="isImageModalOpen = false"
-        />
     </section>
 </template>
 
 <style module>
 .gallery {
-    display: grid;
-    grid-template-columns: minmax(0, 992px) 191px;
-    align-items: stretch;
-    justify-content: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     width: 100%;
-    gap: var(--spacing-space-5);
-}
-
-.mainImage,
-.mainImageButton {
-    width: 100%;
-    aspect-ratio: 16 / 9;
-    height: auto;
-    border-radius: var(--radius-2xl);
+    gap: 8px;
 }
 
 .mainImage {
-    background-color: var(--color-main-surface);
-    object-fit: contain;
+    align-self: stretch;
+    width: 100%;
+    max-height: 542px;
+    aspect-ratio: 16 / 9;
+    border-radius: var(--radius-xl);
+    background-color: var(--color-main-secondary);
+    object-fit: cover;
     user-select: none;
     -webkit-user-drag: none;
-}
-
-.mainImageButton {
-    display: block;
-    padding: 0;
-    overflow: hidden;
-    border: 0;
-    background-color: transparent;
-    cursor: zoom-in;
-}
-
-.mainImageButton:focus-visible {
-    outline: 2px solid var(--color-main-primary);
-    outline-offset: 2px;
-}
-
-.singleColumnGallery {
-    grid-template-columns: minmax(0, 1fr);
 }
 
 .placeholder {
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: var(--color-main-surface);
 }
 
 .placeholder img {
@@ -132,29 +91,31 @@ watch(visibleImages, (images) => {
 
 .thumbnailList {
     display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    gap: var(--spacing-space-5);
+    align-items: center;
+    justify-content: center;
+    align-self: stretch;
+    flex-wrap: wrap;
+    padding: 12px 16px;
+    gap: 8px;
 }
 
 .thumbnailButton {
     display: block;
-    width: 100%;
-    height: 104px;
-    min-width: 0;
-    flex-shrink: 0;
+    width: 201px;
+    max-width: 100%;
+    aspect-ratio: 201 / 110;
+    flex-shrink: 1;
     padding: 0;
     overflow: hidden;
     border: 2px solid transparent;
-    border-radius: var(--radius-base);
+    border-radius: var(--radius-xl);
     background: transparent;
     cursor: pointer;
-    transition: border-color 160ms ease, opacity 160ms ease;
+    transition: border-color 160ms ease;
 }
 
 .thumbnailButton:hover,
-.thumbnailButton:focus-visible,
-.activeThumbnail {
+.thumbnailButton:focus-visible {
     border-color: var(--color-main-primary);
 }
 
@@ -172,47 +133,20 @@ watch(visibleImages, (images) => {
     -webkit-user-drag: none;
 }
 
-@media (min-width: 768px) and (max-width: 1023px) {
-    .gallery {
-        grid-template-columns: minmax(0, 565px) 124px;
-    }
-
-    .mainImage,
-    .mainImageButton {
-        height: auto;
-    }
-
+@media (max-width: 1023px) {
     .thumbnailButton {
-        height: 68px;
+        width: 140px;
     }
 }
 
 @media (max-width: 767px) {
-    .gallery {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: var(--spacing-space-5);
-    }
-
-    .mainImage,
-    .mainImageButton {
-        width: min(100%, 341px);
-        height: auto;
+    .thumbnailButton {
+        width: 90px;
+        border-radius: var(--radius-lg);
     }
 
     .thumbnailList {
-        display: flex;
-        flex-direction: row;
-        justify-content: center;
-        width: min(100%, 341px);
-        gap: 24px;
-    }
-
-    .thumbnailButton {
-        width: 67px;
-        height: 37px;
-        border-radius: var(--radius-md);
+        padding: 8px 0;
     }
 }
 </style>

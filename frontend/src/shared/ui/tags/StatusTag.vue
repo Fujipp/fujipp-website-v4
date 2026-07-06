@@ -7,107 +7,67 @@ interface Props {
 
 defineProps<Props>();
 
-function dotClass(status: StatusTagValue): string {
-    return {
-        Active: "activeDot",
-        Completed: "completedDot",
-        "In Progress": "progressDot",
-        Archived: "archivedDot",
-    }[status];
-}
-
 function statusClass(status: StatusTagValue): string {
     return `status${status.replace(/\s+/g, "")}`;
 }
 </script>
 
 <template>
-    <span :class="[$style.tableStatus, $style[statusClass(status)]]">
-        <span :class="[$style.statusDot, $style[dotClass(status)]]" />
-        <span :class="$style.label" class="type-caption-r">{{ status }}</span>
+    <span :class="[$style.statusTag, $style[statusClass(status)]]">
+        <span :class="$style.statusDot" />
+        <span :class="$style.label">{{ status }}</span>
     </span>
 </template>
 
 <style module>
-.tableStatus {
+.statusTag {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
     box-sizing: border-box;
-    width: fit-content;
-    min-width: 0;
-    min-height: 30px;
-    padding: 5px 14px;
-    gap: 7px;
+    width: 148px;
+    max-width: 100%;
+    height: 30px;
+    padding: 0 16px;
+    gap: 8px;
     overflow: hidden;
-    border: 1px solid color-mix(in srgb, var(--projects-card-border, var(--color-main-border)) 72%, transparent);
-    border-radius: var(--radius-full);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
+    border: 1px solid var(--status-tag-accent, var(--color-main-divider));
+    border-radius: var(--radius-xl);
+    background-color: var(--color-main-background);
+    color: var(--color-text-primary);
     font-family: var(--font-sans);
+    font-size: var(--type-size-body-main);
+    font-weight: 300;
     text-align: left;
-    box-shadow: 0 8px 24px -12px rgb(121 135 172 / 70%);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease, box-shadow 300ms ease;
-}
-
-:global(.dark) .tableStatus,
-:global([data-theme="dark"]) .tableStatus {
-    border-color: var(--color-main-border);
-    background-color: rgb(255 255 255 / 8%);
+    white-space: nowrap;
+    transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease;
 }
 
 .statusDot {
-    position: relative;
     flex-shrink: 0;
-    width: 8px;
-    height: 8px;
+    width: 15px;
+    height: 15px;
     border-radius: var(--radius-full);
-    background-color: var(--color-text-disabled);
-}
-
-.statusDot::after {
-    position: absolute;
-    inset: 0;
-    border-radius: var(--radius-full);
-    background-color: inherit;
-    content: "";
-    animation: status-ping 1.8s ease-out infinite;
-}
-
-.activeDot,
-.progressDot {
-    background-color: var(--color-status-warning);
-}
-
-.completedDot {
-    background-color: var(--color-status-success);
-}
-
-.archivedDot {
-    background-color: var(--color-text-disabled);
-}
-
-.statusArchived .statusDot::after {
-    animation: none;
+    background-color: var(--status-tag-dot, var(--status-tag-accent, var(--color-main-divider)));
 }
 
 .label {
     flex-shrink: 0;
-    line-height: 1;
 }
 
-@keyframes status-ping {
-    0% {
-        opacity: 0.7;
-        transform: scale(1);
-    }
+.statusActive {
+    --status-tag-accent: var(--color-status-success);
+}
 
-    70%,
-    100% {
-        opacity: 0;
-        transform: scale(2.6);
-    }
+.statusCompleted {
+    --status-tag-accent: var(--color-status-info);
+}
+
+.statusInProgress {
+    --status-tag-accent: var(--color-status-warning);
+}
+
+.statusArchived {
+    --status-tag-accent: var(--color-main-divider);
+    --status-tag-dot: var(--color-text-disabled);
 }
 </style>

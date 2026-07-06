@@ -1,34 +1,49 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { ShopSidebar, PackageCard, PurchaseDialog, type PackageOption } from "@/features/shop/components";
-import { StatusToast } from "@/shared/ui";
-import { PrimaryButton, SecondaryButton } from "@/shared/ui/buttons";
+import { FeatureCard, PurchaseDialog, type PackageOption } from "@/features/shop/components";
+import { StatusToast, ReadMoreModal } from "@/shared/ui";
+import { SecondaryButton } from "@/shared/ui/buttons";
+import { TablePagination } from "@/shared/ui/paginations";
+import { AppFooter } from "@/shared/layout";
 import { useUserStore } from "@/stores";
-import { API_BASE_URL } from "@/config";
-import {
-    priceKindLabel,
-    priceNeedsSubject,
-    type BotOption,
-    type CatalogFeature,
-} from "@/features/shop/config/catalog";
+import { API_BASE_URL, icons } from "@/config";
+import { priceKindLabel, type CatalogFeature } from "@/features/shop/config/catalog";
 
 type ToastStatus = "info" | "success" | "warning" | "error";
+
+const PAGE_SIZE = 8;
 
 const router = useRouter();
 const userStore = useUserStore();
 
-const isSidebarOpen = ref(typeof window === "undefined" ? true : window.innerWidth > 760);
 const features = ref<CatalogFeature[]>([]);
-const bots = ref<BotOption[]>([]);
 const balanceSatang = ref(0);
 const isLoading = ref(false);
 const isSubmitting = ref(false);
 const catalogError = ref("");
+const page = ref(1);
 const toast = ref<{ status: ToastStatus; title: string; description?: string } | null>(null);
 let toastTimeout: ReturnType<typeof setTimeout> | undefined;
 
 const dialog = ref<{ open: boolean; title: string; option: PackageOption | null }>({ open: false, title: "", option: null });
+const readMore = ref<{ title: string; body: string } | null>(null);
+
+// Feature id → shop icon; ids are kebab-case keywords (roblox / wallet / voice / log / review / status).
+function featureIcon(featureId: string): string {
+    const id = featureId.toLowerCase();
+    if (id.includes("roblox") || id.includes("robux")) return icons.shopRoblox;
+    if (id.includes("wallet") || id.includes("topup") || id.includes("top-up")) return icons.shopBank;
+    if (id.includes("voice")) return icons.shopVoice;
+    if (id.includes("log")) return icons.shopLog;
+    if (id.includes("review") || id.includes("credit")) return icons.shopStar;
+    if (id.includes("status")) return icons.shopAll;
+    return icons.featureFlag;
+}
+
+function formatPrice(satang: number): string {
+    return `฿ ${(satang / 100).toLocaleString("th-TH")}`;
+}
 
 function clearToast(): void {
     if (toastTimeout) {
@@ -57,7 +72,7 @@ function featureOptions(feature: CatalogFeature): PackageOption[] {
         label: priceKindLabel(price.kind) + (price.durationMonths ? ` · ${price.durationMonths} เดือน` : ""),
         priceSatang: price.effectivePriceSatang,
         promotionLabel: price.promotionLabel,
-        requiresSubject: priceNeedsSubject(price.kind),
+        requiresSubject: false,
         payload: { priceId: price.id },
     }));
 }
@@ -68,23 +83,26 @@ const dialogProps = computed(() => {
         title: dialog.value.title,
         optionLabel: option?.label ?? "",
         priceSatang: option?.priceSatang ?? 0,
-        requiresSubject: option?.requiresSubject ?? false,
     };
 });
 
+// One sell card per (feature × price option) so multi-price features stay buyable
+// through the existing PurchaseDialog flow.
 const featureCards = computed(() =>
     features.value.flatMap((feature) =>
         featureOptions(feature).map((option) => ({
             id: option.id,
             title: feature.name,
             description: feature.description,
-            helper: option.requiresSubject
-                ? "ต้องเลือกบอทปลายทางตอนซื้อ ฟีเจอร์นี้จะติดกับบอทตัวนั้น"
-                : "ซื้อแล้วใช้กับบัญชีนี้",
+            icon: featureIcon(feature.id),
+            price: formatPrice(option.priceSatang),
             option,
         })),
     ),
 );
+
+const pageCount = computed(() => Math.max(1, Math.ceil(featureCards.value.length / PAGE_SIZE)));
+const pagedCards = computed(() => featureCards.value.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE));
 
 async function loadCatalog(): Promise<void> {
     isLoading.value = true;
@@ -95,18 +113,16 @@ async function loadCatalog(): Promise<void> {
             catalogError.value = "กรุณาเข้าสู่ระบบก่อนดูแพ็กเกจ";
             return;
         }
-        const [fRes, wRes, bRes] = await Promise.all([
+        const [fRes, wRes] = await Promise.all([
             fetch(`${API_BASE_URL}/api/catalog/features`, { headers }),
             fetch(`${API_BASE_URL}/api/wallet`, { headers }),
-            fetch(`${API_BASE_URL}/api/bots`, { headers }),
         ]);
-        if (!fRes.ok || !wRes.ok || !bRes.ok) throw new Error("catalog unavailable");
+        if (!fRes.ok || !wRes.ok) throw new Error("catalog unavailable");
         features.value = (await fRes.json()) as CatalogFeature[];
         balanceSatang.value = wRes.ok ? ((await wRes.json()).balanceSatang ?? 0) : 0;
-        bots.value = bRes.ok ? ((await bRes.json()) as BotOption[]) : [];
+        page.value = 1;
     } catch {
         features.value = [];
-        bots.value = [];
         balanceSatang.value = 0;
         catalogError.value = "โหลดแพ็กเกจไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
         notify("error", "โหลดแพ็กเกจไม่สำเร็จ", "ระบบไม่สามารถเชื่อมต่อ catalog หรือ wallet ได้");
@@ -119,9 +135,13 @@ function openBuy(title: string, option: PackageOption): void {
     dialog.value = { open: true, title, option };
 }
 
-async function confirmPurchase(botId: string | null): Promise<void> {
+// Buy into the user's stack (no bot binding) — assign to a bot later from the Dashboard.
+async function confirmPurchase(): Promise<void> {
     const option = dialog.value.option;
     if (!option) return;
+    // Close right away — success or failure is reported via toast.
+    dialog.value.open = false;
+
     isSubmitting.value = true;
     try {
         const headers = await authHeaders();
@@ -134,18 +154,25 @@ async function confirmPurchase(botId: string | null): Promise<void> {
             headers: { ...headers, "Content-Type": "application/json" },
             body: JSON.stringify({
                 idempotencyKey: crypto.randomUUID(),
-                items: [{ ...option.payload, externalSubjectId: botId ?? undefined }],
+                items: [{ ...option.payload }],
             }),
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        dialog.value.open = false;
-        notify("success", "สั่งซื้อสำเร็จ", "ตัดเครดิตและออกสิทธิ์ให้แล้ว");
+        notify("success", "สั่งซื้อสำเร็จ", "เก็บไว้ในคลังแล้ว — กด Use ที่หน้า Dashboard เพื่อผูกกับบอท");
         await loadCatalog();
     } catch {
         notify("error", "สั่งซื้อไม่สำเร็จ", "เครดิตอาจไม่พอ หรือรายการซ้ำ — ลองใหม่อีกครั้ง");
     } finally {
         isSubmitting.value = false;
     }
+}
+
+function goToWallet(): void {
+    void router.push({ name: "shop-wallet" });
+}
+
+function goBack(): void {
+    void router.push({ name: "shop-dashboard" });
 }
 
 onMounted(async () => {
@@ -162,73 +189,56 @@ onUnmounted(clearToast);
 
 <template>
     <div :class="$style.shopPackage">
-        <ShopSidebar v-model="isSidebarOpen" />
-
-        <main :class="[$style.content, isSidebarOpen ? $style.sidebarOpen : $style.sidebarClosed]">
-            <section :class="$style.packageSection" aria-labelledby="shop-package-title">
+        <main :class="$style.content">
+            <section :class="$style.section" aria-labelledby="shop-package-title">
                 <div :class="$style.titleRow">
                     <h1 id="shop-package-title" :class="$style.pageTitle">Package</h1>
-                    <div :class="$style.titleActions">
-                        <div :class="$style.balancePill" aria-label="เครดิตคงเหลือ">
-                            <span :class="$style.balanceLabel">เครดิต</span>
-                            <span :class="$style.balanceValue">{{ (balanceSatang / 100).toLocaleString("th-TH") }}</span>
-                            <span :class="$style.balanceLabel">บาท</span>
-                        </div>
-                        <PrimaryButton :to="{ name: 'shop-wallet' }">เติม Wallet</PrimaryButton>
-                        <SecondaryButton :to="{ name: 'shop-runtime' }">ดู Runtime</SecondaryButton>
-                    </div>
+                    <SecondaryButton width-mode="hug" :leading-icon="icons.arrowBack" @click="goBack">
+                        Back
+                    </SecondaryButton>
                 </div>
-                <div :class="$style.divider" aria-hidden="true" />
             </section>
 
-            <template v-if="isLoading">
-                <section :class="$style.sectionGroup" aria-labelledby="shop-package-features-title">
+            <section :class="$style.section" aria-labelledby="shop-package-features-title">
+                <div :class="$style.sectionHeading">
                     <h2 id="shop-package-features-title" :class="$style.sectionTitle">Features</h2>
-                    <div :class="$style.packageGrid">
-                        <PackageCard
-                            v-for="n in 8"
-                            :key="`feature-skeleton-${n}`"
-                            mode="skeleton"
-                        />
-                    </div>
+                    <div :class="$style.headingRule" aria-hidden="true" />
+                </div>
+
+                <div v-if="isLoading" :class="$style.cardGrid">
+                    <div v-for="n in PAGE_SIZE" :key="`sk-${n}`" :class="[$style.cardItem, $style.skeletonCard]" />
+                </div>
+
+                <section v-else-if="catalogError" :class="$style.statePanel" aria-live="polite">
+                    <h3 :class="$style.stateTitle">โหลดข้อมูลร้านไม่สำเร็จ</h3>
+                    <p :class="$style.stateText">{{ catalogError }}</p>
+                    <button type="button" :class="$style.retryButton" @click="loadCatalog">ลองใหม่</button>
                 </section>
-            </template>
 
-            <section v-else-if="catalogError" :class="$style.statePanel" aria-live="polite">
-                <h2 :class="$style.stateTitle">โหลดข้อมูลร้านไม่สำเร็จ</h2>
-                <p :class="$style.stateText">{{ catalogError }}</p>
-                <PrimaryButton @click="loadCatalog">ลองใหม่</PrimaryButton>
-            </section>
-
-            <template v-else>
-                <section :class="$style.sectionGroup" aria-labelledby="shop-package-features-title">
-                    <h2 id="shop-package-features-title" :class="$style.sectionTitle">Features</h2>
-                    <div :class="$style.packageGrid">
-                        <PackageCard
-                            v-for="card in featureCards"
+                <template v-else>
+                    <div :class="$style.cardGrid">
+                        <FeatureCard
+                            v-for="card in pagedCards"
                             :key="card.id"
-                            eyebrow="Feature"
+                            :class="$style.cardItem"
+                            variant="sell"
+                            :icon="card.icon"
+                            :price="card.price"
                             :title="card.title"
                             :description="card.description"
-                            :meta="card.option.label"
-                            :helper="card.helper"
-                            :option="card.option"
-                            button-label="ซื้อ Feature"
-                            @select="(option) => openBuy(card.title, option)"
+                            buy-label="Buy"
+                            @buy="openBuy(card.title, card.option)"
+                            @read-more="readMore = { title: card.title, body: card.description }"
                         />
                     </div>
-                    <section v-if="featureCards.length === 0" :class="$style.statePanel">
-                        <h3 :class="$style.stateTitle">ยังไม่มีฟีเจอร์ที่เปิดขาย</h3>
-                        <p :class="$style.stateText">เมื่อ backend catalog เปิดฟีเจอร์ active แล้ว รายการจะแสดงที่นี่</p>
-                    </section>
-                </section>
 
-                <!-- <section :class="$style.statePanel">
-                    <h3 :class="$style.stateTitle">มองหา Runtime อยู่?</h3>
-                    <p :class="$style.stateText">Runtime ย้ายไปซื้อจาก "ตู้ Server" ในหน้า Runtime แล้ว — เลือกช่องว่างในตู้ VPS ได้เลย</p>
-                    <RouterLink :to="{ name: 'shop-runtime' }" :class="$style.runtimeLink">ไปหน้า Runtime →</RouterLink>
-                </section> -->
-            </template>
+                    <p v-if="featureCards.length === 0" :class="$style.emptyText">
+                        ยังไม่มีฟีเจอร์ที่เปิดขาย — เมื่อ catalog เปิดฟีเจอร์ active แล้ว รายการจะแสดงที่นี่
+                    </p>
+
+                    <TablePagination v-if="pageCount > 1" v-model="page" :page-count="pageCount" />
+                </template>
+            </section>
 
             <div v-if="toast" :class="$style.toastRegion" aria-live="polite">
                 <StatusToast
@@ -240,33 +250,44 @@ onUnmounted(clearToast);
             </div>
         </main>
 
+        <AppFooter />
+
         <PurchaseDialog
             :open="dialog.open"
             :title="dialogProps.title"
             :option-label="dialogProps.optionLabel"
             :price-satang="dialogProps.priceSatang"
-            :requires-subject="dialogProps.requiresSubject"
-            :bots="bots"
             :balance-satang="balanceSatang"
             :submitting="isSubmitting"
             @confirm="confirmPurchase"
             @cancel="dialog.open = false"
+            @topup="goToWallet"
         />
 
+        <ReadMoreModal
+            v-if="readMore"
+            :title="readMore.title"
+            :body="readMore.body"
+            @close="readMore = null"
+        />
     </div>
 </template>
 
 <style module>
 .shopPackage {
-    /* Page-scoped card theme (mirrors the Dashboard) so Package cards read light in
-       light mode instead of always-dark. Components consume var(--shop-*, <fallback>). */
+    /* Page-scoped card theme (mirrors the Dashboard) so cards read light in light
+       mode instead of always-dark. Components consume var(--shop-*, <fallback>). */
     --shop-card-bg: var(--color-neutral-50);
     --shop-card-border: var(--color-input-border);
     --shop-card-text: var(--color-text-primary);
     --shop-card-muted: var(--color-neutral-600);
 
     display: flex;
+    flex-direction: column;
     min-height: 100vh;
+    box-sizing: border-box;
+    /* Clear the fixed AppNavbar. */
+    padding-top: 73px;
     background: var(--color-main-background);
     color: var(--color-text-primary);
 }
@@ -281,32 +302,93 @@ onUnmounted(clearToast);
 
 .content {
     display: flex;
-    min-width: 0;
     flex: 1;
     flex-direction: column;
     box-sizing: border-box;
-    padding: var(--spacing-space-6);
-    gap: var(--spacing-space-6);
-    transition: margin-left 260ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.sidebarOpen {
-    margin-left: 194px;
-}
-
-.sidebarClosed {
-    margin-left: 44px;
-}
-
-.packageSection,
-.sectionGroup {
-    display: flex;
-    flex-direction: column;
+    width: 100%;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: var(--spacing-space-3) var(--spacing-space-6);
     gap: var(--spacing-space-4);
 }
 
-.packageSection {
-    justify-content: center;
+.section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-space-3);
+}
+
+.titleRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-space-4);
+}
+
+.pageTitle {
+    margin: 0;
+    color: var(--color-text-primary);
+    font-size: 22px;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.sectionHeading {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-space-3);
+}
+
+.sectionTitle {
+    margin: 0;
+    color: var(--color-text-primary);
+    font-size: 16px;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.headingRule {
+    height: 1px;
+    flex: 1;
+    background-color: var(--color-main-divider);
+}
+
+/* 4 columns × 2 rows per page on desktop; 1fr keeps the cards filling the full
+   width (no leftover gutter on the right) and steps down on smaller screens. */
+.cardGrid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    align-items: stretch;
+    gap: var(--spacing-space-3);
+}
+
+.cardItem {
+    min-width: 0;
+}
+
+.skeletonCard {
+    height: 328px;
+    border-radius: var(--radius-xl);
+    background: linear-gradient(110deg, #151515 0%, #ffffff 48%, #151515 100%);
+    background-size: 220% 100%;
+    animation: shop-package-shimmer 1800ms ease-in-out infinite;
+}
+
+@keyframes shop-package-shimmer {
+    0% {
+        background-position: 120% 0;
+    }
+
+    100% {
+        background-position: -120% 0;
+    }
+}
+
+.emptyText {
+    margin: 0;
+    color: var(--shop-card-muted, var(--color-text-secondary));
+    font-size: 16px;
+    font-weight: 300;
 }
 
 .statePanel {
@@ -321,111 +403,33 @@ onUnmounted(clearToast);
     color: var(--shop-card-text, var(--color-text-secondary));
 }
 
-.stateTitle,
-.stateText {
-    margin: 0;
-}
-
 .stateTitle {
+    margin: 0;
     font-size: 24px;
     font-weight: 600;
 }
 
 .stateText {
+    margin: 0;
     color: var(--shop-card-muted, var(--color-text-secondary));
     font-size: 18px;
 }
 
-.runtimeLink {
+.retryButton {
     align-self: flex-start;
-    color: var(--color-main-primary);
+    min-height: 42px;
+    padding: 0 var(--spacing-space-5);
+    border: 0;
+    border-radius: var(--radius-md);
+    background-color: var(--color-button-primary-btn-bg);
+    color: var(--color-button-primary-btn-text-active);
+    cursor: pointer;
     font-size: 16px;
     font-weight: 600;
-    text-decoration: none;
 }
 
-.runtimeLink:hover {
-    text-decoration: underline;
-}
-
-.titleRow {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: var(--spacing-space-4);
-}
-
-.titleActions {
-    display: flex;
-    align-items: center;
-    flex-shrink: 0;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: var(--spacing-space-3);
-}
-
-.pageTitle {
-    margin: 0;
-    color: var(--color-text-primary);
-    font-family: var(--font-sans);
-    font-size: 32px;
-    font-weight: 600;
-    line-height: 1;
-    letter-spacing: 0;
-}
-
-.balancePill {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    padding: var(--spacing-space-3);
-    gap: var(--spacing-space-3);
-    overflow: hidden;
-    border-radius: var(--radius-3xl);
-    background-color: var(--color-button-secondary-btn-bg);
-    color: var(--color-button-secondary-btn-text);
-    text-align: left;
-}
-
-.balanceLabel,
-.balanceValue {
-    font-family: var(--font-sans);
-    font-size: 16px;
-    line-height: normal;
-    letter-spacing: 0;
-    white-space: nowrap;
-}
-
-.balanceLabel {
-    font-weight: 300;
-}
-
-.balanceValue {
-    font-weight: 600;
-}
-
-.divider {
-    height: 1px;
-    background-color: var(--color-main-divider);
-}
-
-.sectionTitle {
-    margin: 0;
-    color: var(--color-text-primary);
-    font-family: var(--font-sans);
-    font-size: 28px;
-    font-weight: 600;
-    line-height: 1;
-    letter-spacing: 0;
-}
-
-.packageGrid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 300px));
-    align-items: stretch;
-    gap: var(--spacing-space-5);
-    padding-inline: var(--spacing-space-5);
+.retryButton:hover {
+    background-color: var(--color-button-primary-btn-hover);
 }
 
 .toastRegion {
@@ -436,44 +440,35 @@ onUnmounted(clearToast);
     width: min(360px, calc(100vw - var(--spacing-space-10)));
 }
 
-@media (max-width: 920px) {
-    .packageGrid {
-        padding-inline: 0;
+@media (max-width: 1080px) {
+    .cardGrid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 }
 
 @media (max-width: 760px) {
     .content {
-        padding: var(--spacing-space-5) var(--spacing-space-3) var(--spacing-space-10);
+        padding: var(--spacing-space-2) var(--spacing-space-2);
     }
 
-    .sidebarOpen,
-    .sidebarClosed {
-        margin-left: 44px;
+    .pageTitle {
+        font-size: 20px;
     }
 
-    .titleRow {
-        flex-direction: column;
-        gap: var(--spacing-space-3);
-    }
-
-    .titleActions {
-        justify-content: flex-start;
-    }
-
-    .balancePill {
-        align-self: flex-start;
-        flex-wrap: wrap;
-    }
-
-    .packageGrid {
-        grid-template-columns: 1fr;
+    .cardGrid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .toastRegion {
         bottom: var(--spacing-space-3);
         right: var(--spacing-space-3);
         width: calc(100vw - var(--spacing-space-6));
+    }
+}
+
+@media (max-width: 480px) {
+    .cardGrid {
+        grid-template-columns: 1fr;
     }
 }
 </style>

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
-import { ActionButton, FilterButton, TableNextBackButton } from "@/shared/ui/buttons";
+import { ActionButton, FilterButton } from "@/shared/ui/buttons";
+import { CheckboxInput } from "@/shared/ui/inputs";
+import { TablePagination } from "@/shared/ui/paginations";
 import { StatusTag } from "@/shared/ui/tags";
 import { SearchField } from "@/shared/ui/fields";
 import type { ProjectStatus, ProjectTableRow } from "@/config";
@@ -18,7 +20,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
     emptyMessage: "No projects found.",
     errorMessage: null,
-    itemsPerPage: 10,
+    itemsPerPage: 5,
     loading: false,
     searchPlaceholder: "Search",
     showAdminActions: false,
@@ -27,10 +29,6 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
     add: [];
     filter: [];
-    next: [];
-    previous: [];
-    first: [];
-    last: [];
     rowClick: [row: ProjectTableRow];
 }>();
 
@@ -74,35 +72,21 @@ const paginatedRows = computed(() => {
     return filteredRows.value.slice(start, start + pageSize.value);
 });
 
-const visiblePageNumbers = computed(() => {
-    const pages = new Set<number>([currentPage.value]);
-
-    if (currentPage.value > 1) {
-        pages.add(currentPage.value - 1);
-    }
-
-    if (currentPage.value < pageCount.value) {
-        pages.add(currentPage.value + 1);
-    }
-
-    return [...pages].sort((left, right) => left - right);
-});
-
 function goToPage(page: number): void {
     currentPage.value = Math.min(Math.max(page, 1), pageCount.value);
 }
 
-function toggleCategory(category: string): void {
-    selectedCategories.value = selectedCategories.value.includes(category)
-        ? selectedCategories.value.filter((value) => value !== category)
-        : [...selectedCategories.value, category];
+function toggleCategory(category: string, checked: boolean): void {
+    selectedCategories.value = checked
+        ? [...selectedCategories.value, category]
+        : selectedCategories.value.filter((value) => value !== category);
     goToPage(1);
 }
 
-function toggleStatus(status: ProjectStatus): void {
-    selectedStatuses.value = selectedStatuses.value.includes(status)
-        ? selectedStatuses.value.filter((value) => value !== status)
-        : [...selectedStatuses.value, status];
+function toggleStatus(status: ProjectStatus, checked: boolean): void {
+    selectedStatuses.value = checked
+        ? [...selectedStatuses.value, status]
+        : selectedStatuses.value.filter((value) => value !== status);
     goToPage(1);
 }
 
@@ -128,25 +112,6 @@ function closeFilterOnEscape(event: KeyboardEvent): void {
     }
 }
 
-function updateGlassPointer(event: PointerEvent): void {
-    const target = event.currentTarget as HTMLElement | null;
-
-    if (!target) return;
-
-    const rect = target.getBoundingClientRect();
-    target.style.setProperty("--glass-pointer-x", `${event.clientX - rect.left}px`);
-    target.style.setProperty("--glass-pointer-y", `${event.clientY - rect.top}px`);
-}
-
-function resetGlassPointer(event: PointerEvent): void {
-    const target = event.currentTarget as HTMLElement | null;
-
-    if (!target) return;
-
-    target.style.removeProperty("--glass-pointer-x");
-    target.style.removeProperty("--glass-pointer-y");
-}
-
 watch(searchQuery, () => {
     goToPage(1);
 });
@@ -166,7 +131,6 @@ onUnmounted(() => {
     document.removeEventListener("click", closeFilterOnOutsideClick);
     document.removeEventListener("keydown", closeFilterOnEscape);
 });
-
 </script>
 
 <template>
@@ -175,8 +139,8 @@ onUnmounted(() => {
             <div :class="$style.filterActions">
                 <div ref="filterWrap" :class="$style.filterWrap">
                     <FilterButton
-                        :label="activeFilterCount ? `Filter (${activeFilterCount})` : 'Filter'"
-                        :open="isFilterOpen"
+                        :arrow-direction="isFilterOpen ? 'up' : 'down'"
+                        :count="activeFilterCount"
                         @click="isFilterOpen = !isFilterOpen; emit('filter')"
                     />
                     <div v-if="isFilterOpen" :class="$style.filterMenu" class="type-overline-r">
@@ -185,15 +149,13 @@ onUnmounted(() => {
                             <label
                                 v-for="category in categoryOptions"
                                 :key="category"
-                                :class="$style.checkboxRow"
+                                :class="$style.filterOption"
                             >
-                                <input
-                                    :class="$style.checkboxInput"
-                                    type="checkbox"
-                                    :checked="selectedCategories.includes(category)"
-                                    @change="toggleCategory(category)"
-                                >
-                                <span :class="$style.checkboxBox" aria-hidden="true" />
+                                <CheckboxInput
+                                    :model-value="selectedCategories.includes(category)"
+                                    size="s"
+                                    @update:model-value="toggleCategory(category, $event)"
+                                />
                                 <span>{{ category }}</span>
                             </label>
                         </section>
@@ -202,23 +164,21 @@ onUnmounted(() => {
                             <label
                                 v-for="status in statusOptions"
                                 :key="status"
-                                :class="$style.checkboxRow"
+                                :class="$style.filterOption"
                             >
-                                <input
-                                    :class="$style.checkboxInput"
-                                    type="checkbox"
-                                    :checked="selectedStatuses.includes(status)"
-                                    @change="toggleStatus(status)"
-                                >
-                                <span :class="$style.checkboxBox" aria-hidden="true" />
+                                <CheckboxInput
+                                    :model-value="selectedStatuses.includes(status)"
+                                    size="s"
+                                    @update:model-value="toggleStatus(status, $event)"
+                                />
                                 <span>{{ status }}</span>
                             </label>
                         </section>
                         <button
-                            v-if="activeFilterCount"
                             :class="$style.clearButton"
                             class="type-overline-sb"
                             type="button"
+                            :disabled="activeFilterCount === 0"
                             @click="clearFilters"
                         >
                             Clear filters
@@ -227,7 +187,7 @@ onUnmounted(() => {
                 </div>
                 <ActionButton
                     v-if="showAdminActions"
-                    variant="add"
+                    action="add"
                     aria-label="Add project"
                     @click="emit('add')"
                 />
@@ -236,13 +196,13 @@ onUnmounted(() => {
         </nav>
 
         <div :class="$style.tablePanel">
-            <div :class="[$style.tableHeader, 'type-body-main-sb']" role="row">
-                <span>No</span>
+            <div :class="$style.tableHeader" role="row">
+                <span :class="$style.noCol">No</span>
                 <span>Project</span>
                 <span :class="$style.desktopCell">Description</span>
                 <span :class="$style.desktopCell">Stack</span>
-                <span>Category</span>
-                <span :class="$style.desktopCell">Status</span>
+                <span :class="$style.desktopCell">Category</span>
+                <span :class="$style.statusCol">Status</span>
             </div>
             <div :class="$style.divider" />
 
@@ -250,98 +210,46 @@ onUnmounted(() => {
                 v-for="(row, index) in paginatedRows"
                 :key="row.id"
                 type="button"
-                :class="[$style.tableRow, 'type-body-main-r']"
+                :class="$style.tableRow"
                 @click="emit('rowClick', row)"
             >
-                <span :class="$style.noCell">{{ ((currentPage - 1) * pageSize) + index + 1 }}</span>
-                <span :class="$style.projectCell">{{ row.projectName }}</span>
-                <span :class="[$style.descriptionCell, $style.desktopCell]">{{ row.description }}</span>
+                <span :class="[$style.noCol, $style.noCell]">{{ ((currentPage - 1) * pageSize) + index + 1 }}</span>
+                <span :class="$style.textCell">{{ row.projectName }}</span>
+                <span :class="[$style.textCell, $style.desktopCell]">{{ row.description }}</span>
                 <span :class="[$style.stackCell, $style.desktopCell]">
                     <ul :class="$style.stackList">
                         <li v-for="item in row.stack" :key="item">{{ item }}</li>
                     </ul>
                 </span>
-                <span :class="$style.categoryCell">{{ row.category }}</span>
-                <span :class="[$style.statusCell, $style.desktopCell]">
+                <span :class="[$style.textCell, $style.desktopCell]">{{ row.category }}</span>
+                <span :class="$style.statusCell">
                     <StatusTag :status="row.status" />
-                </span>
-                <span :class="$style.mobileAction" aria-hidden="true">
-                    <TableNextBackButton
-                        direction="next"
-                        label="View project"
-                        step="single"
-                    />
                 </span>
             </button>
 
             <p
                 v-if="loading && rows.length === 0"
                 :class="$style.emptyState"
-                class="type-body-main-r"
             >
                 Loading projects...
             </p>
             <p
                 v-else-if="errorMessage && rows.length === 0"
                 :class="[$style.emptyState, $style.errorState]"
-                class="type-body-main-r"
                 role="alert"
             >
                 {{ errorMessage }}
             </p>
-            <p v-else-if="filteredRows.length === 0" :class="$style.emptyState" class="type-body-main-r">
+            <p v-else-if="filteredRows.length === 0" :class="$style.emptyState">
                 {{ emptyMessage }}
             </p>
         </div>
 
-        <footer
-            v-if="filteredRows.length > 0"
-            :class="$style.tableFoot"
-            aria-label="Project table pagination"
-        >
-            <TableNextBackButton
-                direction="previous"
-                label="First page"
-                step="double"
-                :disabled="currentPage === 1"
-                @click="goToPage(1); emit('first')"
-            />
-            <TableNextBackButton
-                direction="previous"
-                label="Previous page"
-                :disabled="currentPage === 1"
-                @click="goToPage(currentPage - 1); emit('previous')"
-            />
-            <button
-                v-for="page in visiblePageNumbers"
-                :key="page"
-                type="button"
-                :class="[
-                    $style.pageButton,
-                    page === currentPage ? $style.currentPage : '',
-                    page === currentPage ? 'type-button-sb' : 'type-button-r',
-                ]"
-                :aria-current="page === currentPage ? 'page' : undefined"
-                @pointermove="updateGlassPointer"
-                @pointerleave="resetGlassPointer"
-                @click="goToPage(page)"
-            >
-                {{ page }}
-            </button>
-            <TableNextBackButton
-                direction="next"
-                label="Next page"
-                :disabled="currentPage === pageCount"
-                @click="goToPage(currentPage + 1); emit('next')"
-            />
-            <TableNextBackButton
-                direction="next"
-                label="Last page"
-                step="double"
-                :disabled="currentPage === pageCount"
-                @click="goToPage(pageCount); emit('last')"
-            />
-        </footer>
+        <TablePagination
+            :model-value="currentPage"
+            :page-count="pageCount"
+            @update:model-value="goToPage"
+        />
     </section>
 </template>
 
@@ -349,9 +257,10 @@ onUnmounted(() => {
 .projectTable {
     display: flex;
     flex-direction: column;
+    align-items: center;
     width: 100%;
-    gap: 10px;
-    color: var(--projects-card-text, var(--color-text-secondary));
+    gap: 8px;
+    color: var(--color-text-primary);
     font-family: var(--font-sans);
     transition: color 300ms ease;
 }
@@ -361,10 +270,11 @@ onUnmounted(() => {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    align-self: stretch;
+    flex-wrap: wrap;
     box-sizing: border-box;
-    min-height: 56px;
-    padding: 10px;
-    gap: 20px;
+    padding: 10px 0;
+    gap: 10px 20px;
 }
 
 .filterWrap {
@@ -388,11 +298,11 @@ onUnmounted(() => {
     width: 260px;
     padding: 12px;
     gap: 12px;
-    border: 1px solid var(--projects-card-border, var(--color-main-border));
+    border: 1px solid var(--color-main-divider);
     border-radius: var(--radius-xl);
-    background-color: var(--projects-card-bg, var(--color-main-surface));
-    color: var(--projects-card-text, var(--color-text-secondary));
-    /* box-shadow: 0 16px 40px color-mix(in srgb, var(--color-text-input) 30%, transparent); */
+    background-color: var(--color-main-background);
+    color: var(--color-text-primary);
+    box-shadow: 0 8px 12px rgb(0 0 0 / 14%);
     transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease;
 }
 
@@ -403,52 +313,14 @@ onUnmounted(() => {
 }
 
 .filterGroupTitle {
-    color: var(--color-main-primary);
+    color: var(--color-text-secondary);
 }
 
-.checkboxRow {
+.filterOption {
     display: flex;
     align-items: center;
     gap: 8px;
     cursor: pointer;
-}
-
-.checkboxInput {
-    position: absolute;
-    opacity: 0;
-    pointer-events: none;
-}
-
-.checkboxBox {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    width: 16px;
-    height: 16px;
-    box-sizing: border-box;
-    border: 1.5px solid var(--color-main-border);
-    border-radius: var(--radius-base);
-    transition: background-color 160ms ease, border-color 160ms ease;
-}
-
-.checkboxInput:checked + .checkboxBox {
-    border-color: var(--color-main-primary);
-    background-color: var(--color-main-primary);
-}
-
-.checkboxInput:checked + .checkboxBox::after {
-    content: "";
-    width: 8px;
-    height: 5px;
-    border-left: 2px solid var(--color-button-primary-btn-text-active);
-    border-bottom: 2px solid var(--color-button-primary-btn-text-active);
-    transform: rotate(-45deg) translateY(-1px);
-}
-
-.checkboxInput:focus-visible + .checkboxBox {
-    outline: 2px solid var(--color-main-primary);
-    outline-offset: 2px;
 }
 
 .clearButton {
@@ -456,115 +328,126 @@ onUnmounted(() => {
     padding: 0;
     border: 0;
     background: transparent;
-    color: var(--color-main-primary);
+    color: var(--color-status-error);
     cursor: pointer;
+    transition: opacity 180ms ease;
+}
+
+.clearButton:hover:not(:disabled) {
+    opacity: 0.75;
+}
+
+.clearButton:focus-visible {
+    outline: 2px solid var(--color-main-primary);
+    outline-offset: 2px;
+}
+
+.clearButton:disabled {
+    color: var(--color-text-disabled);
+    cursor: not-allowed;
 }
 
 .tablePanel {
     position: relative;
     display: flex;
     flex-direction: column;
+    align-self: stretch;
     box-sizing: border-box;
-    width: 100%;
-    height: 528px;
-    padding: var(--spacing-space-4);
-    gap: 10px;
+    height: 544px;
+    max-height: 544px;
+    padding: 12px 16px;
+    gap: 8px;
     overflow: hidden;
+    border: 1px solid var(--color-main-divider);
     border-radius: var(--radius-xl);
-    background-color: var(--projects-card-bg, var(--color-main-surface));
-    color: var(--projects-card-text, var(--color-text-secondary));
-    border: 1px solid var(--projects-card-border, transparent);
-    transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease;
+    background-color: var(--color-main-background);
+    transition: background-color 300ms ease, border-color 300ms ease;
 }
 
 .tableHeader,
 .tableRow {
     display: grid;
     grid-template-columns:
-        minmax(48px, 0.34fr)
-        minmax(190px, 1.25fr)
-        minmax(280px, 1.7fr)
-        minmax(180px, 1.05fr)
-        minmax(170px, 0.95fr)
-        minmax(150px, 0.85fr);
+        minmax(24px, 48px)
+        minmax(0, 200px)
+        minmax(0, 1fr)
+        minmax(0, 180px)
+        minmax(0, 210px)
+        148px;
     align-items: start;
     width: 100%;
-    gap: var(--spacing-space-4);
+    gap: 8px;
 }
 
 .tableHeader {
-    min-height: 32px;
-    font-size: 1.25rem;
+    color: var(--color-text-secondary);
+    font-size: var(--type-size-body-main);
+    font-weight: 600;
+    text-align: left;
+}
+
+.noCol {
+    text-align: left;
+}
+
+.statusCol {
+    text-align: center;
 }
 
 .tableRow {
-    height: 135px;
+    height: 88px;
+    max-height: 88px;
     padding: 0;
     overflow: hidden;
     border: 0;
     border-radius: var(--radius-lg);
     background: transparent;
     color: inherit;
+    font-family: inherit;
+    font-size: var(--type-size-body-main);
     text-align: left;
     cursor: pointer;
     transition: background-color 160ms ease;
 }
 
 .tableRow:hover {
-    background-color: var(--projects-row-hover, var(--color-table-row-hover));
+    background-color: var(--color-table-row-hover);
 }
 
 .tableRow:active {
-    background-color: var(--projects-row-active, var(--color-table-row-active));
+    background-color: var(--color-table-row-active);
 }
 
 .tableRow:focus-visible {
-    background-color: var(--projects-row-focus, var(--color-table-row-focus));
+    background-color: var(--color-table-row-focus);
     outline: 2px solid var(--color-main-primary);
     outline-offset: 2px;
 }
 
 .divider {
-    width: 100%;
+    align-self: stretch;
     height: 1px;
-    border-top: 1px solid var(--projects-card-border, var(--color-main-divider));
+    border-top: 1px solid var(--color-main-divider);
     transition: border-color 300ms ease;
 }
 
 .noCell {
-    text-align: center;
+    font-weight: 600;
 }
 
-.projectCell,
-.categoryCell {
-    font-size: 1.25rem;
-    font-weight: 300;
-}
-
-.descriptionCell,
-.stackCell {
-    font-size: 1.125rem;
-    font-weight: 300;
-}
-
-.projectCell,
-.descriptionCell,
-.categoryCell {
+.textCell {
+    display: -webkit-box;
     overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    font-weight: 300;
     text-overflow: ellipsis;
 }
 
-.projectCell,
-.categoryCell {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
-}
-
-.descriptionCell {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
+.stackCell {
+    overflow: hidden;
+    font-size: var(--type-size-body-small);
+    font-weight: 300;
 }
 
 .stackList {
@@ -576,30 +459,27 @@ onUnmounted(() => {
     list-style-type: disc;
 }
 
-.stackList li {
-    display: list-item;
-}
-
-.stackList li::marker {
-    color: var(--projects-card-text, var(--color-text-secondary));
-}
-
 .stackList li:nth-child(n + 4) {
     display: none;
 }
 
-.mobileAction {
-    display: none;
+.statusCell {
+    display: flex;
+    justify-content: center;
+    min-width: 0;
 }
 
 .emptyState {
     position: absolute;
     top: 50%;
     left: 50%;
+    width: max-content;
+    max-width: 90%;
     margin: 0;
-    color: var(--color-text-disabled);
-    font-size: 1.25rem;
+    color: var(--color-text-primary);
+    font-size: var(--type-size-body-main);
     font-weight: 300;
+    text-align: center;
     transform: translate(-50%, -50%);
 }
 
@@ -607,214 +487,32 @@ onUnmounted(() => {
     color: var(--color-status-error);
 }
 
-.tableFoot {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-sizing: border-box;
-    min-height: 64px;
-    padding: 10px;
-    gap: 10px;
-    text-align: center;
-}
-
-.pageButton {
-    --glass-foreground: var(--color-neutral-700);
-    --glass-border: color-mix(in srgb, var(--color-neutral-600) 24%, transparent);
-    --glass-border-hover: color-mix(in srgb, var(--color-neutral-700) 34%, transparent);
-    --glass-highlight: color-mix(in srgb, var(--color-neutral-50) 82%, transparent);
-    --glass-highlight-soft: color-mix(in srgb, var(--color-neutral-50) 48%, transparent);
-    --glass-lowlight: color-mix(in srgb, var(--color-neutral-400) 40%, transparent);
-    --glass-shadow: color-mix(in srgb, var(--color-neutral-900) 22%, transparent);
-    --glass-shadow-hover: color-mix(in srgb, var(--color-neutral-900) 26%, transparent);
-    --glass-pointer-color: color-mix(in srgb, var(--color-main-primary) 24%, var(--color-neutral-50) 54%);
-    --glass-pointer-x: 50%;
-    --glass-pointer-y: 50%;
-
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    box-sizing: border-box;
-    width: 32px;
-    height: 32px;
-    padding: 10px;
-    overflow: hidden;
-    isolation: isolate;
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-full);
-    background:
-        linear-gradient(
-            150deg,
-            var(--glass-highlight) 0%,
-            var(--glass-highlight-soft) 42%,
-            var(--glass-lowlight) 100%
-        );
-    box-shadow:
-        inset 0 1px 1px color-mix(in srgb, var(--color-neutral-50) 72%, transparent),
-        inset 0 -8px 16px var(--glass-lowlight),
-        0 6px 18px var(--glass-shadow);
-    backdrop-filter: blur(24px) saturate(180%) brightness(1.1);
-    -webkit-backdrop-filter: blur(24px) saturate(180%) brightness(1.1);
-    color: var(--glass-foreground);
-    cursor: pointer;
-    transition:
-        border-color 220ms ease,
-        box-shadow 220ms ease,
-        transform 220ms ease;
-}
-
-:global(.dark) .pageButton,
-:global([data-theme="dark"]) .pageButton {
-    --glass-foreground: var(--color-neutral-50);
-    --glass-border: color-mix(in srgb, var(--color-neutral-50) 16%, transparent);
-    --glass-border-hover: color-mix(in srgb, var(--color-neutral-50) 26%, transparent);
-    --glass-highlight: color-mix(in srgb, var(--color-neutral-50) 14%, transparent);
-    --glass-highlight-soft: color-mix(in srgb, var(--color-neutral-50) 4%, transparent);
-    --glass-lowlight: color-mix(in srgb, var(--color-neutral-900) 28%, transparent);
-    --glass-shadow: color-mix(in srgb, var(--color-neutral-900) 35%, transparent);
-    --glass-shadow-hover: color-mix(in srgb, var(--color-neutral-900) 40%, transparent);
-    --glass-pointer-color: color-mix(in srgb, var(--color-neutral-50) 36%, var(--color-main-primary) 24%);
-}
-
-.pageButton::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    border-radius: inherit;
-    background:
-        radial-gradient(
-            120% 80% at 50% -20%,
-            color-mix(in srgb, var(--color-neutral-50) 62%, transparent) 0%,
-            transparent 60%
-        );
-    opacity: 0.7;
-    pointer-events: none;
-}
-
-.pageButton::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    border-radius: inherit;
-    background:
-        radial-gradient(
-            circle 34px at var(--glass-pointer-x) var(--glass-pointer-y),
-            var(--glass-pointer-color) 0%,
-            transparent 70%
-        );
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 180ms ease;
-}
-
-.pageButton:hover::after,
-.pageButton:focus-visible::after {
-    opacity: 0.82;
-}
-
-.pageButton:hover {
-    border-color: var(--glass-border-hover);
-    box-shadow:
-        inset 0 1px 1px color-mix(in srgb, var(--color-neutral-50) 78%, transparent),
-        inset 0 -8px 16px var(--glass-lowlight),
-        0 8px 22px var(--glass-shadow-hover);
-}
-
-.pageButton:active {
-    transform: scale(0.97);
-}
-
-.pageButton:focus-visible {
-    outline: 2px solid var(--color-main-primary);
-    outline-offset: 2px;
-}
-
-.currentPage {
-    width: 45px;
-    color: var(--color-button-primary-btn-text-active);
-    border-color: color-mix(in srgb, var(--color-main-primary) 60%, transparent);
-    background:
-        linear-gradient(
-            150deg,
-            color-mix(in srgb, var(--color-main-primary) 88%, var(--color-neutral-50) 12%) 0%,
-            color-mix(in srgb, var(--color-main-primary) 68%, var(--color-neutral-900) 32%) 100%
-        );
-}
-
-@media (min-width: 768px) and (max-width: 1023px) {
-    .tableHeader,
-    .tableRow {
-        grid-template-columns:
-            minmax(44px, 0.32fr)
-            minmax(150px, 1.2fr)
-            minmax(170px, 1.2fr)
-            minmax(130px, 0.9fr)
-            minmax(120px, 0.8fr)
-            minmax(132px, 0.8fr);
-        gap: var(--spacing-space-3);
-    }
-
-    .tableRow {
-        height: 135px;
-    }
-}
-
 @media (max-width: 767px) {
-    .projectTable {
-        gap: 9px;
-    }
-
-    .tableNav {
-        min-height: 56px;
-        padding: 10px 0;
-    }
-
     .tablePanel {
-        height: 528px;
-        gap: 10px;
-        font-size: 0.875rem;
+        height: 555px;
+        max-height: 555px;
     }
 
     .tableHeader,
     .tableRow {
-        grid-template-columns: 32px minmax(0, 1fr) 95px 36px;
-        height: 42px;
-        gap: 20px;
+        grid-template-columns: minmax(24px, 48px) minmax(0, 1fr) 134px;
+        gap: 8px;
     }
 
     .tableHeader {
-        min-height: 30px;
-        font-size: 1rem;
+        font-size: var(--type-size-caption);
     }
 
     .tableRow {
-        min-height: 42px;
+        font-size: var(--type-size-caption);
     }
 
     .desktopCell {
         display: none;
     }
 
-    .projectCell,
-    .categoryCell {
-        display: -webkit-box;
-        -webkit-box-orient: vertical;
+    .textCell {
         -webkit-line-clamp: 2;
-        font-size: 1rem;
-    }
-
-    .mobileAction {
-        display: flex;
-        align-items: center;
-        justify-content: flex-end;
-    }
-
-    .tableFoot {
-        min-height: 64px;
-        padding: 10px 0;
     }
 }
 </style>

@@ -1,13 +1,25 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted } from "vue";
+import { computed, onMounted, onUnmounted } from "vue";
+import { SecondaryButton } from "@/shared/ui/buttons";
+import { icons } from "@/config";
+
+type ModalVariant = "default" | "danger" | "close";
 
 interface Props {
+    cancelLabel?: string;
+    confirmLabel?: string;
     disabled?: boolean;
     reason: string;
+    title?: string;
+    variant?: ModalVariant;
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
+    cancelLabel: "Cancel",
+    confirmLabel: "",
     disabled: false,
+    title: "Confirm",
+    variant: "default",
 });
 
 const emit = defineEmits<{
@@ -15,14 +27,35 @@ const emit = defineEmits<{
     confirm: [];
 }>();
 
+const defaultConfirmLabels: Record<ModalVariant, string> = {
+    default: "Confirm",
+    danger: "Delete",
+    close: "Close",
+};
+
+function confirmText(): string {
+    return props.confirmLabel || defaultConfirmLabels[props.variant];
+}
+
+const confirmLeadingIcon = computed<string | undefined>(() =>
+    props.variant === "danger" ? icons.delete : undefined,
+);
+
 function closeOnEscape(event: KeyboardEvent): void {
     if (event.key === "Escape") {
         emit("cancel");
     }
 }
 
-onMounted(() => window.addEventListener("keydown", closeOnEscape));
-onUnmounted(() => window.removeEventListener("keydown", closeOnEscape));
+onMounted(() => {
+    window.addEventListener("keydown", closeOnEscape);
+    document.body.style.overflow = "hidden";
+});
+
+onUnmounted(() => {
+    window.removeEventListener("keydown", closeOnEscape);
+    document.body.style.overflow = "";
+});
 </script>
 
 <template>
@@ -35,23 +68,30 @@ onUnmounted(() => window.removeEventListener("keydown", closeOnEscape));
                 aria-labelledby="confirm-modal-title"
                 aria-describedby="confirm-modal-reason"
             >
-                <div :class="$style.heading">
-                    <h2 id="confirm-modal-title" :class="$style.title">CONFIRM</h2>
-                    <hr :class="$style.divider">
-                </div>
+                <h2 id="confirm-modal-title" :class="$style.title">{{ title }}</h2>
+                <hr :class="$style.divider">
                 <p id="confirm-modal-reason" :class="$style.reason">{{ reason }}</p>
                 <div :class="$style.actions">
-                    <button type="button" :class="[$style.button, $style.cancelButton]" @click="emit('cancel')">
-                        No
-                    </button>
-                    <button
+                    <SecondaryButton
+                    v-if="variant !== 'close'"
                         type="button"
-                        :class="[$style.button, $style.confirmButton]"
-                        :disabled="disabled"
-                        @click="emit('confirm')"
+                        :class="[$style.button, $style.cancelButton]"
+                        @click="emit('cancel')"
                     >
-                        Yes
-                    </button>
+                    {{ cancelLabel }}
+                    </SecondaryButton>
+                    <SecondaryButton :class="[
+                            $style.button,
+                            variant === 'danger' ? $style.dangerButton : '',
+                            variant === 'default' ? $style.confirmButton : '',
+                            variant === 'close' ? $style.cancelButton : '',
+                        ]"
+                        :disabled="disabled"
+                        :leading-icon="confirmLeadingIcon"
+
+                        @click="variant === 'close' ? emit('cancel') : emit('confirm')">
+                            {{ confirmText() }}
+                    </SecondaryButton>
                 </div>
             </section>
         </div>
@@ -61,7 +101,7 @@ onUnmounted(() => window.removeEventListener("keydown", closeOnEscape));
 <style module>
 .backdrop {
     position: fixed;
-    z-index: 60;
+    z-index: 100;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -74,36 +114,30 @@ onUnmounted(() => window.removeEventListener("keydown", closeOnEscape));
 .modal {
     display: flex;
     flex-direction: column;
+    align-items: flex-start;
     box-sizing: border-box;
     width: min(448px, 100%);
-    min-height: 264px;
-    padding: 10px;
-    gap: 10px;
-    border-radius: var(--radius-2xl);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
+    height: 228px;
+    padding: 12px 16px;
+    gap: 8px;
+    overflow: hidden;
+    border: 1px solid var(--color-main-divider);
+    border-radius: var(--radius-xl);
+    background-color: var(--color-main-background);
+    color: var(--color-text-primary);
     font-family: var(--font-sans);
-}
-
-.heading {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.title,
-.reason {
-    margin: 0;
+    text-align: left;
 }
 
 .title {
-    font-size: 2rem;
+    align-self: stretch;
+    margin: 0;
+    font-size: var(--type-size-h3-card-title);
     font-weight: 600;
-    line-height: normal;
 }
 
 .divider {
-    width: 100%;
+    align-self: stretch;
     height: 1px;
     margin: 0;
     border: 0;
@@ -111,33 +145,49 @@ onUnmounted(() => window.removeEventListener("keydown", closeOnEscape));
 }
 
 .reason {
+    display: -webkit-inline-box;
+    align-self: stretch;
     flex: 1;
-    font-size: 1.25rem;
+    margin: 0;
+    max-height: 112px;
+    overflow: hidden;
+    color: var(--color-text-secondary);
+    font-size: var(--type-size-subtitle);
     font-weight: 300;
+    text-overflow: ellipsis;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
 }
 
 .actions {
     display: flex;
+    align-items: flex-start;
     justify-content: center;
-    gap: 10px;
+    align-self: stretch;
+    gap: 8px;
 }
 
 .button {
-    display: inline-flex;
+    display: flex;
     align-items: center;
     justify-content: center;
     box-sizing: border-box;
-    width: 160px;
-    height: 48px;
-    padding: 12px 16px;
-    border: 1px solid transparent;
+    padding: 10px;
+    overflow: hidden;
+    border: 1px solid var(--color-button-border);
     border-radius: var(--radius-xl);
-    color: var(--color-button-primary-btn-text-active);
+    box-shadow: 0 4px 4px rgb(0 0 0 / 10%);
+    color: var(--color-button-text);
     font-family: var(--font-sans);
-    font-size: 1rem;
-    font-weight: 300;
+    font-size: var(--type-size-button);
+    font-weight: 600;
     cursor: pointer;
-    transition: background-color 160ms ease, border-color 160ms ease, opacity 160ms ease;
+    transition: background-color 180ms ease, border-color 180ms ease, opacity 180ms ease;
+}
+
+.button:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
 }
 
 .button:focus-visible {
@@ -145,48 +195,28 @@ onUnmounted(() => window.removeEventListener("keydown", closeOnEscape));
     outline-offset: 2px;
 }
 
-.button:disabled {
-    cursor: not-allowed;
-    opacity: 0.6;
-}
-
 .cancelButton {
-    border-color: var(--color-button-secondary-btn-bg);
-    background-color: var(--color-button-secondary-btn-bg);
+    background-color: var(--color-button-secondary);
 }
 
-.cancelButton:hover {
-    border-color: var(--color-button-secondary-btn-hover);
-    background-color: var(--color-button-secondary-btn-hover);
-}
-
-.cancelButton:active {
-    border-color: var(--color-button-secondary-btn-active);
-    background-color: var(--color-button-secondary-btn-active);
+.cancelButton:hover:not(:disabled) {
+    background-color: color-mix(in srgb, var(--color-button-secondary) 88%, var(--color-button-text));
 }
 
 .confirmButton {
-    border-color: var(--color-button-primary-btn-bg);
-    background-color: var(--color-button-primary-btn-bg);
+    background-color: var(--color-main-primary);
 }
 
 .confirmButton:hover:not(:disabled) {
-    border-color: var(--color-button-primary-btn-hover);
-    background-color: var(--color-button-primary-btn-hover);
+    background-color: color-mix(in srgb, var(--color-main-primary) 88%, var(--color-button-text));
 }
 
-.confirmButton:active:not(:disabled) {
-    border-color: var(--color-button-primary-btn-active);
-    background-color: var(--color-button-primary-btn-active);
+.dangerButton {
+    background-color: var(--color-status-error);
+    color: var(--color-button-btn-text-danger);
 }
 
-@media (max-width: 420px) {
-    .button {
-        width: 100%;
-    }
-
-    .actions {
-        width: 100%;
-    }
+.dangerButton:hover:not(:disabled) {
+    background-color: var(--color-button-btn-hover-danger);
 }
 </style>

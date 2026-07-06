@@ -12,6 +12,7 @@ declare module 'vue-router' {
 
 // Views are lazy-loaded so each route ships as its own chunk (smaller initial bundle).
 const HomeView = () => import('@/features/portfolio/views/HomeView.vue')
+const ComponentView = () => import('@/features/portfolio/views/ComponentView.vue')
 const AboutView = () => import('@/features/portfolio/views/AboutView.vue')
 const ContactView = () => import('@/features/portfolio/views/ContactView.vue')
 const ChangelogView = () => import('@/features/portfolio/views/ChangelogView.vue')
@@ -61,6 +62,7 @@ const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: '/',            name: 'home',        component: HomeView },
+    { path: '/components',  name: 'components',  component: ComponentView },
     { path: '/projects',    name: 'projects',    component: ProjectsView },
     { path: '/projects/new', name: 'project-new', component: NewProjectView, meta: { requiresAuth: true, requiresAdmin: true } },
     { path: '/projects/:projectId/edit', name: 'project-edit', component: NewProjectView, meta: { requiresAuth: true, requiresAdmin: true } },

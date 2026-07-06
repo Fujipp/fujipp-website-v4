@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { icons } from "@/config";
 
 type ToastStatus = "info" | "success" | "warning" | "error";
 
@@ -22,7 +23,16 @@ const emit = defineEmits<{
     close: [];
 }>();
 
-const statusIcon = computed(() => `/images/icons/status/${props.status}.svg`);
+const statusIcons: Record<ToastStatus, string> = {
+    info: icons.info,
+    success: icons.success,
+    warning: icons.warning,
+    error: icons.error,
+};
+
+const statusIcon = computed(() => statusIcons[props.status]);
+
+const closeStyle = { "--toast-close-src": `url(${icons.hamburgerClose})` };
 </script>
 
 <template>
@@ -31,15 +41,9 @@ const statusIcon = computed(() => `/images/icons/status/${props.status}.svg`);
         role="status"
         aria-live="polite"
     >
-        <img
-            :class="$style.leftIcon"
-            :src="statusIcon"
-            alt=""
-            aria-hidden="true"
-            draggable="false"
-        >
+        <img :class="$style.leftIcon" :src="statusIcon" alt="" aria-hidden="true" draggable="false">
         <div :class="$style.content">
-            <strong :class="$style.title">{{ title }}</strong>
+            <b :class="$style.title">{{ title }}</b>
             <p v-if="description" :class="$style.description">{{ description }}</p>
         </div>
         <button
@@ -49,13 +53,7 @@ const statusIcon = computed(() => `/images/icons/status/${props.status}.svg`);
             :aria-label="closeLabel"
             @click="emit('close')"
         >
-            <img
-                :class="$style.closeIcon"
-                src="/images/icons/navbar/close.svg"
-                alt=""
-                aria-hidden="true"
-                draggable="false"
-            >
+            <span :class="$style.closeIcon" :style="closeStyle" aria-hidden="true" />
         </button>
     </section>
 </template>
@@ -69,9 +67,11 @@ const statusIcon = computed(() => `/images/icons/status/${props.status}.svg`);
     width: 100%;
     padding: 16px;
     gap: 16px;
-    border-radius: 16px;
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
+    border-radius: var(--radius-2xl);
+    border: 1px solid var(--color-main-divider);
+    background-color: var(--color-main-background);
+    box-shadow: 0 8px 24px rgb(0 0 0 / 14%);
+    color: var(--color-text-primary);
     font-family: var(--font-sans);
     text-align: left;
 }
@@ -100,7 +100,6 @@ const statusIcon = computed(() => `/images/icons/status/${props.status}.svg`);
     font-size: 1rem;
     font-weight: 700;
     line-height: normal;
-    letter-spacing: 0;
 }
 
 .description {
@@ -110,7 +109,6 @@ const statusIcon = computed(() => `/images/icons/status/${props.status}.svg`);
     font-size: 0.875rem;
     font-weight: 300;
     line-height: normal;
-    letter-spacing: 0;
 }
 
 .closeButton {
@@ -129,11 +127,7 @@ const statusIcon = computed(() => `/images/icons/status/${props.status}.svg`);
 }
 
 .closeButton:hover {
-    background-color: rgb(255 255 255 / 10%);
-}
-
-.closeButton:active {
-    background-color: rgb(255 255 255 / 16%);
+    background-color: var(--color-button-secondary);
 }
 
 .closeButton:focus-visible {
@@ -144,7 +138,8 @@ const statusIcon = computed(() => `/images/icons/status/${props.status}.svg`);
 .closeIcon {
     width: 12px;
     height: 12px;
-    user-select: none;
-    -webkit-user-drag: none;
+    background-color: var(--color-text-primary);
+    mask: var(--toast-close-src) center / contain no-repeat;
+    -webkit-mask: var(--toast-close-src) center / contain no-repeat;
 }
 </style>

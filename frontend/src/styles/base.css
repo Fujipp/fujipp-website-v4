@@ -5,28 +5,30 @@
   }
 }
 
-html.shop-route {
+/* Opaque scrollbar colors on purpose: translucent thumbs/tracks force Chrome to
+   repaint the custom scrollbar every frame of the theme cross-fade, which flickers. */
+html {
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--color-main-primary) 72%, transparent) transparent;
+  scrollbar-color: color-mix(in srgb, var(--color-main-primary) 72%, var(--color-main-background)) var(--color-main-background);
+  /* Reserve the gutter up-front so content never shifts when the bar appears. */
+  scrollbar-gutter: stable;
 }
 
-html.shop-route::-webkit-scrollbar {
+::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
-html.shop-route::-webkit-scrollbar-track {
-  background: transparent;
+::-webkit-scrollbar-track {
+  background: var(--color-main-background);
 }
 
-html.shop-route::-webkit-scrollbar-thumb {
-  border: 2px solid transparent;
+::-webkit-scrollbar-thumb {
   border-radius: var(--radius-full);
-  background-color: color-mix(in srgb, var(--color-main-primary) 72%, transparent);
-  background-clip: content-box;
+  background-color: color-mix(in srgb, var(--color-main-primary) 72%, var(--color-main-background));
 }
 
-html.shop-route::-webkit-scrollbar-thumb:hover {
+::-webkit-scrollbar-thumb:hover {
   background-color: var(--color-main-primary);
 }
 
@@ -35,10 +37,12 @@ html.shop-route::-webkit-scrollbar-thumb:hover {
    cross-fades and normal hover transitions are untouched the rest of the time.
    Unlayered + !important so it overrides each component's own `transition` (many omit
    `color`, which is what made some text snap/flicker instead of fading). */
-.theme-anim,
-.theme-anim *,
-.theme-anim *::before,
-.theme-anim *::after {
+/* The <html> element itself is deliberately excluded: it owns the document scrollbar,
+   and animating its colors makes Chrome repaint the custom scrollbar every frame (flicker). */
+.theme-anim body,
+.theme-anim body *,
+.theme-anim body *::before,
+.theme-anim body *::after {
   transition:
     background-color 220ms ease,
     border-color 220ms ease,
@@ -47,10 +51,10 @@ html.shop-route::-webkit-scrollbar-thumb:hover {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .theme-anim,
-  .theme-anim *,
-  .theme-anim *::before,
-  .theme-anim *::after {
+  .theme-anim body,
+  .theme-anim body *,
+  .theme-anim body *::before,
+  .theme-anim body *::after {
     transition: none !important;
   }
 }

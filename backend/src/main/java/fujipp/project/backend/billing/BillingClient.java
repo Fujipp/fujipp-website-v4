@@ -46,6 +46,12 @@ public class BillingClient {
         java.util.UUID renewPlanId
     ) {}
 
+    /** A feature subscription (typed) — used to find which bot a sub is assigned to. */
+    public record FeatureSubView(
+        java.util.UUID id,
+        String externalSubjectId
+    ) {}
+
     /** Money-side dashboard metrics from billing-service. */
     public record AdminMetrics(
         long topupRevenueSatang30d,
@@ -214,6 +220,29 @@ public class BillingClient {
             .header("X-User-Id", userId.toString())
             .retrieve()
             .onStatus(HttpStatusCode::isError, (req, res) -> raise(res.getStatusCode()))
+            .body(String.class);
+    }
+
+    /** Typed list of the user's feature subscriptions — for finding a sub's current bot. */
+    public java.util.List<FeatureSubView> featureSubs(UUID userId) {
+        FeatureSubView[] arr = http.get().uri("/api/billing/subscriptions/features")
+            .header("X-Service-Token", serviceToken)
+            .header("X-User-Id", userId.toString())
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raise(res.getStatusCode()))
+            .body(FeatureSubView[].class);
+        return arr == null ? java.util.List.of() : java.util.Arrays.asList(arr);
+    }
+
+    /** Assign / move / unassign a feature subscription. Surfaces billing's reason on failure. */
+    public String assignFeatureSubscription(UUID userId, UUID id, String body) {
+        return http.post().uri("/api/billing/subscriptions/features/{id}/assign", id)
+            .header("X-Service-Token", serviceToken)
+            .header("X-User-Id", userId.toString())
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(body)
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raiseWithReason(res))
             .body(String.class);
     }
 

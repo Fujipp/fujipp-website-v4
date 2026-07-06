@@ -1,3 +1,5 @@
+import { icons } from "./icons";
+
 export type ThemeMode = "LIGHT" | "DARK" | "SYSTEM";
 
 export interface ThemeApp {
@@ -6,7 +8,7 @@ export interface ThemeApp {
 }
 
 export const ThemeApp = [
-  { mode: "LIGHT", src: "/images/icons/navbar/theme/light.svg" },
-  { mode: "DARK", src: "/images/icons/navbar/theme/dark.svg" },
-  { mode: "SYSTEM", src: "/images/icons/navbar/theme/system.svg" },
+  { mode: "LIGHT", src: icons.modeLight },
+  { mode: "DARK", src: icons.modeDark },
+  { mode: "SYSTEM", src: icons.modeSystem },
 ] satisfies readonly ThemeApp[];

@@ -24,7 +24,7 @@ const emit = defineEmits<{
     <article :class="$style.blogCard">
         <header :class="$style.cardHeader">
             <h3 :class="$style.heading">{{ heading }}</h3>
-            <ActionButton variant="delete" aria-label="Delete blog item" @click="emit('delete')" />
+            <ActionButton action="delete" aria-label="Delete blog item" @click="emit('delete')" />
         </header>
         <label :class="$style.fieldGroup">
             <span :class="$style.label">Title</span>

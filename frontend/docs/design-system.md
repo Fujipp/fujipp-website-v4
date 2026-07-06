@@ -21,6 +21,8 @@ When an AI can access Figma, it should inspect the relevant component or frame b
 | Spacing and container tokens | `src/styles/tokens/spacing.css` |
 | Corner radius tokens | `src/styles/tokens/radius.css` |
 | Icon sizing tokens | `src/styles/tokens/icons.css` |
+| Icon assets | `public/icons/` |
+| Brand assets | `public/brand/` |
 | Shared element defaults | `src/styles/base.css` |
 | Local Inter assets and license | `public/fonts/inter/` |
 | Local Sora assets and license | `public/fonts/sora/` |
@@ -65,43 +67,22 @@ The primary English font family is **Inter**. **Sora** is also hosted locally fo
 
 Fonts are hosted locally and must not be replaced with a CDN or runtime font import. The typography scale supports Regular (`400`), Semibold (`600`), and Extrabold (`800`).
 
-| Figma Style | CSS Utility | Font Size | Weight |
-| --- | --- | ---: | ---: |
-| `Text Regular/h1-page-title-r` | `type-h1-page-title-r` | 32px | 400 |
-| `Text Regular/h2-section-title-r` | `type-h2-section-title-r` | 28px | 400 |
-| `Text Regular/h3-card-title-r` | `type-h3-card-title-r` | 24px | 400 |
-| `Text Regular/subtitle-r` | `type-subtitle-r` | 22px | 400 |
-| `Text Regular/body-main-r` | `type-body-main-r` | 20px | 400 |
-| `Text Regular/body-small-r` | `type-body-small-r` | 18px | 400 |
-| `Text Regular/caption-r` | `type-caption-r` | 16px | 400 |
-| `Text Regular/overline-r` | `type-overline-r` | 14px | 400 |
-| `Text Regular/button-r` | `type-button-r` | 16px | 400 |
-| `Text Regular/input-label-r` | `type-input-label-r` | 14px | 400 |
-| `Text Regular/handling-r` | `type-handling-r` | 14px | 400 |
-| `Text Semibold/h1-page-title-sb` | `type-h1-page-title-sb` | 32px | 600 |
-| `Text Semibold/h2-section-title-sb` | `type-h2-section-title-sb` | 28px | 600 |
-| `Text Semibold/h3-card-title-sb` | `type-h3-card-title-sb` | 24px | 600 |
-| `Text Semibold/subtitle-sb` | `type-subtitle-sb` | 22px | 600 |
-| `Text Semibold/body-main-sb` | `type-body-main-sb` | 20px | 600 |
-| `Text Semibold/body-small-sb` | `type-body-small-sb` | 18px | 600 |
-| `Text Semibold/caption-sb` | `type-caption-sb` | 16px | 600 |
-| `Text Semibold/overline-sb` | `type-overline-sb` | 14px | 600 |
-| `Text Semibold/button-sb` | `type-button-sb` | 16px | 600 |
-| `Text Semibold/input-label-sb` | `type-input-label-sb` | 14px | 600 |
-| `Text Semibold/handling-sb` | `type-handling-sb` | 14px | 600 |
-| `Text Extrabold/h1-page-title-eb` | `type-h1-page-title-eb` | 32px | 800 |
-| `Text Extrabold/h2-section-title-eb` | `type-h2-section-title-eb` | 28px | 800 |
-| `Text Extrabold/h3-card-title-eb` | `type-h3-card-title-eb` | 24px | 800 |
-| `Text Extrabold/subtitle-eb` | `type-subtitle-eb` | 22px | 800 |
-| `Text Extrabold/body-main-eb` | `type-body-main-eb` | 20px | 800 |
-| `Text Extrabold/body-small-eb` | `type-body-small-eb` | 18px | 800 |
-| `Text Extrabold/caption-eb` | `type-caption-eb` | 16px | 800 |
-| `Text Extrabold/overline-eb` | `type-overline-eb` | 14px | 800 |
-| `Text Extrabold/button-eb` | `type-button-eb` | 16px | 800 |
-| `Text Extrabold/input-label-eb` | `type-input-label-eb` | 14px | 800 |
-| `Text Extrabold/handling-eb` | `type-handling-eb` | 14px | 800 |
+| Style | Utility pattern | Desktop/iPad | Mobile | Weights |
+| --- | --- | ---: | ---: | --- |
+| `h1-page-title` | `type-h1-page-title-{weight}` | 32px | 26px | `r` 400 · `sb` 600 · `eb` 800 |
+| `h2-section-title` | `type-h2-section-title-{weight}` | 28px | 22px | `r` 400 · `sb` 600 · `eb` 800 |
+| `h3-card-title` | `type-h3-card-title-{weight}` | 24px | 20px | `r` 400 · `sb` 600 · `eb` 800 |
+| `subtitle` | `type-subtitle-{weight}` | 22px | 18px | `r` 400 · `sb` 600 · `eb` 800 |
+| `body-main` | `type-body-main-{weight}` | 20px | 16px | `r` 400 · `sb` 600 · `eb` 800 |
+| `body-small` | `type-body-small-{weight}` | 18px | 14px | `r` 400 · `sb` 600 · `eb` 800 |
+| `caption` | `type-caption-{weight}` | 16px | 12px | `r` 400 · `sb` 600 · `eb` 800 |
+| `overline` | `type-overline-{weight}` | 14px | 10px | `r` 400 · `sb` 600 · `eb` 800 |
+| `button` | `type-button-{weight}` | 16px | 12px | `r` 400 · `sb` 600 · `eb` 800 |
+| `input-label` | `type-input-label-{weight}` | 14px | 10px | `r` 400 · `sb` 600 · `eb` 800 |
+| `handling` | `type-handling-{weight}` | 14px | 10px | `r` 400 · `sb` 600 · `eb` 800 |
+| `support` | `type-support-{weight}` | 10px | 8px | `r` 400 · `sb` 600 · `eb` 800 |
 
-Figma currently sets line height to `Auto` and letter spacing to `0`; the CSS utility mapping uses `line-height: normal` and `letter-spacing: 0`.
+Mobile sizes are the default. Desktop/iPad sizes apply from `768px` upward. Figma currently sets line height to `Auto` and letter spacing to `0`; the CSS utility mapping uses `line-height: normal` and `letter-spacing: 0`.
 
 ## Spacing
 
@@ -143,6 +124,24 @@ Larger spacing tokens (`space/40` through `space/132`) are defined in the token 
 | `radius/full` | `rounded-full` | 9999px |
 
 ## Icon Sizes
+
+SVG icons live under `public/icons/`, separate from brand assets under `public/brand/` and content images under `public/images/`.
+This library is the source for the UI rewrite, not a compatibility layer for older component paths. The icon source package is normalized into lowercase kebab-case names and semantic folders:
+Application code should import icon paths from `src/config/icons.ts` (`icons.add`, `icons.stack.frontend.vuejs`, etc.) instead of hardcoding public paths. Monochrome icons use `--color-text-primary`; icons with their own non-black colors keep their original SVG colors.
+
+```text
+/icons/action/add.svg
+/icons/common/image.svg
+/icons/input/eye-close.svg
+/icons/link/github.svg
+/icons/navigation/home.svg
+/icons/navigation/theme/mode-dark.svg
+/icons/shop/renew.svg
+/icons/stack/frontend/vuejs.svg
+/brand/fujipp-logo.svg
+```
+
+Stack icons use `/icons/stack/{category}/{name}.svg`, where category is one of `ai`, `backend`, `database`, `devops`, `frontend`, `language`, `media`, `service`, `tool`, or `ux-ui`.
 
 | Figma Token | Utility | Value |
 | --- | --- | ---: |

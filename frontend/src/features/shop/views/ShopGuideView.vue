@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref } from "vue";
-import { ShopSidebar } from "@/features/shop/components";
 
 const isSidebarOpen = ref(typeof window === "undefined" ? true : window.innerWidth > 760);
 
@@ -68,7 +67,6 @@ const troubleshooting = [
 
 <template>
     <div :class="$style.shopGuide">
-        <ShopSidebar v-model="isSidebarOpen" />
 
         <main :class="[$style.content, isSidebarOpen ? $style.sidebarOpen : $style.sidebarClosed]">
             <section :class="$style.titleSection" aria-labelledby="shop-guide-title">

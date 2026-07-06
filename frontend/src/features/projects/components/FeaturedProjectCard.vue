@@ -3,10 +3,9 @@ import { computed, ref, watch } from "vue";
 import type { RouteLocationRaw } from "vue-router";
 import { backend, database, frontend, type ProjectTechStack, type Skills } from "@/config";
 import { ActionButton, SecondaryButton } from "@/shared/ui/buttons";
-import { CategoryTag } from "@/shared/ui/tags";
+import { CategoryTag, StackTag } from "@/shared/ui/tags";
 
 type StackGroup = "frontend" | "backend" | "database";
-type StackIconGroup = StackGroup;
 
 interface Props {
     addLabel?: string;
@@ -43,26 +42,28 @@ const emit = defineEmits<{
 
 const isThumbnailLoaded = ref(false);
 const hasThumbnail = computed(() => props.thumbnailSrc.trim().length > 0);
-const visibleStackGroups = computed(() => props.stackGroups.slice(0, 3));
-const stackCatalog: Record<StackIconGroup, readonly Skills[]> = {
+const stackCatalog: Record<StackGroup, readonly Skills[]> = {
     frontend,
     backend,
     database,
 };
 
-const featuredStackIcons = computed(() => visibleStackGroups.value.map((group) => {
-    const stackName = props.techStack?.[group]?.[0];
-    const matchedStack = stackName
-        ? stackCatalog[group].find((item) => item.label === stackName)
-        : undefined;
-    const fallbackStack = stackCatalog[group][0];
+const featuredStacks = computed(() => {
+    const stacks: Partial<Record<StackGroup, Skills>> = {};
 
-    return {
-        group,
-        icon: matchedStack?.icon ?? fallbackStack?.icon ?? "",
-        label: matchedStack?.label ?? fallbackStack?.label ?? group,
-    };
-}));
+    for (const group of props.stackGroups.slice(0, 3)) {
+        const stackName = props.techStack?.[group]?.[0];
+        const matchedStack = stackName
+            ? stackCatalog[group].find((item) => item.label === stackName)
+            : undefined;
+
+        if (matchedStack) {
+            stacks[group] = matchedStack;
+        }
+    }
+
+    return stacks;
+});
 
 watch(
     () => props.thumbnailSrc,
@@ -76,26 +77,25 @@ watch(
     <article
         :class="[
             $style.projectFeatured,
-            mode === 'skeleton' ? $style.skeletonCard : '',
             mode === 'add' ? $style.addCard : '',
         ]"
     >
         <template v-if="mode === 'skeleton'">
             <div :class="[$style.thumbnail, $style.skeletonBlock]" />
             <div :class="$style.meta">
-                <div :class="[$style.skeletonTag, $style.skeletonBlock]" />
-                <div :class="[$style.skeletonTag, $style.skeletonBlock]" />
+                <CategoryTag loading />
+                <StackTag loading />
             </div>
-            <div :class="$style.content">
-                <div :class="[$style.skeletonTitle, $style.skeletonBlock]" />
-                <div :class="[$style.skeletonDescription, $style.skeletonBlock]" />
+            <div :class="[$style.skeletonTitle, $style.skeletonBlock]" />
+            <div :class="[$style.skeletonDescription, $style.skeletonBlock]" />
+            <div :class="$style.actions">
+                <div :class="[$style.skeletonButton, $style.skeletonBlock]" />
             </div>
-            <div :class="[$style.skeletonButton, $style.skeletonBlock]" />
         </template>
 
         <template v-else-if="mode === 'add'">
             <ActionButton
-                variant="add"
+                action="add"
                 :aria-label="addLabel"
                 @click="emit('change')"
             />
@@ -121,42 +121,23 @@ watch(
 
             <div :class="$style.meta">
                 <CategoryTag :label="category" />
-                <div :class="$style.stackTag" aria-label="Featured project stack">
-                    <span
-                        v-for="item in featuredStackIcons"
-                        :key="item.group"
-                        :class="$style.stackIconWrap"
-                        :title="item.label"
-                        tabindex="0"
-                    >
-                        <img
-                            :class="$style.stackIcon"
-                            :src="item.icon"
-                            :alt="item.label"
-                            draggable="false"
-                        >
-                        <span :class="$style.stackTooltip" role="tooltip">{{ item.label }}</span>
-                    </span>
-                </div>
+                <StackTag :stacks="featuredStacks" />
             </div>
 
-            <div :class="$style.content">
-                <h3 :class="$style.title">{{ projectName }}</h3>
-                <p :class="$style.description">{{ descriptionShort }}</p>
-            </div>
+            <h3 :class="$style.title">{{ projectName }}</h3>
+            <p :class="$style.description">{{ descriptionShort }}</p>
 
             <div :class="$style.actions">
                 <SecondaryButton :class="$style.actionButton" :to="to">
                     {{ viewLabel }}
                 </SecondaryButton>
-                <button
+                <SecondaryButton
                     v-if="admin"
-                    :class="$style.changeButton"
-                    type="button"
+                    :class="$style.actionButton"
                     @click="emit('change')"
                 >
                     {{ changeLabel }}
-                </button>
+                </SecondaryButton>
             </div>
         </template>
     </article>
@@ -164,21 +145,19 @@ watch(
 
 <style module>
 .projectFeatured {
-    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: flex-start;
     box-sizing: border-box;
     width: min(100%, 380px);
-    height: 450px;
-    padding: 20px;
-    gap: 10px;
+    height: 416px;
+    padding: 12px 16px;
+    gap: 8px;
     overflow: hidden;
-    border: 2px solid var(--projects-card-border, var(--color-main-border));
+    border: 1px solid var(--color-main-divider);
     border-radius: var(--radius-xl);
-    background-color: var(--projects-card-bg, var(--color-main-surface));
-    color: var(--projects-card-text, var(--color-text-secondary));
+    background-color: var(--color-main-background);
+    color: var(--color-text-primary);
     font-family: var(--font-sans);
     text-align: left;
     transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease;
@@ -187,12 +166,11 @@ watch(
 .thumbnail {
     position: relative;
     align-self: stretch;
-    width: 100%;
-    height: 185px;
+    height: 160px;
     flex-shrink: 0;
     overflow: hidden;
-    border-radius: 16px;
-    background-color: var(--projects-card-inset-bg, var(--color-button-primary-btn-text-active));
+    border-radius: var(--radius-xl);
+    background-color: var(--color-main-secondary);
     transition: background-color 300ms ease;
 }
 
@@ -205,7 +183,7 @@ watch(
 }
 
 .thumbnailImage {
-    object-fit: contain;
+    object-fit: cover;
     opacity: 0;
     transition: opacity 180ms ease;
     user-select: none;
@@ -219,121 +197,34 @@ watch(
 .meta {
     display: flex;
     align-items: flex-start;
-    justify-content: center;
-    max-width: 100%;
-    gap: 20px;
-}
-
-.stackTag {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    box-sizing: border-box;
-    min-width: 112px;
-    height: 44px;
-    padding: 10px 18px;
-    gap: 10px;
-    overflow: visible;
-    border: 1px solid var(--projects-card-border, var(--color-main-border));
-    border-radius: var(--radius-full);
-    background-color: var(--projects-card-bg, var(--color-main-surface));
-    transition: background-color 300ms ease, border-color 300ms ease;
-}
-
-.stackIconWrap {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    border-radius: var(--radius-base);
-}
-
-.stackIconWrap:focus-visible {
-    outline: 2px solid var(--color-main-primary);
-    outline-offset: 2px;
-}
-
-.stackIcon {
-    width: 24px;
-    height: 24px;
-    object-fit: contain;
-    user-select: none;
-    -webkit-user-drag: none;
-}
-
-.stackTooltip {
-    position: absolute;
-    z-index: 2;
-    bottom: calc(100% + 10px);
-    left: 50%;
-    padding: 5px 8px;
-    border: 1px solid var(--projects-card-border, var(--color-main-divider));
-    border-radius: var(--radius-lg);
-    background-color: var(--projects-card-bg, var(--color-main-surface));
-    color: var(--projects-card-text, var(--color-text-secondary));
-    font-family: var(--font-sans);
-    font-size: 0.75rem;
-    font-weight: 300;
-    line-height: 1;
-    white-space: nowrap;
-    opacity: 0;
-    pointer-events: none;
-    transform: translate(-50%, 4px);
-    transition: opacity 120ms ease, transform 120ms ease;
-}
-
-.stackTooltip::after {
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    width: 8px;
-    height: 8px;
-    border-right: 1px solid var(--projects-card-border, var(--color-main-divider));
-    border-bottom: 1px solid var(--projects-card-border, var(--color-main-divider));
-    background-color: var(--projects-card-bg, var(--color-main-surface));
-    content: "";
-    transform: translate(-50%, -4px) rotate(45deg);
-}
-
-.stackIconWrap:hover .stackTooltip,
-.stackIconWrap:focus-visible .stackTooltip {
-    opacity: 1;
-    transform: translate(-50%, 0);
-}
-
-.content {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    justify-content: space-between;
     align-self: stretch;
-    min-height: 0;
-    min-width: 0;
-    gap: 4px;
+    flex-wrap: wrap;
+    gap: 12px 20px;
 }
 
 .title {
     align-self: stretch;
     margin: 0;
-    color: var(--projects-card-text, var(--color-text-secondary));
-    font-size: 1.25rem;
+    color: var(--color-text-primary);
+    font-size: var(--type-size-h3-card-title);
     font-weight: 600;
     line-height: normal;
-    letter-spacing: 0;
 }
 
 .description {
     align-self: stretch;
     display: -webkit-box;
+    height: 72px;
+    flex-shrink: 0;
     margin: 0;
     overflow: hidden;
-    color: var(--projects-card-muted, var(--color-text-secondary));
-    font-size: 1.125rem;
+    color: var(--color-text-secondary);
+    font-size: var(--type-size-body-main);
     font-weight: 300;
     line-height: 1.2;
-    letter-spacing: 0;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 4;
+    -webkit-line-clamp: 3;
 }
 
 .actions {
@@ -345,44 +236,8 @@ watch(
     gap: 10px;
 }
 
-.actionButton,
-.changeButton {
+.actionButton {
     width: 160px;
-    height: 48px;
-}
-
-.changeButton {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    box-sizing: border-box;
-    flex-shrink: 0;
-    padding: 12px 16px;
-    border: 1.5px solid var(--color-main-secondary);
-    border-radius: 12px;
-    background-color: var(--color-main-secondary);
-    color: var(--color-text-secondary);
-    font-family: var(--font-sans);
-    font-size: 1rem;
-    font-weight: 300;
-    line-height: normal;
-    cursor: pointer;
-    transition: background-color 160ms ease, border-color 160ms ease;
-}
-
-.changeButton:hover {
-    border-color: var(--color-button-secondary-btn-hover);
-    background-color: var(--color-button-secondary-btn-hover);
-}
-
-.changeButton:active {
-    border-color: var(--color-button-secondary-btn-active);
-    background-color: var(--color-button-secondary-btn-active);
-}
-
-.changeButton:focus-visible {
-    outline: 2px solid var(--color-main-primary);
-    outline-offset: 2px;
 }
 
 .addCard {
@@ -390,27 +245,16 @@ watch(
     justify-content: center;
 }
 
-.skeletonCard {
-    pointer-events: none;
-}
-
 .skeletonBlock {
     border: 0;
-    background: linear-gradient(
-        105deg,
-        rgb(255 255 255 / 15%) 0%,
-        rgb(255 255 255 / 5%) 38%,
-        rgb(21 21 21 / 20%) 74%,
-        rgb(255 255 255 / 12%) 100%
-    );
-    background-size: 220% 100%;
-    animation: skeleton-shimmer 1.4s ease-in-out infinite;
-}
-
-.skeletonTag {
-    width: 112px;
-    height: 44px;
-    border-radius: 20px;
+    background:
+        linear-gradient(
+            262.31deg,
+            var(--color-button-primary) 0%,
+            var(--color-main-surface) 100%
+        );
+    background-size: 180% 100%;
+    animation: featuredSkeletonShimmer 1.4s ease-in-out infinite alternate;
 }
 
 .skeletonTitle {
@@ -421,29 +265,23 @@ watch(
 
 .skeletonDescription {
     align-self: stretch;
-    height: 81px;
+    height: 72px;
     border-radius: var(--radius-base);
 }
 
 .skeletonButton {
     width: 160px;
     height: 48px;
-    border-radius: 12px;
+    border-radius: var(--radius-xl);
 }
 
-@keyframes skeleton-shimmer {
+@keyframes featuredSkeletonShimmer {
     from {
-        background-position: 120% 0;
+        background-position: 0% 50%;
     }
 
     to {
-        background-position: -120% 0;
-    }
-}
-
-@media (min-width: 768px) and (max-width: 1023px) {
-    .projectFeatured {
-        width: min(100%, 350px);
+        background-position: 100% 50%;
     }
 }
 
@@ -452,8 +290,7 @@ watch(
         width: min(100%, 350px);
     }
 
-    .actionButton,
-    .changeButton {
+    .actionButton {
         width: 145px;
     }
 }

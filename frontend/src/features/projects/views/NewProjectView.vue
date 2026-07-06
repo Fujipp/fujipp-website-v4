@@ -1,22 +1,15 @@
 <script setup lang="ts">
 import { computed, onUnmounted, reactive, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { storeToRefs } from "pinia";
 import { AppFooter } from "@/shared/layout";
-import {
-    ActionButton,
-    HeaderSection,
-    LanguageButton,
-    SecondaryButton,
-    StatusToast,
-    TextField,
-    TextareaField,
-    SelectField,
-} from "@/shared/ui";
-import { backend, database, devops, frontend, language, externalService } from "@/config";
+import { ActionButton, LanguageToggleButton, PrimaryButton } from "@/shared/ui/buttons";
+import { SelectField, TextareaField, TextField } from "@/shared/ui/fields";
+import { backend, database, devops, frontend, language, externalService, getIconColorMode, icons, ThemeApp } from "@/config";
 import type { ProjectLocale, ProjectLocalizedContent, ProjectRecord } from "@/config";
-import { ProjectBlogEditorCard, ProjectOverviewCard, ProjectTimelineEditorCard } from "@/features/projects/components";
 import { useProjectStore } from "@/features/projects/stores";
 import type { ProjectPayload } from "@/features/projects/stores";
+import { useThemeStore, useToastStore } from "@/stores";
 
 interface LocalizedForm {
     challenges: StructuredItem[];
@@ -61,13 +54,35 @@ const architectureImage = ref("");
 const architectureFile = ref<File | null>(null);
 const certificateFile = ref<File | null>(null);
 const objectUrls = new Set<string>();
-const toast = ref<{ description: string; status: ToastStatus; title: string } | null>(null);
+const toastStore = useToastStore();
 const isSubmitting = ref(false);
-let toastTimeout: ReturnType<typeof setTimeout> | undefined;
 const editingProjectId = computed(() => (
     typeof route.params.projectId === "string" ? route.params.projectId : ""
 ));
 const isEditing = computed(() => Boolean(editingProjectId.value));
+
+const themeStore = useThemeStore();
+const { selectedTheme } = storeToRefs(themeStore);
+const currentThemeIcon = computed(() => (
+    ThemeApp.find((theme) => theme.mode === selectedTheme.value)?.src ?? icons.modeSystem
+));
+
+function cycleTheme(): void {
+    const index = ThemeApp.findIndex((theme) => theme.mode === selectedTheme.value);
+    const next = ThemeApp[(index + 1) % ThemeApp.length]!;
+
+    themeStore.setTheme(next.mode);
+}
+
+/* Icon-only Back on mobile: drop the label slot so PrimaryButton renders square. */
+const mobileQuery = typeof window !== "undefined" ? window.matchMedia("(max-width: 767px)") : null;
+const isMobile = ref(mobileQuery?.matches ?? false);
+
+function handleMobileChange(event: MediaQueryListEvent): void {
+    isMobile.value = event.matches;
+}
+
+mobileQuery?.addEventListener("change", handleMobileChange);
 
 const categories = [
     "Client Project",
@@ -82,15 +97,15 @@ const categories = [
 
 const statuses = ["Active", "Completed", "In Progress", "Archived"].map((value) => ({ label: value, value }));
 const roleOptions = [
-    "Full Stack Developer",
-    "Frontend Developer",
-    "Backend Developer",
-    "UI/UX Designer",
-    "Database Design",
-    "System Architecture",
-    "DevOps",
+    "Full Stack Engineer",
+    "Frontend Engineer",
+    "Backend Engineer",
+    "UI/UX Specialist",
+    "Database Architect",
+    "System Architect",
+    "DevOps Engineer",
     "Project Manager",
-    "QA / Tester",
+    "Quality Assurance Engineer",
 ]
     .map((value) => ({ label: value, value }));
 
@@ -170,22 +185,13 @@ watch(
 const activeContent = computed(() => form.content[locale.value]);
 
 const techStackGroups: readonly TechStackGroup[] = [
-    { key: "language", label: "LANGUAGE", options: language.slice(1) },
-    { key: "frontend", label: "FRONTEND", options: frontend.slice(1) },
-    { key: "backend", label: "BACKEND", options: backend.slice(1) },
-    { key: "database", label: "DATABASE", options: database.slice(1) },
-    { key: "externalService", label: "EXTERNAL SERVICE", options: externalService.slice(1) },
-    { key: "devops", label: "DEVOPS", options: devops.slice(1) },
+    { key: "language", label: "Language", options: language.slice(1) },
+    { key: "frontend", label: "Frontend", options: frontend.slice(1) },
+    { key: "backend", label: "Backend", options: backend.slice(1) },
+    { key: "database", label: "Database", options: database.slice(1) },
+    { key: "externalService", label: "External Service", options: externalService.slice(1) },
+    { key: "devops", label: "DevOps", options: devops.slice(1) },
 ];
-
-const overviewMetrics = computed(() => [
-    { label: "My Role", value: form.roles.length },
-    { label: "Challenge Areas", value: countStructuredItems(activeContent.value.challenges) },
-    {
-        label: "Stack Group",
-        value: Object.values(form.techStack).filter((items) => items.length > 0).length,
-    },
-]);
 
 const availableRoleOptions = computed(() => (
     roleOptions.filter((option) => !form.roles.includes(option.value))
@@ -199,6 +205,23 @@ function addRole(value: string): void {
 
 function removeRole(role: string): void {
     form.roles = form.roles.filter((item) => item !== role);
+}
+
+function addFeature(): void {
+    if (activeContent.value.features.length < 8) {
+        activeContent.value.features.push("");
+    }
+}
+
+function removeFeature(index: number): void {
+    const features = activeContent.value.features;
+
+    if (features.length === 1) {
+        features[0] = "";
+        return;
+    }
+
+    features.splice(index, 1);
 }
 
 function addStructuredItem(items: StructuredItem[], maxItems = 8): void {
@@ -216,35 +239,20 @@ function removeStructuredItem(items: StructuredItem[], index: number): void {
     items.splice(index, 1);
 }
 
-function addTimelineMilestone(): void {
-    if (form.timeline.milestones.length < 6) {
-        form.timeline.milestones.push(emptyTimelineMilestone());
-    }
-}
-
-function removeTimelineMilestone(index: number): void {
-    if (form.timeline.milestones.length === 1) {
-        form.timeline.milestones[0] = emptyTimelineMilestone();
-        return;
-    }
-
-    form.timeline.milestones.splice(index, 1);
-}
-
-function updateTimelineMilestone(index: number, key: keyof TimelineMilestone, value: string): void {
-    const milestone = form.timeline.milestones[index];
-
-    if (milestone) {
-        milestone[key] = value;
-    }
-}
-
 function countStructuredItems(items: StructuredItem[]): number {
     return items.filter((item) => item.title.trim() || item.content.trim()).length;
 }
 
 function getStackIcon(group: TechStackGroup, label: string): string {
     return group.options.find((option) => option.label === label)?.icon ?? "";
+}
+
+function isOriginalColorIcon(icon: string): boolean {
+    return getIconColorMode(icon) === "original";
+}
+
+function iconMaskStyle(icon: string): Record<string, string> {
+    return { "--stack-icon-src": `url(${icon})` };
 }
 
 function getAvailableStackOptions(group: TechStackGroup): { label: string; value: string }[] {
@@ -282,6 +290,37 @@ function updatePreview(event: Event, target: "architecture" | number): void {
 
     gallery.value[target] = previewUrl;
     galleryFiles.value[target] = file;
+}
+
+function removeGalleryImage(index: number): void {
+    gallery.value[index] = "";
+    galleryFiles.value[index] = null;
+
+    const input = document.getElementById(`gallery-image-${index}`) as HTMLInputElement | null;
+    if (input) {
+        input.value = "";
+    }
+}
+
+function moveGalleryImage(index: number, direction: -1 | 1): void {
+    const target = index + direction;
+
+    if (target < 0 || target >= gallery.value.length) {
+        return;
+    }
+
+    [gallery.value[index], gallery.value[target]] = [gallery.value[target]!, gallery.value[index]!];
+    [galleryFiles.value[index], galleryFiles.value[target]] = [galleryFiles.value[target]!, galleryFiles.value[index]!];
+}
+
+function removeArchitectureImage(): void {
+    architectureImage.value = "";
+    architectureFile.value = null;
+
+    const input = document.getElementById("architecture-image") as HTMLInputElement | null;
+    if (input) {
+        input.value = "";
+    }
 }
 
 function updateCertificate(event: Event): void {
@@ -334,8 +373,6 @@ async function handleSubmit(): Promise<void> {
     if (isSubmitting.value) {
         return;
     }
-
-    closeToast();
 
     try {
         const slug = createSlug(form.content.en.projectName || form.content.th.projectName);
@@ -414,18 +451,7 @@ async function handleSubmit(): Promise<void> {
 }
 
 function showToast(title: string, description: string, status: ToastStatus): void {
-    closeToast();
-    toast.value = { description, status, title };
-    toastTimeout = setTimeout(closeToast, status === "success" ? 2400 : 5000);
-}
-
-function closeToast(): void {
-    if (toastTimeout) {
-        clearTimeout(toastTimeout);
-        toastTimeout = undefined;
-    }
-
-    toast.value = null;
+    toastStore.show(title, description, status);
 }
 
 function createPayload(slug: string, galleryUrls: string[], architectureUrl: string, certificateUrl: string): ProjectPayload {
@@ -581,7 +607,9 @@ function createEditableLocalizedContent(content: ProjectLocalizedContent): Local
         challenges: content.challenges.length
             ? content.challenges.map((item) => ({ ...item }))
             : [emptyStructuredItem()],
-        features: Array.from({ length: 8 }, (_, index) => content.features[index] ?? ""),
+        features: content.features.length
+            ? content.features.map((feature) => feature)
+            : [""],
         whatILearned: content.whatILearned.length
             ? content.whatILearned.map((item) => ({ ...item }))
             : [emptyStructuredItem()],
@@ -589,464 +617,420 @@ function createEditableLocalizedContent(content: ProjectLocalizedContent): Local
 }
 
 onUnmounted(() => {
-    closeToast();
+    mobileQuery?.removeEventListener("change", handleMobileChange);
     objectUrls.forEach((url) => URL.revokeObjectURL(url));
 });
 </script>
 
 <template>
-    <main :class="$style.newProject" class="pt-22">
-        <div v-if="toast" :class="$style.toastViewport">
-            <StatusToast
-                :title="toast.title"
-                :description="toast.description"
-                :status="toast.status"
-                @close="closeToast"
-            />
-        </div>
-        <form :class="$style.pageContainer" @submit.prevent="handleSubmit">
-            <HeaderSection :title="isEditing ? 'Edit Project' : 'New Project'" />
+    <main :class="$style.newProject">
+            <form :class="$style.pageContainer" @submit.prevent="handleSubmit">
+            <div :class="$style.section">
+                <div :class="$style.headRow">
+                    <h1 :class="$style.pageTitle">{{ isEditing ? "EDIT PROJECT" : "NEW PROJECT" }}</h1>
+                    <div :class="$style.headActions">
+                        <LanguageToggleButton v-model="locale" />
+                        <PrimaryButton
+                            width-mode="hug"
+                            :leading-icon="currentThemeIcon"
+                            :aria-label="`Theme: ${selectedTheme.toLowerCase()} — switch theme`"
+                            @click="cycleTheme"
+                        />
+                        <PrimaryButton
+                            v-if="isMobile"
+                            width-mode="hug"
+                            :leading-icon="icons.arrowBack"
+                            to="/projects"
+                            aria-label="Back to projects"
+                        />
+                        <PrimaryButton
+                            v-else
+                            width-mode="hug"
+                            :leading-icon="icons.arrowBack"
+                            to="/projects"
+                        >
+                            Back to projects
+                        </PrimaryButton>
+                    </div>
+                </div>
 
-            <nav :class="$style.detailNav" aria-label="New project navigation">
-                <RouterLink to="/projects" :class="$style.projectsLink" class="type-button-r">
-                    Projects
-                </RouterLink>
-                <LanguageButton v-model="locale" />
-            </nav>
-
-            <section :class="$style.basicSelectors" aria-label="Project classification">
-                <SelectField v-model="form.category" label="Category" :options="categories" />
-                <SelectField v-model="form.status" label="Status" :options="statuses" />
-            </section>
-
-            <section :class="$style.gallery" aria-label="Project gallery">
-                <div
-                    :class="[$style.uploadSlot, $style.mainUpload]"
-                    role="button"
-                    tabindex="0"
-                    aria-label="Add main project image"
-                    @click="openFilePicker('gallery-image-0')"
-                    @keydown="openFilePickerOnKeydown($event, 'gallery-image-0')"
-                >
-                    <img v-if="gallery[0]" :class="$style.previewImage" :src="gallery[0]" alt="Main project preview">
-                    <ActionButton
-                        variant="add"
-                        aria-hidden="true"
-                        tabindex="-1"
+                <div :class="$style.fieldRow">
+                    <TextField
+                        v-model="activeContent.projectName"
+                        :class="$style.nameField"
+                        label="Project Name"
+                        placeholder="Placeholder"
                     />
-                    <input id="gallery-image-0" type="file" accept="image/*" @change="updatePreview($event, 0)">
+                    <SelectField
+                        v-model="form.category"
+                        :class="$style.selectField"
+                        label="Category"
+                        placeholder="Placeholder"
+                        :options="categories"
+                    />
+                    <SelectField
+                        v-model="form.status"
+                        :class="$style.selectField"
+                        label="Status"
+                        placeholder="Placeholder"
+                        :options="statuses"
+                    />
+                    <TextareaField
+                        v-model="activeContent.descriptionShort"
+                        :class="$style.shortDescriptionField"
+                        label="Projects Description Short"
+                        placeholder="Placeholder"
+                        :rows="2"
+                    />
                 </div>
-                <div :class="$style.thumbnailGrid">
-                    <div
-                        v-for="index in 4"
-                        :key="index"
-                        :class="[$style.uploadSlot, $style.thumbnailUpload]"
-                        role="button"
-                        tabindex="0"
-                        :aria-label="`Add project thumbnail ${index}`"
-                        @click="openFilePicker(`gallery-image-${index}`)"
-                        @keydown="openFilePickerOnKeydown($event, `gallery-image-${index}`)"
+            </div>
+
+            <section :class="$style.section" aria-label="At a glance">
+                <div :class="$style.sectionHeader">
+                    <h2 :class="$style.sectionTitle">AT A GLANCE</h2>
+                    <span :class="$style.sectionRule" aria-hidden="true" />
+                </div>
+                <div :class="$style.fieldRow">
+                    <TextField
+                        v-model="form.timeline.startDate"
+                        :class="$style.dateField"
+                        label="Start Date"
+                        type="month"
+                    />
+                    <TextField
+                        v-model="form.timeline.endDate"
+                        :class="$style.dateField"
+                        label="End Date"
+                        type="month"
+                    />
+                    <SelectField
+                        :class="$style.positionField"
+                        label="Position"
+                        placeholder="Placeholder"
+                        :options="availableRoleOptions"
+                        @select="addRole"
+                    />
+                </div>
+                <div v-if="form.roles.length" :class="$style.chipRow">
+                    <button
+                        v-for="role in form.roles"
+                        :key="role"
+                        type="button"
+                        :class="$style.roleCard"
+                        :aria-label="`Remove ${role}`"
+                        :title="`Remove ${role}`"
+                        @click="removeRole(role)"
                     >
-                        <img
-                            v-if="gallery[index]"
-                            :class="$style.previewImage"
-                            :src="gallery[index]"
-                            :alt="`Project thumbnail ${index}`"
+                        {{ role }}
+                    </button>
+                </div>
+
+                <div :class="$style.sectionHeader">
+                    <h2 :class="$style.sectionTitle">SUMMARY</h2>
+                    <span :class="$style.sectionRule" aria-hidden="true" />
+                </div>
+                <TextareaField
+                    v-model="activeContent.description"
+                    label="Overview"
+                    placeholder="Placeholder"
+                    :rows="3"
+                />
+                <TextareaField
+                    v-model="activeContent.targetUsers"
+                    label="Target Users"
+                    placeholder="Placeholder"
+                    :rows="3"
+                />
+                <TextareaField
+                    v-model="activeContent.feasibility"
+                    label="Feasibility"
+                    placeholder="Placeholder"
+                    :rows="3"
+                />
+            </section>
+
+            <section :class="$style.section" aria-label="Features">
+                <div :class="$style.sectionHeader">
+                    <h2 :class="$style.sectionTitle">FEATURES</h2>
+                    <span :class="$style.sectionRule" aria-hidden="true" />
+                </div>
+                <div
+                    v-for="(_, index) in activeContent.features"
+                    :key="index"
+                    :class="$style.itemRow"
+                >
+                    <TextField
+                        v-model="activeContent.features[index]"
+                        :class="$style.itemField"
+                        :label="`Feature ${index + 1}`"
+                        placeholder="Enter a description here."
+                    />
+                    <ActionButton
+                        :class="$style.itemDelete"
+                        action="delete"
+                        :aria-label="`Delete feature ${index + 1}`"
+                        @click="removeFeature(index)"
+                    />
+                </div>
+                <ActionButton
+                    v-if="activeContent.features.length < 8"
+                    action="add"
+                    aria-label="Add feature"
+                    @click="addFeature"
+                />
+            </section>
+
+            <section :class="$style.section" aria-label="System architecture">
+                <div :class="$style.sectionHeader">
+                    <h2 :class="$style.sectionTitle">ARCHITECTURE</h2>
+                    <span :class="$style.sectionRule" aria-hidden="true" />
+                </div>
+                <img
+                    v-if="architectureImage"
+                    :class="$style.architecturePreview"
+                    :src="architectureImage"
+                    alt="Architecture preview"
+                >
+                <div :class="$style.architectureActions">
+                    <PrimaryButton
+                        width-mode="hug"
+                        :leading-icon="icons.upload"
+                        @click="openFilePicker('architecture-image')"
+                    >
+                        Upload File
+                    </PrimaryButton>
+                    <PrimaryButton
+                        v-if="architectureImage"
+                        width-mode="hug"
+                        @click="removeArchitectureImage"
+                    >
+                        Delete
+                    </PrimaryButton>
+                    <input
+                        id="architecture-image"
+                        :class="$style.hiddenInput"
+                        type="file"
+                        accept="image/*"
+                        @change="updatePreview($event, 'architecture')"
+                    >
+                </div>
+
+                <div :class="$style.sectionHeader">
+                    <h2 :class="$style.sectionTitle">STACK</h2>
+                    <span :class="$style.sectionRule" aria-hidden="true" />
+                </div>
+                <template v-for="group in techStackGroups" :key="group.key">
+                    <SelectField
+                        :class="$style.stackSelect"
+                        :label="group.label"
+                        placeholder="Placeholder"
+                        :options="getAvailableStackOptions(group)"
+                        @select="addTechStack($event, group)"
+                    />
+                    <div v-if="form.techStack[group.key].length" :class="$style.stackChips">
+                        <button
+                            v-for="item in form.techStack[group.key]"
+                            :key="item"
+                            type="button"
+                            :class="$style.stackChip"
+                            :aria-label="`Remove ${item}`"
+                            :title="`Remove ${item}`"
+                            @click="removeTechStack(group, item)"
                         >
+                            <img
+                                v-if="getStackIcon(group, item) && isOriginalColorIcon(getStackIcon(group, item))"
+                                :class="$style.stackChipIcon"
+                                :src="getStackIcon(group, item)"
+                                alt=""
+                                aria-hidden="true"
+                            >
+                            <span
+                                v-else-if="getStackIcon(group, item)"
+                                :class="[$style.stackChipIcon, $style.maskIcon]"
+                                :style="iconMaskStyle(getStackIcon(group, item))"
+                                aria-hidden="true"
+                            />
+                            <span>{{ item }}</span>
+                        </button>
+                    </div>
+                </template>
+            </section>
+
+            <section :class="$style.section" aria-label="Preview gallery">
+                <div :class="$style.sectionHeader">
+                    <h2 :class="$style.sectionTitle">PREVIEW</h2>
+                    <span :class="$style.sectionRule" aria-hidden="true" />
+                </div>
+                <div :class="$style.galleryRow">
+                    <div v-for="(_, index) in gallery" :key="index" :class="$style.galleryItem">
+                        <div
+                            :class="$style.gallerySlot"
+                            role="button"
+                            tabindex="0"
+                            :aria-label="gallery[index] ? `Change project image ${index + 1}` : `Add project image ${index + 1}`"
+                            @click="openFilePicker(`gallery-image-${index}`)"
+                            @keydown="openFilePickerOnKeydown($event, `gallery-image-${index}`)"
+                        >
+                            <img
+                                v-if="gallery[index]"
+                                :class="$style.galleryImage"
+                                :src="gallery[index]"
+                                :alt="`Project image ${index + 1}`"
+                            >
+                            <ActionButton v-else action="add" aria-hidden="true" tabindex="-1" />
+                            <input
+                                :id="`gallery-image-${index}`"
+                                :class="$style.hiddenInput"
+                                type="file"
+                                accept="image/*"
+                                @change="updatePreview($event, index)"
+                            >
+                        </div>
+                        <div v-if="gallery[index]" :class="$style.galleryControls">
+                            <ActionButton
+                                action="back"
+                                :aria-label="`Move image ${index + 1} left`"
+                                :disabled="index === 0"
+                                @click="moveGalleryImage(index, -1)"
+                            />
+                            <ActionButton
+                                action="delete"
+                                :aria-label="`Delete image ${index + 1}`"
+                                @click="removeGalleryImage(index)"
+                            />
+                            <ActionButton
+                                action="next"
+                                :aria-label="`Move image ${index + 1} right`"
+                                :disabled="index === gallery.length - 1"
+                                @click="moveGalleryImage(index, 1)"
+                            />
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section :class="$style.section" aria-label="Challenges">
+                <div :class="$style.sectionHeader">
+                    <h2 :class="$style.sectionTitle">CHALLENGES</h2>
+                    <span :class="$style.sectionRule" aria-hidden="true" />
+                </div>
+                <template v-for="(challenge, index) in activeContent.challenges" :key="index">
+                    <div :class="$style.itemRow">
+                        <TextField
+                            :class="$style.itemField"
+                            :label="`Title ${index + 1}`"
+                            placeholder="Placeholder"
+                            :model-value="challenge.title"
+                            @update:model-value="challenge.title = $event"
+                        />
                         <ActionButton
-                            variant="add"
-                            aria-hidden="true"
-                            tabindex="-1"
+                            :class="$style.itemDelete"
+                            action="delete"
+                            :aria-label="`Delete challenge ${index + 1}`"
+                            @click="removeStructuredItem(activeContent.challenges, index)"
                         />
+                    </div>
+                    <TextareaField
+                        :class="$style.itemDetail"
+                        label="Detail"
+                        placeholder="Placeholder"
+                        :rows="2"
+                        :model-value="challenge.content"
+                        @update:model-value="challenge.content = $event"
+                    />
+                </template>
+                <ActionButton
+                    v-if="activeContent.challenges.length < 8"
+                    action="add"
+                    aria-label="Add challenge"
+                    @click="addStructuredItem(activeContent.challenges)"
+                />
+            </section>
+
+            <section :class="$style.section" aria-label="Lessons">
+                <div :class="$style.sectionHeader">
+                    <h2 :class="$style.sectionTitle">LESSONS</h2>
+                    <span :class="$style.sectionRule" aria-hidden="true" />
+                </div>
+                <template v-for="(lesson, index) in activeContent.whatILearned" :key="index">
+                    <div :class="$style.itemRow">
+                        <TextField
+                            :class="$style.itemField"
+                            :label="`Title ${index + 1}`"
+                            placeholder="Placeholder"
+                            :model-value="lesson.title"
+                            @update:model-value="lesson.title = $event"
+                        />
+                        <ActionButton
+                            :class="$style.itemDelete"
+                            action="delete"
+                            :aria-label="`Delete lesson ${index + 1}`"
+                            @click="removeStructuredItem(activeContent.whatILearned, index)"
+                        />
+                    </div>
+                    <TextareaField
+                        :class="$style.itemDetail"
+                        label="Detail"
+                        placeholder="Placeholder"
+                        :rows="2"
+                        :model-value="lesson.content"
+                        @update:model-value="lesson.content = $event"
+                    />
+                </template>
+                <ActionButton
+                    v-if="activeContent.whatILearned.length < 8"
+                    action="add"
+                    aria-label="Add lesson"
+                    @click="addStructuredItem(activeContent.whatILearned)"
+                />
+            </section>
+
+            <section :class="$style.section" aria-label="Project links">
+                <div :class="$style.sectionHeader">
+                    <h2 :class="$style.sectionTitle">LINK</h2>
+                    <span :class="$style.sectionRule" aria-hidden="true" />
+                </div>
+                <div :class="$style.fieldRow">
+                    <TextField v-model="form.githubUrl" :class="$style.linkField" label="Github" placeholder="https://github.com/..." type="url" />
+                    <TextField v-model="form.youtubeUrl" :class="$style.linkField" label="Youtube" placeholder="https://youtube.com/..." type="url" />
+                    <TextField v-model="form.figmaUrl" :class="$style.linkField" label="Figma" placeholder="https://figma.com/..." type="url" />
+                    <TextField v-model="form.liveUrl" :class="$style.linkField" label="Live Demo" placeholder="https://..." type="url" />
+                    <TextField v-model="form.websiteUrl" :class="$style.linkField" label="Website" placeholder="https://..." type="url" />
+                </div>
+                <div :class="$style.certificateField">
+                    <span :class="$style.certificateLabel">Certificate</span>
+                    <div :class="$style.certificateControl">
+                        <PrimaryButton
+                            width-mode="hug"
+                            :leading-icon="icons.upload"
+                            @click="openFilePicker('certificate-file')"
+                        >
+                            {{ certificateFile?.name || (form.certificateUrl ? "Certificate uploaded" : "Choose PDF or image") }}
+                        </PrimaryButton>
+                        <PrimaryButton
+                            v-if="certificateFile || form.certificateUrl"
+                            width-mode="hug"
+                            aria-label="Remove certificate"
+                            @click="removeCertificate"
+                        >
+                            Delete
+                        </PrimaryButton>
                         <input
-                            :id="`gallery-image-${index}`"
+                            id="certificate-file"
+                            :class="$style.hiddenInput"
                             type="file"
-                            accept="image/*"
-                            @change="updatePreview($event, index)"
+                            accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp"
+                            @change="updateCertificate"
                         >
                     </div>
-                </div>
-            </section>
-
-            <section :class="$style.descriptionPanel">
-                <TextField v-model="activeContent.projectName" label="Project Name" />
-                <hr :class="$style.panelDivider">
-                <TextField v-model="activeContent.descriptionShort" label="Description Short" />
-                <TextareaField v-model="activeContent.description" label="Project Description" :rows="6" />
-            </section>
-
-            <section :class="$style.desktopOverviewFeatures" aria-label="Project overview and features">
-                <div :class="$style.combinedTabs">
-                    <h2 :class="$style.panelTab" class="type-button-sb">Overview</h2>
-                    <h2 :class="[$style.panelTab, $style.rightTab]" class="type-button-sb">Features</h2>
-                </div>
-                <div :class="$style.overviewFeaturesBody">
-                    <hr :class="$style.panelDivider">
-                    <div :class="$style.overviewFeaturesColumns">
-                        <div :class="$style.overviewColumn">
-                            <div :class="$style.metricGrid">
-                                <ProjectOverviewCard
-                                    v-for="metric in overviewMetrics"
-                                    :key="metric.label"
-                                    :class="$style.overviewMetricCard"
-                                    :label="metric.label"
-                                    :value="metric.value"
-                                />
-                            </div>
-                            <div :class="$style.roleSelector">
-                                <SelectField
-                                    label="My Role"
-                                    :options="availableRoleOptions"
-                                    placeholder="Select role"
-                                    @select="addRole"
-                                />
-                                <div v-if="form.roles.length" :class="$style.roleChips">
-                                    <button
-                                        v-for="role in form.roles"
-                                        :key="role"
-                                        type="button"
-                                        :class="$style.roleChip"
-                                        :aria-label="`Remove ${role}`"
-                                        @click="removeRole(role)"
-                                    >
-                                        {{ role }}
-                                    </button>
-                                </div>
-                            </div>
-                            <ProjectTimelineEditorCard
-                                v-model:start-month="form.timeline.startDate"
-                                v-model:end-month="form.timeline.endDate"
-                                v-model:status="form.timeline.status"
-                                :milestones="form.timeline.milestones"
-                                @update:milestone-date="(index, value) => updateTimelineMilestone(index, 'date', value)"
-                                @update:milestone-title="(index, value) => updateTimelineMilestone(index, 'title', value)"
-                                @update:milestone-description="(index, value) => updateTimelineMilestone(index, 'description', value)"
-                                @add-milestone="addTimelineMilestone"
-                                @delete-milestone="removeTimelineMilestone"
-                            />
-                            <TextareaField v-model="activeContent.targetUsers" label="Target Users" :rows="4" />
-                            <TextareaField v-model="activeContent.feasibility" label="Feasibility" :rows="4" />
-                        </div>
-                        <div :class="$style.featureFields">
-                            <TextField
-                                v-for="(_, index) in activeContent.features"
-                                :key="index"
-                                v-model="activeContent.features[index]"
-                                :label="`Feature ${index + 1}`"
-                            />
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <section :class="$style.mobileOverviewFeatures" aria-label="Project overview and features">
-                <article :class="$style.tabPanel">
-                    <h2 :class="$style.panelTab" class="type-button-sb">Overview</h2>
-                    <div :class="$style.panelBody">
-                        <hr :class="$style.panelDivider">
-                        <div :class="$style.metricGrid">
-                            <ProjectOverviewCard
-                                v-for="metric in overviewMetrics"
-                                :key="metric.label"
-                                :class="$style.overviewMetricCard"
-                                :label="metric.label"
-                                :value="metric.value"
-                            />
-                        </div>
-                        <div :class="$style.roleSelector">
-                            <SelectField
-                                label="My Role"
-                                :options="availableRoleOptions"
-                                placeholder="Select role"
-                                @select="addRole"
-                            />
-                            <div v-if="form.roles.length" :class="$style.roleChips">
-                                <button
-                                    v-for="role in form.roles"
-                                    :key="role"
-                                    type="button"
-                                    :class="$style.roleChip"
-                                    :aria-label="`Remove ${role}`"
-                                    @click="removeRole(role)"
-                                >
-                                    {{ role }}
-                                </button>
-                            </div>
-                        </div>
-                        <ProjectTimelineEditorCard
-                            v-model:start-month="form.timeline.startDate"
-                            v-model:end-month="form.timeline.endDate"
-                            v-model:status="form.timeline.status"
-                            :milestones="form.timeline.milestones"
-                            @update:milestone-date="(index, value) => updateTimelineMilestone(index, 'date', value)"
-                            @update:milestone-title="(index, value) => updateTimelineMilestone(index, 'title', value)"
-                            @update:milestone-description="(index, value) => updateTimelineMilestone(index, 'description', value)"
-                            @add-milestone="addTimelineMilestone"
-                            @delete-milestone="removeTimelineMilestone"
-                        />
-                        <TextareaField v-model="activeContent.targetUsers" label="Target Users" :rows="4" />
-                        <TextareaField v-model="activeContent.feasibility" label="Feasibility" :rows="4" />
-                    </div>
-                </article>
-                <article :class="[$style.tabPanel, $style.rightPanel]">
-                    <h2 :class="[$style.panelTab, $style.rightTab]" class="type-button-sb">Features</h2>
-                    <div :class="[$style.panelBody, $style.rightPanelBody]">
-                        <hr :class="$style.panelDivider">
-                        <div :class="$style.featureFields">
-                            <TextField
-                                v-for="(_, index) in activeContent.features"
-                                :key="index"
-                                v-model="activeContent.features[index]"
-                                :label="`Feature ${index + 1}`"
-                            />
-                        </div>
-                    </div>
-                </article>
-            </section>
-
-            <section :class="$style.desktopArchitectureStack" aria-label="Project architecture and tech stack">
-                <div :class="$style.combinedTabs">
-                    <h2 :class="$style.panelTab" class="type-button-sb">System Architecture</h2>
-                    <h2 :class="[$style.panelTab, $style.rightTab]" class="type-button-sb">Tech Stack</h2>
-                </div>
-                <div :class="$style.architectureStackBody">
-                    <hr :class="$style.panelDivider">
-                    <div :class="$style.architectureColumns">
-                        <div
-                            :class="[$style.uploadSlot, $style.architectureUpload]"
-                            role="button"
-                            tabindex="0"
-                            aria-label="Add system architecture image"
-                            @click="openFilePicker('architecture-image-desktop')"
-                            @keydown="openFilePickerOnKeydown($event, 'architecture-image-desktop')"
-                        >
-                            <img v-if="architectureImage" :class="$style.previewImage" :src="architectureImage" alt="Architecture preview">
-                            <ActionButton
-                                variant="add"
-                                aria-hidden="true"
-                                tabindex="-1"
-                            />
-                            <input
-                                id="architecture-image-desktop"
-                                type="file"
-                                accept="image/*"
-                                @change="updatePreview($event, 'architecture')"
-                            >
-                        </div>
-                        <div :class="$style.techStackGroups">
-                            <section v-for="group in techStackGroups" :key="group.key" :class="$style.techStackGroup">
-                                <SelectField
-                                    :label="group.label"
-                                    :options="getAvailableStackOptions(group)"
-                                    placeholder="Select"
-                                    @select="addTechStack($event, group)"
-                                />
-                                <div v-if="form.techStack[group.key].length" :class="$style.techStackItems">
-                                    <button
-                                        v-for="item in form.techStack[group.key]"
-                                        :key="item"
-                                        type="button"
-                                        :class="$style.techStackChip"
-                                        :aria-label="`Remove ${item}`"
-                                        :title="`Remove ${item}`"
-                                        @click="removeTechStack(group, item)"
-                                    >
-                                        <img v-if="getStackIcon(group, item)" :src="getStackIcon(group, item)" :alt="item">
-                                        <span v-else>{{ item }}</span>
-                                    </button>
-                                </div>
-                            </section>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <section :class="$style.mobileArchitectureStack" aria-label="Project architecture and tech stack">
-                <article :class="$style.tabPanel">
-                    <h2 :class="$style.panelTab" class="type-button-sb">System Architecture</h2>
-                    <div :class="$style.panelBody">
-                        <hr :class="$style.panelDivider">
-                        <div
-                            :class="[$style.uploadSlot, $style.mobileArchitectureUpload]"
-                            role="button"
-                            tabindex="0"
-                            aria-label="Add system architecture image"
-                            @click="openFilePicker('architecture-image-mobile')"
-                            @keydown="openFilePickerOnKeydown($event, 'architecture-image-mobile')"
-                        >
-                            <img v-if="architectureImage" :class="$style.previewImage" :src="architectureImage" alt="Architecture preview">
-                            <ActionButton
-                                variant="add"
-                                aria-hidden="true"
-                                tabindex="-1"
-                            />
-                            <input
-                                id="architecture-image-mobile"
-                                type="file"
-                                accept="image/*"
-                                @change="updatePreview($event, 'architecture')"
-                            >
-                        </div>
-                    </div>
-                </article>
-                <article :class="[$style.tabPanel, $style.rightPanel]">
-                    <h2 :class="[$style.panelTab, $style.rightTab]" class="type-button-sb">Tech Stack</h2>
-                    <div :class="[$style.panelBody, $style.rightPanelBody]">
-                        <hr :class="$style.panelDivider">
-                        <div :class="$style.techStackGroups">
-                            <section v-for="group in techStackGroups" :key="group.key" :class="$style.techStackGroup">
-                                <SelectField
-                                    :label="group.label"
-                                    :options="getAvailableStackOptions(group)"
-                                    placeholder="Select"
-                                    @select="addTechStack($event, group)"
-                                />
-                                <div v-if="form.techStack[group.key].length" :class="$style.techStackItems">
-                                    <button
-                                        v-for="item in form.techStack[group.key]"
-                                        :key="item"
-                                        type="button"
-                                        :class="$style.techStackChip"
-                                        :aria-label="`Remove ${item}`"
-                                        @click="removeTechStack(group, item)"
-                                    >
-                                        <img v-if="getStackIcon(group, item)" :src="getStackIcon(group, item)" :alt="item">
-                                        <span v-else>{{ item }}</span>
-                                    </button>
-                                </div>
-                            </section>
-                        </div>
-                    </div>
-                </article>
-            </section>
-
-            <section :class="$style.desktopChallengesLearned" aria-label="Project challenges and lessons learned">
-                <div :class="$style.combinedTabs">
-                    <h2 :class="$style.panelTab" class="type-button-sb">Challenges</h2>
-                    <h2 :class="[$style.panelTab, $style.rightTab]" class="type-button-sb">What i learn</h2>
-                </div>
-                <div :class="$style.challengesLearnedBody">
-                    <hr :class="$style.panelDivider">
-                    <div :class="$style.challengesLearnedColumns">
-                        <div :class="$style.structuredFields">
-                            <ProjectBlogEditorCard
-                                v-for="(challenge, index) in activeContent.challenges"
-                                :key="index"
-                                :heading="`Challenge ${index + 1}`"
-                                :title="challenge.title"
-                                :content="challenge.content"
-                                @update:title="challenge.title = $event"
-                                @update:content="challenge.content = $event"
-                                @delete="removeStructuredItem(activeContent.challenges, index)"
-                            />
-                            <ActionButton variant="add" aria-label="Add challenge" @click="addStructuredItem(activeContent.challenges)" />
-                        </div>
-                        <div :class="$style.structuredFields">
-                            <ProjectBlogEditorCard
-                                v-for="(lesson, index) in activeContent.whatILearned"
-                                :key="index"
-                                :heading="`Lesson ${index + 1}`"
-                                :title="lesson.title"
-                                :content="lesson.content"
-                                @update:title="lesson.title = $event"
-                                @update:content="lesson.content = $event"
-                                @delete="removeStructuredItem(activeContent.whatILearned, index)"
-                            />
-                            <ActionButton v-if="activeContent.whatILearned.length < 8" variant="add" aria-label="Add lesson" @click="addStructuredItem(activeContent.whatILearned)" />
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <section :class="$style.mobileChallengesLearned" aria-label="Project challenges and lessons learned">
-                <article :class="$style.tabPanel">
-                    <h2 :class="$style.panelTab" class="type-button-sb">Challenges</h2>
-                    <div :class="$style.panelBody">
-                        <hr :class="$style.panelDivider">
-                        <div :class="$style.structuredFields">
-                            <ProjectBlogEditorCard
-                                v-for="(challenge, index) in activeContent.challenges"
-                                :key="index"
-                                :heading="`Challenge ${index + 1}`"
-                                :title="challenge.title"
-                                :content="challenge.content"
-                                @update:title="challenge.title = $event"
-                                @update:content="challenge.content = $event"
-                                @delete="removeStructuredItem(activeContent.challenges, index)"
-                            />
-                            <ActionButton variant="add" aria-label="Add challenge" @click="addStructuredItem(activeContent.challenges)" />
-                        </div>
-                    </div>
-                </article>
-                <article :class="[$style.tabPanel, $style.rightPanel]">
-                    <h2 :class="[$style.panelTab, $style.rightTab]" class="type-button-sb">What i learn</h2>
-                    <div :class="[$style.panelBody, $style.rightPanelBody]">
-                        <hr :class="$style.panelDivider">
-                        <div :class="$style.structuredFields">
-                            <ProjectBlogEditorCard
-                                v-for="(lesson, index) in activeContent.whatILearned"
-                                :key="index"
-                                :heading="`Lesson ${index + 1}`"
-                                :title="lesson.title"
-                                :content="lesson.content"
-                                @update:title="lesson.title = $event"
-                                @update:content="lesson.content = $event"
-                                @delete="removeStructuredItem(activeContent.whatILearned, index)"
-                            />
-                            <ActionButton v-if="activeContent.whatILearned.length < 8" variant="add" aria-label="Add lesson" @click="addStructuredItem(activeContent.whatILearned)" />
-                        </div>
-                    </div>
-                </article>
-            </section>
-
-            <section :class="$style.linkPanel" aria-label="Project links">
-                <h2 :class="$style.panelTab" class="type-button-sb">Link</h2>
-                <div :class="$style.linkBody">
-                    <hr :class="$style.panelDivider">
-                    <div :class="$style.linkFields">
-                        <TextField v-model="form.githubUrl" label="Github" placeholder="https://github.com/..." type="url" />
-                        <TextField v-model="form.youtubeUrl" label="Youtube" placeholder="https://youtube.com/..." type="url" />
-                        <TextField v-model="form.figmaUrl" label="Figma" placeholder="https://figma.com/..." type="url" />
-                        <TextField v-model="form.liveUrl" label="Live Demo" placeholder="https://..." type="url" />
-                        <TextField v-model="form.websiteUrl" label="Website" placeholder="https://..." type="url" />
-                        <div :class="$style.certificateField">
-                            <span class="type-overline-r">Certificate</span>
-                            <div :class="$style.certificateControl">
-                                <button
-                                    type="button"
-                                    :class="$style.certificatePicker"
-                                    class="type-caption-r"
-                                    @click="openFilePicker('certificate-file')"
-                                >
-                                    {{ certificateFile?.name || (form.certificateUrl ? "Certificate uploaded" : "Choose PDF or image") }}
-                                </button>
-                                <button
-                                    v-if="certificateFile || form.certificateUrl"
-                                    type="button"
-                                    :class="$style.certificateRemove"
-                                    class="type-overline-sb"
-                                    aria-label="Remove certificate"
-                                    @click="removeCertificate"
-                                >
-                                    REMOVE
-                                </button>
-                                <input
-                                    id="certificate-file"
-                                    type="file"
-                                    accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp"
-                                    @change="updateCertificate"
-                                >
-                            </div>
-                            <span class="type-overline-r">PDF, PNG, JPG, or WebP. Maximum 10 MB.</span>
-                        </div>
-                    </div>
+                    <span :class="$style.certificateHint">PDF, PNG, JPG, or WebP. Maximum 10 MB.</span>
                 </div>
             </section>
 
             <div :class="$style.submitRow">
-                <SecondaryButton type="submit" :disabled="isSubmitting">
+                <PrimaryButton width-mode="hug" type="submit" :disabled="isSubmitting">
                     {{ isSubmitting ? (isEditing ? "Updating..." : "Adding...") : (isEditing ? "Update" : "Add") }}
-                </SecondaryButton>
+                </PrimaryButton>
             </div>
         </form>
         <AppFooter />
@@ -1055,537 +1039,326 @@ onUnmounted(() => {
 
 <style module>
 .newProject {
-    --projects-band-bg: var(--color-main-background);
-    --projects-band-text: var(--color-text-primary);
-    --projects-card-bg: var(--color-neutral-50);
-    --projects-card-border: var(--color-input-border);
-    --projects-card-text: var(--color-text-primary);
-    --projects-card-muted: var(--color-neutral-600);
-    --projects-card-inset-bg: var(--color-input-placeholder-bg);
-
     display: flex;
     flex-direction: column;
-    height: 100dvh;
     min-height: 100dvh;
-    gap: var(--spacing-space-16);
-    overflow-y: auto;
-    scrollbar-width: none;
-    background-color: var(--projects-band-bg);
-    color: var(--projects-band-text);
-    transition: background-color 300ms ease, color 300ms ease;
-}
-
-:global(.dark) .newProject,
-:global([data-theme="dark"]) .newProject {
-    --projects-band-bg: var(--color-main-section-background);
-    --projects-band-text: var(--color-text-secondary);
-    --projects-card-bg: var(--color-main-surface);
-    --projects-card-border: var(--color-main-border);
-    --projects-card-text: var(--color-text-secondary);
-    --projects-card-muted: var(--color-text-secondary);
-    --projects-card-inset-bg: var(--color-main-surface);
-}
-
-.newProject::-webkit-scrollbar {
-    display: none;
+    /* Transparent so the fixed BackgroundEffect shows through. */
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    transition: color 300ms ease;
 }
 
 .pageContainer {
     display: flex;
     flex: 1;
     flex-direction: column;
-    width: min(calc(100% - (var(--spacing-space-16) * 2)), 1280px);
-    margin: 0 auto;
-    gap: var(--spacing-space-6);
-}
-
-.detailNav,
-.basicSelectors {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px;
-    gap: var(--spacing-space-5);
-}
-
-.projectsLink {
-    padding: 8px 10px;
-    border-radius: var(--radius-lg);
-    background-color: var(--color-main-secondary);
-    color: var(--color-button-secondary-btn-text);
-    text-decoration: none;
-}
-
-.basicSelectors {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    justify-content: stretch;
-}
-
-.basicSelectors > * {
-    width: 100%;
-}
-
-.gallery {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 189px;
-    gap: var(--spacing-space-6);
-}
-
-.thumbnailGrid {
-    display: grid;
-    grid-template-rows: repeat(4, auto);
-    align-content: space-between;
-    gap: var(--spacing-space-6);
-}
-
-.uploadSlot {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    background-color: var(--projects-card-inset-bg);
-    cursor: pointer;
-}
-
-.uploadSlot input {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    opacity: 0;
-}
-
-.uploadSlot :global(button) {
-    z-index: 1;
-    pointer-events: none;
-}
-
-.mainUpload,
-.architectureUpload,
-.mobileArchitectureUpload {
-    border-radius: var(--radius-2xl);
-}
-
-.mainUpload,
-.thumbnailUpload,
-.architectureUpload,
-.mobileArchitectureUpload {
-    aspect-ratio: 16 / 9;
-}
-
-.architectureUpload,
-.mobileArchitectureUpload {
-    aspect-ratio: 1980 / 1080;
-}
-
-.thumbnailUpload {
-    border-radius: var(--radius-base);
-}
-
-.previewImage {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-}
-
-.descriptionPanel,
-.overviewFeaturesBody,
-.architectureStackBody,
-.challengesLearnedBody,
-.linkBody,
-.panelBody {
     box-sizing: border-box;
-    padding: var(--spacing-space-4);
-    gap: 10px;
-    border: 1px solid var(--projects-card-border);
-    border-radius: var(--radius-2xl);
-    background-color: var(--projects-card-bg);
-    color: var(--projects-card-text);
+    width: min(100%, var(--container-7xl));
+    margin: 0 auto;
 }
 
-.descriptionPanel,
-.overviewFeaturesBody,
-.architectureStackBody,
-.challengesLearnedBody,
-.linkBody,
-.panelBody {
+.section {
     display: flex;
     flex-direction: column;
-}
-
-.panelDivider {
-    width: 100%;
-    height: 1px;
-    margin: 0;
-    border: 0;
-    border-top: 1px solid var(--projects-card-border);
-}
-
-.desktopOverviewFeatures,
-.desktopArchitectureStack,
-.desktopChallengesLearned,
-.linkPanel,
-.tabPanel {
-    display: flex;
-    flex-direction: column;
-}
-
-.mobileOverviewFeatures,
-.mobileArchitectureStack,
-.mobileChallengesLearned {
-    display: none;
-}
-
-.combinedTabs {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-}
-
-.panelTab {
-    position: relative;
-    z-index: 1;
-    align-self: flex-start;
-    margin: 0 0 -1px;
-    padding: 8px 10px;
-    border: 1px solid var(--projects-card-border);
-    border-bottom: 0;
-    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-    background-color: var(--projects-card-bg);
-    color: var(--projects-card-text);
-}
-
-.rightTab {
-    align-self: flex-end;
-}
-
-.overviewFeaturesBody,
-.architectureStackBody,
-.challengesLearnedBody {
-    border-radius: 0 0 var(--radius-2xl) var(--radius-2xl);
-}
-
-.overviewFeaturesColumns,
-.challengesLearnedColumns {
-    position: relative;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    min-height: 0;
-    gap: var(--spacing-space-8);
-}
-
-.overviewFeaturesColumns::before,
-.challengesLearnedColumns::before,
-.architectureColumns::before {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 50%;
-    width: 1px;
-    background-color: var(--projects-card-border);
-    content: "";
-    transform: translateX(-50%);
-}
-
-.overviewColumn,
-.featureFields,
-.structuredFields,
-.techStackGroups {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.roleSelector {
-    display: flex;
-    flex-direction: column;
+    align-items: flex-start;
+    align-self: stretch;
+    padding: 12px 16px;
     gap: 8px;
 }
 
-.roleChips {
+.headRow {
     display: flex;
+    align-items: center;
+    justify-content: space-between;
+    align-self: stretch;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 8px 20px;
 }
 
-.roleChip {
-    padding: 6px 10px;
-    border: 1px solid var(--projects-card-border);
-    border-radius: var(--radius-full);
-    background-color: transparent;
-    color: var(--projects-card-text);
-    cursor: pointer;
+.pageTitle {
+    margin: 0;
+    font-size: var(--type-size-h1-page-title);
+    font-weight: 300;
 }
 
-.roleChip:hover {
-    border-color: var(--color-main-primary);
-}
-
-.structuredFields {
+.headActions {
+    display: flex;
     align-items: center;
+    gap: 8px;
 }
 
-.featureFields {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    align-content: start;
-    gap: var(--spacing-space-5) 10px;
+.sectionHeader {
+    display: flex;
+    align-items: center;
+    align-self: stretch;
+    gap: 8px;
 }
 
-.metricGrid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px;
+.sectionTitle {
+    margin: 0;
+    font-size: var(--type-size-h2-section-title);
+    font-weight: 300;
+    white-space: nowrap;
 }
 
-.overviewMetricCard {
-    width: 100%;
-    max-width: none;
-    height: 106px;
-}
-
-.architectureStackBody {
-    min-height: 0;
-}
-
-.architectureColumns {
-    position: relative;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+.sectionRule {
     flex: 1;
-    min-height: 0;
-    gap: var(--spacing-space-8);
+    height: 1px;
+    border-top: 1px solid var(--color-main-divider);
 }
 
-.architectureUpload {
-    align-self: start;
+.fieldRow {
+    display: flex;
+    align-items: flex-start;
+    align-self: stretch;
+    flex-wrap: wrap;
+    gap: 8px;
 }
 
-.techStackGroups {
+.nameField {
+    width: min(100%, 600px);
+}
+
+.selectField {
+    width: min(100%, 295px);
+}
+
+.shortDescriptionField {
+    width: min(100%, 602px);
+}
+
+.dateField {
+    width: min(100%, 260px);
+}
+
+.positionField {
+    width: min(100%, 461px);
+}
+
+.chipRow {
+    display: flex;
+    align-items: center;
+    align-self: stretch;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.roleCard {
+    display: flex;
+    align-items: center;
     justify-content: center;
-    gap: var(--spacing-space-4);
-}
-
-.techStackGroup {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    gap: 6px;
-}
-
-.techStackItems {
-    display: flex;
-    align-items: center;
-    min-height: 36px;
-    padding: 4px 10px;
-    gap: 6px;
-    overflow-x: auto;
-    border: 1px solid var(--projects-card-border);
-    border-radius: var(--radius-full);
-    scrollbar-width: none;
-}
-
-.techStackItems::-webkit-scrollbar {
-    display: none;
-}
-
-.techStackChip {
-    display: inline-flex;
-    align-items: center;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: var(--projects-card-text);
+    box-sizing: border-box;
+    padding: 12px;
+    border: 1px solid var(--color-main-divider);
+    border-radius: var(--radius-xl);
+    background-color: var(--color-main-background);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    font-size: var(--type-size-body-main);
+    font-weight: 300;
     cursor: pointer;
+    transition: background-color 180ms ease, border-color 180ms ease;
 }
 
-.techStackChip img {
+.roleCard:hover {
+    border-color: var(--color-status-error);
+    color: var(--color-status-error);
+}
+
+.roleCard:focus-visible {
+    outline: 2px solid var(--color-main-primary);
+    outline-offset: 2px;
+}
+
+.itemRow {
+    display: flex;
+    align-items: flex-end;
+    align-self: stretch;
+    gap: 12px;
+}
+
+.itemField {
+    width: min(100%, 526px);
+}
+
+.itemDelete {
+    margin-bottom: 8px;
+}
+
+.itemDetail {
+    align-self: stretch;
+}
+
+.architecturePreview {
+    align-self: stretch;
+    width: 100%;
+    max-height: 672px;
+    border-radius: var(--radius-xl);
+    object-fit: cover;
+}
+
+.architectureActions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    align-self: stretch;
+    gap: 8px;
+}
+
+.stackSelect {
+    width: min(100%, 526px);
+}
+
+.stackChips {
+    display: flex;
+    align-items: center;
+    align-self: stretch;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.stackChip {
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
+    padding: 4px;
+    gap: 4px;
+    border: 1px solid var(--color-main-divider);
+    border-radius: var(--radius-lg);
+    background-color: transparent;
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    font-size: var(--type-size-overline);
+    font-weight: 300;
+    cursor: pointer;
+    transition: border-color 180ms ease, color 180ms ease;
+}
+
+.stackChip:hover {
+    border-color: var(--color-status-error);
+    color: var(--color-status-error);
+}
+
+.stackChip:focus-visible {
+    outline: 2px solid var(--color-main-primary);
+    outline-offset: 2px;
+}
+
+.stackChipIcon {
     width: 24px;
     height: 24px;
     object-fit: contain;
 }
 
-.linkBody {
-    border-radius: 0 var(--radius-2xl) var(--radius-2xl) var(--radius-2xl);
+.maskIcon {
+    display: inline-block;
+    flex-shrink: 0;
+    background-color: var(--color-text-primary);
+    mask: var(--stack-icon-src) center / contain no-repeat;
+    -webkit-mask: var(--stack-icon-src) center / contain no-repeat;
+    transition: background-color 300ms ease;
 }
 
-.linkFields {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px;
+.galleryRow {
+    display: flex;
+    align-items: flex-start;
+    align-self: stretch;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.galleryItem {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.galleryControls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.gallerySlot {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: 275px;
+    max-width: 100%;
+    height: 150px;
+    overflow: hidden;
+    border: 1px dashed var(--color-main-divider);
+    border-radius: var(--radius-xl);
+    background-color: var(--color-main-background);
+    cursor: pointer;
+    transition: border-color 180ms ease;
+}
+
+.gallerySlot:hover {
+    border-color: var(--color-main-primary);
+}
+
+.gallerySlot:focus-visible {
+    outline: 2px solid var(--color-main-primary);
+    outline-offset: 2px;
+}
+
+.galleryImage {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.linkField {
+    width: min(100%, 400px);
 }
 
 .certificateField {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    color: var(--projects-card-text);
-}
-
-.certificateControl {
-    position: relative;
-    display: flex;
-    min-height: 48px;
-    align-items: center;
+    align-self: stretch;
     gap: 8px;
 }
 
-.certificateControl input {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    opacity: 0;
+.certificateLabel {
+    color: var(--color-input-title);
+    font-size: var(--type-size-overline);
+    font-weight: 800;
 }
 
-.certificatePicker,
-.certificateRemove {
-    border: 0;
-    cursor: pointer;
+.certificateControl {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
 }
 
-.certificatePicker {
-    flex: 1;
-    min-width: 0;
-    height: 48px;
-    overflow: hidden;
-    padding: 0 14px;
-    border: 1px solid var(--projects-card-border);
-    border-radius: var(--radius-lg);
-    background-color: var(--color-input-bg);
-    color: var(--color-text-input);
-    text-align: left;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+.certificateHint {
+    color: var(--color-text-secondary);
+    font-size: var(--type-size-overline);
+    font-weight: 300;
 }
 
-.certificateRemove {
-    padding: 8px;
-    border-radius: var(--radius-base);
-    background-color: transparent;
-    color: var(--color-status-error);
-}
-
-.certificatePicker:focus-visible,
-.certificateRemove:focus-visible {
-    outline: 2px solid var(--color-main-primary);
-    outline-offset: 2px;
+.hiddenInput {
+    display: none;
 }
 
 .submitRow {
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-}
-
-.toastViewport {
-    position: fixed;
-    bottom: var(--spacing-space-5);
-    right: var(--spacing-space-4);
-    z-index: 30;
-    width: min(calc(100% - (var(--spacing-space-4) * 2)), 420px);
-}
-
-@media (min-width: 768px) and (max-width: 1023px) {
-    .pageContainer {
-        width: min(calc(100% - (var(--spacing-space-8) * 2)), 768px);
-    }
-
-    .linkFields {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .overviewMetricCard {
-        height: 78px;
-    }
+    justify-content: flex-end;
+    align-self: stretch;
+    padding: 12px 16px 24px;
 }
 
 @media (max-width: 767px) {
-    .newProject {
-        gap: var(--spacing-space-8);
+    .section {
+        padding: 4px 8px;
     }
 
-    .pageContainer {
-        width: min(calc(100% - (var(--spacing-space-4) * 2)), 408px);
-    }
-
-    .basicSelectors {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 18px;
-    }
-
-    .basicSelectors > * {
-        width: auto;
-    }
-
-    .gallery {
-        display: flex;
-        flex-direction: column;
-        height: auto;
-    }
-
-    .mainUpload {
-        height: auto;
-    }
-
-    .thumbnailGrid {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        grid-template-rows: 72px;
-        gap: var(--spacing-space-5);
-    }
-
-    .thumbnailUpload {
-        height: auto;
-    }
-
-    .thumbnailUpload:nth-child(4) {
-        display: none;
-    }
-
-    .desktopOverviewFeatures,
-    .desktopArchitectureStack,
-    .desktopChallengesLearned {
-        display: none;
-    }
-
-    .mobileOverviewFeatures,
-    .mobileArchitectureStack,
-    .mobileChallengesLearned {
-        display: flex;
-        flex-direction: column;
-        gap: var(--spacing-space-6);
-    }
-
-    .panelBody {
-        border-top-left-radius: 0;
-    }
-
-    .rightPanelBody {
-        border-top-left-radius: var(--radius-2xl);
-        border-top-right-radius: 0;
-    }
-
-    .featureFields,
-    .linkFields {
-        grid-template-columns: 1fr;
-    }
-
-    .overviewMetricCard {
-        height: 78px;
-    }
-
-    .mobileArchitectureUpload {
-        height: auto;
-    }
-
-    .techStackGroups {
-        gap: var(--spacing-space-5);
+    .galleryRow {
+        justify-content: center;
     }
 }
 </style>

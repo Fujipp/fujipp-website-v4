@@ -20,7 +20,7 @@ const emit = defineEmits<{
     <label :class="$style.searchText">
         <img
             :class="$style.searchIcon"
-            src="/images/icons/common/search.svg"
+            src="/icons/action/search.svg"
             alt=""
             aria-hidden="true"
             draggable="false"
@@ -42,7 +42,7 @@ const emit = defineEmits<{
     display: flex;
     align-items: center;
     box-sizing: border-box;
-    width: 311px;
+    width: min(311px, 100%);
     height: 48px;
     padding: 12px 16px;
     gap: 16px;
@@ -51,6 +51,10 @@ const emit = defineEmits<{
     border-radius: var(--radius-3xl);
     background-color: var(--color-input-bg);
     color: var(--color-input-placeholder);
+}
+
+.searchText:hover:not(:focus-within) {
+    border-color: var(--color-input-border-hover);
 }
 
 .searchText:focus-within {
@@ -74,12 +78,13 @@ const emit = defineEmits<{
     color: var(--color-text-input);
     caret-color: var(--color-text-input);
     font-family: var(--font-sans);
+    font-weight: 300;
     -webkit-text-fill-color: var(--color-text-input);
 }
 
 .input::placeholder {
-    color: var(--color-input-placeholder);
-    -webkit-text-fill-color: var(--color-input-placeholder);
+    color: var(--color-text-disabled);
+    -webkit-text-fill-color: var(--color-text-disabled);
 }
 
 @media (max-width: 767px) {

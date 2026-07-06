@@ -2,11 +2,13 @@
 interface Props {
     disabled?: boolean;
     error?: string;
-    label: string;
+    label?: string;
     modelValue?: string;
     name?: string;
     placeholder?: string;
     rows?: number;
+    supportText?: string;
+    ariaLabel?: string;
 }
 
 withDefaults(defineProps<Props>(), {
@@ -14,8 +16,9 @@ withDefaults(defineProps<Props>(), {
     error: "",
     modelValue: "",
     name: undefined,
-    placeholder: "Placeholder",
+    placeholder: "",
     rows: 5,
+    supportText: "",
 });
 
 const emit = defineEmits<{
@@ -25,7 +28,7 @@ const emit = defineEmits<{
 
 <template>
     <label :class="$style.textArea">
-        <span :class="$style.title" class="type-overline-r">{{ label }}</span>
+        <span v-if="label" :class="$style.title" class="type-overline-r">{{ label }}</span>
         <textarea
             :class="[$style.field, error ? $style.errorField : '']"
             class="type-body-small-r"
@@ -34,9 +37,15 @@ const emit = defineEmits<{
             :placeholder="placeholder"
             :rows="rows"
             :value="modelValue"
+            :aria-label="ariaLabel"
+            :aria-invalid="Boolean(error) || undefined"
             @input="emit('update:modelValue', ($event.target as HTMLTextAreaElement).value)"
         />
-        <span v-if="error" :class="$style.supportText" class="type-overline-r">{{ error }}</span>
+        <span
+            v-if="error || supportText"
+            :class="[$style.supportText, error ? $style.errorText : '']"
+            class="type-overline-r"
+        >{{ error || supportText }}</span>
     </label>
 </template>
 
@@ -55,7 +64,9 @@ const emit = defineEmits<{
 }
 
 .title {
+    color: var(--color-input-title);
     font-family: var(--font-sans);
+    font-weight: 800;
 }
 
 .field {
@@ -65,15 +76,16 @@ const emit = defineEmits<{
     padding: 12px 16px;
     resize: vertical;
     border: 1px solid var(--color-input-border);
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius-lg);
     outline: 0;
     background-color: var(--color-input-bg);
     color: var(--color-text-input);
+    font-weight: 300;
     transition: border-color 160ms ease;
 }
 
 .field::placeholder {
-    color: var(--color-input-placeholder);
+    color: var(--color-text-disabled);
 }
 
 .field:hover {
@@ -100,6 +112,10 @@ const emit = defineEmits<{
 }
 
 .supportText {
+    font-size: 10px;
+}
+
+.errorText {
     color: var(--color-status-error);
 }
 </style>

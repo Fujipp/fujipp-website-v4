@@ -337,11 +337,11 @@ export interface AdminNavItem {
  * (Pricing, Wallet, Bots, …); only routes that exist are listed.
  */
 export const adminNavItems: readonly AdminNavItem[] = [
-    { label: "Dashboard", icon: "/images/icons/sidebar/home.svg", to: { name: "admin-dashboard" } },
-    { label: "Users", icon: "/images/icons/sidebar/about.svg", to: { name: "admin-users" } },
-    { label: "Pricing", icon: "/images/icons/sidebar/package.svg", to: { name: "admin-pricing" } },
-    { label: "Bots", icon: "/images/icons/sidebar/projects.svg", to: { name: "admin-bots" } },
-    { label: "VPS", icon: "/images/icons/sidebar/performance.svg", to: { name: "admin-vps" } },
+    { label: "Dashboard", icon: "/icons/navigation/home.svg", to: { name: "admin-dashboard" } },
+    { label: "Users", icon: "/icons/navigation/about.svg", to: { name: "admin-users" } },
+    { label: "Pricing", icon: "/icons/navigation/package.svg", to: { name: "admin-pricing" } },
+    { label: "Bots", icon: "/icons/navigation/projects.svg", to: { name: "admin-bots" } },
+    { label: "VPS", icon: "/icons/navigation/performance.svg", to: { name: "admin-vps" } },
 ] satisfies readonly AdminNavItem[];
 
 /** satang ⇄ baht helpers — money is stored in satang (THB ×100) everywhere. */

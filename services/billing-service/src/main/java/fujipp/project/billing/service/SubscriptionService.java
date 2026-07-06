@@ -2,8 +2,10 @@ package fujipp.project.billing.service;
 
 import fujipp.project.billing.dto.FeatureSubscriptionResponse;
 import fujipp.project.billing.dto.RuntimeSubscriptionResponse;
+import fujipp.project.billing.model.BotRef;
 import fujipp.project.billing.model.FeatureSubscription;
 import fujipp.project.billing.model.RuntimeSubscription;
+import fujipp.project.billing.repository.BotRefRepository;
 import fujipp.project.billing.repository.FeaturePriceRepository;
 import fujipp.project.billing.repository.FeatureSubscriptionRepository;
 import fujipp.project.billing.repository.RuntimePlanRepository;
@@ -27,6 +29,7 @@ import java.util.UUID;
 public class SubscriptionService {
 
     private final WalletService walletService;
+    private final BotRefRepository botRefRepository;
     private final FeatureSubscriptionRepository featureSubscriptionRepository;
     private final RuntimeSubscriptionRepository runtimeSubscriptionRepository;
     private final FeaturePriceRepository priceRepository;
@@ -69,6 +72,58 @@ public class SubscriptionService {
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Subscription not found"));
         sub.setStatus(status);
         runtimeSubscriptionRepository.save(sub);
+    }
+
+    // ── feature assign (Use / move between bots) ────────────────────────────────
+
+    /**
+     * Point a BOT-scoped feature subscription at a bot (or null to unassign).
+     * Mirrors RuntimeSlotService.assign: ownership-checked, and the target bot
+     * may not already have the same feature. The bot picks the feature up on its
+     * next (re)start — the gateway triggers that restart best-effort.
+     */
+    @Transactional
+    public FeatureSubscriptionResponse assignFeature(UUID userId, UUID id, String externalSubjectId) {
+        FeatureSubscription sub = ownedFeature(userId, id);
+        if (!"BOT".equals(sub.getScope())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "Account-wide features apply to every bot and cannot be assigned");
+        }
+
+        String botId = externalSubjectId == null || externalSubjectId.isBlank() ? null : externalSubjectId;
+        if (botId == null) {
+            sub.setExternalSubjectId(null); // unassign — feature returns to the free stack
+            return FeatureSubscriptionResponse.from(featureSubscriptionRepository.save(sub));
+        }
+
+        if (botId.equals(sub.getExternalSubjectId())) {
+            return FeatureSubscriptionResponse.from(sub); // already assigned here
+        }
+
+        requireOwnedBot(userId, botId);
+        featureSubscriptionRepository.findByFeatureIdAndExternalSubjectId(sub.getFeatureId(), botId)
+            .filter(other -> !other.getId().equals(id))
+            .ifPresent(other -> {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "This bot already has this feature");
+            });
+
+        sub.setExternalSubjectId(botId);
+        return FeatureSubscriptionResponse.from(featureSubscriptionRepository.save(sub));
+    }
+
+    private void requireOwnedBot(UUID userId, String botId) {
+        UUID id;
+        try {
+            id = UUID.fromString(botId);
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid bot id");
+        }
+        BotRef bot = botRefRepository.findById(id)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Bot not found"));
+        if (!bot.getUserId().equals(userId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Bot not found");
+        }
     }
 
     // ── manual renew (by id, ownership-checked) ─────────────────────────────────
