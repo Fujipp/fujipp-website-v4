@@ -8,7 +8,7 @@ import {
     type AdminWalletTransaction,
 } from "@/features/admin/config";
 import { SelectField, StatusToast, type SelectFieldOption } from "@/shared/ui";
-import { TableNextBackButton } from "@/shared/ui/buttons";
+import { TablePagination } from "@/shared/ui/paginations";
 
 interface Props {
     userId: string;
@@ -43,16 +43,6 @@ const paginatedTransactions = computed(() => {
     const start = (safePage - 1) * PAGE_SIZE;
     return transactions.value.slice(start, start + PAGE_SIZE);
 });
-const visiblePageNumbers = computed(() => {
-    const pages = new Set<number>([currentPage.value]);
-    if (currentPage.value > 1) pages.add(currentPage.value - 1);
-    if (currentPage.value < pageCount.value) pages.add(currentPage.value + 1);
-    return [...pages].sort((left, right) => left - right);
-});
-
-function goToPage(page: number): void {
-    currentPage.value = Math.min(Math.max(page, 1), pageCount.value);
-}
 
 watch(pageCount, (count) => {
     if (currentPage.value > count) currentPage.value = count;
@@ -170,21 +160,8 @@ onMounted(load);
             </table>
         </div>
 
-        <footer v-if="pageCount > 1" :class="$style.tableFoot" aria-label="Transaction pagination">
-            <TableNextBackButton direction="previous" label="First page" step="double" :disabled="currentPage === 1" @click="goToPage(1)" />
-            <TableNextBackButton direction="previous" label="Previous page" :disabled="currentPage === 1" @click="goToPage(currentPage - 1)" />
-            <button
-                v-for="page in visiblePageNumbers"
-                :key="page"
-                type="button"
-                :class="[$style.pageButton, page === currentPage ? $style.currentPage : '']"
-                :aria-current="page === currentPage ? 'page' : undefined"
-                @click="goToPage(page)"
-            >
-                {{ page }}
-            </button>
-            <TableNextBackButton direction="next" label="Next page" :disabled="currentPage === pageCount" @click="goToPage(currentPage + 1)" />
-            <TableNextBackButton direction="next" label="Last page" step="double" :disabled="currentPage === pageCount" @click="goToPage(pageCount)" />
+        <footer v-if="pageCount > 1" :class="$style.tableFoot">
+            <TablePagination v-model="currentPage" :page-count="pageCount" />
         </footer>
 
         <StatusToast v-if="toast" :status="toast.status" :title="toast.title" />
