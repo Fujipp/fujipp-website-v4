@@ -1,38 +1,40 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
-import { FilterButton, NextBackButton } from "@/shared/ui/buttons";
-import { StatusTag } from "@/shared/ui/tags";
+import { FilterButton, SecondaryButton } from "@/shared/ui/buttons";
+import { CheckboxInput } from "@/shared/ui/inputs";
+import { TablePagination } from "@/shared/ui/paginations";
 import { SearchField } from "@/shared/ui/fields";
+import { icons } from "@/config";
 import type { ProjectTableRow } from "@/config";
 
 interface Props {
     disabled?: boolean;
-    errorMessage?: string | null;
-    modelValue: readonly ProjectTableRow["id"][];
+    /** Projects already featured in other slots — shown dimmed and not selectable. */
+    excludeIds?: readonly ProjectTableRow["id"][];
+    modelValue: ProjectTableRow["id"] | null;
     rows: readonly ProjectTableRow[];
+    title?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
     disabled: false,
-    errorMessage: null,
+    excludeIds: () => [],
+    title: "Featured Project",
 });
 
 const emit = defineEmits<{
     cancel: [];
-    save: [projectIds: ProjectTableRow["id"][]];
-    "update:modelValue": [projectIds: ProjectTableRow["id"][]];
+    save: [projectId: ProjectTableRow["id"] | null];
 }>();
 
-const MAX_FEATURED = 3;
-const PAGE_SIZE = 3;
+const PAGE_SIZE = 5;
 const searchQuery = ref("");
-const activeSlot = ref(0);
 const currentPage = ref(1);
 const isFilterOpen = ref(false);
 const filterWrap = ref<HTMLElement | null>(null);
 const selectedCategories = ref<string[]>([]);
 const selectedStatuses = ref<ProjectTableRow["status"][]>([]);
-const selectedIds = ref<ProjectTableRow["id"][]>(normalizeSelectedIds(props.modelValue));
+const selectedId = ref<ProjectTableRow["id"] | null>(props.modelValue);
 
 const categoryOptions = computed(() => [...new Set(props.rows.map((row) => row.category))]);
 const statusOptions = computed(() => [...new Set(props.rows.map((row) => row.status))]);
@@ -60,48 +62,32 @@ const paginatedRows = computed(() => {
     return filteredRows.value.slice(start, start + PAGE_SIZE);
 });
 
-function normalizeSelectedIds(ids: readonly ProjectTableRow["id"][]): ProjectTableRow["id"][] {
-    const availableIds = new Set(props.rows.map((row) => String(row.id)));
-    const normalized: ProjectTableRow["id"][] = [];
-
-    for (const id of ids) {
-        if (normalized.length >= MAX_FEATURED) break;
-
-        if (availableIds.has(String(id)) && !normalized.some((item) => String(item) === String(id))) {
-            normalized.push(id);
-        }
-    }
-
-    return normalized;
-}
+/* Save only makes sense when the slot's selection actually changed. */
+const hasChanges = computed(() => String(selectedId.value ?? "") !== String(props.modelValue ?? ""));
 
 function isSelected(row: ProjectTableRow): boolean {
-    return selectedIds.value.some((id) => String(id) === String(row.id));
+    return selectedId.value !== null && String(selectedId.value) === String(row.id);
 }
 
-function getSelectedSlot(row: ProjectTableRow): number {
-    return selectedIds.value.findIndex((id) => String(id) === String(row.id));
-}
-
-function setActiveSlot(slot: number): void {
-    activeSlot.value = slot;
+function isExcluded(row: ProjectTableRow): boolean {
+    return props.excludeIds.some((id) => String(id) === String(row.id));
 }
 
 function goToPage(page: number): void {
     currentPage.value = Math.min(Math.max(page, 1), pageCount.value);
 }
 
-function toggleCategory(category: string): void {
-    selectedCategories.value = selectedCategories.value.includes(category)
-        ? selectedCategories.value.filter((value) => value !== category)
-        : [...selectedCategories.value, category];
+function toggleCategory(category: string, checked: boolean): void {
+    selectedCategories.value = checked
+        ? [...selectedCategories.value, category]
+        : selectedCategories.value.filter((value) => value !== category);
     goToPage(1);
 }
 
-function toggleStatus(status: ProjectTableRow["status"]): void {
-    selectedStatuses.value = selectedStatuses.value.includes(status)
-        ? selectedStatuses.value.filter((value) => value !== status)
-        : [...selectedStatuses.value, status];
+function toggleStatus(status: ProjectTableRow["status"], checked: boolean): void {
+    selectedStatuses.value = checked
+        ? [...selectedStatuses.value, status]
+        : selectedStatuses.value.filter((value) => value !== status);
     goToPage(1);
 }
 
@@ -111,34 +97,16 @@ function clearFilters(): void {
     goToPage(1);
 }
 
-function assignProject(row: ProjectTableRow): void {
-    const existingSlot = getSelectedSlot(row);
-
-    if (existingSlot >= 0) {
-        selectedIds.value.splice(existingSlot, 1);
-        activeSlot.value = Math.min(existingSlot, MAX_FEATURED - 1);
-        syncSelection();
+function selectProject(row: ProjectTableRow): void {
+    if (isExcluded(row)) {
         return;
     }
 
-    if (activeSlot.value < selectedIds.value.length) {
-        selectedIds.value[activeSlot.value] = row.id;
-    } else {
-        selectedIds.value.push(row.id);
-    }
-
-    selectedIds.value = selectedIds.value.slice(0, MAX_FEATURED);
-
-    activeSlot.value = Math.min(selectedIds.value.length, MAX_FEATURED - 1);
-    syncSelection();
-}
-
-function syncSelection(): void {
-    emit("update:modelValue", [...selectedIds.value]);
+    selectedId.value = isSelected(row) ? null : row.id;
 }
 
 function saveFeatured(): void {
-    emit("save", [...selectedIds.value]);
+    emit("save", selectedId.value);
 }
 
 function closeOnEscape(event: KeyboardEvent): void {
@@ -162,16 +130,7 @@ function closeFilterOnOutsideClick(event: MouseEvent): void {
 watch(
     () => props.modelValue,
     (value) => {
-        selectedIds.value = normalizeSelectedIds(value);
-    },
-);
-
-watch(
-    () => props.rows,
-    () => {
-        selectedIds.value = normalizeSelectedIds(selectedIds.value);
-        syncSelection();
-        goToPage(1);
+        selectedId.value = value;
     },
 );
 
@@ -188,11 +147,13 @@ watch(pageCount, (count) => {
 onMounted(() => {
     window.addEventListener("keydown", closeOnEscape);
     document.addEventListener("click", closeFilterOnOutsideClick);
+    document.body.style.overflow = "hidden";
 });
 
 onUnmounted(() => {
     window.removeEventListener("keydown", closeOnEscape);
     document.removeEventListener("click", closeFilterOnOutsideClick);
+    document.body.style.overflow = "";
 });
 </script>
 
@@ -205,143 +166,110 @@ onUnmounted(() => {
                 aria-modal="true"
                 aria-labelledby="feature-modal-title"
             >
-                <header :class="$style.header">
-                    <div :class="$style.titleRow">
-                        <h2 id="feature-modal-title" :class="$style.title">EDIT FEATURED</h2>
-                        <div :class="$style.slotList" aria-label="Featured order slots">
+                <h2 id="feature-modal-title" :class="$style.title">{{ title }}</h2>
+
+                <div :class="$style.controls">
+                    <div ref="filterWrap" :class="$style.filterWrap">
+                        <FilterButton
+                            :arrow-direction="isFilterOpen ? 'up' : 'down'"
+                            :count="activeFilterCount"
+                            @click="isFilterOpen = !isFilterOpen"
+                        />
+                        <div v-if="isFilterOpen" :class="$style.filterMenu" class="type-overline-r">
+                            <section :class="$style.filterGroup">
+                                <header :class="$style.filterGroupTitle" class="type-overline-sb">Category</header>
+                                <label
+                                    v-for="category in categoryOptions"
+                                    :key="category"
+                                    :class="$style.filterOption"
+                                >
+                                    <CheckboxInput
+                                        :model-value="selectedCategories.includes(category)"
+                                        size="s"
+                                        @update:model-value="toggleCategory(category, $event)"
+                                    />
+                                    <span>{{ category }}</span>
+                                </label>
+                            </section>
+                            <section :class="$style.filterGroup">
+                                <header :class="$style.filterGroupTitle" class="type-overline-sb">Status</header>
+                                <label
+                                    v-for="status in statusOptions"
+                                    :key="status"
+                                    :class="$style.filterOption"
+                                >
+                                    <CheckboxInput
+                                        :model-value="selectedStatuses.includes(status)"
+                                        size="s"
+                                        @update:model-value="toggleStatus(status, $event)"
+                                    />
+                                    <span>{{ status }}</span>
+                                </label>
+                            </section>
                             <button
-                                v-for="slot in MAX_FEATURED"
-                                :key="slot"
+                                :class="$style.clearButton"
+                                class="type-overline-sb"
                                 type="button"
-                                :class="[
-                                    $style.slotButton,
-                                    activeSlot === slot - 1 ? $style.activeSlot : '',
-                                    selectedIds[slot - 1] ? $style.filledSlot : '',
-                                ]"
-                                :aria-pressed="activeSlot === slot - 1"
-                                @click="setActiveSlot(slot - 1)"
+                                :disabled="activeFilterCount === 0"
+                                @click="clearFilters"
                             >
-                                <span :class="$style.radio" aria-hidden="true">
-                                    <span v-if="activeSlot === slot - 1" :class="$style.radioDot" />
-                                </span>
-                                {{ slot }}
+                                Clear filters
                             </button>
                         </div>
                     </div>
-                    <hr :class="$style.divider">
-                    <div :class="$style.controls">
-                        <div ref="filterWrap" :class="$style.filterWrap">
-                            <FilterButton
-                                :label="activeFilterCount ? `Filter (${activeFilterCount})` : 'Filter'"
-                                :open="isFilterOpen"
-                                @click="isFilterOpen = !isFilterOpen"
-                            />
-                            <div v-if="isFilterOpen" :class="$style.filterMenu" class="type-overline-r">
-                                <section :class="$style.filterGroup">
-                                    <header :class="$style.filterGroupTitle" class="type-overline-sb">Category</header>
-                                    <label
-                                        v-for="category in categoryOptions"
-                                        :key="category"
-                                        :class="$style.checkboxRow"
-                                    >
-                                        <input
-                                            :class="$style.checkboxInput"
-                                            type="checkbox"
-                                            :checked="selectedCategories.includes(category)"
-                                            @change="toggleCategory(category)"
-                                        >
-                                        <span :class="$style.checkboxBox" aria-hidden="true" />
-                                        <span>{{ category }}</span>
-                                    </label>
-                                </section>
-                                <section :class="$style.filterGroup">
-                                    <header :class="$style.filterGroupTitle" class="type-overline-sb">Status</header>
-                                    <label
-                                        v-for="status in statusOptions"
-                                        :key="status"
-                                        :class="$style.checkboxRow"
-                                    >
-                                        <input
-                                            :class="$style.checkboxInput"
-                                            type="checkbox"
-                                            :checked="selectedStatuses.includes(status)"
-                                            @change="toggleStatus(status)"
-                                        >
-                                        <span :class="$style.checkboxBox" aria-hidden="true" />
-                                        <span>{{ status }}</span>
-                                    </label>
-                                </section>
-                                <button
-                                    v-if="activeFilterCount"
-                                    :class="$style.clearButton"
-                                    class="type-overline-sb"
-                                    type="button"
-                                    @click="clearFilters"
-                                >
-                                    Clear filters
-                                </button>
-                            </div>
-                        </div>
-                        <SearchField v-model="searchQuery" placeholder="Search" />
-                    </div>
-                </header>
+                    <SearchField v-model="searchQuery" :class="$style.search" placeholder="Search" />
+                </div>
 
-                <div :class="$style.tablePanel">
-                    <div :class="[$style.tableHeader, 'type-body-main-sb']" role="row">
-                        <span>No</span>
-                        <span>Project</span>
-                        <span>Category</span>
-                        <span>Status</span>
-                    </div>
-                    <hr :class="$style.divider">
+                <div :class="$style.tableHeader" role="row">
+                    <span :class="$style.noCol">No</span>
+                    <span>Project</span>
+                    <span>Category</span>
+                </div>
+                <hr :class="$style.divider">
+
+                <div :class="$style.rowList">
                     <button
                         v-for="(row, index) in paginatedRows"
                         :key="row.id"
                         type="button"
-                        :class="[$style.tableRow, isSelected(row) ? $style.tableRowSelected : '', 'type-body-main-r']"
-                        @click="assignProject(row)"
+                        :class="[
+                            $style.projectRow,
+                            isSelected(row) ? $style.projectRowSelected : '',
+                            isExcluded(row) ? $style.projectRowExcluded : '',
+                        ]"
+                        :aria-pressed="isSelected(row)"
+                        :disabled="isExcluded(row)"
+                        @click="selectProject(row)"
                     >
-                        <span :class="$style.noCell">
-                            {{ isSelected(row) ? getSelectedSlot(row) + 1 : ((currentPage - 1) * PAGE_SIZE) + index + 1 }}
-                        </span>
-                        <span :class="$style.projectCell">{{ row.projectName }}</span>
+                        <span :class="$style.noCell">{{ ((currentPage - 1) * PAGE_SIZE) + index + 1 }}</span>
+                        <span :class="$style.nameCell">{{ row.projectName }}</span>
                         <span :class="$style.categoryCell">{{ row.category }}</span>
-                        <span :class="$style.statusCell">
-                            <StatusTag :status="row.status" />
-                        </span>
                     </button>
-                    <p v-if="filteredRows.length === 0" :class="$style.emptyState" class="type-body-main-r">
+                    <p v-if="filteredRows.length === 0" :class="$style.emptyState">
                         No projects found.
                     </p>
                 </div>
 
-                <div :class="$style.pagination" aria-label="Featured project pagination">
-                    <NextBackButton
-                        :previous-disabled="currentPage === 1"
-                        :next-disabled="currentPage === pageCount"
-                        @previous="goToPage(currentPage - 1)"
-                        @next="goToPage(currentPage + 1)"
-                    />
-                    <span :class="$style.pageText" class="type-button-r">{{ currentPage }}</span>
-                </div>
+                <TablePagination
+                    :model-value="currentPage"
+                    :page-count="pageCount"
+                    @update:model-value="goToPage"
+                />
 
-                <p v-if="errorMessage" :class="$style.error" class="type-body-main-r" role="alert">
-                    {{ errorMessage }}
-                </p>
-
-                <footer :class="$style.actions">
-                    <button type="button" :class="[$style.button, $style.cancelButton]" @click="emit('cancel')">
-                        Cancel
-                    </button>
-                    <button
-                        type="button"
-                        :class="[$style.button, $style.saveButton]"
-                        :disabled="disabled"
+                <hr :class="$style.divider">
+                <div :class="$style.actions">
+                    <SecondaryButton width-mode="hug" @click="emit('cancel')">
+                        Close
+                    </SecondaryButton>
+                    <SecondaryButton
+                        width-mode="hug"
+                        :trailing-icon="icons.save"
+                        :disabled="disabled || !hasChanges"
                         @click="saveFeatured"
                     >
                         Save
-                    </button>
-                </footer>
+                    </SecondaryButton>
+                </div>
             </section>
         </div>
     </Teleport>
@@ -350,7 +278,7 @@ onUnmounted(() => {
 <style module>
 .backdrop {
     position: fixed;
-    z-index: 60;
+    z-index: 100;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -363,171 +291,33 @@ onUnmounted(() => {
 .modal {
     display: flex;
     flex-direction: column;
-    box-sizing: border-box;
-    width: min(1000px, 100%);
-    max-height: calc(100dvh - (var(--spacing-space-4) * 2));
-    padding: 10px;
-    gap: 10px;
-    overflow: hidden;
-    border-radius: var(--radius-2xl);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
-    font-family: var(--font-sans);
-}
-
-.header {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.titleRow,
-.controls,
-.slotList,
-.actions {
-    display: flex;
     align-items: center;
-}
-
-.titleRow {
-    justify-content: space-between;
-    gap: 20px;
+    box-sizing: border-box;
+    width: min(560px, 100%);
+    height: min(768px, calc(100dvh - (var(--spacing-space-4) * 2)));
+    padding: 12px 16px;
+    gap: 8px;
+    overflow-y: auto;
+    border: 1px solid var(--color-main-divider);
+    border-radius: var(--radius-xl);
+    background-color: var(--color-main-background);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    text-align: left;
 }
 
 .title {
     margin: 0;
-    font-size: 2rem;
+    font-size: var(--type-size-h3-card-title);
     font-weight: 600;
-    line-height: normal;
-}
-
-.slotList {
-    gap: 10px;
-}
-
-.slotButton {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: var(--color-button-primary-btn-text-active);
-    font: inherit;
-    font-size: 1.375rem;
-    font-weight: 300;
-    cursor: pointer;
-}
-
-.radio {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 16px;
-    height: 16px;
-    box-sizing: border-box;
-    border: 1.5px solid var(--color-main-divider);
-    border-radius: var(--radius-full);
-    transition: width 160ms ease, height 160ms ease, border-color 160ms ease, background-color 160ms ease;
-}
-
-.activeSlot .radio {
-    width: 26px;
-    height: 26px;
-    border-color: var(--color-main-primary);
-    background-color: var(--color-main-primary);
-}
-
-.filledSlot:not(.activeSlot) .radio {
-    border-color: var(--color-main-primary);
-}
-
-.radioDot {
-    width: 10px;
-    height: 10px;
-    border-radius: var(--radius-full);
-    background-color: var(--color-button-primary-btn-text-active);
-}
-
-.divider {
-    width: 100%;
-    height: 1px;
-    margin: 0;
-    border: 0;
-    border-top: 1px solid var(--color-main-divider);
-}
-
-.controls {
-    justify-content: space-between;
-    min-height: 56px;
-    padding: 0 10px;
-    gap: 20px;
-}
-
-.tablePanel {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    min-height: 0;
-    padding: 10px;
-    gap: 10px;
-    overflow-y: auto;
-    border-radius: var(--radius-xl);
-    background-color: var(--color-main-bg);
-}
-
-.tableHeader,
-.tableRow {
-    display: grid;
-    grid-template-columns: 40px minmax(220px, 1fr) minmax(150px, 0.55fr) 128px;
-    align-items: start;
-    width: 100%;
-    gap: 20px;
-}
-
-.tableRow {
-    min-height: 74px;
-    padding: 8px;
-    border: 1px solid transparent;
-    border-radius: var(--radius-lg);
-    background: transparent;
-    color: inherit;
-    text-align: left;
-    cursor: pointer;
-    transition: background-color 160ms ease, border-color 160ms ease;
-}
-
-.tableRow:hover {
-    background-color: var(--color-table-row-hover);
-}
-
-.tableRowSelected {
-    border-color: var(--color-main-primary);
-    background-color: var(--color-table-row-active);
-}
-
-.tableRow:focus-visible,
-.slotButton:focus-visible,
-.button:focus-visible {
-    outline: 2px solid var(--color-main-primary);
-    outline-offset: 2px;
-}
-
-.noCell {
     text-align: center;
 }
 
-.projectCell,
-.categoryCell {
-    display: -webkit-box;
-    overflow: hidden;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
-}
-
-.emptyState {
-    margin: auto;
-    color: var(--color-text-disabled);
+.controls {
+    display: flex;
+    align-items: flex-start;
+    align-self: stretch;
+    gap: 8px;
 }
 
 .filterWrap {
@@ -542,14 +332,14 @@ onUnmounted(() => {
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
-    width: 260px;
+    width: 240px;
     padding: 12px;
     gap: 12px;
-    border: 1px solid var(--color-main-border);
+    border: 1px solid var(--color-main-divider);
     border-radius: var(--radius-xl);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
-    box-shadow: 0 16px 40px color-mix(in srgb, var(--color-text-input) 30%, transparent);
+    background-color: var(--color-main-background);
+    color: var(--color-text-primary);
+    box-shadow: 0 8px 12px rgb(0 0 0 / 14%);
 }
 
 .filterGroup {
@@ -559,52 +349,14 @@ onUnmounted(() => {
 }
 
 .filterGroupTitle {
-    color: var(--color-main-primary);
+    color: var(--color-text-secondary);
 }
 
-.checkboxRow {
+.filterOption {
     display: flex;
     align-items: center;
     gap: 8px;
     cursor: pointer;
-}
-
-.checkboxInput {
-    position: absolute;
-    opacity: 0;
-    pointer-events: none;
-}
-
-.checkboxBox {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    width: 16px;
-    height: 16px;
-    box-sizing: border-box;
-    border: 1.5px solid var(--color-main-border);
-    border-radius: var(--radius-base);
-    transition: background-color 160ms ease, border-color 160ms ease;
-}
-
-.checkboxInput:checked + .checkboxBox {
-    border-color: var(--color-main-primary);
-    background-color: var(--color-main-primary);
-}
-
-.checkboxInput:checked + .checkboxBox::after {
-    content: "";
-    width: 8px;
-    height: 5px;
-    border-left: 2px solid var(--color-button-primary-btn-text-active);
-    border-bottom: 2px solid var(--color-button-primary-btn-text-active);
-    transform: rotate(-45deg) translateY(-1px);
-}
-
-.checkboxInput:focus-visible + .checkboxBox {
-    outline: 2px solid var(--color-main-primary);
-    outline-offset: 2px;
 }
 
 .clearButton {
@@ -612,91 +364,130 @@ onUnmounted(() => {
     padding: 0;
     border: 0;
     background: transparent;
-    color: var(--color-main-primary);
+    color: var(--color-status-error);
     cursor: pointer;
+    transition: opacity 180ms ease;
 }
 
-.error {
+.clearButton:hover:not(:disabled) {
+    opacity: 0.75;
+}
+
+.clearButton:disabled {
+    color: var(--color-text-disabled);
+    cursor: not-allowed;
+}
+
+.search {
+    flex: 1;
+    min-width: 0;
+}
+
+.tableHeader {
+    display: grid;
+    grid-template-columns: minmax(24px, 48px) minmax(0, 1fr) minmax(0, 210px);
+    align-items: center;
+    align-self: stretch;
+    box-sizing: border-box;
+    padding: 0 16px;
+    gap: 8px;
+    color: var(--color-text-secondary);
+    font-size: var(--type-size-body-main);
+    font-weight: 600;
+}
+
+.noCol {
+    text-align: left;
+}
+
+.divider {
+    align-self: stretch;
+    height: 1px;
     margin: 0;
-    color: var(--color-status-error);
+    border: 0;
+    border-top: 1px solid var(--color-main-divider);
+}
+
+.rowList {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-self: stretch;
+    min-height: 0;
+    gap: 8px;
+    overflow: hidden;
+}
+
+.projectRow {
+    display: grid;
+    grid-template-columns: minmax(24px, 48px) minmax(0, 1fr) minmax(0, 210px);
+    align-items: center;
+    align-self: stretch;
+    box-sizing: border-box;
+    /* Fixed-height rows pinned to the top of the locked list area. */
+    height: 81px;
+    flex-shrink: 0;
+    padding: 12px 16px;
+    gap: 8px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-xl);
+    background-color: transparent;
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    font-size: var(--type-size-body-main);
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 180ms ease, border-color 180ms ease, opacity 180ms ease;
+}
+
+.projectRow:hover:not(:disabled) {
+    background-color: var(--color-table-row-hover);
+}
+
+.projectRow:focus-visible {
+    outline: 2px solid var(--color-main-primary);
+    outline-offset: 2px;
+}
+
+.projectRowSelected,
+.projectRowSelected:hover:not(:disabled) {
+    border-color: var(--color-main-divider);
+}
+
+.projectRowExcluded {
+    cursor: not-allowed;
+    opacity: 0.4;
+}
+
+.noCell {
+    font-weight: 600;
+}
+
+.nameCell,
+.categoryCell {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    font-weight: 300;
+    text-overflow: ellipsis;
+}
+
+.emptyState {
+    align-self: stretch;
+    margin: 0;
+    padding: 24px 0;
+    color: var(--color-text-primary);
+    font-size: var(--type-size-body-main);
+    font-weight: 300;
+    text-align: center;
 }
 
 .actions {
-    justify-content: center;
-    gap: 10px;
-}
-
-.pagination {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
-    min-height: 42px;
-    gap: 24px;
-}
-
-.pageText {
-    color: var(--color-text-secondary);
-}
-
-.button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    box-sizing: border-box;
-    width: 160px;
-    height: 48px;
-    padding: 12px 16px;
-    border: 1px solid transparent;
-    border-radius: var(--radius-xl);
-    color: var(--color-button-primary-btn-text-active);
-    font-family: var(--font-sans);
-    font-size: 1rem;
-    font-weight: 300;
-    cursor: pointer;
-    transition: background-color 160ms ease, border-color 160ms ease, opacity 160ms ease;
-}
-
-.button:disabled {
-    cursor: not-allowed;
-    opacity: 0.6;
-}
-
-.cancelButton {
-    border-color: var(--color-button-secondary-btn-bg);
-    background-color: var(--color-button-secondary-btn-bg);
-}
-
-.cancelButton:hover {
-    border-color: var(--color-button-secondary-btn-hover);
-    background-color: var(--color-button-secondary-btn-hover);
-}
-
-.saveButton {
-    border-color: var(--color-button-primary-btn-bg);
-    background-color: var(--color-button-primary-btn-bg);
-}
-
-.saveButton:hover:not(:disabled) {
-    border-color: var(--color-button-primary-btn-hover);
-    background-color: var(--color-button-primary-btn-hover);
-}
-
-@media (max-width: 767px) {
-    .titleRow,
-    .controls,
-    .actions {
-        align-items: stretch;
-        flex-direction: column;
-    }
-
-    .tableHeader,
-    .tableRow {
-        grid-template-columns: 28px minmax(0, 1fr) 95px 90px;
-        gap: 12px;
-    }
-
-    .button {
-        width: 100%;
-    }
+    gap: 8px;
 }
 </style>

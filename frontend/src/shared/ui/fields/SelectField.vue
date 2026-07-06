@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
+import { icons } from "@/config";
 
 export interface SelectFieldOption {
     label: string;
@@ -15,6 +16,8 @@ interface Props {
     name?: string;
     options: readonly SelectFieldOption[];
     placeholder?: string;
+    supportText?: string;
+    /** @deprecated Fields keep the light input tokens in every theme now; the prop is ignored. */
     tone?: "light" | "dark";
 }
 
@@ -38,6 +41,7 @@ const props = withDefaults(defineProps<Props>(), {
     modelValue: "",
     name: undefined,
     placeholder: "Placeholder",
+    supportText: "",
     tone: "light",
 });
 
@@ -107,7 +111,7 @@ watch(isOpen, async (open) => {
 </script>
 
 <template>
-    <div ref="dropdown" :class="[$style.dropdown, tone === 'dark' ? $style.dark : '']">
+    <div ref="dropdown" :class="$style.dropdown">
         <span :class="[$style.title, hideLabel ? $style.srOnly : '']" class="type-overline-r">{{ label }}</span>
         <input v-if="name" type="hidden" :name="name" :value="modelValue">
         <button
@@ -124,18 +128,17 @@ watch(isOpen, async (open) => {
             >
                 {{ selectedLabel }}
             </span>
-            <img
+            <span
                 :class="[$style.icon, isOpen ? $style.openIcon : '']"
-                src="/images/icons/navbar/theme/dropdown.svg"
-                alt=""
+                :style="{ '--select-arrow-src': `url(${icons.slide})` }"
                 aria-hidden="true"
-            >
+            />
         </button>
         <Teleport to="body">
             <div
                 v-if="isOpen"
                 ref="menu"
-                :class="[$style.menu, tone === 'dark' ? $style.darkMenu : '']"
+                :class="$style.menu"
                 :style="menuStyle"
                 role="listbox"
             >
@@ -156,40 +159,32 @@ watch(isOpen, async (open) => {
                 </span>
             </div>
         </Teleport>
-        <span v-if="error" :class="$style.supportText" class="type-overline-r">{{ error }}</span>
+        <span
+            v-if="error || supportText"
+            :class="[$style.supportText, error ? $style.errorText : '']"
+            class="type-overline-r"
+        >{{ error || supportText }}</span>
     </div>
 </template>
 
 <style module>
 .dropdown {
-    --select-panel: var(--color-input-bg);
-    --select-inset: var(--color-neutral-100);
-    --select-border: var(--color-input-border);
-    --select-text: var(--color-text-input);
-    --select-muted: var(--color-neutral-600);
-    --select-accent: var(--color-main-primary);
-
     position: relative;
     display: flex;
     flex-direction: column;
     width: 100%;
     gap: 8px;
-    color: var(--select-muted);
+    color: var(--color-neutral-600);
 }
 
 :global(.dark) .dropdown,
 :global([data-theme="dark"]) .dropdown {
-    --select-panel: var(--color-main-surface);
-    --select-inset: #1f1f1f;
-    --select-border: var(--color-main-divider);
-    --select-text: var(--color-text-secondary);
-    --select-muted: #9aa6b4;
-
-    color: var(--select-muted);
+    color: var(--color-text-secondary);
 }
 
 .title {
     font-family: var(--font-sans);
+    font-weight: 800;
 }
 
 .srOnly {
@@ -204,26 +199,6 @@ watch(isOpen, async (open) => {
     border: 0;
 }
 
-.dark {
-    --select-panel: var(--color-main-surface);
-    --select-inset: #1f1f1f;
-    --select-border: var(--color-main-divider);
-    --select-text: var(--color-text-secondary);
-    --select-muted: #9aa6b4;
-
-    color: var(--select-muted);
-}
-
-.dark .field {
-    border-color: var(--select-border);
-    background-color: var(--select-panel);
-    color: var(--select-text);
-}
-
-.dark .field:hover:not(:disabled) {
-    border-color: var(--color-main-primary);
-}
-
 .field {
     display: flex;
     align-items: center;
@@ -232,16 +207,16 @@ watch(isOpen, async (open) => {
     width: 100%;
     height: 48px;
     padding: 0 16px;
-    border: 1px solid var(--select-border);
-    border-radius: var(--radius-xl);
-    background-color: var(--select-panel);
-    color: var(--select-text);
+    border: 1px solid var(--color-input-border);
+    border-radius: var(--radius-lg);
+    background-color: var(--color-input-bg);
+    color: var(--color-text-input);
     cursor: pointer;
     transition: border-color 160ms ease, background-color 160ms ease;
 }
 
 .field:hover:not(:disabled) {
-    border-color: color-mix(in srgb, var(--select-accent) 45%, var(--select-border));
+    border-color: var(--color-input-border-hover);
 }
 
 .field:focus-visible,
@@ -268,36 +243,35 @@ watch(isOpen, async (open) => {
     color: var(--color-text-disabled);
 }
 
+/* slide.svg points left; closed = down, open = up. */
 .icon {
-    width: 12px;
-    height: 12px;
+    width: 16px;
+    height: 16px;
     flex-shrink: 0;
+    background-color: currentColor;
+    mask: var(--select-arrow-src) center / contain no-repeat;
+    -webkit-mask: var(--select-arrow-src) center / contain no-repeat;
     pointer-events: none;
+    transform: rotate(270deg);
     transition: transform 160ms ease;
 }
 
 .openIcon {
-    transform: rotate(180deg);
+    transform: rotate(90deg);
 }
 
 .menu {
     position: fixed;
     z-index: 1100;
-    --select-panel: var(--color-input-bg);
-    --select-inset: var(--color-neutral-100);
-    --select-border: var(--color-input-border);
-    --select-text: var(--color-text-input);
-    --select-accent: var(--color-main-primary);
-
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
     padding: 6px;
     gap: 2px;
     overflow-y: auto;
-    border: 1px solid var(--select-border);
-    border-radius: var(--radius-xl);
-    background-color: var(--select-panel);
+    border: 1px solid var(--color-input-border);
+    border-radius: var(--radius-lg);
+    background-color: var(--color-input-bg);
     scrollbar-width: none;
 }
 
@@ -305,50 +279,12 @@ watch(isOpen, async (open) => {
     display: none;
 }
 
-.menu.darkMenu {
-    --select-panel: var(--color-main-surface);
-    --select-inset: #1f1f1f;
-    --select-border: var(--color-main-divider);
-    --select-text: var(--color-text-secondary);
-
-    border-color: var(--select-border);
-    background-color: var(--select-panel);
-}
-
-/* The menu is teleported to <body>, so a `tone="dark"` prop isn't always passed
-   (e.g. the bot config dropdowns). Fall back to the app's global theme attribute
-   so the menu matches dark mode instead of rendering on a light panel. */
-:global([data-theme="dark"]) .menu,
-:global(.dark) .menu {
-    --select-panel: var(--color-main-surface);
-    --select-inset: #1f1f1f;
-    --select-border: var(--color-main-divider);
-    --select-text: var(--color-text-secondary);
-
-    border-color: var(--select-border);
-    background-color: var(--select-panel);
-}
-
-:global([data-theme="dark"]) .menu .option,
-:global(.dark) .menu .option {
-    color: var(--select-text);
-}
-
-:global([data-theme="dark"]) .menu .option:hover,
-:global([data-theme="dark"]) .menu .option:focus-visible,
-:global([data-theme="dark"]) .menu .selectedOption,
-:global(.dark) .menu .option:hover,
-:global(.dark) .menu .option:focus-visible,
-:global(.dark) .menu .selectedOption {
-    background-color: color-mix(in srgb, var(--select-accent) 14%, var(--select-inset));
-}
-
 .option {
     padding: 8px 10px;
     border: 0;
     border-radius: var(--radius-lg);
     background-color: transparent;
-    color: var(--select-text);
+    color: var(--color-text-input);
     text-align: left;
     cursor: pointer;
     transition: background-color 160ms ease;
@@ -358,17 +294,7 @@ watch(isOpen, async (open) => {
 .option:focus-visible,
 .selectedOption {
     outline: 0;
-    background-color: var(--select-inset);
-}
-
-.darkMenu .option {
-    color: var(--select-text);
-}
-
-.darkMenu .option:hover,
-.darkMenu .option:focus-visible,
-.darkMenu .selectedOption {
-    background-color: color-mix(in srgb, var(--select-accent) 14%, var(--select-inset));
+    background-color: var(--color-neutral-100);
 }
 
 .emptyOption {
@@ -384,6 +310,10 @@ watch(isOpen, async (open) => {
 }
 
 .supportText {
+    font-size: 10px;
+}
+
+.errorText {
     color: var(--color-status-error);
 }
 </style>

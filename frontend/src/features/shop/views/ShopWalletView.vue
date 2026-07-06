@@ -2,14 +2,14 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import {
-    ShopSidebar,
-    WalletBalanceCard,
-    WalletTopupCard,
+    WalletCreditCard,
+    WalletTopupPanel,
 } from "@/features/shop/components";
 import { StatusToast } from "@/shared/ui";
 import { PrimaryButton, SecondaryButton } from "@/shared/ui/buttons";
+import { AppFooter } from "@/shared/layout";
 import { useUserStore } from "@/stores";
-import { API_BASE_URL } from "@/config";
+import { API_BASE_URL, icons } from "@/config";
 
 const MIN_TOPUP_THB = 50;
 const quickAmounts = [50, 100, 250, 500, 1000] as const;
@@ -50,7 +50,6 @@ interface NormalizedBackendError {
 const router = useRouter();
 const userStore = useUserStore();
 
-const isSidebarOpen = ref(typeof window === "undefined" ? true : window.innerWidth > 760);
 const balanceSatang = ref(0);
 const selectedAmount = ref<number | null>(MIN_TOPUP_THB);
 const customAmount = ref(String(MIN_TOPUP_THB));
@@ -80,7 +79,7 @@ const canVerifySlip = computed(() => (
     && !!slipFile.value
     && !isVerifyingSlip.value
 ));
-const walletBalance = computed(() => formatMoney(balanceSatang.value));
+const walletBalance = computed(() => balanceSatang.value / 100);
 const topupAmount = computed(() => formatMoney(topup.value?.amountSatang ?? amountThb.value * 100));
 const walletUsername = computed(() => (
     userStore.profile?.username
@@ -397,6 +396,10 @@ async function requireSignIn(): Promise<void> {
     await router.push({ name: "login", query: { redirect: "/shop/wallet" } });
 }
 
+function goBack(): void {
+    void router.push({ name: "shop-dashboard" });
+}
+
 onMounted(async () => {
     await userStore.initAuth();
     if (userStore.isAuthenticated) {
@@ -411,55 +414,58 @@ onUnmounted(() => {
 
 <template>
     <div :class="$style.shopWallet">
-        <ShopSidebar v-model="isSidebarOpen" />
-
-        <main :class="[$style.content, isSidebarOpen ? $style.sidebarOpen : $style.sidebarClosed]">
-            <section :class="$style.titleSection">
+        <main :class="$style.content">
+            <section :class="$style.section" aria-labelledby="shop-wallet-title">
                 <div :class="$style.titleRow">
-                    <h1 :class="$style.pageTitle" class="type-h1-page-title-sb">Wallet</h1>
-                    <div :class="$style.titleActions">
-                        <PrimaryButton :to="{ name: 'shop-package' }">ไป Package</PrimaryButton>
-                        <SecondaryButton :to="{ name: 'shop-runtime' }">ดู Runtime</SecondaryButton>
-                    </div>
+                    <h1 id="shop-wallet-title" :class="$style.pageTitle">Wallet</h1>
+                    <SecondaryButton width-mode="hug" :leading-icon="icons.arrowBack" @click="goBack">
+                        Back
+                    </SecondaryButton>
                 </div>
-                <div :class="$style.divider" aria-hidden="true" />
             </section>
 
-            <section v-if="walletError" :class="$style.statePanel" aria-live="polite">
-                <h2 :class="$style.stateTitle">โหลด Wallet ไม่สำเร็จ</h2>
-                <p :class="$style.stateText">{{ walletError }}</p>
-                <PrimaryButton @click="loadWallet">ลองใหม่</PrimaryButton>
-            </section>
+            <section :class="$style.section" aria-labelledby="shop-wallet-topup-title">
+                <div :class="$style.sectionHeading">
+                    <h2 id="shop-wallet-topup-title" :class="$style.sectionTitle">Top Up</h2>
+                    <div :class="$style.headingRule" aria-hidden="true" />
+                </div>
 
-            <section :class="$style.walletGrid" aria-label="Wallet top up">
-                <WalletBalanceCard
-                    :avatar-url="walletAvatarUrl"
-                    :balance="walletBalance"
-                    :loading="isLoadingWallet"
-                    :username="walletUsername"
-                />
+                <section v-if="walletError" :class="$style.statePanel" aria-live="polite">
+                    <h2 :class="$style.stateTitle">โหลด Wallet ไม่สำเร็จ</h2>
+                    <p :class="$style.stateText">{{ walletError }}</p>
+                    <PrimaryButton @click="loadWallet">ลองใหม่</PrimaryButton>
+                </section>
 
-                <WalletTopupCard
-                    :quick-amounts="quickAmounts"
-                    :selected-amount="selectedAmount"
-                    :custom-amount="customAmount"
-                    :amount-error="amountError"
-                    :qr-image-url="qrImageUrl"
-                    :topup-amount="topupAmount"
-                    :topup-reference="topup?.reference"
-                    :can-generate="canGenerateQr"
-                    :drag-active="dragActive"
-                    :file-name="slipFile?.name"
-                    :generating="isGeneratingQr"
-                    :verifying="isVerifyingSlip"
-                    @drag-active-change="dragActive = $event"
-                    @drop-file="handleDrop"
-                    @file-change="handleFileChange"
-                    @select-amount="selectAmount"
-                    @input-amount="handleCustomAmountInput"
-                    @generate="userStore.isAuthenticated ? generateQr() : requireSignIn()"
-                    @verify="verifySlip"
-                />
+                <section :class="$style.walletGrid" aria-label="Wallet top up">
+                    <WalletCreditCard
+                        :class="$style.creditCard"
+                        :balance="walletBalance"
+                        :holder="walletUsername"
+                        :emblem="walletAvatarUrl"
+                    />
+
+                    <WalletTopupPanel
+                        :quick-amounts="quickAmounts"
+                        :selected-amount="selectedAmount"
+                        :custom-amount="customAmount"
+                        :amount-error="amountError"
+                        :qr-image-url="qrImageUrl"
+                        :topup-amount="topupAmount"
+                        :can-generate="canGenerateQr"
+                        :can-verify="canVerifySlip"
+                        :drag-active="dragActive"
+                        :file-name="slipFile?.name"
+                        :generating="isGeneratingQr"
+                        :verifying="isVerifyingSlip"
+                        @drag-active-change="dragActive = $event"
+                        @drop-file="handleDrop"
+                        @file-change="handleFileChange"
+                        @select-amount="selectAmount"
+                        @input-amount="handleCustomAmountInput"
+                        @generate="userStore.isAuthenticated ? generateQr() : requireSignIn()"
+                        @verify="verifySlip"
+                    />
+                </section>
             </section>
 
             <div v-if="toast" :class="$style.toastRegion" aria-live="polite">
@@ -471,6 +477,8 @@ onUnmounted(() => {
                 />
             </div>
         </main>
+
+        <AppFooter />
     </div>
 </template>
 
@@ -484,7 +492,11 @@ onUnmounted(() => {
     --shop-card-muted: var(--color-neutral-600);
 
     display: flex;
+    flex-direction: column;
     min-height: 100vh;
+    box-sizing: border-box;
+    /* Clear the fixed AppNavbar. */
+    padding-top: 73px;
     background-color: var(--color-main-background);
     color: var(--color-text-primary);
 }
@@ -499,65 +511,66 @@ onUnmounted(() => {
 
 .content {
     display: flex;
-    min-width: 0;
     flex: 1;
     flex-direction: column;
     box-sizing: border-box;
-    padding: var(--spacing-space-6);
-    gap: var(--spacing-space-6);
-    transition: margin-left 260ms cubic-bezier(0.22, 1, 0.36, 1);
+    width: 100%;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: var(--spacing-space-3) var(--spacing-space-6);
+    gap: var(--spacing-space-4);
 }
 
-.sidebarOpen {
-    margin-left: 194px;
-}
-
-.sidebarClosed {
-    margin-left: 44px;
-}
-
-.titleSection {
+.section {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-space-2);
+    gap: var(--spacing-space-3);
 }
 
 .titleRow {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    flex-wrap: wrap;
     gap: var(--spacing-space-4);
-}
-
-.titleActions {
-    display: flex;
-    align-items: center;
-    flex-shrink: 0;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: var(--spacing-space-3);
 }
 
 .pageTitle {
     margin: 0;
     color: var(--color-text-primary);
-    font-size: 32px;
-    font-weight: 600;
-    line-height: 1.15;
+    font-size: 22px;
+    font-weight: 800;
+    line-height: 1;
 }
 
-.divider {
+.sectionHeading {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-space-3);
+}
+
+.sectionTitle {
+    margin: 0;
+    color: var(--color-text-primary);
+    font-size: 16px;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.headingRule {
     height: 1px;
+    flex: 1;
     background-color: var(--color-main-divider);
 }
 
 .walletGrid {
-    display: flex;
-    align-items: flex-start;
-    flex-wrap: wrap;
-    align-content: flex-start;
-    gap: var(--spacing-space-5);
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: var(--spacing-space-3);
+}
+
+.creditCard {
+    width: min(100%, 472px);
 }
 
 .statePanel {
@@ -599,25 +612,15 @@ onUnmounted(() => {
 
 @media (max-width: 760px) {
     .content {
-        padding: var(--spacing-space-5) var(--spacing-space-3) var(--spacing-space-10);
-    }
-
-    .sidebarOpen,
-    .sidebarClosed {
-        margin-left: 44px;
+        padding: var(--spacing-space-3) var(--spacing-space-3) var(--spacing-space-10);
     }
 
     .walletGrid {
-        justify-content: center;
+        grid-template-columns: minmax(0, 1fr);
     }
 
     .titleRow {
-        flex-direction: column;
-        gap: var(--spacing-space-3);
-    }
-
-    .titleActions {
-        justify-content: flex-start;
+        align-items: flex-start;
     }
 
     .toastRegion {

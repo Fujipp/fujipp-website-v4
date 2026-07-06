@@ -1,3 +1,5 @@
+import { icons } from "./icons";
+
 export interface NavbarLink {
   label: string;
   path: string;
@@ -5,14 +7,15 @@ export interface NavbarLink {
 }
 
 export const navbarLinks = [
-  { label: "HOME", path: "/", icon: "/images/icons/sidebar/home.svg" },
-  { label: "PROJECTS", path: "/projects", icon: "/images/icons/sidebar/projects.svg" },
-  { label: "ABOUT", path: "/about", icon: "/images/icons/sidebar/about.svg" },
-  { label: "CONTACT", path: "/contact", icon: "/images/icons/sidebar/contact.svg" },
+  { label: "HOME", path: "/", icon: icons.home },
+  { label: "PROJECTS", path: "/projects", icon: icons.projects },
+  { label: "ABOUT", path: "/about", icon: icons.about },
+  { label: "SHOP", path: "/shop", icon: icons.shop },
 ] satisfies readonly NavbarLink[];
 
 export const mobileNavbarLinks = [
   ...navbarLinks,
-  { label: "PERFORMANCE", path: "/performance", icon: "/images/icons/sidebar/performance.svg" },
-  { label: "PRIVACY", path: "/privacy", icon: "/images/icons/sidebar/privacy.svg" },
+  // { label: "CONTACT", path: "/contact", icon: icons.contact },
+  { label: "PERFORMANCE", path: "/performance", icon: icons.performance },
+  { label: "PRIVACY", path: "/privacy", icon: icons.privacy },
 ] satisfies readonly NavbarLink[];

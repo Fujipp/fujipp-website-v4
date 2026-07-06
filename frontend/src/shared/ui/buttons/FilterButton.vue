@@ -1,177 +1,89 @@
 <script setup lang="ts">
+import { computed } from "vue";
+import { icons } from "@/config";
+
+type ArrowDirection = "up" | "down" | "left" | "right";
+
 interface Props {
-    label?: string;
-    open?: boolean;
+    count?: number;
+    arrowDirection?: ArrowDirection;
+    icon?: string;
+    disabled?: boolean;
+    ariaLabel?: string;
 }
 
-withDefaults(defineProps<Props>(), {
-    label: "Filter",
-    open: false,
+const props = withDefaults(defineProps<Props>(), {
+    count: 0,
+    arrowDirection: "down",
+    disabled: false,
+    icon: icons.filter,
 });
 
-const emit = defineEmits<{
-    click: [];
+defineEmits<{
+    click: [event: MouseEvent];
 }>();
 
-function updateGlassPointer(event: PointerEvent): void {
-    const target = event.currentTarget as HTMLElement | null;
+/* slide.svg points left; rotate it to the requested direction. */
+const arrowRotation: Record<ArrowDirection, string> = {
+    left: "0deg",
+    up: "90deg",
+    right: "180deg",
+    down: "270deg",
+};
 
-    if (!target) return;
+const arrowStyle = computed(() => ({
+    "--filter-arrow-src": `url(${icons.slide})`,
+    "--filter-arrow-rotation": arrowRotation[props.arrowDirection],
+}));
 
-    const rect = target.getBoundingClientRect();
-    target.style.setProperty("--glass-pointer-x", `${event.clientX - rect.left}px`);
-    target.style.setProperty("--glass-pointer-y", `${event.clientY - rect.top}px`);
-}
-
-function resetGlassPointer(event: PointerEvent): void {
-    const target = event.currentTarget as HTMLElement | null;
-
-    if (!target) return;
-
-    target.style.removeProperty("--glass-pointer-x");
-    target.style.removeProperty("--glass-pointer-y");
-}
+const iconStyle = computed(() => (props.icon ? { "--filter-icon-src": `url(${props.icon})` } : undefined));
 </script>
 
 <template>
     <button
         type="button"
         :class="$style.filterButton"
-        :aria-expanded="open"
-        @pointermove="updateGlassPointer"
-        @pointerleave="resetGlassPointer"
-        @click="emit('click')"
+        :disabled="disabled"
+        :aria-label="ariaLabel"
+        @click="$emit('click', $event)"
     >
         <span :class="$style.title">
-            <img
-                :class="$style.filterIcon"
-                src="/images/icons/common/filter.svg"
-                alt=""
-                aria-hidden="true"
-                draggable="false"
-            >
-            <span class="type-button-r">{{ label }}</span>
+            <slot name="icon">
+                <span v-if="icon" :class="$style.icon" :style="iconStyle" aria-hidden="true" />
+            </slot>
+            <span :class="$style.label"><slot>Filter</slot></span>
         </span>
-        <img
-            :class="[$style.arrowIcon, { [$style.arrowOpen]: open }]"
-            src="/images/icons/navbar/theme/slide.svg"
-            alt=""
-            aria-hidden="true"
-            draggable="false"
-        >
+        <span v-if="count > 0" :class="$style.badge">{{ count }}</span>
+        <span v-else :class="$style.arrow" :style="arrowStyle" aria-hidden="true" />
     </button>
 </template>
 
 <style module>
 .filterButton {
-    --glass-foreground: var(--color-neutral-700);
-    --glass-border: color-mix(in srgb, var(--color-neutral-600) 24%, transparent);
-    --glass-border-hover: color-mix(in srgb, var(--color-neutral-700) 34%, transparent);
-    --glass-highlight: color-mix(in srgb, var(--color-neutral-50) 82%, transparent);
-    --glass-highlight-soft: color-mix(in srgb, var(--color-neutral-50) 48%, transparent);
-    --glass-lowlight: color-mix(in srgb, var(--color-neutral-400) 40%, transparent);
-    --glass-shadow: color-mix(in srgb, var(--color-neutral-900) 22%, transparent);
-    --glass-shadow-hover: color-mix(in srgb, var(--color-neutral-900) 26%, transparent);
-    --glass-icon-filter: brightness(0) saturate(100%) invert(34%) sepia(12%) saturate(842%) hue-rotate(182deg) brightness(91%) contrast(88%);
-    --glass-pointer-color: color-mix(in srgb, var(--color-main-primary) 24%, var(--color-neutral-50) 54%);
-    --glass-pointer-x: 50%;
-    --glass-pointer-y: 50%;
-
-    position: relative;
     display: inline-flex;
     align-items: center;
-    justify-content: space-between;
     box-sizing: border-box;
     height: 36px;
-    padding: 8px 8px 8px 12px;
     gap: 12px;
-    overflow: hidden;
-    isolation: isolate;
-    border: 1px solid var(--glass-border);
+    border: 0.5px solid var(--color-button-border);
     border-radius: var(--radius-xl);
-    background:
-        linear-gradient(
-            150deg,
-            var(--glass-highlight) 0%,
-            var(--glass-highlight-soft) 42%,
-            var(--glass-lowlight) 100%
-        );
-    box-shadow:
-        inset 0 1px 1px color-mix(in srgb, var(--color-neutral-50) 72%, transparent),
-        inset 0 -8px 16px var(--glass-lowlight),
-        0 6px 18px var(--glass-shadow);
-    backdrop-filter: blur(24px) saturate(180%) brightness(1.1);
-    -webkit-backdrop-filter: blur(24px) saturate(180%) brightness(1.1);
-    color: var(--glass-foreground);
+    background: var(--color-button-secondary);
+    padding: 8px 8px 8px 12px;
+    color: var(--color-button-text);
+    font-family: var(--font-sans);
+    font-size: var(--type-size-button);
+    line-height: normal;
+    text-align: left;
     cursor: pointer;
     transition:
-        border-color 220ms ease,
-        box-shadow 220ms ease,
-        transform 220ms ease;
+        border-color 180ms ease,
+        background 180ms ease,
+        opacity 180ms ease;
 }
 
-:global(.dark) .filterButton,
-:global([data-theme="dark"]) .filterButton {
-    --glass-foreground: var(--color-neutral-50);
-    --glass-border: color-mix(in srgb, var(--color-neutral-50) 16%, transparent);
-    --glass-border-hover: color-mix(in srgb, var(--color-neutral-50) 26%, transparent);
-    --glass-highlight: color-mix(in srgb, var(--color-neutral-50) 14%, transparent);
-    --glass-highlight-soft: color-mix(in srgb, var(--color-neutral-50) 4%, transparent);
-    --glass-lowlight: color-mix(in srgb, var(--color-neutral-900) 28%, transparent);
-    --glass-shadow: color-mix(in srgb, var(--color-neutral-900) 35%, transparent);
-    --glass-shadow-hover: color-mix(in srgb, var(--color-neutral-900) 40%, transparent);
-    --glass-icon-filter: brightness(0) invert(1);
-    --glass-pointer-color: color-mix(in srgb, var(--color-neutral-50) 36%, var(--color-main-primary) 24%);
-}
-
-.filterButton::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    border-radius: inherit;
-    background:
-        radial-gradient(
-            120% 80% at 50% -20%,
-            color-mix(in srgb, var(--color-neutral-50) 62%, transparent) 0%,
-            transparent 60%
-        );
-    opacity: 0.7;
-    pointer-events: none;
-}
-
-.filterButton::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    border-radius: inherit;
-    background:
-        radial-gradient(
-            circle 58px at var(--glass-pointer-x) var(--glass-pointer-y),
-            var(--glass-pointer-color) 0%,
-            transparent 68%
-        );
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 180ms ease;
-}
-
-.filterButton:hover::after,
-.filterButton:focus-visible::after {
-    opacity: 0.82;
-}
-
-.filterButton:hover {
-    border-color: var(--glass-border-hover);
-    box-shadow:
-        inset 0 1px 1px color-mix(in srgb, var(--color-neutral-50) 78%, transparent),
-        inset 0 -8px 16px var(--glass-lowlight),
-        0 8px 22px var(--glass-shadow-hover);
-}
-
-.filterButton:active {
-    transform: scale(0.97);
+.filterButton:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-button-secondary) 88%, var(--color-button-text));
+    border-color: color-mix(in srgb, var(--color-button-border) 70%, var(--color-button-text));
 }
 
 .filterButton:focus-visible {
@@ -179,32 +91,54 @@ function resetGlassPointer(event: PointerEvent): void {
     outline-offset: 2px;
 }
 
+.filterButton:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+
 .title {
-    display: inline-flex;
+    display: flex;
     align-items: center;
     gap: 8px;
-    flex-shrink: 0;
 }
 
-.filterIcon {
+.icon {
     width: 12px;
     height: 12px;
-    filter: var(--glass-icon-filter);
-    object-fit: contain;
-    -webkit-user-drag: none;
+    flex-shrink: 0;
+    background-color: var(--color-button-text);
+    mask: var(--filter-icon-src) center / contain no-repeat;
+    -webkit-mask: var(--filter-icon-src) center / contain no-repeat;
 }
 
-.arrowIcon {
+.label {
+    font-weight: 300;
+}
+
+.arrow {
     width: 10px;
     height: 10px;
-    filter: var(--glass-icon-filter);
-    object-fit: contain;
-    transform: rotate(-90deg);
-    transition: transform 160ms ease;
-    -webkit-user-drag: none;
+    flex-shrink: 0;
+    background-color: var(--color-button-text);
+    mask: var(--filter-arrow-src) center / contain no-repeat;
+    -webkit-mask: var(--filter-arrow-src) center / contain no-repeat;
+    transform: rotate(var(--filter-arrow-rotation));
+    transition: transform 180ms ease;
 }
 
-.arrowOpen {
-    transform: rotate(90deg);
+.badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    border-radius: var(--radius-full);
+    background: var(--color-status-error);
+    color: var(--color-button-btn-text-danger);
+    font-size: 14px;
+    font-weight: 300;
+    text-align: center;
 }
 </style>

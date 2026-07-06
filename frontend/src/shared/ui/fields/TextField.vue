@@ -1,45 +1,107 @@
 <script setup lang="ts">
+import { useSlots } from "vue";
+
 interface Props {
     autocomplete?: string;
     disabled?: boolean;
     error?: string;
-    label: string;
+    label?: string;
     modelValue?: string;
     name?: string;
     placeholder?: string;
+    supportText?: string;
     type?: "month" | "number" | "password" | "text" | "url";
+    unit?: string;
+    icon?: string;
+    ariaLabel?: string;
+    /** Shows a red asterisk after the label (visual required marker). */
+    required?: boolean;
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
     autocomplete: "off",
     disabled: false,
     error: "",
     modelValue: "",
     name: undefined,
-    placeholder: "Placeholder",
+    placeholder: "",
+    supportText: "",
     type: "text",
+    unit: "",
+    icon: "",
+    required: false,
 });
 
 const emit = defineEmits<{
     "update:modelValue": [value: string];
 }>();
+
+const slots = useSlots();
+
+/* Unit fields (฿, %, kg, …) accept numbers only: digits and one decimal point. */
+function onInput(event: Event): void {
+    const target = event.target as HTMLInputElement;
+
+    if (props.unit) {
+        const sanitized = target.value
+            .replace(/[^0-9.]/g, "")
+            .replace(/^([^.]*\.)(.*)$/, (_, head: string, tail: string) => head + tail.replace(/\./g, ""));
+
+        if (sanitized !== target.value) target.value = sanitized;
+
+        emit("update:modelValue", sanitized);
+        return;
+    }
+
+    emit("update:modelValue", target.value);
+}
+
+/* Picker-backed types open the native picker from a click anywhere in the field,
+   not just the tiny indicator icon. */
+function openPickerOnClick(event: MouseEvent): void {
+    const target = event.target as HTMLInputElement;
+
+    if (props.type === "month" && !props.disabled && typeof target.showPicker === "function") {
+        try {
+            target.showPicker();
+        } catch {
+            /* showPicker can throw without a user gesture; the field still works normally. */
+        }
+    }
+}
 </script>
 
 <template>
     <label :class="$style.textField">
-        <span :class="$style.title" class="type-overline-r">{{ label }}</span>
-        <input
-            :class="[$style.field, error ? $style.errorField : '']"
-            class="type-body-small-r"
-            :autocomplete="autocomplete"
-            :disabled="disabled"
-            :name="name"
-            :placeholder="placeholder"
-            :type="type"
-            :value="modelValue"
-            @input="emit('update:modelValue', ($event.target as HTMLInputElement).value)"
-        >
-        <span v-if="error" :class="$style.supportText" class="type-overline-r">{{ error }}</span>
+        <span v-if="label" :class="$style.title" class="type-overline-r">
+            {{ label }}<span v-if="required" :class="$style.requiredMark" aria-hidden="true">*</span>
+        </span>
+        <span :class="[$style.field, error ? $style.errorField : '']">
+            <span v-if="unit" :class="$style.unit" class="type-body-small-r" aria-hidden="true">{{ unit }}</span>
+            <input
+                :class="$style.input"
+                class="type-body-small-r"
+                :autocomplete="autocomplete"
+                :disabled="disabled"
+                :name="name"
+                :placeholder="placeholder"
+                :type="type"
+                :value="modelValue"
+                :aria-label="ariaLabel"
+                :aria-invalid="Boolean(error) || undefined"
+                :inputmode="unit ? 'decimal' : undefined"
+                @input="onInput"
+                @click="openPickerOnClick"
+            >
+            <slot name="icon">
+                <img v-if="icon" :class="$style.icon" :src="icon" alt="" aria-hidden="true">
+            </slot>
+        </span>
+        <span
+            v-if="error || supportText"
+            :class="[$style.supportText, error ? $style.errorText : '']"
+            class="type-overline-r"
+        >{{ error || supportText }}</span>
     </label>
 </template>
 
@@ -58,50 +120,99 @@ const emit = defineEmits<{
 }
 
 .title {
+    color: var(--color-input-title);
     font-family: var(--font-sans);
+    font-weight: 800;
+}
+
+.requiredMark {
+    color: var(--color-status-error);
 }
 
 .field {
+    display: flex;
+    align-items: center;
     box-sizing: border-box;
     width: 100%;
     height: 48px;
-    padding: 12px 16px;
+    gap: 8px;
     border: 1px solid var(--color-input-border);
     border-radius: var(--radius-lg);
-    outline: 0;
     background-color: var(--color-input-bg);
-    color: var(--color-text-input);
-    transition: border-color 160ms ease;
+    padding: 12px 16px;
+    transition:
+        border-color 160ms ease,
+        background-color 160ms ease;
 }
 
-.field::placeholder {
-    color: var(--color-input-placeholder);
-}
-
-.field:hover {
+.field:hover:not(:has(.input:disabled)) {
     border-color: var(--color-input-border-hover);
 }
 
-.field:focus {
+.field:has(.input:focus) {
     border-width: 1.5px;
     border-color: var(--color-input-border-focus);
 }
 
-.field:disabled {
+.field:has(.input:disabled) {
     border-color: var(--color-input-border-disabled);
     background-color: var(--color-input-bg-disabled);
+}
+
+.unit {
+    flex-shrink: 0;
+    color: var(--color-text-secondary);
+    line-height: 18px;
+}
+
+.input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    outline: 0;
+    background: none;
+    padding: 0;
+    color: var(--color-text-input);
+    font-weight: 300;
+    /* Fields keep a light surface in dark theme; without this Chrome draws
+       native pickers (e.g. the month calendar icon) white-on-white. */
+    color-scheme: light;
+}
+
+.input[type="month"] {
+    cursor: pointer;
+}
+
+.input::placeholder {
+    color: var(--color-text-disabled);
+}
+
+.input:disabled {
     color: var(--color-text-disabled);
     cursor: not-allowed;
 }
 
+.icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    object-fit: cover;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
+.supportText {
+    font-size: 10px;
+}
+
 .errorField,
 .errorField:hover,
-.errorField:focus {
+.errorField:has(.input:focus) {
     border-width: 1.5px;
     border-color: var(--color-status-error);
 }
 
-.supportText {
+.errorText {
     color: var(--color-status-error);
 }
 </style>

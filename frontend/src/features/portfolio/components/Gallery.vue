@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from "vue";
 import type { GalleryImage } from "@/features/portfolio/config";
-import { NextBackButton } from "@/shared/ui/buttons";
+import { ActionButton } from "@/shared/ui/buttons";
 
 interface Props {
     images: readonly GalleryImage[];
@@ -104,7 +104,7 @@ function handleKeydown(event: KeyboardEvent): void {
                 role="img"
                 :aria-label="selectedImage?.alt ?? 'No gallery image selected'"
             >
-                <img src="/images/icons/common/gallery.svg" alt="" aria-hidden="true">
+                <img src="/icons/common/image.svg" alt="" aria-hidden="true">
             </div>
         </figure>
 
@@ -132,17 +132,25 @@ function handleKeydown(event: KeyboardEvent): void {
                             fetchpriority="low"
                         >
                         <span v-else :class="$style.placeholder">
-                            <img src="/images/icons/common/gallery.svg" alt="" aria-hidden="true">
+                            <img src="/icons/common/image.svg" alt="" aria-hidden="true">
                         </span>
                     </button>
                 </li>
             </ul>
-            <NextBackButton
-                :previous-disabled="images.length < 2"
-                :next-disabled="images.length < 2"
-                @previous="showPreviousImage"
-                @next="showNextImage"
-            />
+            <div :class="$style.galleryNavButtons">
+                <ActionButton
+                    action="back"
+                    aria-label="Previous image"
+                    :disabled="images.length < 2"
+                    @click="showPreviousImage"
+                />
+                <ActionButton
+                    action="next"
+                    aria-label="Next image"
+                    :disabled="images.length < 2"
+                    @click="showNextImage"
+                />
+            </div>
         </nav>
     </div>
 </template>
@@ -220,6 +228,12 @@ function handleKeydown(event: KeyboardEvent): void {
     align-items: center;
     width: 100%;
     gap: var(--spacing-space-5);
+}
+
+.galleryNavButtons {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-space-3);
 }
 
 .thumbnails {

@@ -165,7 +165,7 @@ onUnmounted(() => {
                         </button>
                     </div>
                     <button type="button" :class="$style.closeButton" aria-label="Close image preview" @click="emit('close')">
-                        <img src="/images/icons/navbar/close.svg" alt="" aria-hidden="true">
+                        <img src="/icons/navigation/hamburger-close.svg" alt="" aria-hidden="true">
                     </button>
                 </div>
             </section>

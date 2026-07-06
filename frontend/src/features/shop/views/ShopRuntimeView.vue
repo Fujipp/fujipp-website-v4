@@ -1,13 +1,18 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { ShopSidebar } from "@/features/shop/components";
+import { RuntimeSlotCard } from "@/features/shop/components";
 import { SelectField, StatusToast, type SelectFieldOption } from "@/shared/ui";
-import { API_BASE_URL } from "@/config";
+import { PrimaryButton, SecondaryButton } from "@/shared/ui/buttons";
+import { TablePagination } from "@/shared/ui/paginations";
+import { AppFooter } from "@/shared/layout";
+import { API_BASE_URL, icons } from "@/config";
 import { useUserStore } from "@/stores";
 import type { RuntimePlan } from "@/features/shop/config/catalog";
 
 type ToastStatus = "info" | "success" | "warning" | "error";
+
+const PAGE_SIZE = 8;
 
 interface VpsSlot {
     id: string;
@@ -35,39 +40,65 @@ interface BotLite {
     name: string;
 }
 
+// A free seat flattened out of the cabinets, ready to render as one sell card.
+interface FreeSlotCard {
+    slot: VpsSlot;
+    vps: number;
+    slotIndex: number;
+    region: string;
+}
+
 const router = useRouter();
 const userStore = useUserStore();
 
-const isSidebarOpen = ref(typeof window === "undefined" ? true : window.innerWidth > 760);
 const isLoading = ref(false);
 const loadError = ref("");
 const isBusy = ref(false);
+const page = ref(1);
 const toast = ref<{ status: ToastStatus; title: string; description?: string } | null>(null);
 let toastTimeout: ReturnType<typeof setTimeout> | undefined;
 
 const nodes = ref<VpsNode[]>([]);
 const bots = ref<BotLite[]>([]);
 const plans = ref<RuntimePlan[]>([]);
+const walletBalanceSatang = ref(0);
 
 // Buy dialog state
 const buySlot = ref<VpsSlot | null>(null);
+const buyVps = ref(0);
 const buyPlanId = ref("");
 const buyBotId = ref("");
 
-// Manage dialog state (a seat the user owns)
-const manageSlot = ref<VpsSlot | null>(null);
-const manageBotId = ref("");
+// Cheapest first, so the card's starting price and the dialog default line up.
+const sortedPlans = computed(() => [...plans.value].sort((a, b) => a.effectivePriceSatang - b.effectivePriceSatang));
+const startingPrice = computed(() => sortedPlans.value[0] ? formatPrice(sortedPlans.value[0].effectivePriceSatang) : "—");
+const planSummary = computed(() => sortedPlans.value.map((plan) => plan.name).join(" / ") || "เลือกแพ็กตอนซื้อ");
 
-const botName = computed(() => new Map(bots.value.map((b) => [b.id, b.name])));
-const sortedPlans = computed(() => [...plans.value].sort((a, b) => a.durationMonths - b.durationMonths));
+const freeSlots = computed<FreeSlotCard[]>(() =>
+    nodes.value.flatMap((node, index) =>
+        node.slots
+            .filter((slot) => slot.occupancy === "FREE")
+            .map((slot) => ({ slot, vps: index + 1, slotIndex: slot.slotIndex, region: node.region || "th" })),
+    ),
+);
+
+const pageCount = computed(() => Math.max(1, Math.ceil(freeSlots.value.length / PAGE_SIZE)));
+const pagedSlots = computed(() => freeSlots.value.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE));
+
 const buyBotOptions = computed<SelectFieldOption[]>(() => [
     { label: "— ซื้อไว้ก่อน ยังไม่ assign —", value: "" },
     ...bots.value.map((bot) => ({ label: bot.name, value: bot.id })),
 ]);
-const manageBotOptions = computed<SelectFieldOption[]>(() => [
-    { label: "— ไม่ assign —", value: "" },
-    ...bots.value.map((bot) => ({ label: bot.name, value: bot.id })),
-]);
+
+// Payment summary: selected plan price → current balance → balance after charge.
+const buyPrice = computed(() => {
+    const plan = sortedPlans.value.find((p) => p.id === buyPlanId.value);
+    return plan ? plan.effectivePriceSatang : null;
+});
+const buyBalanceAfter = computed(() =>
+    buyPrice.value != null ? walletBalanceSatang.value - buyPrice.value : null,
+);
+const buyInsufficient = computed(() => buyBalanceAfter.value != null && buyBalanceAfter.value < 0);
 
 function clearToast(): void {
     if (toastTimeout) { clearTimeout(toastTimeout); toastTimeout = undefined; }
@@ -90,24 +121,8 @@ function formatMoney(satang: number): string {
     return (satang / 100).toLocaleString("th-TH", { minimumFractionDigits: 0 });
 }
 
-function formatExpiry(date: string | null): string {
-    if (!date) return "-";
-    const end = new Date(`${date}T00:00:00`);
-    if (Number.isNaN(end.getTime())) return date;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const days = Math.ceil((end.getTime() - today.getTime()) / 86_400_000);
-    if (days < 0) return "หมดอายุแล้ว";
-    if (days === 0) return "หมดอายุวันนี้";
-    return `เหลือ ${days.toLocaleString("th-TH")} วัน`;
-}
-
-function seatLabel(slot: VpsSlot): string {
-    if (slot.occupancy === "FREE") return "ว่าง";
-    if (slot.occupancy === "RESERVED") return "ระบบ";
-    if (slot.occupancy === "MAINTENANCE") return "ปิดซ่อม";
-    if (slot.mine) return slot.assignedBotId ? (botName.value.get(slot.assignedBotId) ?? "บอทของฉัน") : "ยังไม่ assign";
-    return "ถูกใช้แล้ว";
+function formatPrice(satang: number): string {
+    return `฿ ${formatMoney(satang)}`;
 }
 
 async function parseError(res: Response): Promise<string> {
@@ -126,37 +141,42 @@ async function load(): Promise<void> {
     try {
         const headers = await authHeaders();
         if (!headers) { await router.push({ name: "login", query: { redirect: "/shop/runtime" } }); return; }
-        const [vpsRes, botsRes, plansRes] = await Promise.all([
+        const [vpsRes, botsRes, plansRes, walletRes] = await Promise.all([
             fetch(`${API_BASE_URL}/api/runtime/vps`, { headers }),
             fetch(`${API_BASE_URL}/api/bots`, { headers }),
             fetch(`${API_BASE_URL}/api/catalog/runtime-plans`, { headers }),
+            fetch(`${API_BASE_URL}/api/wallet`, { headers }),
         ]);
         if (!vpsRes.ok || !botsRes.ok || !plansRes.ok) throw new Error("runtime page unavailable");
         nodes.value = await vpsRes.json() as VpsNode[];
         bots.value = await botsRes.json() as BotLite[];
         plans.value = await plansRes.json() as RuntimePlan[];
+        walletBalanceSatang.value = walletRes.ok ? (((await walletRes.json()).balanceSatang as number) ?? 0) : 0;
+        page.value = 1;
     } catch {
         nodes.value = []; bots.value = []; plans.value = [];
+        walletBalanceSatang.value = 0;
         loadError.value = "โหลดหน้า Runtime ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
     } finally {
         isLoading.value = false;
     }
 }
 
-function openSeat(slot: VpsSlot): void {
-    if (slot.occupancy === "FREE") {
-        buySlot.value = slot;
-        buyPlanId.value = sortedPlans.value[0]?.id ?? "";
-        buyBotId.value = "";
-    } else if (slot.occupancy === "OCCUPIED" && slot.mine) {
-        manageSlot.value = slot;
-        manageBotId.value = slot.assignedBotId ?? "";
-    }
+function openBuy(card: FreeSlotCard): void {
+    buySlot.value = card.slot;
+    buyVps.value = card.vps;
+    buyPlanId.value = sortedPlans.value[0]?.id ?? "";
+    buyBotId.value = "";
 }
 
 async function confirmBuy(): Promise<void> {
     const slot = buySlot.value;
-    if (!slot || !buyPlanId.value) { notify("warning", "เลือกแพ็กก่อน"); return; }
+    const planId = buyPlanId.value;
+    const botId = buyBotId.value;
+    if (!slot || !planId) { notify("warning", "เลือกแพ็กก่อน"); return; }
+    // Close right away — success or failure is reported via toast.
+    buySlot.value = null;
+
     const headers = await authHeaders();
     if (!headers) { await router.push({ name: "login", query: { redirect: "/shop/runtime" } }); return; }
     isBusy.value = true;
@@ -165,14 +185,13 @@ async function confirmBuy(): Promise<void> {
             method: "POST",
             headers: { ...headers, "Content-Type": "application/json" },
             body: JSON.stringify({
-                runtimePlanId: buyPlanId.value,
-                externalSubjectId: buyBotId.value || null,
+                runtimePlanId: planId,
+                externalSubjectId: botId || null,
                 idempotencyKey: crypto.randomUUID(),
             }),
         });
         if (!res.ok) throw new Error(await parseError(res) || `HTTP ${res.status}`);
-        buySlot.value = null;
-        notify("success", "ซื้อ Runtime แล้ว", buyBotId.value ? "บอทออนไลน์แล้ว" : "ซื้อช่องไว้แล้ว — assign ให้บอทได้เลย");
+        notify("success", "ซื้อ Runtime แล้ว", botId ? "บอทออนไลน์แล้ว" : "ซื้อช่องไว้แล้ว — assign ให้บอทได้จากหน้า Dashboard");
         await load();
     } catch (e) {
         notify("error", "ซื้อ Runtime ไม่สำเร็จ", (e as Error).message || "เครดิตอาจไม่พอ — เติมเงินแล้วลองใหม่");
@@ -181,49 +200,12 @@ async function confirmBuy(): Promise<void> {
     }
 }
 
-async function confirmAssign(unassign = false): Promise<void> {
-    const slot = manageSlot.value;
-    if (!slot?.runtimeId) return;
-    const headers = await authHeaders();
-    if (!headers) { await router.push({ name: "login", query: { redirect: "/shop/runtime" } }); return; }
-    isBusy.value = true;
-    try {
-        const res = await fetch(`${API_BASE_URL}/api/runtime/${slot.runtimeId}/assign`, {
-            method: "POST",
-            headers: { ...headers, "Content-Type": "application/json" },
-            body: JSON.stringify({ externalSubjectId: unassign ? null : (manageBotId.value || null) }),
-        });
-        if (!res.ok) throw new Error(await parseError(res) || `HTTP ${res.status}`);
-        manageSlot.value = null;
-        notify("success", unassign ? "ปลด runtime ออกจากบอทแล้ว" : "ย้าย runtime แล้ว", "ตัวที่ใช้ runtime อยู่จะอัปเดตทันที");
-        await load();
-    } catch (e) {
-        notify("error", "อัปเดตไม่สำเร็จ", (e as Error).message || "กรุณาลองใหม่อีกครั้ง");
-    } finally {
-        isBusy.value = false;
-    }
+function goToWallet(): void {
+    void router.push({ name: "shop-wallet" });
 }
 
-async function confirmRenew(): Promise<void> {
-    const slot = manageSlot.value;
-    if (!slot?.runtimeId) return;
-    const headers = await authHeaders();
-    if (!headers) { await router.push({ name: "login", query: { redirect: "/shop/runtime" } }); return; }
-    isBusy.value = true;
-    try {
-        const res = await fetch(`${API_BASE_URL}/api/subscriptions/runtime/${slot.runtimeId}/renew`, {
-            method: "POST",
-            headers,
-        });
-        if (!res.ok) throw new Error(await parseError(res) || `HTTP ${res.status}`);
-        manageSlot.value = null;
-        notify("success", "ต่ออายุ Runtime แล้ว");
-        await load();
-    } catch (e) {
-        notify("error", "ต่ออายุไม่สำเร็จ", (e as Error).message || "เครดิตอาจไม่พอ — เติมเงินแล้วลองใหม่");
-    } finally {
-        isBusy.value = false;
-    }
+function goBack(): void {
+    void router.push({ name: "shop-dashboard" });
 }
 
 onMounted(load);
@@ -231,104 +213,121 @@ onUnmounted(clearToast);
 </script>
 
 <template>
-    <div :class="$style.page">
-        <ShopSidebar v-model="isSidebarOpen" />
-
-        <main :class="[$style.content, isSidebarOpen ? $style.sidebarOpen : $style.sidebarClosed]">
-            <section :class="$style.head">
-                <h1 :class="$style.title">Runtime</h1>
-                <div :class="$style.divider" aria-hidden="true" />
-                <p :class="$style.lead">เลือกช่องว่างในตู้ VPS เพื่อซื้อ Runtime ให้บอทออนไลน์ — ย้าย runtime ไปบอทอื่นได้ตลอด</p>
+    <div :class="$style.shopRuntime">
+        <main :class="$style.content">
+            <section :class="$style.section" aria-labelledby="shop-runtime-title">
+                <div :class="$style.titleRow">
+                    <h1 id="shop-runtime-title" :class="$style.pageTitle">Runtime</h1>
+                    <SecondaryButton width-mode="hug" :leading-icon="icons.arrowBack" @click="goBack">
+                        Back
+                    </SecondaryButton>
+                </div>
             </section>
 
-            <section v-if="loadError" :class="$style.statePanel" aria-live="polite">
-                <h2 :class="$style.stateTitle">โหลดข้อมูลไม่สำเร็จ</h2>
-                <p :class="$style.stateText">{{ loadError }}</p>
-                <button type="button" :class="$style.retry" @click="load">ลองใหม่</button>
-            </section>
+            <section :class="$style.section" aria-labelledby="shop-runtime-slots-title">
+                <div :class="$style.sectionHeading">
+                    <h2 id="shop-runtime-slots-title" :class="$style.sectionTitle">Runtime Slots</h2>
+                    <div :class="$style.headingRule" aria-hidden="true" />
+                </div>
 
-            <p v-else-if="isLoading" :class="$style.stateText">กำลังโหลดตู้ VPS…</p>
+                <div v-if="isLoading" :class="$style.cardGrid">
+                    <div v-for="n in PAGE_SIZE" :key="`sk-${n}`" :class="[$style.cardItem, $style.skeletonCard]" />
+                </div>
 
-            <template v-else>
-                <section v-for="node in nodes" :key="node.id" :class="$style.cabinet">
-                    <header :class="$style.cabinetHead">
-                        <div>
-                            <h2 :class="$style.cabinetName">{{ node.label || node.name }}</h2>
-                            <span :class="$style.cabinetMeta">{{ node.region || "—" }} · {{ node.status }}</span>
-                        </div>
-                        <span :class="$style.cabinetCount">{{ node.freeSlots }} / {{ node.maxSlots }} ว่าง</span>
-                    </header>
+                <section v-else-if="loadError" :class="$style.statePanel" aria-live="polite">
+                    <h3 :class="$style.stateTitle">โหลดข้อมูลไม่สำเร็จ</h3>
+                    <p :class="$style.stateText">{{ loadError }}</p>
+                    <button type="button" :class="$style.retryButton" @click="load">ลองใหม่</button>
+                </section>
 
-                    <div :class="$style.seatGrid">
-                        <button
-                            v-for="slot in node.slots"
-                            :key="slot.id"
-                            type="button"
-                            :class="[
-                                $style.seat,
-                                slot.occupancy === 'FREE' ? $style.seatFree : '',
-                                slot.occupancy === 'OCCUPIED' && slot.mine ? $style.seatMine : '',
-                                slot.occupancy === 'OCCUPIED' && !slot.mine ? $style.seatTaken : '',
-                                slot.occupancy === 'RESERVED' ? $style.seatReserved : '',
-                                slot.occupancy === 'MAINTENANCE' ? $style.seatMaint : '',
-                            ]"
-                            :disabled="slot.occupancy === 'RESERVED' || slot.occupancy === 'MAINTENANCE' || (slot.occupancy === 'OCCUPIED' && !slot.mine)"
-                            @click="openSeat(slot)"
-                        >
-                            <span :class="$style.seatIndex">#{{ slot.slotIndex }}</span>
-                            <span :class="$style.seatLabel">{{ seatLabel(slot) }}</span>
-                            <span v-if="slot.occupancy === 'OCCUPIED' && slot.mine" :class="$style.seatExpiry">{{ formatExpiry(slot.expiresAt) }}</span>
-                        </button>
+                <template v-else>
+                    <div :class="$style.cardGrid">
+                        <RuntimeSlotCard
+                            v-for="card in pagedSlots"
+                            :key="card.slot.id"
+                            :class="$style.cardItem"
+                            variant="sell"
+                            :icon="icons.shopServer"
+                            :price="startingPrice"
+                            :vps="card.vps"
+                            :slot="card.slotIndex"
+                            :region="card.region"
+                            state="ว่าง"
+                            :runtime="planSummary"
+                            buy-label="Buy"
+                            @buy="openBuy(card)"
+                        />
                     </div>
-                </section>
 
-                <section v-if="nodes.length === 0" :class="$style.statePanel">
-                    <h2 :class="$style.stateTitle">ยังไม่มีตู้ VPS</h2>
-                    <p :class="$style.stateText">ผู้ดูแลระบบยังไม่ได้เปิดตู้ให้ซื้อ Runtime</p>
-                </section>
-            </template>
+                    <p v-if="freeSlots.length === 0" :class="$style.emptyText">
+                        ตอนนี้ไม่มีช่อง VPS ว่าง — ลองเช็กใหม่อีกครั้งภายหลัง หรือติดต่อผู้ดูแลให้เปิดตู้เพิ่ม
+                    </p>
+
+                    <TablePagination v-if="pageCount > 1" v-model="page" :page-count="pageCount" />
+                </template>
+            </section>
 
             <div v-if="toast" :class="$style.toastRegion" aria-live="polite">
                 <StatusToast :status="toast.status" :title="toast.title" :description="toast.description" @close="clearToast" />
             </div>
         </main>
 
-        <!-- Buy a free seat -->
+        <AppFooter />
+
+        <!-- Buy a free seat: pick a plan (7d / 1m / 3m …) and optionally assign a bot. -->
         <Teleport to="body">
             <Transition name="dialog">
                 <div v-if="buySlot" :class="$style.backdrop" @click.self="buySlot = null">
-                    <section :class="$style.modal" role="dialog" aria-modal="true">
-                        <h2 :class="$style.modalTitle">ซื้อ Runtime — ช่อง #{{ buySlot.slotIndex }}</h2>
+                    <section :class="$style.modal" role="dialog" aria-modal="true" aria-labelledby="buy-runtime-title">
+                        <h2 id="buy-runtime-title" :class="$style.modalTitle">
+                            ซื้อ Runtime — VPS {{ buyVps }} ช่อง #{{ buySlot.slotIndex }}
+                        </h2>
                         <fieldset :class="$style.group">
                             <legend :class="$style.groupLabel">เลือกแพ็ก</legend>
-                            <label v-for="plan in sortedPlans" :key="plan.id" :class="[$style.option, buyPlanId === plan.id && $style.optionActive]">
+                            <label
+                                v-for="plan in sortedPlans"
+                                :key="plan.id"
+                                :class="[$style.option, buyPlanId === plan.id && $style.optionActive]"
+                            >
                                 <input v-model="buyPlanId" type="radio" name="plan" :value="plan.id" :class="$style.radio">
-                                <span>{{ plan.durationMonths }} เดือน</span>
+                                <span>{{ plan.name }}</span>
                                 <span :class="$style.optionPrice">฿{{ formatMoney(plan.effectivePriceSatang) }}</span>
                             </label>
+                            <p v-if="sortedPlans.length === 0" :class="$style.stateText">ยังไม่มีแพ็ก Runtime ที่เปิดขาย</p>
                         </fieldset>
-                        <SelectField v-model="buyBotId" label="Assign ให้บอท (ไม่บังคับ)" :options="buyBotOptions" tone="dark" />
-                        <div :class="$style.modalActions">
-                            <button type="button" :class="$style.cancel" @click="buySlot = null">ยกเลิก</button>
-                            <button type="button" :class="$style.confirm" :disabled="isBusy" @click="confirmBuy">{{ isBusy ? "กำลังซื้อ…" : "ซื้อ" }}</button>
-                        </div>
-                    </section>
-                </div>
-            </Transition>
-        </Teleport>
+                        <SelectField v-model="buyBotId" label="Assign ให้บอท (ไม่บังคับ)" :options="buyBotOptions" />
 
-        <!-- Manage an owned seat -->
-        <Teleport to="body">
-            <Transition name="dialog">
-                <div v-if="manageSlot" :class="$style.backdrop" @click.self="manageSlot = null">
-                    <section :class="$style.modal" role="dialog" aria-modal="true">
-                        <h2 :class="$style.modalTitle">จัดการ Runtime — ช่อง #{{ manageSlot.slotIndex }}</h2>
-                        <p :class="$style.stateText">{{ formatExpiry(manageSlot.expiresAt) }}</p>
-                        <SelectField v-model="manageBotId" label="บอทที่ใช้ runtime นี้" :options="manageBotOptions" tone="dark" />
+                        <dl :class="$style.paymentSummary">
+                            <div :class="$style.paymentRow">
+                                <dt :class="$style.paymentLabel">ยอดชำระ</dt>
+                                <dd :class="[$style.paymentValue, $style.paymentAmount]">
+                                    {{ buyPrice != null ? `${formatMoney(buyPrice)} บาท` : "เลือกแพ็กก่อน" }}
+                                </dd>
+                            </div>
+                            <div :class="[$style.paymentRow, $style.paymentDivider]">
+                                <dt :class="$style.paymentLabel">ยอดเงินในกระเป๋า</dt>
+                                <dd :class="$style.paymentValue">{{ formatMoney(walletBalanceSatang) }} บาท</dd>
+                            </div>
+                            <div v-if="buyBalanceAfter != null" :class="$style.paymentRow">
+                                <dt :class="$style.paymentLabel">คงเหลือหลังชำระ</dt>
+                                <dd :class="[$style.paymentValue, buyInsufficient ? $style.paymentNegative : '']">
+                                    {{ formatMoney(buyBalanceAfter) }} บาท
+                                </dd>
+                            </div>
+                        </dl>
+
+                        <p v-if="buyInsufficient" :class="$style.paymentWarning">
+                            ยอดเงินในกระเป๋าไม่เพียงพอ — กรุณาเติมเงินก่อนทำรายการ
+                        </p>
+
                         <div :class="$style.modalActions">
-                            <button type="button" :class="$style.cancel" @click="manageSlot = null">ปิด</button>
-                            <button type="button" :class="$style.ghost" :disabled="isBusy" @click="confirmRenew">ต่ออายุ</button>
-                            <button type="button" :class="$style.confirm" :disabled="isBusy" @click="confirmAssign(false)">{{ isBusy ? "กำลังบันทึก…" : "ย้าย/บันทึก" }}</button>
+                            <SecondaryButton width-mode="hug" @click="buySlot = null">ยกเลิก</SecondaryButton>
+                            <PrimaryButton v-if="buyInsufficient" width-mode="hug" @click="goToWallet">
+                                เติมเงิน
+                            </PrimaryButton>
+                            <PrimaryButton v-else width-mode="hug" :disabled="isBusy || !buyPlanId" @click="confirmBuy">
+                                ยืนยันชำระเงิน
+                            </PrimaryButton>
                         </div>
                     </section>
                 </div>
@@ -338,22 +337,25 @@ onUnmounted(clearToast);
 </template>
 
 <style module>
-.page {
-    /* Page-scoped card theme (mirrors Dashboard/Package) so cabinets read light in
-       light mode instead of always-dark. Elements consume var(--shop-*, <fallback>). */
+.shopRuntime {
+    /* Page-scoped card theme (mirrors Dashboard/Package). */
     --shop-card-bg: var(--color-neutral-50);
     --shop-card-border: var(--color-input-border);
     --shop-card-text: var(--color-text-primary);
     --shop-card-muted: var(--color-neutral-600);
 
     display: flex;
+    flex-direction: column;
     min-height: 100vh;
+    box-sizing: border-box;
+    /* Clear the fixed AppNavbar. */
+    padding-top: 73px;
     background-color: var(--color-main-background);
     color: var(--color-text-primary);
 }
 
-:global(.dark) .page,
-:global([data-theme="dark"]) .page {
+:global(.dark) .shopRuntime,
+:global([data-theme="dark"]) .shopRuntime {
     --shop-card-bg: var(--color-main-surface);
     --shop-card-border: var(--color-main-border);
     --shop-card-text: var(--color-text-secondary);
@@ -362,73 +364,94 @@ onUnmounted(clearToast);
 
 .content {
     display: flex;
-    min-width: 0;
     flex: 1;
     flex-direction: column;
     box-sizing: border-box;
-    padding: var(--spacing-space-6);
-    gap: var(--spacing-space-6);
-    transition: margin-left 260ms cubic-bezier(0.22, 1, 0.36, 1);
+    width: 100%;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: var(--spacing-space-3) var(--spacing-space-6);
+    gap: var(--spacing-space-4);
 }
 
-.sidebarOpen { margin-left: 194px; }
-.sidebarClosed { margin-left: 44px; }
-
-.head { display: flex; flex-direction: column; gap: var(--spacing-space-3); }
-.title { margin: 0; font-size: 32px; font-weight: 600; line-height: 1; }
-.divider { height: 1px; background-color: var(--color-main-divider); }
-.lead { margin: 0; color: var(--shop-card-muted, var(--color-text-secondary)); font-size: 16px; }
-
-.cabinet {
+.section {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-space-4);
-    padding: var(--spacing-space-5);
-    border: 1px solid var(--shop-card-border, var(--color-main-border));
-    border-radius: var(--radius-xl);
-    background-color: var(--shop-card-bg, var(--color-main-surface));
-    color: var(--shop-card-text, var(--color-text-secondary));
-    transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease;
-}
-
-.cabinetHead { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-space-3); }
-.cabinetName { margin: 0; color: var(--shop-card-text, var(--color-text-primary)); font-size: 22px; font-weight: 700; }
-.cabinetMeta { color: var(--shop-card-muted, var(--color-text-secondary)); font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; }
-.cabinetCount { color: var(--color-main-primary); font-weight: 700; }
-
-.seatGrid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
     gap: var(--spacing-space-3);
 }
 
-.seat {
+.titleRow {
     display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-height: 84px;
-    padding: var(--spacing-space-3);
-    border: 1px solid var(--shop-card-border, var(--color-main-border));
-    border-radius: var(--radius-md);
-    background-color: color-mix(in srgb, var(--shop-card-text, #000) 5%, var(--shop-card-bg, var(--color-main-surface)));
-    color: var(--shop-card-text, var(--color-text-primary));
-    text-align: left;
-    cursor: pointer;
-    transition: border-color 160ms ease, transform 160ms ease;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-space-4);
 }
 
-.seat:disabled { cursor: not-allowed; opacity: 0.55; }
-.seat:not(:disabled):hover { transform: translateY(-2px); border-color: var(--color-main-primary); }
+.pageTitle {
+    margin: 0;
+    color: var(--color-text-primary);
+    font-size: 22px;
+    font-weight: 800;
+    line-height: 1;
+}
 
-.seatIndex { font-size: 12px; color: var(--shop-card-muted, var(--color-text-secondary)); }
-.seatLabel { font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.seatExpiry { font-size: 12px; color: var(--shop-card-muted, var(--color-text-secondary)); }
+.sectionHeading {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-space-3);
+}
 
-.seatFree { border-style: dashed; border-color: var(--color-status-success); }
-.seatMine { border-color: var(--color-main-primary); background-color: color-mix(in srgb, var(--color-main-primary) 12%, transparent); }
-.seatTaken { opacity: 0.7; }
-.seatReserved { opacity: 0.7; }
-.seatMaint { background-color: color-mix(in srgb, var(--color-status-warning) 16%, transparent); }
+.sectionTitle {
+    margin: 0;
+    color: var(--color-text-primary);
+    font-size: 16px;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.headingRule {
+    height: 1px;
+    flex: 1;
+    background-color: var(--color-main-divider);
+}
+
+/* 4 columns × 2 rows per page on desktop; 1fr keeps the cards filling the full
+   width (no leftover gutter on the right) and steps down on smaller screens. */
+.cardGrid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    align-items: stretch;
+    gap: var(--spacing-space-3);
+}
+
+.cardItem {
+    min-width: 0;
+}
+
+.skeletonCard {
+    height: 300px;
+    border-radius: var(--radius-xl);
+    background: linear-gradient(110deg, #151515 0%, #ffffff 48%, #151515 100%);
+    background-size: 220% 100%;
+    animation: shop-runtime-shimmer 1800ms ease-in-out infinite;
+}
+
+@keyframes shop-runtime-shimmer {
+    0% {
+        background-position: 120% 0;
+    }
+
+    100% {
+        background-position: -120% 0;
+    }
+}
+
+.emptyText {
+    margin: 0;
+    color: var(--shop-card-muted, var(--color-text-secondary));
+    font-size: 16px;
+    font-weight: 300;
+}
 
 .statePanel {
     display: flex;
@@ -442,12 +465,22 @@ onUnmounted(clearToast);
     color: var(--shop-card-text, var(--color-text-secondary));
 }
 
-.stateTitle { margin: 0; font-size: 22px; font-weight: 600; }
-.stateText { margin: 0; color: var(--shop-card-muted, var(--color-text-secondary)); font-size: 16px; line-height: 1.5; }
+.stateTitle {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 600;
+}
 
-.retry {
+.stateText {
+    margin: 0;
+    color: var(--shop-card-muted, var(--color-text-secondary));
+    font-size: 16px;
+    line-height: 1.5;
+}
+
+.retryButton {
     align-self: flex-start;
-    min-height: 40px;
+    min-height: 42px;
     padding: 0 var(--spacing-space-5);
     border: 0;
     border-radius: var(--radius-md);
@@ -455,6 +488,18 @@ onUnmounted(clearToast);
     color: var(--color-button-primary-btn-text-active);
     font-weight: 600;
     cursor: pointer;
+}
+
+.retryButton:hover {
+    background-color: var(--color-button-primary-btn-hover);
+}
+
+.toastRegion {
+    position: fixed;
+    right: var(--spacing-space-5);
+    bottom: var(--spacing-space-5);
+    z-index: 60;
+    width: min(360px, calc(100vw - var(--spacing-space-10)));
 }
 
 .backdrop {
@@ -469,22 +514,40 @@ onUnmounted(clearToast);
     backdrop-filter: blur(4px);
 }
 
+/* Adaptive pairing (matches shared ConfirmModal): main-background + text-primary
+   + main-divider flip together in dark mode. */
 .modal {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-space-4);
     width: min(440px, 100%);
     padding: var(--spacing-space-6);
-    border: 1px solid var(--color-main-border);
+    border: 1px solid var(--color-main-divider);
     border-radius: var(--radius-xl);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
+    background-color: var(--color-main-background);
+    color: var(--color-text-primary);
 }
 
-.modalTitle { margin: 0; font-size: 22px; font-weight: 700; }
+.modalTitle {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+}
 
-.group { display: flex; flex-direction: column; gap: var(--spacing-space-2); border: 0; padding: 0; margin: 0; }
-.groupLabel { color: var(--color-text-secondary); font-size: 14px; font-weight: 600; }
+.group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-space-2);
+    border: 0;
+    padding: 0;
+    margin: 0;
+}
+
+.groupLabel {
+    color: var(--color-text-secondary);
+    font-size: 14px;
+    font-weight: 600;
+}
 
 .option {
     display: flex;
@@ -497,45 +560,114 @@ onUnmounted(clearToast);
     cursor: pointer;
 }
 
-.optionActive { border-color: var(--color-main-primary); background-color: color-mix(in srgb, var(--color-main-primary) 10%, transparent); }
-.optionPrice { margin-left: auto; color: var(--color-text-secondary); font-weight: 700; }
-.radio { accent-color: var(--color-main-primary); }
-
-.select {
-    min-height: 42px;
-    padding: 0 var(--spacing-space-3);
-    border: 1px solid var(--color-input-border);
-    border-radius: var(--radius-md);
-    background-color: var(--color-main-background);
-    color: var(--color-text-primary);
+.optionActive {
+    border-color: var(--color-main-primary);
+    background-color: color-mix(in srgb, var(--color-main-primary) 10%, transparent);
 }
 
-.modalActions { display: flex; justify-content: flex-end; gap: var(--spacing-space-3); flex-wrap: wrap; }
+.optionPrice {
+    margin-left: auto;
+    color: var(--color-text-secondary);
+    font-weight: 700;
+}
 
-.cancel, .confirm, .ghost {
-    min-height: 42px;
-    padding: 0 var(--spacing-space-5);
+.radio {
+    accent-color: var(--color-main-primary);
+}
+
+/* Payment summary rows (label left, value right) — same recipe as the Dashboard modals. */
+.paymentSummary {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-space-2);
+    margin: 0;
+    padding: var(--spacing-space-4);
+    border: 1px solid var(--color-main-divider);
     border-radius: var(--radius-md);
+    background-color: color-mix(in srgb, var(--color-text-primary) 4%, var(--color-main-background));
+}
+
+.paymentRow {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-space-4);
+}
+
+.paymentDivider {
+    margin-top: var(--spacing-space-2);
+    padding-top: var(--spacing-space-3);
+    border-top: 1px solid var(--color-main-divider);
+}
+
+.paymentLabel {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: 14px;
+    font-weight: 300;
+}
+
+.paymentValue {
+    margin: 0;
+    color: var(--color-text-primary);
     font-size: 15px;
     font-weight: 600;
-    cursor: pointer;
+    text-align: right;
 }
 
-.cancel { border: 1px solid var(--color-main-border); background: transparent; color: var(--color-text-primary); }
-.ghost { border: 1px solid var(--color-main-primary); background: transparent; color: var(--color-main-primary); }
-.confirm { border: 0; background-color: var(--color-button-primary-btn-bg); color: var(--color-button-primary-btn-text-active); }
-.confirm:hover { background-color: var(--color-button-primary-btn-hover); }
-.confirm:disabled, .ghost:disabled { opacity: 0.6; cursor: not-allowed; }
+.paymentAmount {
+    color: var(--color-main-primary);
+    font-size: 18px;
+    font-weight: 800;
+}
 
-.toastRegion {
-    position: fixed;
-    right: var(--spacing-space-5);
-    bottom: var(--spacing-space-5);
-    z-index: 60;
-    width: min(360px, calc(100vw - var(--spacing-space-10)));
+.paymentNegative {
+    color: var(--color-status-error);
+}
+
+.paymentWarning {
+    margin: 0;
+    color: var(--color-status-error);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.modalActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-space-3);
+    flex-wrap: wrap;
+}
+
+@media (max-width: 1080px) {
+    .cardGrid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
 }
 
 @media (max-width: 760px) {
-    .sidebarOpen, .sidebarClosed { margin-left: 44px; }
+    .content {
+        padding: var(--spacing-space-2) var(--spacing-space-2);
+    }
+
+    .pageTitle {
+        font-size: 20px;
+    }
+
+    .cardGrid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .toastRegion {
+        right: var(--spacing-space-3);
+        bottom: var(--spacing-space-3);
+        width: calc(100vw - var(--spacing-space-6));
+    }
+}
+
+@media (max-width: 480px) {
+    .cardGrid {
+        grid-template-columns: 1fr;
+    }
 }
 </style>

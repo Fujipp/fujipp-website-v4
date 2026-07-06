@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { RouterLink, useRoute } from "vue-router";
-import { ShopSidebar } from "@/features/shop/components";
 import { adminNavItems } from "@/features/admin/config";
 
 interface Props {
@@ -23,7 +22,6 @@ function isActive(name: unknown): boolean {
 
 <template>
     <div :class="$style.shell" class="fp-admin">
-        <ShopSidebar v-model="isSidebarOpen" />
 
         <main :class="[$style.content, isSidebarOpen ? $style.contentOpen : $style.contentClosed]">
             <header :class="$style.pageHeader">

@@ -1,65 +1,29 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
-import { SelectField, type SelectFieldOption } from "@/shared/ui";
-import { thb, type BotOption } from "@/features/shop/config/catalog";
+import { computed } from "vue";
+import { PrimaryButton, SecondaryButton } from "@/shared/ui/buttons";
+import { thb } from "@/features/shop/config/catalog";
 
 interface Props {
     open?: boolean;
     title: string;
     optionLabel: string;
     priceSatang: number;
-    requiresSubject?: boolean;
-    bots?: readonly BotOption[];
     balanceSatang?: number;
     submitting?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
     open: false,
-    requiresSubject: false,
-    bots: () => [],
     balanceSatang: 0,
     submitting: false,
 });
 
-const emit = defineEmits<{ confirm: [botId: string | null]; cancel: [] }>();
+// Features are bought into the user's stack (no bot binding here) and assigned
+// to a bot later from the Dashboard.
+const emit = defineEmits<{ confirm: []; cancel: []; topup: [] }>();
 
-const selectedBotId = ref("");
-const error = ref("");
-
-watch(
-    () => props.open,
-    (open) => {
-        if (open) {
-            selectedBotId.value = props.bots.length === 1 ? (props.bots[0]?.id ?? "") : "";
-            error.value = "";
-        }
-    },
-);
-
-const botOptions = computed<SelectFieldOption[]>(() => props.bots.map((b) => ({ label: b.name, value: b.id })));
-const insufficient = computed(() => props.balanceSatang < props.priceSatang);
-const hasNoBotTarget = computed(() => props.requiresSubject && props.bots.length === 0);
-const confirmDisabled = computed(() => props.submitting || hasNoBotTarget.value);
-const purchaseNote = computed(() => props.requiresSubject
-    ? "รายการนี้จะผูกกับบอทที่เลือกเท่านั้น ถ้ามีหลายบอทต้องซื้อแยกต่อบอท"
-    : "รายการนี้จะเพิ่มสิทธิ์ให้บัญชีของคุณทันทีหลังตัดเครดิต");
-
-function confirm(): void {
-    if (hasNoBotTarget.value) {
-        error.value = "กรุณาสร้างบอทก่อนซื้อรายการนี้";
-        return;
-    }
-    if (props.requiresSubject && !selectedBotId.value) {
-        error.value = "กรุณาเลือกบอทปลายทาง";
-        return;
-    }
-    if (insufficient.value) {
-        error.value = "ยอดเครดิตไม่พอ กรุณาเติมเงินก่อน";
-        return;
-    }
-    emit("confirm", props.requiresSubject ? selectedBotId.value : null);
-}
+const balanceAfter = computed(() => props.balanceSatang - props.priceSatang);
+const insufficient = computed(() => balanceAfter.value < 0);
 </script>
 
 <template>
@@ -69,49 +33,53 @@ function confirm(): void {
                 <section :class="$style.modal" role="dialog" aria-modal="true" aria-labelledby="purchase-title">
                     <header :class="$style.header">
                         <h2 id="purchase-title" :class="$style.title">ยืนยันการสั่งซื้อ</h2>
-                        <p :class="$style.subtitle">ตรวจสอบรายการก่อนตัดเครดิต</p>
+                        <p :class="$style.subtitle">
+                            โปรดตรวจสอบรายละเอียดการชำระเงินก่อนยืนยัน ระบบจะหักยอดจากกระเป๋าเงินของคุณทันที
+                        </p>
                     </header>
                     <div :class="$style.divider" />
 
-                    <dl :class="$style.summary">
-                        <div :class="$style.row">
-                            <dt :class="$style.key">รายการ</dt>
-                            <dd :class="$style.value">{{ title }}</dd>
+                    <dl :class="$style.paymentSummary">
+                        <div :class="$style.paymentRow">
+                            <dt :class="$style.paymentLabel">รายการ</dt>
+                            <dd :class="$style.paymentValue">{{ title }}</dd>
                         </div>
-                        <div :class="$style.row">
-                            <dt :class="$style.key">แบบ</dt>
-                            <dd :class="$style.value">{{ optionLabel }}</dd>
+                        <div :class="$style.paymentRow">
+                            <dt :class="$style.paymentLabel">แบบ</dt>
+                            <dd :class="$style.paymentValue">{{ optionLabel }}</dd>
                         </div>
-                        <div :class="$style.row">
-                            <dt :class="$style.key">เครดิตคงเหลือ</dt>
-                            <dd :class="[$style.value, insufficient ? $style.insufficient : '']">{{ thb(balanceSatang) }}</dd>
+                        <div :class="$style.paymentRow">
+                            <dt :class="$style.paymentLabel">ยอดชำระ</dt>
+                            <dd :class="[$style.paymentValue, $style.paymentAmount]">{{ thb(priceSatang) }}</dd>
                         </div>
-                        <div :class="[$style.row, $style.priceRow]">
-                            <dt :class="$style.priceKey">ยอดชำระ</dt>
-                            <dd :class="$style.price">{{ thb(priceSatang) }}</dd>
+                        <div :class="[$style.paymentRow, $style.paymentDivider]">
+                            <dt :class="$style.paymentLabel">ยอดเงินในกระเป๋า</dt>
+                            <dd :class="$style.paymentValue">{{ thb(balanceSatang) }}</dd>
+                        </div>
+                        <div :class="$style.paymentRow">
+                            <dt :class="$style.paymentLabel">คงเหลือหลังชำระ</dt>
+                            <dd :class="[$style.paymentValue, insufficient ? $style.paymentNegative : '']">
+                                {{ thb(balanceAfter) }}
+                            </dd>
                         </div>
                     </dl>
 
-                    <p :class="$style.notice">{{ purchaseNote }}</p>
-                    <p v-if="hasNoBotTarget" :class="$style.warning">
-                        ยังไม่มีบอทให้เลือก กลับไปหน้า Dashboard เพื่อสร้างบอทก่อน
+                    <p :class="$style.notice">
+                        ซื้อเก็บไว้ก่อนได้ — ไปกด Use ที่หน้า Dashboard เมื่อต้องการผูกกับบอท
                     </p>
 
-                    <SelectField
-                        v-if="requiresSubject && !hasNoBotTarget"
-                        v-model="selectedBotId"
-                        label="เลือกบอทปลายทาง"
-                        placeholder="เลือกบอท…"
-                        :options="botOptions"
-                    />
-
-                    <p v-if="error" :class="$style.error">{{ error }}</p>
+                    <p v-if="insufficient" :class="$style.paymentWarning">
+                        ยอดเงินในกระเป๋าไม่เพียงพอ — กรุณาเติมเงินก่อนทำรายการ
+                    </p>
 
                     <div :class="$style.actions">
-                        <button type="button" :class="[$style.button, $style.cancel]" @click="emit('cancel')">ยกเลิก</button>
-                        <button type="button" :class="[$style.button, $style.confirm]" :disabled="confirmDisabled" @click="confirm">
-                            {{ submitting ? "กำลังสั่งซื้อ…" : "ยืนยันซื้อ" }}
-                        </button>
+                        <SecondaryButton width-mode="hug" @click="emit('cancel')">ยกเลิก</SecondaryButton>
+                        <PrimaryButton v-if="insufficient" width-mode="hug" @click="emit('topup')">
+                            เติมเงิน
+                        </PrimaryButton>
+                        <PrimaryButton v-else width-mode="hug" :disabled="submitting" @click="emit('confirm')">
+                            ยืนยันชำระเงิน
+                        </PrimaryButton>
                     </div>
                 </section>
             </div>
@@ -128,10 +96,12 @@ function confirm(): void {
     align-items: center;
     justify-content: center;
     padding: var(--spacing-space-4);
-    background: color-mix(in srgb, var(--color-main-background) 70%, transparent);
+    background: color-mix(in srgb, #000 55%, transparent);
     backdrop-filter: blur(4px);
 }
 
+/* Adaptive pairing (matches shared ConfirmModal): main-background + text-primary
+   + main-divider flip together in dark mode. */
 .modal {
     display: flex;
     width: 100%;
@@ -140,10 +110,10 @@ function confirm(): void {
     box-sizing: border-box;
     gap: var(--spacing-space-4);
     padding: var(--spacing-space-6);
-    border: 1px solid var(--color-main-border);
+    border: 1px solid var(--color-main-divider);
     border-radius: var(--radius-xl);
-    background-color: var(--color-main-surface);
-    color: var(--color-text-secondary);
+    background-color: var(--color-main-background);
+    color: var(--color-text-primary);
 }
 
 .header {
@@ -156,13 +126,14 @@ function confirm(): void {
     margin: 0;
     font-family: var(--font-sans);
     font-size: 22px;
-    font-weight: 600;
+    font-weight: 700;
 }
 
 .subtitle {
     margin: 0;
     color: var(--color-text-secondary);
     font-size: 14px;
+    line-height: 1.5;
 }
 
 .divider {
@@ -170,123 +141,77 @@ function confirm(): void {
     background-color: var(--color-main-divider);
 }
 
-.summary {
+/* Payment summary rows (label left, value right) — same recipe as the Dashboard modals. */
+.paymentSummary {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-space-3);
+    gap: var(--spacing-space-2);
     margin: 0;
+    padding: var(--spacing-space-4);
+    border: 1px solid var(--color-main-divider);
+    border-radius: var(--radius-md);
+    background-color: color-mix(in srgb, var(--color-text-primary) 4%, var(--color-main-background));
 }
 
-.row {
+.paymentRow {
     display: flex;
-    align-items: center;
+    align-items: baseline;
     justify-content: space-between;
-    gap: var(--spacing-space-3);
+    gap: var(--spacing-space-4);
 }
 
-.key {
-    color: var(--color-text-secondary);
-    font-size: 15px;
+.paymentDivider {
+    margin-top: var(--spacing-space-2);
+    padding-top: var(--spacing-space-3);
+    border-top: 1px solid var(--color-main-divider);
 }
 
-.value {
+.paymentLabel {
     margin: 0;
+    color: var(--color-text-secondary);
+    font-size: 14px;
+    font-weight: 300;
+}
+
+.paymentValue {
+    margin: 0;
+    color: var(--color-text-primary);
     font-size: 15px;
     font-weight: 600;
     text-align: right;
 }
 
-.priceRow {
-    margin-top: var(--spacing-space-1);
-    padding-top: var(--spacing-space-3);
-    border-top: 1px solid var(--color-main-divider);
-}
-
-.priceKey {
-    font-size: 16px;
-    font-weight: 600;
-}
-
-.price {
-    margin: 0;
-    font-size: 24px;
+.paymentAmount {
+    color: var(--color-text-primary);
+    font-size: 18px;
     font-weight: 800;
 }
 
-.insufficient {
+.paymentNegative {
     color: var(--color-status-error);
 }
 
-.notice,
-.warning {
+.paymentWarning {
     margin: 0;
-    padding: var(--spacing-space-3);
-    border-radius: var(--radius-lg);
+    color: var(--color-status-error);
     font-size: 14px;
-    line-height: 1.45;
+    font-weight: 600;
 }
 
 .notice {
-    border: 1px solid var(--color-main-divider);
-    color: color-mix(in srgb, var(--color-text-secondary) 82%, transparent);
-}
-
-.warning {
-    border: 1px solid var(--color-status-warning);
-    color: var(--color-status-warning);
-}
-
-.error {
     margin: 0;
-    color: var(--color-status-error);
+    padding: var(--spacing-space-3);
+    border: 1px solid var(--color-main-divider);
+    border-radius: var(--radius-lg);
+    color: var(--color-text-secondary);
     font-size: 14px;
+    line-height: 1.45;
 }
 
 .actions {
     display: flex;
     justify-content: flex-end;
     gap: var(--spacing-space-3);
-}
-
-.button {
-    min-width: 120px;
-    height: 46px;
-    padding: 0 var(--spacing-space-5);
-    border: 0;
-    border-radius: var(--radius-xl);
-    font-family: var(--font-sans);
-    font-size: 16px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background-color 0.15s ease, opacity 0.15s ease;
-}
-
-.cancel {
-    background-color: var(--color-button-secondary-btn-bg);
-    color: var(--color-button-secondary-btn-text);
-}
-
-.cancel:hover {
-    background-color: var(--color-button-secondary-btn-hover);
-}
-
-.confirm {
-    background-color: var(--color-button-primary-btn-bg);
-    color: var(--color-button-primary-btn-text-active);
-}
-
-.confirm:hover:not(:disabled) {
-    background-color: var(--color-button-primary-btn-hover);
-}
-
-.confirm:disabled {
-    cursor: not-allowed;
-    opacity: 0.55;
-}
-
-.button:focus-visible {
-    outline: 2px solid var(--color-main-primary);
-    outline-offset: 2px;
 }
 
 :global(.dialog-enter-active),

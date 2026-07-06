@@ -1,3 +1,5 @@
+import { icons } from "./icons";
+
 export interface Skills {
   label: string;
   icon?: string;
@@ -5,97 +7,93 @@ export interface Skills {
 
 
 export const language = [
-  { label: "LANGUAGE", icon: "/images/icons/stacks/language/language.svg" },
-  { label: "HTML", icon: "/images/icons/stacks/language/html.svg" },
-  { label: "CSS", icon: "/images/icons/stacks/language/css.svg" },
-  { label: "JAVASCRIPT", icon: "/images/icons/stacks/language/javascript.svg" },
-  { label: "TYPESCRIPT", icon: "/images/icons/stacks/language/typescript.svg" },
-  { label: "JAVA", icon: "/images/icons/stacks/language/java.svg" },
-  { label: "SQL", icon: "/images/icons/stacks/language/sql.svg" },
-  { label: "XML", icon: "/images/icons/stacks/language/xml.svg" },
-  { label: "JSON", icon: "/images/icons/stacks/language/json.svg"},
-  { label: "SHELL / BASH", icon: "/images/icons/stacks/language/shell.svg" },
-  { label: "DART", icon: "/images/icons/stacks/language/dart.svg" },
-  { label: "LUA", icon: "/images/icons/stacks/language/lua.svg" },
+  { label: "LANGUAGE", icon: icons.stack.language.language },
+  { label: "HTML", icon: icons.stack.language.html },
+  { label: "CSS", icon: icons.stack.language.css },
+  { label: "JAVASCRIPT", icon: icons.stack.language.javascript },
+  { label: "TYPESCRIPT", icon: icons.stack.language.typescript },
+  { label: "JAVA", icon: icons.stack.language.java },
+  { label: "DART", icon: icons.stack.language.dart },
+  { label: "LUA", icon: icons.stack.language.lua },
 ] satisfies readonly Skills[];
 
 export const frontend = [
-  { label: "FRONTEND", icon: "/images/icons/stacks/frontend/frontend.svg" },
-  { label: "VUE.JS", icon: "/images/icons/stacks/frontend/vue.svg" },
-  { label: "VITE.JS", icon: "/images/icons/stacks/frontend/vite.svg" },
-  { label: "FLUTTER", icon: "/images/icons/stacks/frontend/flutter.svg" },
-  { label: "REACT", icon: "/images/icons/stacks/frontend/react.svg" },
-  { label: "TAILWIND CSS", icon: "/images/icons/stacks/frontend/tailwind.svg" },
+  { label: "FRONTEND", icon: icons.stack.frontend.frontend },
+  { label: "VUE.JS", icon: icons.stack.frontend.vuejs },
+  { label: "VITE.JS", icon: icons.stack.frontend.vitejs },
+  { label: "FLUTTER", icon: icons.stack.frontend.flutter },
+  { label: "REACT", icon: icons.stack.frontend.react },
 ] satisfies readonly Skills[];
 
 export const backend = [
-  { label: "BACKEND", icon: "/images/icons/stacks/backend/backend.svg" },
-  { label: "NODE.JS", icon: "/images/icons/stacks/backend/node.svg" },
-  { label: "SPRING BOOT", icon: "/images/icons/stacks/backend/spring.svg" },
-  { label: "JWT", icon: "/images/icons/stacks/backend/jwt.svg" },
-  { label: "SOCKET.IO", icon: "/images/icons/stacks/backend/socketio.svg" },
+  { label: "BACKEND", icon: icons.stack.backend.backend },
+  { label: "NODE.JS", icon: icons.stack.backend.nodejs },
+  { label: "SPRING BOOT", icon: icons.stack.backend.spring },
+  { label: "JWT", icon: icons.stack.backend.jwt },
+  { label: "SOCKET.IO", icon: icons.stack.backend.socketdotio },
 ] satisfies readonly Skills[];
 
 export const database = [
-  { label: "DATABASE", icon: "/images/icons/stacks/database/database.svg" },
-  { label: "MYSQL", icon: "/images/icons/stacks/database/mysql.svg" },
-  { label: "POSTGRESQL", icon: "/images/icons/stacks/database/postgresql.svg" },
-  { label: "MONGODB", icon: "/images/icons/stacks/database/mongodb.svg" },
-  { label: "ORACLE", icon: "/images/icons/stacks/database/oracle.svg" },
-  { label: "REDIS", icon: "/images/icons/stacks/database/redis.svg" },
+  { label: "DATABASE", icon: icons.stack.database.database },
+  { label: "MYSQL", icon: icons.stack.database.mysql },
+  { label: "POSTGRESQL", icon: icons.stack.database.postgresql },
+  { label: "MONGODB", icon: icons.stack.database.mongodb },
+  { label: "FIREBASE", icon: icons.stack.database.firebase },
+  // { label: "REDIS", icon: icons.stack.database.redis },
+  // { label: "ORACLE", icon: icons.stack.database.oracle },
 ] satisfies readonly Skills[];
 
 export const devops = [
-  { label: "DEVOPS", icon: "/images/icons/stacks/devops/devops.svg" },
-  { label: "GITHUB ACTIONS", icon: "/images/icons/stacks/devops/github-actions.svg" },
-  { label: "DOCKER", icon: "/images/icons/stacks/devops/docker.svg" },
-  { label: "PM2", icon: "/images/icons/stacks/devops/pm2.svg" },
-  { label: "NGINX", icon: "/images/icons/stacks/devops/nginx.svg" },
-  { label: "LINUX SERVER", icon: "/images/icons/stacks/devops/linux-server.svg" },
-  { label: "NIFI", icon: "/images/icons/stacks/devops/nifi.svg" },
-  { label: "LINUX", icon: "/images/icons/stacks/devops/linux.svg" },
+  { label: "DEVOPS", icon: icons.stack.devops.devops },
+  { label: "GITHUB ACTIONS", icon: icons.stack.devops.githubActions },
+  { label: "DOCKER", icon: icons.stack.devops.docker },
+  { label: "PM2", icon: icons.stack.devops.pm2 },
+  { label: "NGINX", icon: icons.stack.devops.nginx },
+  { label: "LINUX SERVER", icon: icons.stack.devops.linuxServer },
+  { label: "NIFI", icon: icons.stack.devops.apacheNifi },
+  { label: "MAVEN", icon: icons.stack.devops.maven },
 ] satisfies readonly Skills[];
 
 export const tools = [
-  { label: "TOOLS", icon: "/images/icons/stacks/tools/tools.svg" },
-  { label: "VISUAL STUDIO CODE", icon: "/images/icons/stacks/tools/vscode.svg" },
-  { label: "INTELLIJ IDEA", icon: "/images/icons/stacks/tools/intellij.svg" },
-  { label: "BUN", icon: "/images/icons/stacks/tools/bun.svg" },
-  { label: "MAVEN", icon: "/images/icons/stacks/tools/maven.svg" },
-  { label: "MYSQL", icon: "/images/icons/stacks/tools/mysql.svg" },
-  { label: "POSTMAN", icon: "/images/icons/stacks/tools/postman.svg" },
-  { label: "GITHUB", icon: "/images/icons/stacks/tools/github.svg" },
-  { label: "GITHUB DESKTOP", icon: "/images/icons/stacks/tools/github-square.svg" },
+  { label: "TOOLS", icon: icons.stack.tool.tools },
+  { label: "VISUAL STUDIO CODE", icon: icons.stack.tool.vscode },
+  { label: "INTELLIJ IDEA", icon: icons.stack.tool.intellij },
+  { label: "BUN", icon: icons.stack.frontend.bun },
+  { label: "MAVEN", icon: icons.stack.devops.maven },
+  { label: "MYSQL", icon: icons.stack.tool.mysql },
+  { label: "POSTMAN", icon: icons.stack.tool.postman },
+  { label: "GITHUB", icon: icons.stack.tool.github },
+  { label: "GITHUB DESKTOP", icon: icons.stack.tool.github },
 ] satisfies readonly Skills[];
 
 export const ux_ui = [
-  { label: "UX / UI", icon: "/images/icons/stacks/ux-ui/ux-ui.svg" },
-  { label: "FIGMA", icon: "/images/icons/stacks/ux-ui/figma.svg" },
-  { label: "CANVA", icon: "/images/icons/stacks/ux-ui/canva.svg" },
+  { label: "UX / UI", icon: icons.stack.uxUi.uxUi },
+  { label: "FIGMA", icon: icons.stack.uxUi.figma },
+  { label: "CANVA", icon: icons.stack.uxUi.canva },
 ] satisfies readonly Skills[];
 
 export const media_document = [
-  { label: "MEDIA / DOCUMENT", icon: "/images/icons/stacks/media/media.svg" },
-  { label: "CAPCUT", icon: "/images/icons/stacks/media/capcut.svg" },
-  { label: "PHOTOSHOP", icon: "/images/icons/stacks/media/photoshop.svg" },
-  { label: "LIGHTROOM", icon: "/images/icons/stacks/media/lightroom.svg" },
-  { label: "MICROSOFT WORD", icon: "/images/icons/stacks/media/word.svg" },
-  { label: "POWERPOINT", icon: "/images/icons/stacks/media/powerpoint.svg" },
-  { label: "MICROSOFT EXCEL", icon: "/images/icons/stacks/media/excel.svg" },
+  { label: "MEDIA / DOCUMENT", icon: icons.stack.media.media },
+  { label: "CAPCUT", icon: icons.stack.media.capcut },
+  { label: "PHOTOSHOP", icon: icons.stack.media.photoshop },
+  { label: "LIGHTROOM", icon: icons.stack.media.lightroom },
+  { label: "MICROSOFT WORD", icon: icons.stack.media.word },
+  { label: "POWERPOINT", icon: icons.stack.media.powerpoint },
+  { label: "MICROSOFT EXCEL", icon: icons.stack.media.excel },
 ] satisfies readonly Skills[];
 
 export const externalService = [
-  { label: "EXTERNAL SERVICE", icon: "/images/icons/stacks/service/service.svg" },
-  { label: "GOOGLE AUTH", icon: "/images/icons/stacks/service/google.svg" },
-  { label: "CLOUDINARY", icon: "/images/icons/stacks/service/cloudinary.svg" },
-  { label: "FIREBASE", icon: "/images/icons/stacks/service/firebase.svg" },
-  { label: "GEMINI API", icon: "/images/icons/stacks/ai/gemini.svg" },
-  { label: "OPEN ROUTER", icon: "/images/icons/stacks/service/openrouter.svg" },
-  { label: "EMAIL SERVICE", icon: "/images/icons/stacks/service/email-service.svg" },
-  { label: "ETAX SIGN", icon: "/images/icons/stacks/service/etax-sign.svg" },
-  { label: "ETAX SENDER", icon: "/images/icons/stacks/service/etax-sender.svg" },
-  { label: "HSM", icon: "/images/icons/stacks/service/hardware-security-module.svg" },
-  { label: "IAPP", icon: "/images/icons/stacks/service/iapp.svg" },
-  { label: "SMS GATEWAY", icon: "/images/icons/stacks/service/sms-gateway.svg" },
-  { label: "THAI SMS", icon: "/images/icons/stacks/service/thaisms.svg" },
+  { label: "EXTERNAL SERVICE", icon: icons.stack.service.externalService },
+  { label: "GOOGLE AUTH", icon: icons.google },
+  { label: "CLOUDINARY", icon: icons.stack.service.cloudinary },
+  { label: "FIREBASE", icon: icons.stack.database.firebase },
+  { label: "GEMINI API", icon: icons.stack.ai.gemini },
+  { label: "OPEN ROUTER", icon: icons.stack.service.openrouter },
+  { label: "EMAIL SERVICE", icon: icons.stack.service.sharpEmail },
+  { label: "ETAX SIGN", icon: icons.stack.service.sign },
+  { label: "ETAX SENDER", icon: icons.stack.service.fileSend },
+  { label: "HSM", icon: icons.stack.service.hardwareSecurityModule },
+  { label: "IAPP", icon: icons.stack.service.iapp },
+  { label: "SMS GATEWAY", icon: icons.stack.service.sms },
+  { label: "THAI SMS", icon: icons.stack.service.sms },
 ] satisfies readonly Skills[];

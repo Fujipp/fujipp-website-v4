@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, watch } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import { BackgroundEffect, AppNavbar, UserControl } from '@/shared/layout'
+import { ToastHost } from '@/shared/ui/toasts'
 import { useUserStore } from '@/stores'
 
 const CLICK_SOUND_SRC = '/music/click.MP3'
@@ -9,10 +10,12 @@ const CLICK_SOUND_VOLUME = 0.2
 
 const userStore = useUserStore()
 const route = useRoute()
+const CHROME_SHOP_ROUTES = ['shop-dashboard', 'shop-wallet', 'shop-package', 'shop-runtime']
 const shouldShowAppChrome = computed(() =>
-  !route.path.startsWith('/shop')
+  // These Shop pages use the standard navbar; deeper /shop pages keep their own chrome.
+  (CHROME_SHOP_ROUTES.includes(String(route.name)) || !route.path.startsWith('/shop'))
   && !route.path.startsWith('/admin')
-  && !['login', 'register'].includes(String(route.name)))
+  && !['project-detail', 'project-new', 'project-edit', 'login', 'register'].includes(String(route.name)))
 const shouldShowUserControl = computed(() =>
   !['login', 'register'].includes(String(route.name)))
 const isShopRoute = computed(() => route.path.startsWith('/shop'))
@@ -99,7 +102,9 @@ onUnmounted(() => {
 
 <template>
   <RouterView />
-  <BackgroundEffect />
+  <ToastHost />
+  <!-- Floating background belongs to the Home page only. -->
+  <BackgroundEffect v-if="route.name === 'home'" />
   <AppNavbar v-if="shouldShowAppChrome" />
   <UserControl v-if="shouldShowUserControl" />
 </template>

@@ -1,28 +1,23 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { storeToRefs } from "pinia";
 import { useRouter } from "vue-router";
 import { AppFooter } from "@/shared/layout";
-import { HeaderSection, StatusToast } from "@/shared/ui";
-import { AiCard, FeaturedProjectCard, FeatureModal, ProjectTable } from "@/features/projects/components";
+import { FeaturedProjectCard, FeatureModal, ProjectTable } from "@/features/projects/components";
 import type { ProjectTableRow } from "@/config";
-import { aiModels } from "@/features/projects/config";
-import { useUserStore } from "@/stores";
+import { useToastStore, useUserStore } from "@/stores";
 import { useProjectStore } from "@/features/projects/stores";
 import type { FeaturedProjectId } from "@/features/projects/stores";
-
-type ToastStatus = "success" | "warning" | "error";
 
 const router = useRouter();
 const userStore = useUserStore();
 const { isAdmin } = storeToRefs(userStore);
 const projectStore = useProjectStore();
+const toastStore = useToastStore();
 const { error, isLoading, projects } = storeToRefs(projectStore);
 const isFeatureModalOpen = ref(false);
-const featuredProjectIds = ref<FeaturedProjectId[]>([]);
-const featureError = ref<string | null>(null);
-const toast = ref<{ description: string; status: ToastStatus; title: string } | null>(null);
-let toastTimeout: ReturnType<typeof setTimeout> | undefined;
+const editingSlot = ref(0);
+const editingProjectId = ref<FeaturedProjectId | null>(null);
 
 const featuredProjects = computed(() => projects.value
     .filter((project) => project.featured)
@@ -66,257 +61,177 @@ function openNewProject(): void {
     void router.push({ name: "project-new" });
 }
 
-function openFeatureModal(): void {
-    featuredProjectIds.value = featuredProjects.value.map((project) => project.id);
-    featureError.value = null;
+/* Each featured card edits its own slot: change replaces it, add appends. */
+function openFeatureModal(slot: number): void {
+    editingSlot.value = slot;
+    editingProjectId.value = featuredProjects.value[slot]?.id ?? null;
     isFeatureModalOpen.value = true;
 }
 
-async function saveFeaturedProjects(projectIds: FeaturedProjectId[]): Promise<void> {
-    featureError.value = null;
+const excludedFeaturedIds = computed(() => featuredProjects.value
+    .filter((_, index) => index !== editingSlot.value)
+    .map((project) => project.id));
+
+async function saveFeaturedSlot(projectId: FeaturedProjectId | null): Promise<void> {
+    const projectIds = featuredProjects.value.map((project) => project.id);
+
+    if (editingSlot.value < projectIds.length) {
+        if (projectId === null) {
+            projectIds.splice(editingSlot.value, 1);
+        } else {
+            projectIds[editingSlot.value] = projectId;
+        }
+    } else if (projectId !== null) {
+        projectIds.push(projectId);
+    }
+
+    /* Close right away; the outcome is reported through a toast only. */
+    isFeatureModalOpen.value = false;
 
     try {
         await projectStore.updateFeaturedProjects(projectIds);
         await projectStore.fetchProjects();
-        isFeatureModalOpen.value = false;
-        showToast(
+        toastStore.show(
             "Featured projects updated",
             "The featured section has been saved successfully.",
             "success",
         );
     } catch (cause) {
         const message = cause instanceof Error ? cause.message : "Unable to update featured projects.";
-        featureError.value = message;
-        showToast("Unable to update featured projects", message, "error");
+        toastStore.show("Unable to update featured projects", message, "error");
     }
 }
-
-function showToast(title: string, description: string, status: ToastStatus): void {
-    closeToast();
-    toast.value = { description, status, title };
-    toastTimeout = setTimeout(closeToast, status === "success" ? 2400 : 5000);
-}
-
-function closeToast(): void {
-    if (toastTimeout) {
-        clearTimeout(toastTimeout);
-        toastTimeout = undefined;
-    }
-
-    toast.value = null;
-}
-
-onUnmounted(() => {
-    closeToast();
-});
 </script>
 
 <template>
     <main :class="$style.projects" class="pt-16">
-        <div v-if="toast" :class="$style.toastViewport">
-            <StatusToast
-                :title="toast.title"
-                :description="toast.description"
-                :status="toast.status"
-                @close="closeToast"
-            />
-        </div>
-        <div :class="$style.projectsContainer">
+            <div :class="$style.projectsContainer">
             <section
                 v-if="shouldShowFeaturedSection"
-                :class="$style.sectionBand"
+                :class="$style.featuredSection"
                 aria-label="Featured projects"
             >
-                <div :class="$style.sectionStage">
-                    <HeaderSection title="Featured" />
-                    <div :class="$style.featuredGrid">
-                        <FeaturedProjectCard
-                            v-for="index in featuredSkeletonCards"
-                            :key="`featured-skeleton-${index}`"
-                            mode="skeleton"
-                            project-name="Loading featured project"
-                        />
-                        <FeaturedProjectCard
-                            v-for="project in featuredProjects"
-                            :key="project.id"
-                            :admin="isAdmin"
-                            :category="project.category"
-                            :description-short="project.content.en.descriptionShort"
-                            :project-name="project.content.en.projectName"
-                            :stack-groups="project.stackGroups"
-                            :tech-stack="project.techStack"
-                            :thumbnail-src="project.gallery[0] ?? ''"
-                            :to="{ name: 'project-detail', params: { projectId: project.id } }"
-                            @change="openFeatureModal"
-                        />
-                        <FeaturedProjectCard
-                            v-for="index in featuredAddCards"
-                            :key="`featured-add-${index}`"
-                            mode="add"
-                            project-name="Add featured project"
-                            @change="openFeatureModal"
-                        />
-                    </div>
-                </div>
-            </section>
-
-            <section :class="[$style.sectionBand, $style.tableBand]" aria-label="All projects">
-                <div :class="$style.sectionStage">
-                    <HeaderSection title="Projects" />
-                    <ProjectTable
-                        empty-message="No projects found."
-                        :error-message="error ? `Unable to load projects: ${error}` : null"
-                        :loading="isLoading"
-                        :rows="projectRows"
-                        :show-admin-actions="isAdmin"
-                        @add="openNewProject"
-                        @row-click="openProject"
+                <h1 :class="$style.featuredTitle" class="type-h1-page-title-eb">Featured</h1>
+                <div :class="$style.featuredGrid">
+                    <FeaturedProjectCard
+                        v-for="index in featuredSkeletonCards"
+                        :key="`featured-skeleton-${index}`"
+                        mode="skeleton"
+                        project-name="Loading featured project"
+                    />
+                    <FeaturedProjectCard
+                        v-for="(project, index) in featuredProjects"
+                        :key="project.id"
+                        :admin="isAdmin"
+                        :category="project.category"
+                        :description-short="project.content.en.descriptionShort"
+                        :project-name="project.content.en.projectName"
+                        :stack-groups="project.stackGroups"
+                        :tech-stack="project.techStack"
+                        :thumbnail-src="project.gallery[0] ?? ''"
+                        :to="{ name: 'project-detail', params: { projectId: project.id } }"
+                        @change="openFeatureModal(index)"
+                    />
+                    <FeaturedProjectCard
+                        v-for="index in featuredAddCards"
+                        :key="`featured-add-${index}`"
+                        mode="add"
+                        project-name="Add featured project"
+                        @change="openFeatureModal(featuredProjects.length + index)"
                     />
                 </div>
             </section>
 
-            <section :class="$style.sectionBand" aria-label="AI skills">
-                <div :class="$style.sectionStage">
-                    <HeaderSection title="Ai Skills" />
-                    <div :class="$style.aiFullBleed">
-                        <AiCard :items="aiModels" />
-                    </div>
-                </div>
+            <section :class="$style.allProjectSection" aria-label="All projects">
+                <h2 :class="$style.allProjectTitle" class="type-h2-section-title-eb">All Project</h2>
+                <p :class="$style.allProjectSubtitle">
+                    Please feel free to explore any projects that catch your interest.
+                </p>
+                <ProjectTable
+                    empty-message="No projects found."
+                    :error-message="error ? `Unable to load projects: ${error}` : null"
+                    :loading="isLoading"
+                    :rows="projectRows"
+                    :show-admin-actions="isAdmin"
+                    @add="openNewProject"
+                    @row-click="openProject"
+                />
             </section>
         </div>
         <AppFooter />
         <FeatureModal
             v-if="isFeatureModalOpen"
-            v-model="featuredProjectIds"
+            :model-value="editingProjectId"
+            :title="`Featured ${editingSlot + 1}`"
             :disabled="isLoading"
-            :error-message="featureError"
+            :exclude-ids="excludedFeaturedIds"
             :rows="projectRows"
             @cancel="isFeatureModalOpen = false"
-            @save="saveFeaturedProjects"
+            @save="saveFeaturedSlot"
         />
     </main>
-
 </template>
 
 <style module>
 .projects {
-    --projects-band-bg: var(--color-main-background);
-    --projects-band-text: var(--color-text-primary);
-    --projects-card-bg: var(--color-neutral-50);
-    --projects-card-border: var(--color-input-border);
-    --projects-card-text: var(--color-text-primary);
-    --projects-card-muted: var(--color-neutral-600);
-    --projects-card-inset-bg: var(--color-input-placeholder-bg);
-    --projects-row-hover: var(--color-neutral-100);
-    --projects-row-active: var(--color-neutral-200);
-    --projects-row-focus: var(--color-neutral-100);
-
     display: flex;
     flex-direction: column;
-    height: 100dvh;
     min-height: 100dvh;
-    gap: 0;
-    overflow-y: auto;
-    scrollbar-width: none;
-    background-color: var(--projects-band-bg);
-    color: var(--projects-band-text);
-    transition: background-color 300ms ease, color 300ms ease;
-}
-
-:global(.dark) .projects,
-:global([data-theme="dark"]) .projects {
-    --projects-band-bg: var(--color-main-section-background);
-    --projects-band-text: var(--color-text-secondary);
-    --projects-card-bg: var(--color-main-surface);
-    --projects-card-border: var(--color-main-border);
-    --projects-card-text: var(--color-text-secondary);
-    --projects-card-muted: var(--color-text-secondary);
-    --projects-card-inset-bg: var(--color-main-surface);
-    --projects-row-hover: var(--color-table-row-hover);
-    --projects-row-active: var(--color-table-row-active);
-    --projects-row-focus: var(--color-table-row-focus);
-}
-
-.projects::-webkit-scrollbar {
-    display: none;
+    /* Transparent so the fixed BackgroundEffect shows through. */
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    transition: color 300ms ease;
 }
 
 .projectsContainer {
     display: flex;
     flex: 1;
     flex-direction: column;
-    width: 100%;
-    box-sizing: border-box;
-    margin: 0 auto;
-    gap: 0;
-}
-
-.sectionBand {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    box-sizing: border-box;
-    margin: 0 auto;
-    padding-block: var(--spacing-space-8);
-    background-color: var(--projects-band-bg);
-    color: var(--projects-band-text);
-    transition: background-color 300ms ease, color 300ms ease;
-}
-
-.sectionBand h2 {
-    color: var(--projects-band-text);
-    transition: color 300ms ease;
-}
-
-.sectionStage {
-    display: flex;
-    flex-direction: column;
     box-sizing: border-box;
     width: min(100%, var(--container-7xl));
     margin: 0 auto;
-    padding-inline: var(--spacing-space-5);
-    gap: var(--spacing-space-5);
 }
 
-.tableBand .sectionStage {
-    gap: 17px;
+.featuredSection {
+    display: flex;
+    flex-direction: column;
+    align-self: stretch;
 }
 
-.aiFullBleed {
-    position: relative;
-    left: 50%;
-    width: 100vw;
-    margin-left: -50vw;
+.featuredTitle {
+    margin: 0;
+    padding: 12px 16px;
+    color: var(--color-text-primary);
+    text-align: center;
 }
 
 .featuredGrid {
     display: flex;
-    flex-wrap: wrap;
+    align-items: flex-start;
     justify-content: center;
-    gap: var(--spacing-space-5);
+    flex-wrap: wrap;
+    padding: 12px 16px;
+    gap: 8px;
 }
 
-.toastViewport {
-    position: fixed;
-    bottom: var(--spacing-space-5);
-    right: var(--spacing-space-4);
-    z-index: 80;
-    width: min(calc(100% - (var(--spacing-space-4) * 2)), 420px);
+.allProjectSection {
+    display: flex;
+    flex-direction: column;
+    align-self: stretch;
+    padding: 12px 16px;
+    gap: 8px;
 }
 
-@media (max-width: 767px) {
-    .sectionBand {
-        padding-block: var(--spacing-space-5);
-    }
-
-    .featuredGrid {
-        gap: var(--spacing-space-5);
-    }
+.allProjectTitle {
+    margin: 0;
+    color: var(--color-text-primary);
 }
 
-@media (min-width: 768px) and (max-width: 1023px) {
-    .sectionStage {
-        padding-inline: var(--spacing-space-5);
-    }
+.allProjectSubtitle {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--type-size-subtitle);
+    font-weight: 300;
 }
+
 </style>
