@@ -48,14 +48,6 @@ public class RedeemService {
         job = repo.save(job);
 
         try {
-            VoucherAdapter.VoucherCheck check = adapter.checkVoucher(body.getGiftUrl());
-            if (!check.valid()) {
-                job.setStatus(RedeemStatus.VERIFY_FAILED);
-                job.setFailCode("VOUCHER_INVALID");
-                job.setFailReason("not valid");
-                return repo.save(job);
-            }
-
             VoucherAdapter.RedeemOutcome out = adapter.redeem(body.getPhone(), body.getGiftUrl());
             job.setStatus(RedeemStatus.SUCCEEDED);
             job.setAmountSatang(toSatang(out.amountBaht()));
