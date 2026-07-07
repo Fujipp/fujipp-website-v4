@@ -1,56 +1,43 @@
-# Supabase database workflow
+# Supabase Database Workflow
 
-This directory is the source of truth for database schema changes deployed by
-the Supabase GitHub integration. The Spring Boot backend connects to the hosted
-Postgres database, but it does not create schema because it uses
-`spring.jpa.hibernate.ddl-auto=validate`.
+This directory stores PostgreSQL schema migrations for the Fujipp platform.
+The backend and services validate/use this schema; they do not create it through
+JPA or application startup.
 
-## Initial baseline
+## Branch Model
 
-Before enabling **Deploy to production** in the Supabase dashboard, pull the
-current remote `public` schema into this repository. Use the Session pooler
-connection details from **Supabase Dashboard > Connect** and keep credentials
-outside Git.
+Production migrations are staged on the persistent branch:
 
-```bash
-export SUPABASE_DB_URL='postgresql://postgres.<project-ref>@<pooler-host>:5432/postgres?sslmode=require'
-export SUPABASE_DB_PASSWORD='<database-password>'
-supabase db pull initial_schema \
-  --db-url "$SUPABASE_DB_URL" \
-  --password "$SUPABASE_DB_PASSWORD" \
-  --schema public
+```text
+db/migrations
 ```
 
-Commit the generated migration under `supabase/migrations/` before enabling
-production deployment. In the GitHub integration settings, use `.` as the
-working directory because this `supabase/` directory is at the repository
-root.
+Use this branch for migration work. `main` keeps the source-of-truth files, but
+merging to `main` is not the production apply step.
 
-## Making schema changes
-
-Create one new migration for each schema change:
+## Creating A Migration
 
 ```bash
-supabase migration new create_profiles
+supabase migration new add_example_table
 ```
 
-Edit the generated SQL file, test it against a local or preview database, and
-commit it with the backend code that uses the schema. Do not edit a migration
-that has already been deployed; create a follow-up migration instead.
+Rules:
 
-For tables exposed through Supabase Data API, enable Row Level Security and
-add policies before allowing frontend access. The current backend connection
-uses JDBC directly, so frontend code should continue to call backend APIs
-unless a Data API/Auth design is intentionally added.
+- one schema change per migration file,
+- never edit or delete a migration that has already been applied,
+- keep filenames timestamped and descriptive,
+- include RLS/policies for user-facing tables,
+- update matching backend/service entities in the same feature work when needed.
 
-## GitHub integration rollout
+## Applying Migrations
 
-1. Pull and commit the initial schema baseline.
-2. Review migrations in pull requests.
-3. Configure the production branch in Supabase GitHub Integration.
-4. Enable **Deploy to production** only after the baseline is committed.
-5. Require the Supabase status check before merges once preview branching is
-   available.
+Do not run `supabase db push` against production from a local shell. Production
+apply should happen through the manual migration process/workflow once prepared.
 
-`seed.sql` is for local and preview environments. The GitHub integration does
-not deploy seed data to production by default.
+`supabase db push` and `supabase migration up` are acceptable only for local or
+explicitly linked development databases.
+
+## Seed Data
+
+`seed.sql` is for local and preview environments. Production reference data
+should be added deliberately through migrations or an explicit operator process.

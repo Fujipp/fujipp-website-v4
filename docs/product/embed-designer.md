@@ -1,6 +1,11 @@
-# Embed Designer — Design (config ชั้น 3, ของกลาง)
+# Embed Designer — Historical Design (config ชั้น 3, ของกลาง)
 
-> สถานะ: **กำลัง implement** (ต่อจาก feature-bot-platform.md §3.2)
+> Historical note (updated 2026-07-08): this document records the Embed Designer
+> design direction and component-role model. Some implementation statuses and
+> branch names below are historical. Check current code, changelogs, and
+> [feature-status-map.md](feature-status-map.md) before using it as a task plan.
+>
+> Original status: **กำลัง implement** (ต่อจาก feature-bot-platform.md §3.2)
 > เป้าหมาย: ให้ลูกค้า **config หน้าตา embed ของบอทได้เอง** (สี/ข้อความ/รูป/ฟิลด์/ปุ่ม + custom emoji)
 > พร้อม **พรีวิวสดบนเว็บ**. Kanom (roblox-robux-payout + wallet-topup) เป็นผู้ใช้รายแรก.
 
@@ -120,7 +125,7 @@ Implementation notes for AI agents:
 - Do not let a custom-id button use Discord `Link` style; link buttons are URL-only and do not route interactions.
 - Select menus do not have a label for the menu itself; use `placeholder` and optional `emoji`. Option labels stay owned by bot logic unless a later task explicitly scopes option appearance.
 - Effective config should preserve the old override model for the embed body: if a bot override exists, it owns title/description/image/fields. Only `components` merge from seeded default + override so new roles can appear on old saved configs.
-- The current branch is `feat/component-config`. It contains uncommitted work for this role editor and central-bot appearance renderer.
+- Historical branch note: this work originally lived on `feat/component-config`.
 - Kanom default role appearance is seeded by `supabase/migrations/20260610121000_seed_kanom_component_appearance.sql`.
 
 ---

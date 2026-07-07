@@ -6,8 +6,10 @@ TrueMoney gift-voucher redeem (top-up) service. Java Spring Boot, mirrors
 - **Storage**: Supabase Postgres, `voucher` schema (see
   `supabase/migrations/*_create_voucher_service.sql`). `redeem` holds the top-up
   history (phone + amount + outcome); `phone_summary` is a per-number view.
-- **Networking**: internal only. In prod it's published on `127.0.0.1:3611` (container
-  port `8082`) so the legacy PM2 bots reach it over host loopback — base URL unchanged.
+- **Networking**: internal only. In the current Backend Platform compose stack,
+  managed bots normally reach it through the Docker service URL
+  `http://voucher:8082` via the runtime's `VOUCHER_BASE_URL` fallback. It is also
+  published on host loopback `127.0.0.1:3611` for local host checks and compatibility.
 
 ## API
 
@@ -26,8 +28,8 @@ TrueMoney gift-voucher redeem (top-up) service. Java Spring Boot, mirrors
 ## Auth & rotation
 
 A single shared token (`VOUCHER_SERVICE_TOKEN`) — no per-client keys, no MASTER_KEY.
-To rotate: change the `VOUCHER_SERVICE_TOKEN` GitHub secret + the bots' token value,
-then redeploy.
+To rotate: change the Backend Platform env/GitHub secret and the bot config value
+that maps to `API_TRUEMONEY_KEY_ID`, then redeploy/restart affected bots.
 
 ## Restricting to your network
 
@@ -52,11 +54,11 @@ Set `VOUCHER_CLIENT_CHECK_ENABLED=false` only for local/dev runs that have no bo
 `VOUCHER_SERVER_PORT` (8082), `VOUCHER_SERVICE_TOKEN`, `TW_USER_AGENT`, `TW_TIMEOUT_MS`,
 and `VOUCHER_ADAPTER` (`truewallet` | `mock`).
 
-## Run locally
+## Local dev
 
 ```bash
-# build (connects to no DB at build time)
-mvn -DskipTests package
 # run against a DB with the voucher schema applied
 VOUCHER_ADAPTER=mock VOUCHER_SERVICE_TOKEN=dev mvn spring-boot:run
 ```
+
+Run packaging/tests only when explicitly requested.

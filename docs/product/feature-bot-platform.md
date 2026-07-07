@@ -1,6 +1,11 @@
-# Feature Bot Platform — Design
+# Feature Bot Platform — Historical Design
 
-> สถานะ: **ดราฟต์ดีไซน์ (ยังไม่เริ่ม implement)**
+> Historical note (updated 2026-07-08): this document captures the early Feature
+> Bot Platform design and tradeoffs. It is not the current implementation status.
+> For current status, start with [feature-status-map.md](feature-status-map.md),
+> current code, and the changelogs.
+>
+> Original status: **ดราฟต์ดีไซน์ (ยังไม่เริ่ม implement)**
 > ขอบเขต: ระบบขาย "Feature Bot" — ลูกค้าเติมเงิน → ซื้อ Runtime + Feature → ตั้งค่าเอง → กดรันบอท Discord 24/7
 > เกี่ยวข้องกับ: `services/billing-service/`, `supabase/migrations/20260602194239_create_billing_service.sql`,
 > และ snapshot บอทจริงที่ `Discord-Server-Management/Bots/`

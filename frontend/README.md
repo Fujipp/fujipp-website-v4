@@ -1,42 +1,34 @@
-# vue-project
+# Fujipp Frontend
 
-This template should help get you started developing with Vue 3 in Vite.
+Vue 3 + TypeScript + Vite frontend for Fujipp's portfolio and Discord bot shop.
 
-## Recommended IDE Setup
+## Read First
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+- Repo rules: `../.agents/README.md`
+- Frontend rules: `AGENTS.md`
+- Design system: `docs/design-system.md`
+- Component guide: `docs/component-guidelines.md`
 
-## Recommended Browser Setup
+## Local Commands
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
-
-## Type Support for `.vue` Imports in TS
-
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
-
-## Customize configuration
-
-See [Vite Configuration Reference](https://vite.dev/config/).
-
-## Project Setup
-
-```sh
+```bash
 bun install
+bun run dev
 ```
 
-### Compile and Hot-Reload for Development
+Builds, type checks, and browser verification should only be run when the task
+explicitly asks for verification.
 
-```sh
-bun dev
+## Environment
+
+Frontend env files contain only public browser config:
+
+```dotenv
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
+VITE_API_TARGET=host
+VITE_API_LOCAL_URL=http://localhost:8080
+VITE_API_HOST_URL=https://api.fujipp.com
 ```
 
-### Type-Check, Compile and Minify for Production
-
-```sh
-bun run build
-```
+Production builds use `FRONTEND_ENV_FILE` from GitHub Actions.

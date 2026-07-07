@@ -10,7 +10,7 @@ This document defines how a person or AI should turn Figma components into Vue c
 4. Build a reusable `.vue` component using existing tokens.
 5. Export the component through its local `index.ts` and the appropriate aggregate export when one exists.
 6. Add or update a preview/view when visual validation is needed.
-7. Run `npm run build`.
+7. Run build/type-check/browser verification only when the task explicitly asks for verification.
 
 When the AI cannot access Figma, provide it with a screenshot and a short spec including dimensions, variants, states, responsive behavior, and content examples.
 
@@ -163,5 +163,5 @@ Requirements:
 - Implement as a typed Vue component under `src/components/<group>/`.
 - Add barrel exports.
 - Keep focus and accessibility behavior.
-- Run `npm run build` after changes.
+- Run build verification only when explicitly requested.
 ```

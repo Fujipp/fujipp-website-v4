@@ -6,7 +6,7 @@ DirectAdmin shared host over FTP.
 
 ## Trigger
 
-- Automatic: push to `main` touching `frontend/**` or the frontend deploy workflow.
+- Automatic: push to `main` touching deployable frontend source under `frontend/**`.
 - Manual: run **Deploy Frontend** from GitHub Actions.
 
 ## Production Environment

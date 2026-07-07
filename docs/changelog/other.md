@@ -1,9 +1,10 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.36.4`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.36.5`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.36.5` | 2026-07-08 | Started the Markdown cleanup pass by refreshing the root README as a repo entrypoint and aligning operations docs with the reorganized workflow triggers |
 | `0.0.36.4` | 2026-07-07 | Reorganized agent, operations, infrastructure, and workflow files around shared repo rules, Backend Platform operations, and the persistent `db/migrations` migration branch |
 | `0.0.36.3` | 2026-07-06 | Prevented legacy frontend chunks from being copied into each production build |
 | `0.0.36.2` | 2026-07-06 | Streamlined frontend deployment so releases upload and verify only the current build assets |
