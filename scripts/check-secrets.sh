@@ -2,7 +2,7 @@
 # check-secrets.sh — verify that shared secrets match across the local .env files.
 #
 # Some values MUST be identical across services or inter-service auth fails (see
-# docs/secrets-inventory.md). This compares them WITHOUT printing the real value:
+# docs/operations/secrets-inventory.md). This compares them WITHOUT printing the real value:
 # it shows only an 8-char fingerprint (first 8 hex of sha256) so you can eyeball a
 # match without exposing the secret. Exits non-zero if any group mismatches.
 

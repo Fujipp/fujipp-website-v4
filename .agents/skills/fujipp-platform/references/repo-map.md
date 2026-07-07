@@ -3,9 +3,10 @@
 ## Source Of Truth
 
 - Global AI rules: `.agents/README.md`.
-- Frontend rules: `.agents/frontend.md`, `frontend/AGENTS.md`.
-- Backend rules: `.agents/backend.md`.
-- Database rules: `.agents/database.md`.
+- Frontend rules: `.agents/scopes/frontend.md`, `frontend/AGENTS.md`.
+- Backend rules: `.agents/scopes/backend.md`.
+- Database rules: `.agents/scopes/database.md`.
+- Infrastructure rules: `.agents/scopes/infrastructure.md`.
 - Changelog rules: `docs/changelog/README.md`.
 
 If `README.md` conflicts with `.agents/*`, prefer `.agents/*`; parts of `README.md` are older.
@@ -19,7 +20,7 @@ If `README.md` conflicts with `.agents/*`, prefer `.agents/*`; parts of `README.
 - `services/bot-runtime-service/`: Node/Express orchestrator; decrypts config and runs customer bot processes through PM2.
 - `services/central-bot/`: Node/Discord.js configurable bot codebase; feature modules run per customer bot.
 - `supabase/migrations/`: PostgreSQL schema source of truth.
-- `docker/`, `infrastructure/`: deployment, compose, nginx, VPS bootstrap.
+- `infrastructure/`: deployment, compose, nginx, VPS bootstrap.
 - `docs/`: product, migration, embed designer, onboarding, secrets inventory, changelogs.
 
 ## Efficient Discovery

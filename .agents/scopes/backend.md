@@ -12,7 +12,7 @@ Read this file before changing anything under `backend/`.
 | Language | Java 21 (`<java.version>21</java.version>` in `pom.xml`) |
 | Build | Maven via the wrapper — `./mvnw` |
 | Persistence | Spring Data JPA + Hibernate 7 |
-| Database | Supabase PostgreSQL (see `.agents/database.md`) |
+| Database | Supabase PostgreSQL (see `.agents/scopes/database.md`) |
 | Auth | Stateless JWT verified against the Supabase JWT secret (no server sessions) |
 
 Base package: `fujipp.project.backend` — layered as

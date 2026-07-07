@@ -9,7 +9,7 @@
 # so the running bots and existing TLS are left alone.
 #
 # Usage (from your machine):
-#   scp infrastructure/vps-bootstrap.sh root@154.215.14.227:/root/
+#   scp infrastructure/bootstrap/vps-bootstrap.sh root@154.215.14.227:/root/
 #   ssh root@154.215.14.227 'DEPLOY_PUBKEY="$(cat)" bash /root/vps-bootstrap.sh' < fujipp-deploy.pub
 #
 # The backend container publishes 127.0.0.1:3600, which the pre-existing nginx

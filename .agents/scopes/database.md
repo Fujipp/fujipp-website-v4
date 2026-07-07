@@ -20,14 +20,16 @@ schema, it never creates or alters it. **All schema changes go through a migrati
 
 ## Migrations
 
-- **Migrations auto-apply. Supabase is connected to this GitHub repo (Supabase GitHub
-  integration), so any file added under `supabase/migrations/` is applied to the linked
-  project automatically when it lands on `main` — there is NO manual `supabase db push`
-  step for prod, and no migration job in the GitHub Actions workflows.** Do NOT tell the
-  user to run `supabase db push` to deploy; merging the migration PR to `main` is the deploy.
-  (`supabase db push` / `supabase migration up` are only for a local/linked dev DB.) A
-  feature whose UI/behaviour depends on new templates or tables becomes live once its
-  migration PR is merged.
+- Production migrations are staged on the persistent `db/migrations` branch and
+  applied deliberately through the manual database migration process. Do not rely
+  on `main` to auto-apply Supabase migrations.
+- For normal database work, branch from `db/migrations`, add the migration under
+  `supabase/migrations/`, then merge back into `db/migrations` or open a focused
+  `db/<topic>` branch for larger schema work.
+- Merging migration files into `main` is for source-of-truth/history only. It must
+  not be treated as the production apply step.
+- Do NOT tell the user to run `supabase db push` against production. `supabase db push`
+  / `supabase migration up` are only for local or explicitly linked dev databases.
 - One change per migration file, named `supabase/migrations/<timestamp>_<description>.sql`
   (timestamp `YYYYMMDDHHMMSS`, lower_snake_case description). Keep the timestamp order intact.
 - Migrations are **append-only** — never edit or delete a migration that has already been applied/pushed.

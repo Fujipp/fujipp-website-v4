@@ -71,6 +71,7 @@
 | `BOT_SECRET_KEY` | 🔑 | **ต้อง = backend** |
 | `CENTRAL_BOT_ENTRY` | ⚙️ | path entrypoint central-bot ที่ spawn |
 | `SERVICE_TOKEN` | 🔑 | **ต้อง = backend `RUNTIME_SERVICE_TOKEN`** |
+| `VOUCHER_BASE_URL` | ⚙️ | node-local voucher-service endpoint used as the bot fallback when shop `TRUEMONEY_BASE` is blank |
 
 ---
 
@@ -121,7 +122,7 @@ prod ไม่อ่าน `.env` ในเครื่อง — แหล่�
 
 | Secret | ใช้ทำอะไร |
 | --- | --- |
-| `BACKEND_ENV_FILE` | blob รวม env ของ backend ทั้งหมด (DB, Supabase, SlipOK, ...) |
+| `BACKEND_ENV_FILE` / `BACKEND_PLATFORM_ENV_FILE` | blob รวม env ของ backend platform ทั้งหมด (DB, Supabase, SlipOK, service URLs/tokens, image pins, runtime settings) |
 | `FRONTEND_ENV_FILE` | env ตอน build frontend (VITE_*) |
 | `BOT_SECRET_KEY` | ต่อท้าย .env บน VPS (= ทุก service) |
 | `RUNTIME_SERVICE_TOKEN` | ต่อท้าย .env บน VPS |

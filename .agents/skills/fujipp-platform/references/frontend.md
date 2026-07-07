@@ -1,6 +1,6 @@
 # Frontend Reference
 
-Read `.agents/frontend.md` and `frontend/AGENTS.md` first.
+Read `.agents/scopes/frontend.md` and `frontend/AGENTS.md` first.
 
 ## Stack
 

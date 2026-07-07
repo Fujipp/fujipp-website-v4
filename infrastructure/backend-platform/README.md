@@ -5,9 +5,9 @@ node. The stack can be extended with more runtime nodes later, but this folder
 describes the main host that currently runs backend, billing, voucher, and the
 runtime orchestrator.
 
-This path is intentionally separate from `docker/docker-compose.prod.yml`, which
-documents the older shared VPS. Do not use this plan to migrate or mutate the old
-server. Treat this stack as the current backend platform baseline.
+This path is the current Backend Platform baseline. Historical shared-VPS compose
+artifacts live under `infrastructure/legacy/` for reference only; do not use them
+for the current host.
 
 ## Target Host
 

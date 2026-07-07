@@ -1,6 +1,6 @@
 # Database Reference
 
-Read `.agents/database.md` before schema work. Use Supabase skills for Supabase-specific tasks.
+Read `.agents/scopes/database.md` before schema work. Use Supabase skills for Supabase-specific tasks.
 
 ## Source Of Truth
 
