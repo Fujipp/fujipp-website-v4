@@ -51,7 +51,7 @@ When the user asks to "push" changes, prefer this order:
 2. Stage only one scope at a time.
 3. Commit each scope with a Conventional Commit message that matches the folder or purpose.
 4. Check which GitHub Actions path filters will run from the staged/pushed paths. Avoid mixing
-   frontend-only work with backend, service, database/Supabase, docker, or workflow files unless
+   frontend-only work with backend, service, database/Supabase, infrastructure, or workflow files unless
    the user explicitly asked to ship those scopes together.
 5. Push to `main` when the current branch is `main` and the user explicitly asked to push/publish.
    If on another branch, push that branch unless the user specifically asked for `main`.
@@ -63,8 +63,7 @@ When the user asks to "push" changes, prefer this order:
 | `frontend/` | `frontend` | `feat(frontend): add dashboard navigation` |
 | `backend/` | `backend` | `fix(backend): configure datasource connection` |
 | `database/`, `supabase/` | `database` | `feat(database): add profile schema` |
-| `docker/` | `docker` | `chore(docker): configure services` |
-| `infrastructure/` | `infra` | `chore(infra): add deployment variables` |
+| `infrastructure/` | `infra` | `chore(infra): configure deployment assets` |
 | `docs/`, `.agents/skills/` | `docs` or `skills` | `docs(skills): add push workflow` |
 | `.github/` | `ci` or `github` | `ci(github): add build workflow` |
 | root config files | `root` | `chore(root): update ignore rules` |

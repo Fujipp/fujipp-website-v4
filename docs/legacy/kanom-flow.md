@@ -28,5 +28,5 @@
 - ต้องมี **บอทรันจริง** (Discord token) ถึงจะทดสอบได้ — onboard บอททดสอบหรือ Kanom ก่อน.
 - ปุ่ม "เช็คยอด" ใช้ `ctx.services.wallet` (ต้องเปิด feature wallet-topup), "ลิงก์กลุ่ม" ใช้ config `GROUP_LINK`.
 - reuse ของเดิม: PromptPay/SlipOK (backend PaymentService/TopupController), TrueMoney (voucher service), payout (roblox.js `makeOneTimePayout`).
-- ถ้า AI ตัวอื่นทำต่อ ให้เริ่มจาก branch `feat/component-config` และอ่าน `docs/embed-designer.md` section
+- ถ้า AI ตัวอื่นทำต่อ ให้เริ่มจาก branch `feat/component-config` และอ่าน `docs/product/embed-designer.md` section
   "Component roles" ก่อนแก้ frontend/central-bot.

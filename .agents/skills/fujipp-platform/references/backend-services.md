@@ -1,6 +1,6 @@
 # Backend And Services Reference
 
-Read `.agents/backend.md` before `backend/` changes.
+Read `.agents/scopes/backend.md` before `backend/` changes.
 
 ## Main Backend
 

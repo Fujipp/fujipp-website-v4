@@ -9,6 +9,8 @@ on:
     paths:
       - 'backend/**'
       - 'services/**'
+      - '!services/**/README.md'
+      - 'infrastructure/backend-platform/compose.yml'
   workflow_dispatch:
     inputs:
       source_ref:
@@ -69,13 +71,17 @@ jobs:
               - 'backend/**'
             billing:
               - 'services/billing-service/**'
+              - '!services/billing-service/README.md'
             voucher:
               - 'services/voucher-service/**'
+              - '!services/voucher-service/README.md'
             runtime:
               - 'services/bot-runtime-service/**'
               - 'services/central-bot/**'
+              - '!services/bot-runtime-service/README.md'
+              - '!services/central-bot/README.md'
             platform:
-              - 'infrastructure/backend-platform/**'
+              - 'infrastructure/backend-platform/compose.yml'
 
       - name: Decide build and deploy scope
         id: decide

@@ -13,9 +13,10 @@ read that file first, then load only the reference file that matches the task.
 1. Read `.agents/README.md`.
 2. Identify the scope: frontend, backend, database, service, infra, docs/agent rules, or mixed.
 3. Read the section rule for that scope:
-   - Frontend: `.agents/frontend.md` and `frontend/AGENTS.md`.
-   - Backend: `.agents/backend.md`.
-   - Database/Supabase: `.agents/database.md`; also use the Supabase skills when touching Supabase.
+   - Frontend: `.agents/scopes/frontend.md` and `frontend/AGENTS.md`.
+   - Backend: `.agents/scopes/backend.md`.
+   - Database/Supabase: `.agents/scopes/database.md`; also use the Supabase skills when touching Supabase.
+   - Infrastructure/CI/repo ops: `.agents/scopes/infrastructure.md`.
    - Commit/push: `.agents/skills/github-push-guide/SKILL.md`.
 4. Load one reference below only when relevant.
 5. Work in the smallest safe slice. Ask before expanding scope, adding dependencies, or changing architecture.

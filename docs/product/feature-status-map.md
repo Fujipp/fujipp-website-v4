@@ -54,7 +54,7 @@ design docs conflict with newer code/changelog entries, treat the newer code/cha
 
 ## Known Risks And Stale Sources
 
-- `docs/feature-bot-platform.md`, `docs/embed-designer.md`, and `docs/kanom-flow.md` contain useful history but some status lines are stale compared with newer changelogs.
+- `docs/product/feature-bot-platform.md`, `docs/product/embed-designer.md`, and `docs/legacy/kanom-flow.md` contain useful history but some status lines are stale compared with newer changelogs.
 - `README.md` still contains older frontend paths and commit guidance; `.agents/*` should be treated as source of truth.
 - Several features are "implemented" but not proven here by running services; verification was not requested for this map.
 - Payment, wallet, subscription, bot runtime, and Discord actions are customer-impacting. They need explicit verification before confident production claims.

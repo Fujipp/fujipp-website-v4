@@ -4,7 +4,7 @@ One **configurable** Discord bot codebase. It is not one shared running bot —
 the orchestrator runs **one process per customer bot (subject)**, injecting that
 subject's Discord token, config, and enabled features via environment variables.
 Each process logs in as a different Discord application, so customers see distinct
-bots. See `docs/feature-bot-platform.md` for the full design.
+bots. See `docs/product/feature-bot-platform.md` for the full design.
 
 ## How it works
 

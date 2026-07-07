@@ -1,6 +1,6 @@
 # fujipp-personal-platform — local dev runner
 # Run one layer per terminal, or use `make dev` / `make dev-full` to run several at once.
-# See docs/secrets-inventory.md for the env each service needs.
+# See docs/operations/secrets-inventory.md for the env each service needs.
 
 SHELL := /bin/bash
 
@@ -56,7 +56,7 @@ dev: ## frontend + backend together
 	wait
 
 dev-full: ## backend + billing + voucher + runtime + frontend together
-	@echo "→ full stack. Each service needs its own .env (see docs/secrets-inventory.md). Ctrl+C stops all."
+	@echo "→ full stack. Each service needs its own .env (see docs/operations/secrets-inventory.md). Ctrl+C stops all."
 	@trap 'kill 0' EXIT INT TERM; \
 	( cd backend && ./mvnw spring-boot:run ) & \
 	( cd services/billing-service && mvn spring-boot:run ) & \

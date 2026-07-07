@@ -8,7 +8,8 @@ on:
     branches: [main]
     paths:
       - 'frontend/**'
-      - '.github/workflows/deploy-frontend.yml'
+      - '!frontend/AGENTS.md'
+      - '!frontend/docs/**'
   workflow_dispatch:
 
 concurrency:

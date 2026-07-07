@@ -1,6 +1,6 @@
 # Frontend AI Instructions
 
-Read `.agents/frontend.md` first, then read:
+Read `.agents/scopes/frontend.md` first, then read:
 
 - `docs/design-system.md` for Figma and token mappings.
 - `docs/component-guidelines.md` before creating or changing UI components.
