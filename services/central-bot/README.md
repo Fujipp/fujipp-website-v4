@@ -4,7 +4,8 @@ One **configurable** Discord bot codebase. It is not one shared running bot —
 the orchestrator runs **one process per customer bot (subject)**, injecting that
 subject's Discord token, config, and enabled features via environment variables.
 Each process logs in as a different Discord application, so customers see distinct
-bots. See `docs/product/feature-bot-platform.md` for the full design.
+bots. See `docs/product/feature-status-map.md` for current status and
+`docs/product/feature-bot-platform.md` for historical design context.
 
 ## How it works
 
@@ -44,9 +45,21 @@ npm run dev
 
 ## Features
 
-| Code | Commands |
+This list is intentionally high-level; the live registry in `src/features/index.js`
+is the source of truth.
+
+| Code | Notes |
 | --- | --- |
-| `roblox-robux-payout` | `/robux-check`, `/robux-balance`, `/robux-payout` (admin) |
+| `roblox-robux-payout` | Roblox shop/payout flow |
+| `wallet-topup` | PromptPay/SlipOK and TrueMoney top-up flow |
+| `wallet-history` | Wallet history and operator balance tools |
+| `top-spender-rank` | Top-up leaderboard and reward roles |
+| `review-credit` | Review counting and reward flow |
+| `voice-keeper` | 24/7 voice presence |
+| `shop-status` | Shop status announcements and channel naming |
+| `server-log` | Server activity logging |
+| `order-management` | Order logging and counters |
+| `bot-presence` | Bot activity/presence loop |
 
 > The Roblox API client (`features/roblox-robux-payout/roblox.js`) is the proven
 > implementation ported from the original kanom-roblox bot.

@@ -1,6 +1,6 @@
 # Feature Status Map
 
-Last updated: 2026-06-18
+Last updated: 2026-07-08
 
 This map is the project-level source of truth for "what exists, what is usable, and what should come next."
 It was built from current routes, controllers, services, migrations, changelogs, and design docs. When older
@@ -39,7 +39,7 @@ design docs conflict with newer code/changelog entries, treat the newer code/cha
 | Voucher service | Usable | Spring Boot TrueMoney redeem service with `/v1/redeem`; recent changelog says platform-client validation is enforced. | Keep service locked to platform-run bots; do not loosen auth/client checks. |
 | Bot runtime service | Usable/Risk | Node orchestrator reads bot/config from Supabase, decrypts secrets, injects env, runs central-bot through PM2, exposes bot lifecycle. | Production smoke checklist is needed for each host: DB URL, shared keys, health, PM2, central-bot logs. |
 | Central bot platform | Usable/Risk | Feature-module bot with Roblox shop, wallet top-up/history, top spender rank, review credit, voice keeper. | Treat Discord/customer bots as live operations: verify per feature before selling broadly. |
-| Deployment/infra | Partial/Risk | Docker/prod compose, nginx, VPS bootstrap, deploy notes, secret inventory, and frontend asset guard exist. | Create a small deploy/runbook checklist before next production-facing push. |
+| Deployment/infra | Usable/Risk | Backend Platform compose, nginx snippets, VPS bootstrap, GitHub Actions deploys, secret inventory, and frontend asset guard exist. | Keep runbooks current and avoid triggering production deploys from docs-only changes. |
 
 ## Discord Bot Features
 
@@ -54,8 +54,8 @@ design docs conflict with newer code/changelog entries, treat the newer code/cha
 
 ## Known Risks And Stale Sources
 
-- `docs/product/feature-bot-platform.md`, `docs/product/embed-designer.md`, and `docs/legacy/kanom-flow.md` contain useful history but some status lines are stale compared with newer changelogs.
-- `README.md` still contains older frontend paths and commit guidance; `.agents/*` should be treated as source of truth.
+- `docs/product/feature-bot-platform.md`, `docs/product/embed-designer.md`, and `docs/legacy/kanom-flow.md` are historical/design references. Prefer this map, changelogs, and current code for status.
+- `README.md` is now a repo entrypoint; `.agents/README.md` remains the source of truth for contributor and AI-agent rules.
 - Several features are "implemented" but not proven here by running services; verification was not requested for this map.
 - Payment, wallet, subscription, bot runtime, and Discord actions are customer-impacting. They need explicit verification before confident production claims.
 
@@ -69,8 +69,8 @@ Sprint goal: make the customer shop lifecycle understandable and safely demo-abl
 2. Create a production smoke checklist.
    Cover backend, billing, voucher, runtime, central-bot, Supabase pooler URL, shared secret keys, PM2 status, Discord token validity, and payment config.
 
-3. Clean stale docs that mislead agents.
-   Update or mark older design docs as historical so AI agents stop treating old "not implemented" notes as current truth.
+3. Keep historical docs clearly marked.
+   Older design docs should keep their reasoning, but status labels must not look like current project truth.
 
 4. Confirm feature sellability.
    Check which features have prices and active catalog rows. Price/activate `voice-keeper` if it should be sold now.

@@ -1,6 +1,10 @@
 # Kanom Interactive Flow — Stages
 
-> สถานะ: **F1/F3/F4 เสร็จ, F5 กำลังทำ, F2 ยังไม่ทำ**
+> Legacy note (updated 2026-07-08): this file preserves the early Kanom flow
+> staging notes. Treat it as history, not current product status. Check current
+> central-bot code, changelogs, and `docs/product/feature-status-map.md` first.
+>
+> Original status: **F1/F3/F4 เสร็จ, F5 กำลังทำ, F2 ยังไม่ทำ**
 > central-bot interactive panel: เลือกกลุ่ม → ซื้อ Robux, เติมเงิน → QR/voucher → เครดิตกระเป๋า
 > ที่: `services/central-bot/src/features/roblox-robux-payout/panel.js`, `src/bot.js`
 >
@@ -28,5 +32,5 @@
 - ต้องมี **บอทรันจริง** (Discord token) ถึงจะทดสอบได้ — onboard บอททดสอบหรือ Kanom ก่อน.
 - ปุ่ม "เช็คยอด" ใช้ `ctx.services.wallet` (ต้องเปิด feature wallet-topup), "ลิงก์กลุ่ม" ใช้ config `GROUP_LINK`.
 - reuse ของเดิม: PromptPay/SlipOK (backend PaymentService/TopupController), TrueMoney (voucher service), payout (roblox.js `makeOneTimePayout`).
-- ถ้า AI ตัวอื่นทำต่อ ให้เริ่มจาก branch `feat/component-config` และอ่าน `docs/product/embed-designer.md` section
+- Historical handoff: this originally continued from branch `feat/component-config`. For new work, branch from `main` and read `docs/product/embed-designer.md` section
   "Component roles" ก่อนแก้ frontend/central-bot.
