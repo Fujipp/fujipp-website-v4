@@ -4,8 +4,9 @@ Runs customer bots. Given a subject id it reads that bot + its billing entitleme
 from Supabase, decrypts the secrets, composes the env the `central-bot` expects,
 and launches **one process per subject** via PM2. Internal service — gated by a
 shared `X-Service-Token`, never exposed publicly. See
-`docs/product/feature-status-map.md` for current status and
-`docs/product/feature-bot-platform.md` for historical design context.
+`../../docs/operations/backend-services.md` for the backend/service architecture,
+`../../docs/product/feature-status-map.md` for current status and
+`../../docs/product/feature-bot-platform.md` for historical design context.
 
 ## Flow
 

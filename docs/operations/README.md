@@ -4,6 +4,7 @@ Operational docs for running Fujipp's production platform.
 
 | Document | Purpose |
 | --- | --- |
+| [backend-services.md](backend-services.md) | Backend gateway, billing, voucher, runtime, and central-bot architecture |
 | [backend-platform.md](backend-platform.md) | Backend Platform deploy and service operations |
 | [frontend-deploy.md](frontend-deploy.md) | Shared-host frontend deployment notes |
 | [secrets-inventory.md](secrets-inventory.md) | Env and secret key inventory |
