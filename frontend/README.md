@@ -6,6 +6,7 @@ Vue 3 + TypeScript + Vite frontend for Fujipp's portfolio and Discord bot shop.
 
 - Repo rules: `../.agents/README.md`
 - Frontend rules: `AGENTS.md`
+- Architecture map: `docs/architecture.md`
 - Design system: `docs/design-system.md`
 - Component guide: `docs/component-guidelines.md`
 
