@@ -2,6 +2,7 @@
 
 Read `.agents/scopes/frontend.md` first, then read:
 
+- `docs/architecture.md` for the current folder map, feature inventory, shared component inventory, router, stores, and config rules.
 - `docs/design-system.md` for Figma and token mappings.
 - `docs/component-guidelines.md` before creating or changing UI components.
 
@@ -49,6 +50,7 @@ Read `.agents/scopes/frontend.md` first, then read:
 - Type definitions, composables, helpers, constants, and barrel exports belong in `.ts` files.
 - Shared code must not import from `features/*`.
 - Choose `shared/` only for genuinely reusable UI; otherwise keep code inside the owning feature.
+- For the current component and feature inventory, read `docs/architecture.md`.
 
 Example:
 
@@ -81,7 +83,7 @@ Views are lazy-loaded by route in `src/router/index.ts` and are not exported thr
 
 - Do not edit or discard unrelated in-progress changes.
 - Do not replace design tokens with arbitrary Tailwind values such as `text-[#...]` or `p-[...]` when a matching token exists.
-- Do not use external runtime font imports; Kanit is already bundled locally in `public/fonts/kanit/`.
+- Do not use external runtime font imports; local font assets live in `public/fonts/` (`inter`, `sora`, `kanit`).
 - Do not implement a Figma component from memory when a reference, screenshot, or spec is available.
 
 ## Verification
@@ -100,7 +102,8 @@ Views are lazy-loaded by route in `src/router/index.ts` and are not exported thr
 When giving this project to another AI, start tasks with:
 
 ```text
-Read frontend/AGENTS.md, frontend/docs/design-system.md, and
-frontend/docs/component-guidelines.md first. Use the existing Figma-derived
-tokens and do not hardcode visual values in Vue components.
+Read frontend/AGENTS.md, frontend/docs/architecture.md,
+frontend/docs/design-system.md, and frontend/docs/component-guidelines.md first.
+Use the existing Figma-derived tokens and do not hardcode visual values in Vue
+components.
 ```

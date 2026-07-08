@@ -4,7 +4,7 @@ This document defines how a person or AI should turn Figma components into Vue c
 
 ## Workflow
 
-1. Read `frontend/AGENTS.md` and `frontend/docs/design-system.md`.
+1. Read `frontend/AGENTS.md`, `frontend/docs/architecture.md`, and `frontend/docs/design-system.md`.
 2. Locate the component in Figma and inspect its variants, states, sizing, layout, text style, and theme behavior.
 3. List the props, slots, emitted events, and accessibility requirements before implementation.
 4. Build a reusable `.vue` component using existing tokens.
@@ -18,25 +18,26 @@ When the AI cannot access Figma, provide it with a screenshot and a short spec i
 
 | Component Kind | Location | Examples |
 | --- | --- | --- |
-| Primitive UI | `src/components/ui/` | `Button`, `Input`, `Badge`, `Card` |
-| Layout | `src/components/layout/` | `AppHeader`, `Sidebar`, `PageContainer` |
-| Page section | `src/components/sections/` | `HeroSection`, `ProjectGrid`, `ContactSection` |
-| Routed page | `src/views/` | `HomeView`, `AboutView` |
-| Reusable logic | `src/composables/` | `useTheme.ts` |
-| Shared types | `src/types/` | `component.ts`, `project.ts` |
+| Shared primitive UI | `src/shared/ui/<category>/` | `buttons/PrimaryButton.vue`, `fields/TextField.vue`, `tags/StatusTag.vue` |
+| Shared layout | `src/shared/layout/` | `AppNavbar/AppNavbar.vue`, `AppFooter/AppFooter.vue`, `BackgroundEffect.vue` |
+| Feature page section | `src/features/<feature>/components/` | `projects/FeaturedProjectCard.vue`, `shop/WalletTopupPanel.vue` |
+| Routed page | `src/features/<feature>/views/` | `portfolio/HomeView.vue`, `shop/ShopDashboardView.vue` |
+| Feature config/store | `src/features/<feature>/config/`, `src/features/<feature>/stores/` | `shop/config/catalog.ts`, `projects/stores/projectStore.ts` |
+| Cross-cutting config/store | `src/config/`, `src/stores/` | `api.ts`, `icons.ts`, `userStore.ts`, `toastStore.ts` |
+| Shared library | `src/shared/lib/` | `supabase.ts` |
 
 Recommended folder structure:
 
 ```text
-src/components/ui/Button/
-  Button.vue
+src/shared/ui/buttons/
+  PrimaryButton.vue
   index.ts
 ```
 
 Local export:
 
 ```ts
-export { default as Button } from './Button.vue'
+export { default as PrimaryButton } from './PrimaryButton.vue'
 ```
 
 ## Vue Component Template
@@ -149,8 +150,9 @@ For an interactive component, evaluate each applicable state:
 Use this task format when assigning a component:
 
 ```md
-Read `frontend/AGENTS.md`, `frontend/docs/design-system.md`, and
-`frontend/docs/component-guidelines.md` first.
+Read `frontend/AGENTS.md`, `frontend/docs/architecture.md`,
+`frontend/docs/design-system.md`, and `frontend/docs/component-guidelines.md`
+first.
 
 Create `<ComponentName>` from the Figma design:
 - Figma node/frame: `<link or node id>`
@@ -160,7 +162,8 @@ Create `<ComponentName>` from the Figma design:
 
 Requirements:
 - Use only existing design tokens unless a missing token is reported.
-- Implement as a typed Vue component under `src/components/<group>/`.
+- Implement as a typed Vue component under `src/shared/ui/<category>/` or
+  `src/features/<feature>/components/`, based on reuse.
 - Add barrel exports.
 - Keep focus and accessibility behavior.
 - Run build verification only when explicitly requested.
