@@ -2,6 +2,9 @@
 
 Read `.agents/scopes/backend.md` before `backend/` changes.
 
+For the detailed service map, runtime/billing/voucher flows, key env vars, and
+debugging entry points, read `docs/operations/backend-services.md`.
+
 ## Main Backend
 
 - Path: `backend/`.

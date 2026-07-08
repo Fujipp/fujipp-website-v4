@@ -25,6 +25,9 @@ calls over HTTP for credit/wallet operations).
 
 ## Architecture
 
+- For the current backend/service architecture map, service boundaries, critical
+  runtime/billing/voucher flows, env vars, and debugging entry points, read
+  `docs/operations/backend-services.md`.
 - Keep controllers thin: request validation, auth context, calling services, and returning DTOs.
 - Put business rules in `service/`, not in controllers or repositories.
 - Use `repository/` for JPA persistence and focused database access only.

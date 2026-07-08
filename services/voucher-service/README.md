@@ -2,6 +2,7 @@
 
 TrueMoney gift-voucher redeem (top-up) service. Java Spring Boot, mirrors
 `services/billing-service`. Replaces the old NestJS/SQLite `true-wallet-voucher`.
+See `../../docs/operations/backend-services.md` for the full backend/service map.
 
 - **Storage**: Supabase Postgres, `voucher` schema (see
   `supabase/migrations/*_create_voucher_service.sql`). `redeem` holds the top-up
