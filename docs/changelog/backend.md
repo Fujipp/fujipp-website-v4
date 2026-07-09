@@ -1,9 +1,10 @@
 # Changelog — Backend
 
-**Current version: `0.4.8.13`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.4.9`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.4.9` | 2026-07-09 | Added the App Premium Shop feature to central-bot: /app-panel with 3 live category dropdowns from the gafiwshop reseller API, wallet-paid buying with per-product baht margins, account delivery by DM, a public delivered announcement, a full-order admin log channel (the order store — no order table), and automatic refund when the upstream buy fails |
 | `0.4.8.13` | 2026-07-08 | Added a backend/services architecture map covering the Spring gateway, billing-service, voucher-service, runtime orchestrator, central-bot, critical purchase/start/top-up flows, key env vars, pooler notes, and debugging entry points |
 | `0.4.8.12` | 2026-07-07 | TrueMoney voucher top-up now skips the unbound preflight verify and lets the mobile-bound redeem flow decide validity, avoiding false "voucher invalid/used" failures before the phone-specific redeem attempt |
 | `0.4.8.11` | 2026-07-06 | Feature purchases (RENT_MONTHLY / RENT_PERMANENT) no longer require a bot: billing-service allows a null externalSubjectId so items land in the user's unassigned stack (duplicate/runtime-active gates now apply only when buying directly onto a bot; the stack may hold duplicates) |
