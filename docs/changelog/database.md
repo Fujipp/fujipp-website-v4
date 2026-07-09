@@ -1,9 +1,10 @@
 # Changelog — Database
 
-**Current version: `0.3.9`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.3.9.1`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.3.9.1` | 2026-07-09 | Added a Supabase/Postgres architecture map covering schemas, wallet layers, bot/runtime slot relationships, feature config flow, RLS/access model, migration workflow, and debugging entry points |
 | `0.3.9` | 2026-06-25 | Seeded the Shop Status feature (store open/close/busy announcements with per-status channel names and editable embeds) |
 | `0.3.8` | 2026-06-25 | Seeded the runtime-monitor feature and auto-grant it to admin-owned bots (backfill + AFTER INSERT trigger) |
 | `0.3.7` | 2026-06-24 | Added a ROLE_TIER_LIST config field type and applied it to บันทึกยอดเติม's amount-tier roles for a friendlier amount+role editor |

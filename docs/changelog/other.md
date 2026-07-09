@@ -1,9 +1,10 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.36.6`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.36.7`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.36.7` | 2026-07-09 | Linked database agent guidance and operations docs to the new Supabase/Postgres architecture map |
 | `0.0.36.6` | 2026-07-08 | Added agent links to the new backend/services architecture map so future AI handoffs know where to start for backend, billing, voucher, runtime, and bot work |
 | `0.0.36.5` | 2026-07-08 | Started the Markdown cleanup pass by refreshing the root README as a repo entrypoint and aligning operations docs with the reorganized workflow triggers |
 | `0.0.36.4` | 2026-07-07 | Reorganized agent, operations, infrastructure, and workflow files around shared repo rules, Backend Platform operations, and the persistent `db/migrations` migration branch |

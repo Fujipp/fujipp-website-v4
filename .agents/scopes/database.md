@@ -16,6 +16,10 @@ Read this file before changing anything under `supabase/` or any schema/SQL.
 The backend (`backend/`) connects to this database with `ddl-auto=validate` — it **reads** the
 schema, it never creates or alters it. **All schema changes go through a migration here**, not JPA.
 
+For the current schema map, wallet layers, runtime slot model, feature config model,
+RLS/access model, migration workflow, and debugging entry points, read
+`docs/operations/database.md`.
+
 ---
 
 ## Migrations

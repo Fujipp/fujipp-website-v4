@@ -2,6 +2,10 @@
 
 Read `.agents/scopes/database.md` before schema work. Use Supabase skills for Supabase-specific tasks.
 
+For the detailed schema map, wallet/runtime/bot relationships, feature config
+model, RLS/access notes, and debugging entry points, read
+`docs/operations/database.md`.
+
 ## Source Of Truth
 
 - Migrations live in `supabase/migrations/`.

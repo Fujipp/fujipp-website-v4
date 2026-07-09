@@ -4,6 +4,9 @@ This directory stores PostgreSQL schema migrations for the Fujipp platform.
 The backend and services validate/use this schema; they do not create it through
 JPA or application startup.
 
+Read `../docs/operations/database.md` for the current schema map, wallet layers,
+runtime slot model, feature config model, and debugging entry points.
+
 ## Branch Model
 
 Production migrations are staged on the persistent branch:
