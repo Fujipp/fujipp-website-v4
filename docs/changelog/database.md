@@ -1,9 +1,10 @@
 # Changelog — Database
 
-**Current version: `0.3.10`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.3.11`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.3.11` | 2026-07-10 | Set active Runtime durations to 1 month at 99 baht, 2 months at 199 baht, and 3 months at 299 baht. |
 | `0.3.10` | 2026-07-09 | Seeded the App Premium Shop feature (catalog row, config schema incl. API key/margins/categories/notify+log channels, and 6 editable embed slots for the panel, confirm, success, DM, delivered announcement, and error) |
 | `0.3.9.1` | 2026-07-09 | Added a Supabase/Postgres architecture map covering schemas, wallet layers, bot/runtime slot relationships, feature config flow, RLS/access model, migration workflow, and debugging entry points |
 | `0.3.9` | 2026-06-25 | Seeded the Shop Status feature (store open/close/busy announcements with per-status channel names and editable embeds) |
