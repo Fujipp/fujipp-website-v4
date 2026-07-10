@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.UUID;
 
-/** The server-cabinet: browse seats, buy runtime for a seat, move it between bots. */
+/** The server-cabinet: browse seats, buy a duration plan, then assign it to a bot later. */
 @RestController
 @RequestMapping("/api/billing/runtime")
 @RequiredArgsConstructor
@@ -33,14 +33,14 @@ public class RuntimeSlotController {
         return ResponseEntity.ok(runtimeSlotService.listVps(userId));
     }
 
-    /** Buy runtime for a seat (optionally assigning it to a bot in the same call). */
+    /** Buy runtime for a seat. New runtime always starts unassigned. */
     @PostMapping("/slots/{slotId}/purchase")
     public ResponseEntity<RuntimeSubscriptionResponse> purchase(
             @RequestHeader("X-User-Id") UUID userId,
             @PathVariable UUID slotId,
             @RequestBody @Valid PurchaseRuntimeSlotRequest request) {
         return ResponseEntity.ok(runtimeSlotService.purchaseForSlot(
-            userId, slotId, request.runtimePlanId(), request.externalSubjectId(), request.idempotencyKey()));
+            userId, slotId, request.runtimePlanId(), request.idempotencyKey()));
     }
 
     /** Assign / move / unassign a runtime. Body externalSubjectId null = unassign. */

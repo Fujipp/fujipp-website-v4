@@ -619,14 +619,14 @@ watch(() => props.botId, loadConfigValues);
 .iconBtn { height: 30px; min-width: 30px; padding: 0 8px; border: 1px solid var(--color-main-border); border-radius: var(--radius-lg); background: var(--color-main-background); color: var(--color-text-primary); font-size: 14px; cursor: pointer; }
 .iconBtn:hover:not(:disabled) { border-color: var(--color-main-primary); }
 .iconBtn:disabled { opacity: 0.4; cursor: not-allowed; }
-.removeBtn { height: 30px; padding: 0 10px; border: 0; border-radius: var(--radius-lg); background: var(--color-status-error); color: #fff; font-size: 13px; cursor: pointer; }
+.removeBtn { height: 30px; padding: 0 10px; border: 0; border-radius: var(--radius-lg); background: var(--color-status-error); color: var(--color-button-primary); font-size: 13px; cursor: pointer; }
 
 .componentRow { display: flex; flex-direction: column; gap: var(--spacing-space-2); padding: var(--spacing-space-3); border: 1px solid var(--color-main-border); border-radius: var(--radius-lg); background: var(--color-main-background); }
 .componentTitle { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-space-2); color: var(--color-text-primary); font-size: 14px; font-weight: 600; }
 .componentTitle code { color: var(--color-text-primary); font-family: monospace; font-size: 12px; font-weight: 400; }
 .optionalBar { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-space-2); }
 .shownTag { font-size: 12px; color: var(--color-status-success); }
-.hiddenTag { font-size: 12px; color: var(--color-text-disabled); }
+.hiddenTag { font-size: 12px; color: var(--color-text-secondary); }
 .removeRole { padding: 4px 10px; border: 1px solid var(--color-input-border); border-radius: var(--radius-full); background: var(--color-main-background); color: var(--color-text-secondary); font: inherit; font-size: 12px; cursor: pointer; transition: border-color 0.15s ease, color 0.15s ease; }
 .removeRole:hover { border-color: var(--color-status-error); color: var(--color-status-error); }
 .selectField { display: flex; flex-direction: column; gap: 6px; }
@@ -648,5 +648,159 @@ watch(() => props.botId, loadConfigValues);
     .layout { grid-template-columns: 1fr; }
     .editor { grid-template-columns: 1fr; }
     .previewCol { position: static; }
+}
+
+.state {
+    margin: 0;
+    color: var(--color-text-secondary);
+}
+
+.statePanel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-space-3);
+    padding: var(--spacing-space-5);
+    border: 1px solid var(--color-input-border);
+    border-radius: var(--radius-xl);
+    background: var(--color-main-background);
+}
+
+.stateText {
+    color: var(--color-text-secondary);
+}
+
+.layout {
+    grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+}
+
+.slotList {
+    gap: var(--spacing-space-2);
+}
+
+.slotItem {
+    min-height: 48px;
+    border-color: var(--color-input-border);
+    border-radius: var(--radius-xl);
+    color: var(--color-text-primary);
+    font-weight: 600;
+}
+
+.slotItem:hover {
+    border-color: var(--color-main-divider);
+}
+
+.slotActive {
+    border-color: var(--color-text-primary);
+    background: var(--color-button-secondary);
+}
+
+.dot {
+    background: var(--color-text-primary);
+}
+
+.editor {
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+}
+
+.slotDesc {
+    color: var(--color-text-secondary);
+}
+
+.section,
+.fieldRow,
+.componentRow {
+    border-color: var(--color-input-border);
+    border-radius: var(--radius-xl);
+    background: var(--color-main-background);
+}
+
+.sectionHead {
+    min-height: 46px;
+    padding: var(--spacing-space-3) var(--spacing-space-4);
+    color: var(--color-text-primary);
+}
+
+.sectionHead:hover {
+    background: var(--color-button-secondary);
+}
+
+.sectionBody {
+    gap: var(--spacing-space-4);
+    padding: var(--spacing-space-4);
+    border-top-color: var(--color-main-divider);
+}
+
+.fieldLabel,
+.colorRow,
+.varsLabel,
+.helperText,
+.inlineToggle,
+.previewLabel,
+.previewHint,
+.hiddenTag {
+    color: var(--color-text-secondary);
+}
+
+.textarea,
+.nativeSelect {
+    border-color: var(--color-input-border);
+    background: var(--color-input-bg);
+    color: var(--color-text-input);
+}
+
+.textarea:focus-visible,
+.nativeSelect:focus-visible {
+    outline: 2px solid var(--color-main-primary);
+    outline-offset: 2px;
+    border-color: var(--color-main-primary);
+}
+
+.varChip,
+.addBtn,
+.iconBtn,
+.removeRole {
+    border-color: var(--color-input-border);
+    color: var(--color-text-primary);
+}
+
+.fieldRow {
+    padding: var(--spacing-space-3);
+}
+
+.componentTitle code {
+    color: var(--color-text-secondary);
+}
+
+.removeBtn {
+    color: var(--color-button-primary);
+}
+
+.saveButton {
+    border: 1px solid var(--color-button-border);
+    background: var(--color-button-primary);
+    color: var(--color-button-text);
+}
+
+.saveButton:hover:not(:disabled) {
+    background: var(--color-button-secondary);
+}
+
+.previewCol {
+    top: calc(73px + var(--spacing-space-4));
+    padding: var(--spacing-space-4);
+    border: 1px solid var(--color-input-border);
+    border-radius: var(--radius-xl);
+    background: var(--color-main-background);
+}
+
+@media (max-width: 1080px) {
+    .layout,
+    .editor {
+        grid-template-columns: 1fr;
+    }
+
+    .previewCol {
+        position: static;
+    }
 }
 </style>

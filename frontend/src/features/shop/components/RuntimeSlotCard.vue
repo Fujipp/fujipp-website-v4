@@ -38,7 +38,11 @@ const emit = defineEmits<{ buy: []; use: []; "add-time": [] }>();
 
 <template>
     <article :class="$style.card" :aria-label="`${vps} VPS ${slot} slot runtime`">
-        <img :class="$style.icon" :src="icon" alt="" aria-hidden="true" draggable="false">
+        <span
+            :class="$style.icon"
+            :style="{ '--runtime-slot-icon': `url(${icon})` }"
+            aria-hidden="true"
+        />
 
         <div :class="$style.body">
             <p v-if="variant === 'sell' && price" :class="$style.price">{{ price }}</p>
@@ -88,21 +92,28 @@ const emit = defineEmits<{ buy: []; use: []; "add-time": [] }>();
     align-items: center;
     box-sizing: border-box;
     width: 100%;
-    padding: 12px;
-    gap: 12px;
+    min-height: var(--spacing-space-80);
+    height: 100%;
+    justify-content: space-between;
+    padding: var(--spacing-space-3);
+    gap: var(--spacing-space-3);
     overflow: hidden;
-    border: 1px solid var(--color-main-divider);
+    border: 1px solid var(--shop-card-border, var(--color-main-divider));
     border-radius: var(--radius-xl);
-    background-color: var(--color-main-background);
-    color: var(--color-text-secondary);
+    background-color: var(--shop-card-bg, var(--color-main-background));
+    color: var(--shop-card-muted, var(--color-text-secondary));
     text-align: left;
     transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease;
 }
 
 .icon {
-    width: 96px;
-    height: 96px;
-    object-fit: contain;
+    --runtime-slot-icon: none;
+    width: var(--spacing-space-24);
+    height: var(--spacing-space-24);
+    flex-shrink: 0;
+    background-color: var(--color-text-primary);
+    mask: var(--runtime-slot-icon) center / contain no-repeat;
+    -webkit-mask: var(--runtime-slot-icon) center / contain no-repeat;
 }
 
 .body {
@@ -110,13 +121,13 @@ const emit = defineEmits<{ buy: []; use: []; "add-time": [] }>();
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 10px;
+    gap: var(--spacing-space-3);
 }
 
 .price {
     margin: 0;
     color: var(--color-text-primary);
-    font-size: 32px;
+    font-size: var(--type-size-h3-card-title);
     font-weight: 600;
     line-height: 1.1;
 }
@@ -124,21 +135,21 @@ const emit = defineEmits<{ buy: []; use: []; "add-time": [] }>();
 .slotLine {
     margin: 0;
     color: var(--color-text-primary);
-    font-size: 24px;
-    line-height: 1.2;
+    font-size: var(--type-size-body-main);
+    line-height: normal;
 }
 
 .metaLine {
     margin: 0;
-    font-size: 16px;
-    font-weight: 300;
-    line-height: 1.2;
+    font-size: var(--type-size-body-small);
+    font-weight: 400;
+    line-height: normal;
 }
 
 .runtimeLine {
     margin: 0;
-    font-size: 18px;
-    line-height: 1.2;
+    font-size: var(--type-size-body-small);
+    line-height: normal;
 }
 
 .labelLight {
@@ -158,16 +169,7 @@ const emit = defineEmits<{ buy: []; use: []; "add-time": [] }>();
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 20px;
+    gap: var(--spacing-space-3);
 }
 
-@media (max-width: 520px) {
-    .price {
-        font-size: 28px;
-    }
-
-    .slotLine {
-        font-size: 20px;
-    }
-}
 </style>

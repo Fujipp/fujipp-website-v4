@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
 import { AdminLayout } from "@/features/admin/components";
-import { SelectField, StatusToast, type SelectFieldOption } from "@/shared/ui";
+import { SecondaryButton, SelectField, StatusToast, type SelectFieldOption } from "@/shared/ui";
 import { useAdminStore } from "@/features/admin/stores";
 import type { AdminBot, AdminSeat, AdminUnseatedRuntime, AdminVpsNode } from "@/features/admin/config";
 
@@ -186,9 +186,9 @@ onMounted(load);
 <template>
     <AdminLayout title="VPS & Runtime">
         <template #actions>
-            <button type="button" :class="$style.refresh" :disabled="isLoading" @click="load">
+            <SecondaryButton type="button" width-mode="hug" :disabled="isLoading" @click="load">
                 {{ isLoading ? "กำลังโหลด…" : "รีเฟรช" }}
-            </button>
+            </SecondaryButton>
         </template>
 
         <p v-if="loadError" :class="$style.errorBar">{{ loadError }}</p>
@@ -223,14 +223,15 @@ onMounted(load);
                 <div :class="$style.field">
                     <SelectField v-model="drafts[node.id]!.status" :class="$style.statusSelect" label="Status" :options="nodeStatusOptions" />
                 </div>
-                <button
+                <SecondaryButton
+                    :class="$style.rowButton"
                     type="button"
-                    :class="$style.save"
+                    width-mode="hug"
                     :disabled="busyKey === `node-${node.id}`"
                     @click="saveNode(node)"
                 >
                     {{ busyKey === `node-${node.id}` ? "กำลังบันทึก…" : "บันทึก" }}
-                </button>
+                </SecondaryButton>
             </div>
 
             <div :class="$style.tableWrap">
@@ -255,23 +256,23 @@ onMounted(load);
                             <td>{{ seatOwnerLabel(seat) }}</td>
                             <td>{{ formatExpiry(seat.expiresAt) }}</td>
                             <td :class="$style.actionsCell">
-                                <button
+                                <SecondaryButton
                                     v-if="seat.occupancy === 'FREE' || seat.occupancy === 'MAINTENANCE'"
                                     type="button"
-                                    :class="$style.smallBtn"
+                                    width-mode="hug"
                                     :disabled="busyKey === `slot-${seat.slotId}`"
                                     @click="toggleMaintenance(seat)"
                                 >
                                     {{ seat.occupancy === 'MAINTENANCE' ? "เปิดใช้" : "ปิดซ่อม" }}
-                                </button>
-                                <button
+                                </SecondaryButton>
+                                <SecondaryButton
                                     v-if="seat.occupancy === 'OCCUPIED'"
                                     type="button"
-                                    :class="$style.smallBtn"
+                                    width-mode="hug"
                                     @click="openMove(seat)"
                                 >
                                     ย้ายช่อง
-                                </button>
+                                </SecondaryButton>
                             </td>
                         </tr>
                     </tbody>
@@ -297,9 +298,9 @@ onMounted(load);
                             <td>{{ unseatedBotLabel(u) }}</td>
                             <td>{{ formatExpiry(u.expiresAt) }}</td>
                             <td>
-                                <button type="button" :class="$style.smallBtn" :disabled="freeSeats.length === 0" @click="openAssign(u)">
+                                <SecondaryButton type="button" width-mode="hug" :disabled="freeSeats.length === 0" @click="openAssign(u)">
                                     ลงที่นั่ง
-                                </button>
+                                </SecondaryButton>
                             </td>
                         </tr>
                     </tbody>
@@ -316,14 +317,14 @@ onMounted(load);
         <Teleport to="body">
             <Transition name="dialog">
                 <div v-if="moveRuntimeId" :class="$style.backdrop" @click.self="moveRuntimeId = ''">
-                    <section :class="$style.modal" role="dialog" aria-modal="true">
+                    <section :class="$style.modal" role="dialog" aria-modal="true" tabindex="-1" @keydown.esc.stop="moveRuntimeId = ''">
                         <h2 :class="$style.modalTitle">{{ moveTitle }}</h2>
                         <SelectField v-model="moveTarget" label="ช่องปลายทาง (ว่าง)" :options="freeSeatOptions" />
                         <div :class="$style.modalActions">
-                            <button type="button" :class="$style.smallBtn" @click="moveRuntimeId = ''">ยกเลิก</button>
-                            <button type="button" :class="$style.save" :disabled="!moveTarget || busyKey === 'move'" @click="confirmMove">
+                            <SecondaryButton type="button" width-mode="hug" @click="moveRuntimeId = ''">ยกเลิก</SecondaryButton>
+                            <SecondaryButton type="button" width-mode="hug" :disabled="!moveTarget || busyKey === 'move'" @click="confirmMove">
                                 {{ busyKey === 'move' ? "กำลังบันทึก…" : "ยืนยัน" }}
-                            </button>
+                            </SecondaryButton>
                         </div>
                     </section>
                 </div>
@@ -344,7 +345,6 @@ onMounted(load);
     transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease;
 }
 
-.refresh,
 .errorBar,
 .empty {
     color: var(--color-text-primary);
@@ -358,28 +358,15 @@ onMounted(load);
     background: color-mix(in srgb, var(--color-status-error) 12%, transparent);
 }
 
-.refresh {
-    min-height: 38px;
-    padding: 0 var(--spacing-space-4);
-    border: 1px solid var(--shop-card-border);
-    border-radius: var(--radius-full);
-    background: var(--shop-card-bg, var(--color-main-surface));
-    font-weight: 600;
-    cursor: pointer;
-    transition: background-color 160ms ease, border-color 160ms ease;
-}
-
-.refresh:hover:not(:disabled) { border-color: var(--color-main-primary); }
-
 .card {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-space-4);
     padding: var(--spacing-space-5);
-    border: 1px solid var(--shop-card-border, var(--color-main-border));
+    border: 1px solid var(--color-input-border);
     border-radius: var(--radius-2xl);
-    background: var(--shop-card-bg, var(--color-main-surface));
-    color: var(--shop-card-text, var(--color-text-primary));
+    background: var(--color-main-background);
+    color: var(--color-text-primary);
 }
 
 .cardHead { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: var(--spacing-space-3); }
@@ -388,61 +375,61 @@ onMounted(load);
 
 .counts { display: flex; flex-wrap: wrap; gap: var(--spacing-space-3); }
 .count { color: var(--shop-card-muted, var(--color-text-secondary)); font-size: 14px; }
-.count strong { color: var(--color-main-primary); font-size: 18px; }
+.count strong { color: var(--color-text-primary); font-size: 18px; }
 
 .editRow {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(var(--spacing-space-48), 1.5fr) repeat(3, minmax(var(--spacing-space-32), 1fr)) auto;
     align-items: flex-end;
-    flex-wrap: wrap;
     gap: var(--spacing-space-3);
     padding: var(--spacing-space-4);
-    border: 1px solid var(--shop-card-border, var(--color-main-divider));
+    border: 1px solid var(--color-main-divider);
     border-radius: var(--radius-xl);
-    background: var(--shop-card-inset);
+    background: var(--color-main-background);
 }
 
-.field { display: flex; flex-direction: column; gap: var(--spacing-space-1); }
-.fieldLabel { color: var(--shop-card-muted, var(--color-text-secondary)); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0; }
+.field { display: flex; flex-direction: column; gap: var(--spacing-space-2); }
+.fieldLabel { color: var(--color-text-secondary); font-size: var(--type-size-input-label); font-weight: 600; text-transform: uppercase; letter-spacing: 0; }
 
 .input,
 .select {
-    min-height: 40px;
-    padding: 0 var(--spacing-space-3);
+    box-sizing: border-box;
+    height: var(--spacing-space-12);
+    min-height: var(--spacing-space-12);
+    padding: 0 var(--spacing-space-4);
     border: 1px solid var(--color-input-border);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-lg);
     background: var(--color-input-bg);
     color: var(--color-text-primary);
-    font-size: 15px;
+    font-size: var(--type-size-body-small);
 }
 
-.input { width: 110px; }
-.fieldWide .input { width: 220px; max-width: 100%; }
-.statusSelect { width: 180px; }
+.input,
+.statusSelect {
+    width: 100%;
+}
+
+.fieldWide .input {
+    max-width: 100%;
+}
+
 .input:focus-visible,
 .select:focus-visible { outline: 2px solid var(--color-main-primary); outline-offset: 1px; }
 
-.save {
-    min-height: 40px;
-    padding: 0 var(--spacing-space-5);
-    border: 0;
-    border-radius: var(--radius-md);
-    background: var(--color-button-primary-btn-bg);
-    color: var(--color-button-primary-btn-text-active);
-    font-weight: 600;
-    cursor: pointer;
-    transition: background-color 160ms ease, opacity 160ms ease;
+.rowButton {
+    height: var(--spacing-space-12);
+    min-height: var(--spacing-space-12);
+    padding-inline: var(--spacing-space-4);
 }
-.save:hover:not(:disabled) { background: var(--color-button-primary-btn-hover); }
-.save:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .tableWrap { overflow-x: auto; }
-.table { width: 100%; border-collapse: collapse; font-size: 15px; }
+.table { width: 100%; border-collapse: collapse; font-size: var(--type-size-caption); }
 .table th, .table td {
     padding: var(--spacing-space-3);
     text-align: left;
     border-bottom: 1px solid var(--shop-card-border, var(--color-main-divider));
 }
-.table th { color: var(--shop-card-text, var(--color-text-secondary)); font-size: 13px; text-transform: none; letter-spacing: 0; }
+.table th { color: var(--color-text-primary); font-size: var(--type-size-caption); text-transform: none; letter-spacing: 0; }
 .table tbody tr:hover { background: var(--shop-row-hover); }
 
 .badge {
@@ -453,26 +440,12 @@ onMounted(load);
     font-size: 12px;
     font-weight: 700;
 }
-.badgeFREE { background: color-mix(in srgb, var(--color-status-success) 18%, transparent); color: var(--color-status-success); }
-.badgeOCCUPIED { background: color-mix(in srgb, var(--color-main-primary) 18%, transparent); color: var(--color-main-primary); }
-.badgeRESERVED { background: color-mix(in srgb, var(--shop-card-muted) 18%, transparent); color: var(--shop-card-muted); }
-.badgeMAINTENANCE { background: color-mix(in srgb, var(--color-status-warning) 20%, transparent); color: var(--color-status-warning); }
+.badgeFREE { background: color-mix(in srgb, var(--color-text-primary) 10%, transparent); color: var(--color-text-primary); }
+.badgeOCCUPIED { background: color-mix(in srgb, var(--color-text-secondary) 10%, transparent); color: var(--color-text-secondary); }
+.badgeRESERVED { background: color-mix(in srgb, var(--color-text-secondary) 10%, transparent); color: var(--color-text-secondary); }
+.badgeMAINTENANCE { background: color-mix(in srgb, var(--color-text-primary) 10%, transparent); color: var(--color-text-primary); }
 
-.actionsCell { display: flex; gap: var(--spacing-space-2); }
-.smallBtn {
-    min-height: 32px;
-    padding: 0 var(--spacing-space-3);
-    border: 1px solid var(--shop-card-border);
-    border-radius: var(--radius-full);
-    background: transparent;
-    color: var(--color-text-primary);
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background-color 160ms ease, border-color 160ms ease;
-}
-.smallBtn:hover:not(:disabled) { border-color: var(--color-main-primary); background: color-mix(in srgb, var(--color-main-primary) 10%, transparent); }
-.smallBtn:disabled { opacity: 0.55; cursor: not-allowed; }
+.actionsCell { display: flex; flex-wrap: wrap; gap: var(--spacing-space-2); }
 
 .empty { color: var(--shop-card-muted, var(--color-text-secondary)); }
 
@@ -495,11 +468,23 @@ onMounted(load);
     display: flex; flex-direction: column; gap: var(--spacing-space-4);
     width: min(440px, 100%);
     padding: var(--spacing-space-6);
-    border: 1px solid var(--shop-card-border, var(--color-main-border));
+    border: 1px solid var(--color-input-border);
     border-radius: var(--radius-xl);
-    background: var(--shop-card-bg, var(--color-main-surface));
-    color: var(--shop-card-text, var(--color-text-primary));
+    background: var(--color-main-background);
+    color: var(--color-text-primary);
 }
 .modalTitle { margin: 0; font-size: 20px; font-weight: 700; }
 .modalActions { display: flex; justify-content: flex-end; gap: var(--spacing-space-3); }
+
+@media (max-width: 1040px) {
+    .editRow {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 680px) {
+    .editRow {
+        grid-template-columns: 1fr;
+    }
+}
 </style>

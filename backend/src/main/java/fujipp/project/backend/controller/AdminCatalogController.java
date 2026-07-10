@@ -57,6 +57,14 @@ public class AdminCatalogController {
         return json(billing.adminListFeaturePrices());
     }
 
+    @PatchMapping("/features/{id}")
+    public ResponseEntity<String> updateFeature(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable UUID id, @RequestBody String body) {
+        UUID adminId = UUID.fromString(jwt.getSubject());
+        adminAccess.requireAdmin(adminId);
+        return json(billing.adminUpdateFeature(adminId, id, body));
+    }
+
     @PostMapping("/feature-prices")
     public ResponseEntity<String> createFeaturePrice(
             @AuthenticationPrincipal Jwt jwt, @RequestBody String body) {

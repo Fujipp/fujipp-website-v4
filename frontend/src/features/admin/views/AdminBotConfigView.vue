@@ -13,6 +13,7 @@ import type {
 } from "@/features/admin/config";
 import { SUBSCRIPTION_STATUSES, FEATURE_BILLING_TYPES } from "@/features/admin/config";
 import { EmbedEditor, SelectField, StatusToast, type SelectFieldOption } from "@/shared/ui";
+import { PrimaryButton, SecondaryButton } from "@/shared/ui/buttons";
 
 const EMBEDS_KEY = "__embeds__";
 const RUNTIME_KEY = "__runtime__";
@@ -278,7 +279,7 @@ onMounted(async () => {
 <template>
     <AdminLayout title="Bot config">
         <template #actions>
-            <RouterLink :to="{ name: 'admin-bots' }" :class="$style.back">← Back to bots</RouterLink>
+            <SecondaryButton width-mode="hug" :to="{ name: 'admin-bots' }">Back to bots</SecondaryButton>
         </template>
 
         <p v-if="loadError" :class="$style.error" role="alert">{{ loadError }}</p>
@@ -327,10 +328,10 @@ onMounted(async () => {
                             <span :class="$style.stateTag">{{ runtimeState || "…" }}</span>
                         </div>
                         <div :class="$style.btnRow">
-                            <button type="button" :class="$style.ghostBtn" :disabled="runtimeBusy" @click="runRuntime('start')">Start</button>
-                            <button type="button" :class="$style.ghostBtn" :disabled="runtimeBusy" @click="runRuntime('stop')">Stop</button>
-                            <button type="button" :class="$style.ghostBtn" :disabled="runtimeBusy" @click="runRuntime('restart')">Restart</button>
-                            <button type="button" :class="$style.ghostBtn" @click="refreshStatus">Refresh</button>
+                            <SecondaryButton width-mode="hug" :disabled="runtimeBusy" @click="runRuntime('start')">Start</SecondaryButton>
+                            <SecondaryButton width-mode="hug" :disabled="runtimeBusy" @click="runRuntime('stop')">Stop</SecondaryButton>
+                            <SecondaryButton width-mode="hug" :disabled="runtimeBusy" @click="runRuntime('restart')">Restart</SecondaryButton>
+                            <SecondaryButton width-mode="hug" @click="refreshStatus">Refresh</SecondaryButton>
                         </div>
                     </section>
 
@@ -345,9 +346,9 @@ onMounted(async () => {
                                     <span :class="$style.label">Period end</span>
                                     <input v-model="subEdits[runtimeSub.id]!.currentPeriodEnd" type="date" :class="$style.input">
                                 </label>
-                                <button type="button" :class="$style.saveBtn" :disabled="savingSubId === runtimeSub.id" @click="saveRuntimeSub">
+                                <PrimaryButton width-mode="hug" :disabled="savingSubId === runtimeSub.id" @click="saveRuntimeSub">
                                     {{ savingSubId === runtimeSub.id ? "Saving…" : "Save" }}
-                                </button>
+                                </PrimaryButton>
                             </div>
                         </template>
                         <template v-else>
@@ -356,9 +357,9 @@ onMounted(async () => {
                         <!-- grant / extend runtime -->
                         <div :class="$style.editRow">
                             <SelectField v-model="grantPlanId" :class="$style.wideSelectField" :label="runtimeSub ? 'Extend with plan' : 'Grant plan'" :options="runtimePlanOptions" />
-                            <button type="button" :class="$style.saveBtn" :disabled="!grantPlanId || granting" @click="grantRuntime">
+                            <PrimaryButton width-mode="hug" :disabled="!grantPlanId || granting" @click="grantRuntime">
                                 {{ runtimeSub ? "Extend" : "Grant" }}
-                            </button>
+                            </PrimaryButton>
                         </div>
                     </section>
 
@@ -373,9 +374,9 @@ onMounted(async () => {
                                 <span :class="$style.label">Period end</span>
                                 <input v-model="subEdits[sub.id]!.currentPeriodEnd" type="date" :class="$style.input">
                             </label>
-                            <button type="button" :class="$style.saveBtn" :disabled="savingSubId === sub.id" @click="saveFeatureSub(sub)">
+                            <PrimaryButton width-mode="hug" :disabled="savingSubId === sub.id" @click="saveFeatureSub(sub)">
                                 {{ savingSubId === sub.id ? "Saving…" : "Save" }}
-                            </button>
+                            </PrimaryButton>
                         </div>
 
                         <!-- add feature -->
@@ -383,9 +384,9 @@ onMounted(async () => {
                             <SelectField v-model="grantFeatureId" :class="$style.wideSelectField" label="Add feature" :options="featureOptions" />
                             <SelectField v-model="grantBillingType" :class="$style.selectField" label="Billing" :options="billingOptions" />
                             <SelectField v-model="grantPriceId" :class="$style.wideSelectField" label="Price SKU (optional)" :options="priceOptions" />
-                            <button type="button" :class="$style.saveBtn" :disabled="!grantFeatureId || granting" @click="grantFeature">
+                            <PrimaryButton width-mode="hug" :disabled="!grantFeatureId || granting" @click="grantFeature">
                                 Grant
-                            </button>
+                            </PrimaryButton>
                         </div>
                     </section>
                 </div>
@@ -413,9 +414,9 @@ onMounted(async () => {
                             </label>
                         </div>
                         <div :class="$style.actions">
-                            <button type="submit" :class="$style.saveBtn" :disabled="isSaving">
+                            <PrimaryButton type="submit" width-mode="hug" :disabled="isSaving">
                                 {{ isSaving ? "Saving…" : "Save config" }}
-                            </button>
+                            </PrimaryButton>
                         </div>
                     </section>
                 </form>
@@ -436,14 +437,14 @@ onMounted(async () => {
     padding: 10px 12px;
     border: 1px solid var(--shop-card-border, var(--color-main-divider));
     border-radius: var(--radius-lg);
-    background: var(--shop-card-bg, var(--color-main-surface));
-    color: var(--shop-card-text, var(--color-text-secondary));
+    background: var(--shop-card-bg, var(--color-main-background));
+    color: var(--shop-card-text, var(--color-text-primary));
     font: inherit;
     font-size: 14px;
     cursor: pointer;
 }
 .navItem:hover { border-color: var(--color-main-primary); }
-.navActive { border-color: var(--color-main-primary); color: var(--shop-card-text, var(--color-text-secondary)); }
+.navActive { border-color: var(--color-main-primary); color: var(--shop-card-text, var(--color-text-primary)); }
 
 .content { min-width: 0; }
 
@@ -452,8 +453,8 @@ onMounted(async () => {
     padding: 20px;
     border: 1px solid var(--shop-card-border, var(--color-main-divider));
     border-radius: var(--radius-xl);
-    background-color: var(--shop-card-bg, var(--color-main-surface));
-    color: var(--shop-card-text, var(--color-text-secondary));
+    background-color: var(--shop-card-bg, var(--color-main-background));
+    color: var(--shop-card-text, var(--color-text-primary));
 }
 
 .featureName { margin: 0 0 14px; font-size: 16px; font-weight: 600; }
@@ -461,7 +462,7 @@ onMounted(async () => {
 .field { display: flex; flex-direction: column; gap: 4px; max-width: 520px; }
 .label { font-size: 14px; font-weight: 500; }
 .req { color: var(--color-status-error); }
-.desc { font-size: 12px; color: var(--color-text-disabled); }
+.desc { font-size: 12px; color: var(--color-text-secondary); }
 
 .input {
     box-sizing: border-box;
@@ -495,7 +496,7 @@ onMounted(async () => {
 .back { color: var(--color-text-primary); text-decoration: none; font-size: 14px; }
 .back:hover { text-decoration: underline; }
 
-.note { margin: 0; color: var(--color-text-disabled); }
+.note { margin: 0; color: var(--color-text-secondary); }
 .error { margin: 0; color: var(--color-status-error); }
 
 /* Runtime & Features panel */
@@ -510,7 +511,7 @@ onMounted(async () => {
     border-radius: var(--radius-full);
     font-size: 12px;
     text-transform: uppercase;
-    color: var(--color-text-disabled);
+    color: var(--color-text-secondary);
 }
 
 .btnRow { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -520,7 +521,7 @@ onMounted(async () => {
     border: 1px solid var(--shop-card-border);
     border-radius: var(--radius-md);
     background: transparent;
-    color: var(--shop-card-text, var(--color-text-secondary));
+    color: var(--shop-card-text, var(--color-text-primary));
     font: inherit;
     cursor: pointer;
     transition: background-color 140ms ease;
@@ -544,7 +545,7 @@ onMounted(async () => {
 .editRow .saveBtn { padding: 9px 18px; }
 
 .subName { flex: 1 1 100%; font-size: 14px; font-weight: 500; }
-.subMeta { color: var(--color-text-disabled); font-weight: 400; }
+.subMeta { color: var(--color-text-secondary); font-weight: 400; }
 
 @media (max-width: 760px) {
     .layout { grid-template-columns: 1fr; }

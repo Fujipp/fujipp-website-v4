@@ -24,7 +24,7 @@ import java.util.regex.Pattern;
 
 /**
  * The server-cabinet runtime flow (proxied to billing-service): browse VPS seats,
- * buy runtime for a seat, and assign/move it between the user's bots. Ownership and
+ * buy an unassigned duration plan for a seat, and assign/move it between the user's bots. Ownership and
  * seat/bot conflict checks live in billing; this layer just forwards the JWT user.
  *
  * After billing changes an assignment, this layer also nudges the orchestrator to
@@ -57,8 +57,6 @@ public class RuntimeController {
             @RequestBody String body) {
         UUID userId = UUID.fromString(jwt.getSubject());
         String result = billing.purchaseRuntimeSlot(userId, slotId, body);
-        // Bought-and-assigned in one call → bring that bot online.
-        tryStart(subjectOf(result));
         return json(result);
     }
 

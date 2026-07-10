@@ -21,11 +21,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Daily renewal/expiry sweep. For every runtime subscription past its period end:
+ * Daily renewal/expiry sweep. For every runtime subscription at its period end:
  *   - auto-renew ON  → charge the wallet and extend; on insufficient credit keep it
  *     PAST_DUE (bot keeps running) and retry next run, until the grace window passes
- *     → SUSPENDED.
- *   - auto-renew OFF → SUSPENDED at expiry (customer chose not to continue).
+ *     → CANCELED and its VPS seat returns to the sale inventory.
+ *   - auto-renew OFF → CANCELED at expiry and its VPS seat returns to inventory.
  *
  * Each subscription is processed in its OWN transaction (via SubscriptionService),
  * so a failure on one never rolls back the others. This service holds no transaction.
@@ -53,8 +53,8 @@ public class AutomationService {
         run.setRunType("DAILY_SWEEP");
         run = runs.save(run);
 
-        int renewed = 0, pastDue = 0, suspended = 0, notified = 0;
-        List<String> suspendedSubjects = new ArrayList<>();
+        int renewed = 0, pastDue = 0, released = 0, notified = 0;
+        List<String> releasedSubjects = new ArrayList<>();
 
         try {
             // 1) auto-renew due (ACTIVE + already PAST_DUE), period ended on/before today.
@@ -72,10 +72,10 @@ public class AutomationService {
                 } catch (RuntimeException e) {
                     long overdue = ChronoUnit.DAYS.between(sub.getCurrentPeriodEnd(), today);
                     if (overdue >= graceDays) {
-                        subscriptionService.setRuntimeStatus(sub.getId(), "SUSPENDED");
-                        suspended++; suspendedSubjects.add(sub.getExternalSubjectId());
-                        notify(sub, "RUNTIME_SUSPENDED", "บอทถูกระงับ",
-                            "ต่ออายุไม่สำเร็จภายใน " + graceDays + " วัน — เติมเครดิตแล้วต่ออายุเพื่อเปิดบอทอีกครั้ง"); notified++;
+                        releasedSubjects.add(subscriptionService.releaseRuntime(sub.getId()));
+                        released++;
+                        notify(sub, "RUNTIME_RELEASED", "Runtime หมดอายุแล้ว",
+                            "ต่ออายุไม่สำเร็จภายใน " + graceDays + " วัน ระบบจึงคืนช่อง VPS เข้าสู่รายการขายแล้ว"); notified++;
                     } else {
                         subscriptionService.setRuntimeStatus(sub.getId(), "PAST_DUE");
                         if (wasActive) pastDue++;
@@ -85,13 +85,13 @@ public class AutomationService {
                 }
             }
 
-            // 2) auto-renew OFF and expired → suspend now (customer opted out).
+            // 2) auto-renew OFF and expired → release the seat now (customer opted out).
             for (RuntimeSubscription sub : runtimeSubs.findByStatusAndCurrentPeriodEndLessThan("ACTIVE", today)) {
                 if (sub.isAutoRenew()) continue;
-                subscriptionService.setRuntimeStatus(sub.getId(), "SUSPENDED");
-                suspended++; suspendedSubjects.add(sub.getExternalSubjectId());
-                notify(sub, "RUNTIME_SUSPENDED", "บอทหยุดทำงาน",
-                    "Runtime หมดอายุและปิดต่ออัตโนมัติไว้ — ซื้อ runtime ใหม่เพื่อเปิดบอทอีกครั้ง"); notified++;
+                releasedSubjects.add(subscriptionService.releaseRuntime(sub.getId()));
+                released++;
+                notify(sub, "RUNTIME_RELEASED", "Runtime หมดอายุแล้ว",
+                    "คุณปิดการต่ออายุอัตโนมัติไว้ ระบบจึงคืนช่อง VPS เข้าสู่รายการขายแล้ว"); notified++;
             }
 
             run.setStatus("SUCCESS");
@@ -102,14 +102,15 @@ public class AutomationService {
         } finally {
             run.setRenewalsCharged(renewed);
             run.setMarkedPastDue(pastDue);
-            run.setRuntimeSuspended(suspended);
+            run.setRuntimeSuspended(released);
             run.setNotificationsCreated(notified);
             run.setFinishedAt(OffsetDateTime.now());
             runs.save(run);
         }
 
-        log.info("Automation sweep: renewed={} pastDue={} suspended={}", renewed, pastDue, suspended);
-        return new SweepResult(renewed, pastDue, suspended, suspendedSubjects);
+        log.info("Automation sweep: renewed={} pastDue={} released={}", renewed, pastDue, released);
+        return new SweepResult(renewed, pastDue, released, releasedSubjects.stream()
+            .filter(java.util.Objects::nonNull).toList());
     }
 
     /** Best-effort customer notification — never let a notification failure abort the sweep. */

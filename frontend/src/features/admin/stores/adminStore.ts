@@ -10,6 +10,7 @@ import type {
     CreateFeaturePricePayload,
     UpdateRuntimePlanPayload,
     UpdateFeaturePricePayload,
+    UpdateFeaturePayload,
     AdminUserSubscriptions,
     AdminRuntimeSubscription,
     AdminFeatureSubscription,
@@ -110,6 +111,10 @@ export const useAdminStore = defineStore("admin", () => {
 
     function fetchFeatures(): Promise<AdminFeature[]> {
         return adminFetch<AdminFeature[]>("/api/admin/catalog/features");
+    }
+
+    function updateFeature(id: string, payload: UpdateFeaturePayload): Promise<AdminFeature> {
+        return adminFetch<AdminFeature>(`/api/admin/catalog/features/${id}`, { method: "PATCH", body: payload });
     }
 
     function fetchFeaturePrices(): Promise<AdminFeaturePrice[]> {
@@ -264,7 +269,7 @@ export const useAdminStore = defineStore("admin", () => {
         updateVpsNode, setSlotStatus, moveRuntimeSeat,
         fetchUsers, fetchUser, updateUser,
         fetchRuntimePlans, updateRuntimePlan,
-        fetchFeatures, fetchFeaturePrices, createFeaturePrice, updateFeaturePrice,
+        fetchFeatures, updateFeature, fetchFeaturePrices, createFeaturePrice, updateFeaturePrice,
         fetchUserSubscriptions, updateRuntimeSubscription, updateFeatureSubscription,
         fetchUserWallet, fetchUserWalletTransactions, adjustUserWallet,
         fetchBots, fetchBotConfig, updateBotConfig, transferBot,

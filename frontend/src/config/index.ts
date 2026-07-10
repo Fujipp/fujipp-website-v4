@@ -1,5 +1,5 @@
 export { API_BASE_URL } from "./api";
-export { getIconColor, getIconColorMode, iconDefaultColor, icons } from "./icons";
+export { getIconColor, getIconColorMode, iconDefaultColor, icons, resolveShopFeatureIcon, shopFeatureIcons } from "./icons";
 export type { IconColorMode } from "./icons";
 export { mobileNavbarLinks, navbarLinks } from "./navigation";
 export { ThemeApp } from "./theme";

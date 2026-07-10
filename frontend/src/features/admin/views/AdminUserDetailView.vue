@@ -5,6 +5,7 @@ import { AdminLayout, UserSubscriptionsPanel, UserWalletPanel } from "@/features
 import { useAdminStore } from "@/features/admin/stores";
 import { USER_ROLES, type AdminUser, type UpdateUserPayload } from "@/features/admin/config";
 import { SelectField, StatusToast, TextareaField, TextField, type SelectFieldOption } from "@/shared/ui";
+import { PrimaryButton, SecondaryButton } from "@/shared/ui/buttons";
 
 const route = useRoute();
 const adminStore = useAdminStore();
@@ -89,7 +90,7 @@ onMounted(load);
 <template>
     <AdminLayout :title="user ? (user.displayName || user.username || 'User') : 'User'">
         <template #actions>
-            <RouterLink :to="{ name: 'admin-users' }" :class="$style.back">← Back to users</RouterLink>
+            <SecondaryButton width-mode="hug" :to="{ name: 'admin-users' }">Back to users</SecondaryButton>
         </template>
 
         <p v-if="loadError" :class="$style.error" role="alert">{{ loadError }}</p>
@@ -113,9 +114,9 @@ onMounted(load);
             <SelectField v-model="form.role" label="Role" :options="roleOptions" />
 
             <div :class="$style.actions">
-                <button type="submit" :class="$style.saveBtn" :disabled="isSaving">
+                <PrimaryButton type="submit" width-mode="hug" :disabled="isSaving">
                     {{ isSaving ? "Saving…" : "Save changes" }}
-                </button>
+                </PrimaryButton>
             </div>
         </form>
 
@@ -130,49 +131,31 @@ onMounted(load);
 .panel {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 14px;
+    gap: var(--spacing-space-4);
     box-sizing: border-box;
-    max-width: 960px;
-    padding: 20px;
+    max-width: var(--container-7xl);
+    padding: var(--spacing-space-5);
     border: 1px solid var(--shop-card-border, var(--color-main-divider));
     border-radius: var(--radius-xl);
-    background-color: var(--shop-card-bg, var(--color-main-surface));
-    color: var(--shop-card-text, var(--color-text-secondary));
+    background-color: var(--shop-card-bg, var(--color-main-background));
+    color: var(--shop-card-text, var(--color-text-primary));
 }
 
 .readonlyRow {
     display: flex;
     align-items: baseline;
-    gap: 16px;
+    gap: var(--spacing-space-4);
     grid-column: 1 / -1;
 }
 
-.readonlyValue { word-break: break-word; font-size: 14px; }
+.readonlyValue { word-break: break-word; font-size: var(--type-size-body-small); }
 
 .wideField { grid-column: 1 / -1; }
 
-.label { font-size: 13px; color: var(--color-text-disabled); }
+.label { font-size: var(--type-size-input-label); color: var(--color-text-secondary); }
 
 .actions { display: flex; justify-content: flex-end; grid-column: 1 / -1; }
 
-.saveBtn {
-    padding: 10px 20px;
-    border: 0;
-    border-radius: var(--radius-md);
-    background-color: var(--color-button-primary-btn-bg);
-    color: var(--color-button-primary-btn-text-active);
-    font: inherit;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background-color 140ms ease;
-}
-
-.saveBtn:hover { background-color: var(--color-button-primary-btn-hover); }
-.saveBtn:disabled { cursor: not-allowed; opacity: 0.6; }
-
-.back { color: var(--color-text-primary); text-decoration: none; font-size: 14px; }
-.back:hover { text-decoration: underline; }
-
-.note { margin: 0; color: var(--color-text-disabled); }
+.note { margin: 0; color: var(--color-text-secondary); }
 .error { margin: 0; color: var(--color-status-error); }
 </style>

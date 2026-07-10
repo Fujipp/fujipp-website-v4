@@ -1,9 +1,34 @@
 # Changelog — Frontend
 
-**Current version: `0.7.0.79`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.7.0.83.3`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.7.0.83.3` | 2026-07-10 | Admins can now edit Shop feature names, descriptions, and icons; Shop cards reflect those choices. |
+| `0.7.0.83.2` | 2026-07-10 | The Shop setup guide now appears only for customers without a bot. |
+| `0.7.0.83.1` | 2026-07-10 | Protected Shop and Admin pages now return to Login immediately after signing out. |
+| `0.7.0.83` | 2026-07-10 | Reframed the Shop around a clearer customer journey: guided setup on the dashboard, Thai action-led labels, and purpose-led Wallet, Feature, and Runtime pages. |
+| `0.7.0.82.7` | 2026-07-10 | Runtime slot icons now follow the text-primary color token for clear light and dark theme contrast. |
+| `0.7.0.82.6` | 2026-07-10 | Clarified Runtime payment states so an unselected package uses muted text while the selected amount remains readable in dark mode. |
+| `0.7.0.82.5` | 2026-07-10 | Restored the shared Navbar on the canonical Shop Admin routes. |
+| `0.7.0.82.4` | 2026-07-10 | Added Dashboard, Users, and Pricing shortcuts to the Navbar account menu for Admin accounts. |
+| `0.7.0.82.3` | 2026-07-10 | Moved Admin account controls into the standard Navbar and removed the floating Admin tools control from the workspace. |
+| `0.7.0.82.2` | 2026-07-10 | Corrected Admin tools contrast so its dark panel keeps clear, accessible light labels and icons in every theme. |
+| `0.7.0.82.1` | 2026-07-10 | Refined the Admin tools control into a compact labeled panel, replacing the overlapping radial action bubbles with a calmer, clearer workspace menu. |
+| `0.7.0.82` | 2026-07-10 | Runtime purchases now select a duration first and are kept unassigned until the customer chooses a bot from Dashboard; expired releases no longer remain in the customer’s Runtime cards. |
+| `0.7.0.81.2` | 2026-07-10 | Completed the Shop workspace refresh with a token-aligned Wallet surface and dark-mode payment controls that match Bot, Feature, and Runtime pages |
+| `0.7.0.81.1` | 2026-07-10 | Unified Admin bot, user, wallet, and subscription actions with the shared controls and operational form styles |
+| `0.7.0.81` | 2026-07-10 | Rebuilt the shared Shop card system so bot, feature, and runtime cards have aligned surfaces, dimensions, actions, and dark-workspace controls |
+| `0.7.0.80.9` | 2026-07-10 | Refined Shop bot cards and Admin bot status colours; Admin pricing controls now use a consistent dark workspace palette, aligned fields, and accessible checkboxes |
+| `0.7.0.80.8` | 2026-07-10 | Improved Shop and Admin keyboard dismissal for operational dialogs, and aligned key Shop actions, page sizing, and typography with the shared design system |
+| `0.7.0.80.7` | 2026-07-10 | Equalized the Admin VPS edit row controls so text inputs, selects, and save actions share the same field height, radius, and spacing |
+| `0.7.0.80.6` | 2026-07-10 | Aligned Admin VPS, Pricing, Bots, and Users pages to text-primary/text-secondary text colors, shared admin chrome, centered layout, and shared action controls |
+| `0.7.0.80.5` | 2026-07-09 | Refined Admin Dashboard into a design-system-aligned overview with token-based metric cards, icon-led summary stats, and a cleaner recent activity table |
+| `0.7.0.80.4` | 2026-07-09 | Restored standard shop navigation on Bot Config and Embed Setting, and refined Embed Setting into a cleaner editing workspace |
+| `0.7.0.80.3` | 2026-07-09 | Simplified Bot Config surfaces by removing glow-style backgrounds and shadows for a cleaner flat workspace |
+| `0.7.0.80.2` | 2026-07-09 | Aligned Bot Config icon and supporting text colors with the design-system text tokens |
+| `0.7.0.80.1` | 2026-07-09 | Fixed the Bot Config Dashboard action so it returns to the shop dashboard correctly |
+| `0.7.0.80` | 2026-07-09 | Refined Bot Config into a clearer setup workspace with status cards, feature navigation, runtime controls, and icon-led actions |
 | `0.7.0.79` | 2026-07-08 | Added a frontend architecture knowledge map covering stack choices, naming rules, shared UI inventory, feature inventory, design-system files, router, stores, and config modules; updated README/AGENTS/component guidance to point at the current `shared/` + `features/` structure |
 | `0.7.0.78` | 2026-07-06 | Fixed the deploy build after the UI revision by replacing the admin wallet panel's stale TableNextBackButton usage with the shared TablePagination and deleting the unused legacy FeatureTable component that still imported the removed button |
 | `0.7.0.77` | 2026-07-06 | Shop flow polish: Dashboard hides fully-assigned feature cards (0 items). Feature store purchase is now buy-into-stock — PurchaseDialog dropped the bot picker entirely and became the formal payment dialog (รายการ/แบบ/ยอดชำระ/ยอดเงินในกระเป๋า/คงเหลือหลังชำระ, insufficient → เติมเงิน button, adaptive colors, Secondary/PrimaryButton, closes on confirm) with a note pointing to Dashboard Use for binding. CreateBotDialog rebuilt to the new Figma: centered "New Bot Discord" title, single-column fields with red required asterisks (Bot Name / Bot Token / Application ID now required on create), top+bottom dividers, centered Close + Add(+icon) SecondaryButtons, adaptive modal colors; shared TextField gained a `required` prop that renders the red asterisk |

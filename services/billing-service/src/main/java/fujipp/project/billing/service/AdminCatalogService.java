@@ -4,6 +4,8 @@ import fujipp.project.billing.dto.AdminFeaturePriceResponse;
 import fujipp.project.billing.dto.AdminRuntimePlanResponse;
 import fujipp.project.billing.dto.CreateFeaturePriceRequest;
 import fujipp.project.billing.dto.UpdateFeaturePriceRequest;
+import fujipp.project.billing.dto.UpdateFeatureRequest;
+import fujipp.project.billing.dto.FeatureResponse;
 import fujipp.project.billing.dto.UpdateRuntimePlanRequest;
 import fujipp.project.billing.model.FeatureCatalog;
 import fujipp.project.billing.model.FeaturePrice;
@@ -91,6 +93,28 @@ public class AdminCatalogService {
     }
 
     // ── feature prices ─────────────────────────────────────────────────────────────
+
+    @Transactional
+    public FeatureResponse updateFeature(UUID adminId, UUID featureId, UpdateFeatureRequest req) {
+        FeatureCatalog feature = features.findById(featureId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Feature not found"));
+        Map<String, Object> changes = new LinkedHashMap<>();
+        if (req.name() != null && !req.name().isBlank() && !req.name().equals(feature.getName())) {
+            changes.put("name", List.of(feature.getName(), req.name()));
+            feature.setName(req.name().trim());
+        }
+        if (req.description() != null && !req.description().equals(feature.getDescription())) {
+            changes.put("description", List.of(feature.getDescription(), req.description()));
+            feature.setDescription(req.description().trim());
+        }
+        if (req.iconKey() != null && !req.iconKey().isBlank() && !req.iconKey().equals(feature.getIconKey())) {
+            changes.put("iconKey", List.of(feature.getIconKey(), req.iconKey()));
+            feature.setIconKey(req.iconKey().trim());
+        }
+        FeatureCatalog saved = features.save(feature);
+        if (!changes.isEmpty()) audit.record(adminId, "CATALOG_FEATURE_UPDATE", null, "FEATURE", featureId.toString(), changes);
+        return FeatureResponse.from(saved, List.of());
+    }
 
     /** Valid price kinds — mirrors feature_prices_kind_chk. */
     private static final Set<String> PRICE_KINDS = Set.of("RENT_MONTHLY", "RENT_PERMANENT", "SOURCE_CODE");

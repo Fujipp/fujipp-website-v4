@@ -30,7 +30,7 @@ const insufficient = computed(() => balanceAfter.value < 0);
     <Teleport to="body">
         <Transition name="dialog">
             <div v-if="open" :class="$style.backdrop" @click.self="emit('cancel')">
-                <section :class="$style.modal" role="dialog" aria-modal="true" aria-labelledby="purchase-title">
+                <section :class="$style.modal" role="dialog" aria-modal="true" aria-labelledby="purchase-title" tabindex="-1" @keydown.esc.stop="emit('cancel')">
                     <header :class="$style.header">
                         <h2 id="purchase-title" :class="$style.title">ยืนยันการสั่งซื้อ</h2>
                         <p :class="$style.subtitle">

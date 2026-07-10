@@ -3,11 +3,11 @@ import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { FeatureCard, PurchaseDialog, type PackageOption } from "@/features/shop/components";
 import { StatusToast, ReadMoreModal } from "@/shared/ui";
-import { SecondaryButton } from "@/shared/ui/buttons";
+import { PrimaryButton, SecondaryButton } from "@/shared/ui/buttons";
 import { TablePagination } from "@/shared/ui/paginations";
 import { AppFooter } from "@/shared/layout";
 import { useUserStore } from "@/stores";
-import { API_BASE_URL, icons } from "@/config";
+import { API_BASE_URL, resolveShopFeatureIcon } from "@/config";
 import { priceKindLabel, type CatalogFeature } from "@/features/shop/config/catalog";
 
 type ToastStatus = "info" | "success" | "warning" | "error";
@@ -28,18 +28,6 @@ let toastTimeout: ReturnType<typeof setTimeout> | undefined;
 
 const dialog = ref<{ open: boolean; title: string; option: PackageOption | null }>({ open: false, title: "", option: null });
 const readMore = ref<{ title: string; body: string } | null>(null);
-
-// Feature id → shop icon; ids are kebab-case keywords (roblox / wallet / voice / log / review / status).
-function featureIcon(featureId: string): string {
-    const id = featureId.toLowerCase();
-    if (id.includes("roblox") || id.includes("robux")) return icons.shopRoblox;
-    if (id.includes("wallet") || id.includes("topup") || id.includes("top-up")) return icons.shopBank;
-    if (id.includes("voice")) return icons.shopVoice;
-    if (id.includes("log")) return icons.shopLog;
-    if (id.includes("review") || id.includes("credit")) return icons.shopStar;
-    if (id.includes("status")) return icons.shopAll;
-    return icons.featureFlag;
-}
 
 function formatPrice(satang: number): string {
     return `฿ ${(satang / 100).toLocaleString("th-TH")}`;
@@ -94,7 +82,7 @@ const featureCards = computed(() =>
             id: option.id,
             title: feature.name,
             description: feature.description,
-            icon: featureIcon(feature.id),
+            icon: resolveShopFeatureIcon(feature.iconKey),
             price: formatPrice(option.priceSatang),
             option,
         })),
@@ -192,16 +180,16 @@ onUnmounted(clearToast);
         <main :class="$style.content">
             <section :class="$style.section" aria-labelledby="shop-package-title">
                 <div :class="$style.titleRow">
-                    <h1 id="shop-package-title" :class="$style.pageTitle">Package</h1>
+                    <h1 id="shop-package-title" :class="$style.pageTitle">ฟีเจอร์เสริม</h1>
                     <SecondaryButton width-mode="hug" :leading-icon="icons.arrowBack" @click="goBack">
-                        Back
+                        กลับ
                     </SecondaryButton>
                 </div>
             </section>
 
             <section :class="$style.section" aria-labelledby="shop-package-features-title">
                 <div :class="$style.sectionHeading">
-                    <h2 id="shop-package-features-title" :class="$style.sectionTitle">Features</h2>
+                    <h2 id="shop-package-features-title" :class="$style.sectionTitle">เลือกฟีเจอร์สำหรับบอท</h2>
                     <div :class="$style.headingRule" aria-hidden="true" />
                 </div>
 
@@ -212,7 +200,7 @@ onUnmounted(clearToast);
                 <section v-else-if="catalogError" :class="$style.statePanel" aria-live="polite">
                     <h3 :class="$style.stateTitle">โหลดข้อมูลร้านไม่สำเร็จ</h3>
                     <p :class="$style.stateText">{{ catalogError }}</p>
-                    <button type="button" :class="$style.retryButton" @click="loadCatalog">ลองใหม่</button>
+                    <PrimaryButton type="button" width-mode="hug" @click="loadCatalog">ลองใหม่</PrimaryButton>
                 </section>
 
                 <template v-else>
@@ -226,7 +214,7 @@ onUnmounted(clearToast);
                             :price="card.price"
                             :title="card.title"
                             :description="card.description"
-                            buy-label="Buy"
+                            buy-label="ซื้อฟีเจอร์"
                             @buy="openBuy(card.title, card.option)"
                             @read-more="readMore = { title: card.title, body: card.description }"
                         />
@@ -306,7 +294,7 @@ onUnmounted(clearToast);
     flex-direction: column;
     box-sizing: border-box;
     width: 100%;
-    max-width: 1280px;
+    max-width: var(--container-7xl);
     margin: 0 auto;
     padding: var(--spacing-space-3) var(--spacing-space-6);
     gap: var(--spacing-space-4);
@@ -328,9 +316,9 @@ onUnmounted(clearToast);
 .pageTitle {
     margin: 0;
     color: var(--color-text-primary);
-    font-size: 22px;
-    font-weight: 800;
-    line-height: 1;
+    font-size: var(--type-size-h1-page-title);
+    font-weight: 600;
+    line-height: normal;
 }
 
 .sectionHeading {
@@ -342,9 +330,9 @@ onUnmounted(clearToast);
 .sectionTitle {
     margin: 0;
     color: var(--color-text-primary);
-    font-size: 16px;
-    font-weight: 800;
-    line-height: 1;
+    font-size: var(--type-size-h3-card-title);
+    font-weight: 600;
+    line-height: normal;
 }
 
 .headingRule {
@@ -369,7 +357,7 @@ onUnmounted(clearToast);
 .skeletonCard {
     height: 328px;
     border-radius: var(--radius-xl);
-    background: linear-gradient(110deg, #151515 0%, #ffffff 48%, #151515 100%);
+    background: linear-gradient(110deg, var(--color-main-surface) 0%, var(--color-main-background) 48%, var(--color-main-surface) 100%);
     background-size: 220% 100%;
     animation: shop-package-shimmer 1800ms ease-in-out infinite;
 }
@@ -415,23 +403,6 @@ onUnmounted(clearToast);
     font-size: 18px;
 }
 
-.retryButton {
-    align-self: flex-start;
-    min-height: 42px;
-    padding: 0 var(--spacing-space-5);
-    border: 0;
-    border-radius: var(--radius-md);
-    background-color: var(--color-button-primary-btn-bg);
-    color: var(--color-button-primary-btn-text-active);
-    cursor: pointer;
-    font-size: 16px;
-    font-weight: 600;
-}
-
-.retryButton:hover {
-    background-color: var(--color-button-primary-btn-hover);
-}
-
 .toastRegion {
     position: fixed;
     bottom: var(--spacing-space-5);
@@ -449,10 +420,6 @@ onUnmounted(clearToast);
 @media (max-width: 760px) {
     .content {
         padding: var(--spacing-space-2) var(--spacing-space-2);
-    }
-
-    .pageTitle {
-        font-size: 20px;
     }
 
     .cardGrid {

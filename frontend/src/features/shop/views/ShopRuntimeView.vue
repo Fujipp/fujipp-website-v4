@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { RuntimeSlotCard } from "@/features/shop/components";
-import { SelectField, StatusToast, type SelectFieldOption } from "@/shared/ui";
+import { StatusToast } from "@/shared/ui";
 import { PrimaryButton, SecondaryButton } from "@/shared/ui/buttons";
 import { TablePagination } from "@/shared/ui/paginations";
 import { AppFooter } from "@/shared/layout";
@@ -35,11 +35,6 @@ interface VpsNode {
     slots: VpsSlot[];
 }
 
-interface BotLite {
-    id: string;
-    name: string;
-}
-
 // A free seat flattened out of the cabinets, ready to render as one sell card.
 interface FreeSlotCard {
     slot: VpsSlot;
@@ -59,7 +54,6 @@ const toast = ref<{ status: ToastStatus; title: string; description?: string } |
 let toastTimeout: ReturnType<typeof setTimeout> | undefined;
 
 const nodes = ref<VpsNode[]>([]);
-const bots = ref<BotLite[]>([]);
 const plans = ref<RuntimePlan[]>([]);
 const walletBalanceSatang = ref(0);
 
@@ -67,12 +61,11 @@ const walletBalanceSatang = ref(0);
 const buySlot = ref<VpsSlot | null>(null);
 const buyVps = ref(0);
 const buyPlanId = ref("");
-const buyBotId = ref("");
 
 // Cheapest first, so the card's starting price and the dialog default line up.
 const sortedPlans = computed(() => [...plans.value].sort((a, b) => a.effectivePriceSatang - b.effectivePriceSatang));
 const startingPrice = computed(() => sortedPlans.value[0] ? formatPrice(sortedPlans.value[0].effectivePriceSatang) : "—");
-const planSummary = computed(() => sortedPlans.value.map((plan) => plan.name).join(" / ") || "เลือกแพ็กตอนซื้อ");
+const planSummary = computed(() => sortedPlans.value.map(planDurationLabel).join(" / ") || "เลือกแพ็กตอนซื้อ");
 
 const freeSlots = computed<FreeSlotCard[]>(() =>
     nodes.value.flatMap((node, index) =>
@@ -84,11 +77,6 @@ const freeSlots = computed<FreeSlotCard[]>(() =>
 
 const pageCount = computed(() => Math.max(1, Math.ceil(freeSlots.value.length / PAGE_SIZE)));
 const pagedSlots = computed(() => freeSlots.value.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE));
-
-const buyBotOptions = computed<SelectFieldOption[]>(() => [
-    { label: "— ซื้อไว้ก่อน ยังไม่ assign —", value: "" },
-    ...bots.value.map((bot) => ({ label: bot.name, value: bot.id })),
-]);
 
 // Payment summary: selected plan price → current balance → balance after charge.
 const buyPrice = computed(() => {
@@ -141,20 +129,18 @@ async function load(): Promise<void> {
     try {
         const headers = await authHeaders();
         if (!headers) { await router.push({ name: "login", query: { redirect: "/shop/runtime" } }); return; }
-        const [vpsRes, botsRes, plansRes, walletRes] = await Promise.all([
+        const [vpsRes, plansRes, walletRes] = await Promise.all([
             fetch(`${API_BASE_URL}/api/runtime/vps`, { headers }),
-            fetch(`${API_BASE_URL}/api/bots`, { headers }),
             fetch(`${API_BASE_URL}/api/catalog/runtime-plans`, { headers }),
             fetch(`${API_BASE_URL}/api/wallet`, { headers }),
         ]);
-        if (!vpsRes.ok || !botsRes.ok || !plansRes.ok) throw new Error("runtime page unavailable");
+        if (!vpsRes.ok || !plansRes.ok) throw new Error("runtime page unavailable");
         nodes.value = await vpsRes.json() as VpsNode[];
-        bots.value = await botsRes.json() as BotLite[];
         plans.value = await plansRes.json() as RuntimePlan[];
         walletBalanceSatang.value = walletRes.ok ? (((await walletRes.json()).balanceSatang as number) ?? 0) : 0;
         page.value = 1;
     } catch {
-        nodes.value = []; bots.value = []; plans.value = [];
+        nodes.value = []; plans.value = [];
         walletBalanceSatang.value = 0;
         loadError.value = "โหลดหน้า Runtime ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
     } finally {
@@ -166,13 +152,15 @@ function openBuy(card: FreeSlotCard): void {
     buySlot.value = card.slot;
     buyVps.value = card.vps;
     buyPlanId.value = sortedPlans.value[0]?.id ?? "";
-    buyBotId.value = "";
+}
+
+function planDurationLabel(plan: RuntimePlan): string {
+    return `${plan.durationMonths} เดือน`;
 }
 
 async function confirmBuy(): Promise<void> {
     const slot = buySlot.value;
     const planId = buyPlanId.value;
-    const botId = buyBotId.value;
     if (!slot || !planId) { notify("warning", "เลือกแพ็กก่อน"); return; }
     // Close right away — success or failure is reported via toast.
     buySlot.value = null;
@@ -186,12 +174,11 @@ async function confirmBuy(): Promise<void> {
             headers: { ...headers, "Content-Type": "application/json" },
             body: JSON.stringify({
                 runtimePlanId: planId,
-                externalSubjectId: botId || null,
                 idempotencyKey: crypto.randomUUID(),
             }),
         });
         if (!res.ok) throw new Error(await parseError(res) || `HTTP ${res.status}`);
-        notify("success", "ซื้อ Runtime แล้ว", botId ? "บอทออนไลน์แล้ว" : "ซื้อช่องไว้แล้ว — assign ให้บอทได้จากหน้า Dashboard");
+        notify("success", "ซื้อ Runtime แล้ว", "เลือกบอทที่จะใช้ Runtime นี้ได้จากหน้า Dashboard");
         await load();
     } catch (e) {
         notify("error", "ซื้อ Runtime ไม่สำเร็จ", (e as Error).message || "เครดิตอาจไม่พอ — เติมเงินแล้วลองใหม่");
@@ -217,16 +204,16 @@ onUnmounted(clearToast);
         <main :class="$style.content">
             <section :class="$style.section" aria-labelledby="shop-runtime-title">
                 <div :class="$style.titleRow">
-                    <h1 id="shop-runtime-title" :class="$style.pageTitle">Runtime</h1>
+                    <h1 id="shop-runtime-title" :class="$style.pageTitle">Runtime สำหรับบอท</h1>
                     <SecondaryButton width-mode="hug" :leading-icon="icons.arrowBack" @click="goBack">
-                        Back
+                        กลับ
                     </SecondaryButton>
                 </div>
             </section>
 
             <section :class="$style.section" aria-labelledby="shop-runtime-slots-title">
                 <div :class="$style.sectionHeading">
-                    <h2 id="shop-runtime-slots-title" :class="$style.sectionTitle">Runtime Slots</h2>
+                    <h2 id="shop-runtime-slots-title" :class="$style.sectionTitle">เลือก VPS และแพ็กระยะเวลา</h2>
                     <div :class="$style.headingRule" aria-hidden="true" />
                 </div>
 
@@ -237,7 +224,7 @@ onUnmounted(clearToast);
                 <section v-else-if="loadError" :class="$style.statePanel" aria-live="polite">
                     <h3 :class="$style.stateTitle">โหลดข้อมูลไม่สำเร็จ</h3>
                     <p :class="$style.stateText">{{ loadError }}</p>
-                    <button type="button" :class="$style.retryButton" @click="load">ลองใหม่</button>
+                    <PrimaryButton type="button" width-mode="hug" @click="load">ลองใหม่</PrimaryButton>
                 </section>
 
                 <template v-else>
@@ -254,7 +241,7 @@ onUnmounted(clearToast);
                             :region="card.region"
                             state="ว่าง"
                             :runtime="planSummary"
-                            buy-label="Buy"
+                            buy-label="เลือกแพ็ก"
                             @buy="openBuy(card)"
                         />
                     </div>
@@ -274,13 +261,13 @@ onUnmounted(clearToast);
 
         <AppFooter />
 
-        <!-- Buy a free seat: pick a plan (7d / 1m / 3m …) and optionally assign a bot. -->
+        <!-- Buy a free seat: pick the renewal duration now; assign a bot later on the Dashboard. -->
         <Teleport to="body">
             <Transition name="dialog">
                 <div v-if="buySlot" :class="$style.backdrop" @click.self="buySlot = null">
-                    <section :class="$style.modal" role="dialog" aria-modal="true" aria-labelledby="buy-runtime-title">
+                    <section :class="$style.modal" role="dialog" aria-modal="true" aria-labelledby="buy-runtime-title" tabindex="-1" @keydown.esc.stop="buySlot = null">
                         <h2 id="buy-runtime-title" :class="$style.modalTitle">
-                            ซื้อ Runtime — VPS {{ buyVps }} ช่อง #{{ buySlot.slotIndex }}
+                            เลือกแพ็ก Runtime — VPS {{ buyVps }} ช่อง #{{ buySlot.slotIndex }}
                         </h2>
                         <fieldset :class="$style.group">
                             <legend :class="$style.groupLabel">เลือกแพ็ก</legend>
@@ -290,17 +277,20 @@ onUnmounted(clearToast);
                                 :class="[$style.option, buyPlanId === plan.id && $style.optionActive]"
                             >
                                 <input v-model="buyPlanId" type="radio" name="plan" :value="plan.id" :class="$style.radio">
-                                <span>{{ plan.name }}</span>
+                                <span>{{ planDurationLabel(plan) }}</span>
+                                <span :class="$style.optionMeta">{{ plan.name }}</span>
                                 <span :class="$style.optionPrice">฿{{ formatMoney(plan.effectivePriceSatang) }}</span>
                             </label>
                             <p v-if="sortedPlans.length === 0" :class="$style.stateText">ยังไม่มีแพ็ก Runtime ที่เปิดขาย</p>
                         </fieldset>
-                        <SelectField v-model="buyBotId" label="Assign ให้บอท (ไม่บังคับ)" :options="buyBotOptions" />
+                        <p :class="$style.assignmentNote">
+                            หลังชำระเงิน Runtime จะอยู่ในคลังของคุณก่อน แล้วเลือกบอทที่จะใช้งานได้จากหน้า Dashboard
+                        </p>
 
                         <dl :class="$style.paymentSummary">
                             <div :class="$style.paymentRow">
                                 <dt :class="$style.paymentLabel">ยอดชำระ</dt>
-                                <dd :class="[$style.paymentValue, $style.paymentAmount]">
+                                <dd :class="[$style.paymentValue, buyPrice != null ? $style.paymentAmount : $style.paymentPlaceholder]">
                                     {{ buyPrice != null ? `${formatMoney(buyPrice)} บาท` : "เลือกแพ็กก่อน" }}
                                 </dd>
                             </div>
@@ -368,7 +358,7 @@ onUnmounted(clearToast);
     flex-direction: column;
     box-sizing: border-box;
     width: 100%;
-    max-width: 1280px;
+    max-width: var(--container-7xl);
     margin: 0 auto;
     padding: var(--spacing-space-3) var(--spacing-space-6);
     gap: var(--spacing-space-4);
@@ -390,9 +380,9 @@ onUnmounted(clearToast);
 .pageTitle {
     margin: 0;
     color: var(--color-text-primary);
-    font-size: 22px;
-    font-weight: 800;
-    line-height: 1;
+    font-size: var(--type-size-h1-page-title);
+    font-weight: 600;
+    line-height: normal;
 }
 
 .sectionHeading {
@@ -404,9 +394,9 @@ onUnmounted(clearToast);
 .sectionTitle {
     margin: 0;
     color: var(--color-text-primary);
-    font-size: 16px;
-    font-weight: 800;
-    line-height: 1;
+    font-size: var(--type-size-h3-card-title);
+    font-weight: 600;
+    line-height: normal;
 }
 
 .headingRule {
@@ -431,7 +421,7 @@ onUnmounted(clearToast);
 .skeletonCard {
     height: 300px;
     border-radius: var(--radius-xl);
-    background: linear-gradient(110deg, #151515 0%, #ffffff 48%, #151515 100%);
+    background: linear-gradient(110deg, var(--color-main-surface) 0%, var(--color-main-background) 48%, var(--color-main-surface) 100%);
     background-size: 220% 100%;
     animation: shop-runtime-shimmer 1800ms ease-in-out infinite;
 }
@@ -476,22 +466,6 @@ onUnmounted(clearToast);
     color: var(--shop-card-muted, var(--color-text-secondary));
     font-size: 16px;
     line-height: 1.5;
-}
-
-.retryButton {
-    align-self: flex-start;
-    min-height: 42px;
-    padding: 0 var(--spacing-space-5);
-    border: 0;
-    border-radius: var(--radius-md);
-    background-color: var(--color-button-primary-btn-bg);
-    color: var(--color-button-primary-btn-text-active);
-    font-weight: 600;
-    cursor: pointer;
-}
-
-.retryButton:hover {
-    background-color: var(--color-button-primary-btn-hover);
 }
 
 .toastRegion {
@@ -571,6 +545,18 @@ onUnmounted(clearToast);
     font-weight: 700;
 }
 
+.optionMeta {
+    color: var(--color-text-secondary);
+    font-size: 13px;
+}
+
+.assignmentNote {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
 .radio {
     accent-color: var(--color-main-primary);
 }
@@ -616,9 +602,15 @@ onUnmounted(clearToast);
 }
 
 .paymentAmount {
-    color: var(--color-main-primary);
+    color: var(--color-text-primary);
     font-size: 18px;
     font-weight: 800;
+}
+
+.paymentPlaceholder {
+    color: var(--color-text-secondary);
+    font-size: 15px;
+    font-weight: 600;
 }
 
 .paymentNegative {
@@ -648,10 +640,6 @@ onUnmounted(clearToast);
 @media (max-width: 760px) {
     .content {
         padding: var(--spacing-space-2) var(--spacing-space-2);
-    }
-
-    .pageTitle {
-        font-size: 20px;
     }
 
     .cardGrid {

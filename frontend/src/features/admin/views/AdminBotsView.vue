@@ -4,7 +4,7 @@ import { useRouter } from "vue-router";
 import { AdminLayout } from "@/features/admin/components";
 import { useAdminStore } from "@/features/admin/stores";
 import type { AdminBot, AdminBotLiveStatus, AdminUser } from "@/features/admin/config";
-import { SearchField, StatusToast } from "@/shared/ui";
+import { SearchField, SecondaryButton, StatusToast } from "@/shared/ui";
 
 const router = useRouter();
 const adminStore = useAdminStore();
@@ -196,13 +196,13 @@ onMounted(load);
                                     </span>
                                 </template>
                                 <span v-else :class="$style.statusMeta">{{ bot.status }}</span>
-                                <button
+                                <SecondaryButton
                                     type="button"
-                                    :class="$style.refreshBtn"
+                                    width-mode="hug"
                                     :disabled="statusBusyId === bot.id"
                                     title="Refresh live status"
                                     @click="refreshStatus(bot)"
-                                >{{ statusBusyId === bot.id ? "…" : "↻" }}</button>
+                                >{{ statusBusyId === bot.id ? "…" : "↻" }}</SecondaryButton>
                             </span>
                         </td>
                         <td :class="$style.td">{{ bot.discordApplicationId ?? "—" }}</td>
@@ -210,11 +210,11 @@ onMounted(load);
                         <td :class="$style.td">{{ formatDate(bot.createdAt) }}</td>
                         <td :class="$style.td">
                             <span :class="$style.rowActions">
-                                <button type="button" :class="$style.ghostBtn" :disabled="runtimeBusyId === bot.id" @click="runRuntimeAction(bot, 'start')">Start</button>
-                                <button type="button" :class="$style.ghostBtn" :disabled="runtimeBusyId === bot.id" @click="runRuntimeAction(bot, 'stop')">Stop</button>
-                                <button type="button" :class="$style.ghostBtn" :disabled="runtimeBusyId === bot.id" @click="runRuntimeAction(bot, 'restart')">Restart</button>
-                                <button type="button" :class="$style.ghostBtn" @click="openConfig(bot)">Config</button>
-                                <button type="button" :class="$style.ghostBtn" @click="openTransfer(bot)">Transfer</button>
+                                <SecondaryButton type="button" width-mode="hug" :disabled="runtimeBusyId === bot.id" @click="runRuntimeAction(bot, 'start')">Start</SecondaryButton>
+                                <SecondaryButton type="button" width-mode="hug" :disabled="runtimeBusyId === bot.id" @click="runRuntimeAction(bot, 'stop')">Stop</SecondaryButton>
+                                <SecondaryButton type="button" width-mode="hug" :disabled="runtimeBusyId === bot.id" @click="runRuntimeAction(bot, 'restart')">Restart</SecondaryButton>
+                                <SecondaryButton type="button" width-mode="hug" @click="openConfig(bot)">Config</SecondaryButton>
+                                <SecondaryButton type="button" width-mode="hug" @click="openTransfer(bot)">Transfer</SecondaryButton>
                             </span>
                         </td>
                     </tr>
@@ -226,7 +226,7 @@ onMounted(load);
 
         <!-- Transfer dialog -->
         <div v-if="transferBotTarget" :class="$style.backdrop" @click.self="closeTransfer">
-            <div :class="$style.dialog" role="dialog" aria-label="Transfer bot">
+            <div :class="$style.dialog" role="dialog" aria-modal="true" aria-label="Transfer bot" tabindex="-1" @keydown.esc.stop="closeTransfer">
                 <h2 :class="$style.dialogTitle">Transfer "{{ transferBotTarget.name }}"</h2>
                 <p :class="$style.dialogHint">
                     Moves the bot + its subscriptions &amp; config to the new owner. Wallet is not moved.
@@ -252,10 +252,10 @@ onMounted(load);
                     <p v-if="filteredUsers.length === 0" :class="$style.resultEmpty">ไม่พบผู้ใช้</p>
                 </div>
                 <div :class="$style.dialogActions">
-                    <button type="button" :class="$style.ghostBtn" @click="closeTransfer">Cancel</button>
-                    <button type="button" :class="$style.primaryBtn" :disabled="!targetUserId || isTransferring" @click="confirmTransfer">
+                    <SecondaryButton type="button" width-mode="hug" @click="closeTransfer">Cancel</SecondaryButton>
+                    <SecondaryButton type="button" width-mode="hug" :disabled="!targetUserId || isTransferring" @click="confirmTransfer">
                         {{ isTransferring ? "Transferring…" : "Transfer" }}
-                    </button>
+                    </SecondaryButton>
                 </div>
             </div>
         </div>
@@ -270,8 +270,8 @@ onMounted(load);
     overflow-x: auto;
     border: 1px solid var(--shop-card-border, var(--color-main-divider));
     border-radius: var(--radius-xl);
-    background-color: var(--shop-card-bg, var(--color-main-surface));
-    color: var(--shop-card-text, var(--color-text-secondary));
+    background-color: var(--shop-card-bg, var(--color-main-background));
+    color: var(--shop-card-text, var(--color-text-primary));
 }
 
 .table { width: 100%; border-collapse: collapse; font-size: 14px; }
@@ -280,7 +280,7 @@ onMounted(load);
     padding: 14px 16px;
     text-align: left;
     font-weight: 600;
-    color: var(--color-text-disabled);
+    color: var(--color-text-secondary);
     border-bottom: 1px solid var(--shop-card-border, var(--color-main-divider));
     white-space: nowrap;
 }
@@ -291,7 +291,7 @@ onMounted(load);
     white-space: nowrap;
 }
 
-.rowActions { display: inline-flex; gap: 8px; }
+.rowActions { display: inline-flex; flex-wrap: wrap; gap: var(--spacing-space-2); }
 
 .botCell { display: inline-flex; align-items: center; gap: 10px; }
 
@@ -311,7 +311,7 @@ onMounted(load);
     height: 28px;
     border-radius: 50%;
     background-color: var(--color-input-bg);
-    color: var(--color-text-disabled);
+    color: var(--color-text-secondary);
     font-size: 13px;
     font-weight: 600;
     flex-shrink: 0;
@@ -328,67 +328,14 @@ onMounted(load);
     font-weight: 600;
     text-transform: capitalize;
 }
-.badge--ok { background-color: color-mix(in srgb, var(--color-status-success) 16%, transparent); color: var(--color-status-success); }
-.badge--error { background-color: color-mix(in srgb, var(--color-status-error) 16%, transparent); color: var(--color-status-error); }
-.badge--muted { background-color: var(--color-input-bg); color: var(--color-text-disabled); }
+.badge--ok { background-color: color-mix(in srgb, var(--color-status-success) 14%, transparent); color: var(--color-status-success); }
+.badge--error { background-color: color-mix(in srgb, var(--color-status-error) 14%, transparent); color: var(--color-status-error); }
+.badge--muted { background-color: var(--color-input-bg); color: var(--color-text-secondary); }
 
-.statusMeta { font-size: 12px; color: var(--color-text-disabled); }
+.statusMeta { font-size: 12px; color: var(--color-text-secondary); }
 
-.refreshBtn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    padding: 0;
-    border: 1px solid var(--shop-card-border, var(--color-input-border));
-    border-radius: var(--radius-sm);
-    background: var(--color-input-bg);
-    color: var(--shop-card-text, var(--color-text-secondary));
-    font: inherit;
-    line-height: 1;
-    cursor: pointer;
-    transition: border-color 140ms ease, color 140ms ease;
-}
-.refreshBtn:hover:not(:disabled) { border-color: var(--color-main-primary); color: var(--color-main-primary); }
-.refreshBtn:disabled { cursor: not-allowed; opacity: 0.6; }
-
-.ghostBtn {
-    padding: 6px 14px;
-    border: 1px solid var(--shop-card-border, var(--color-input-border));
-    border-radius: var(--radius-md);
-    background: var(--color-input-bg);
-    color: var(--shop-card-text, var(--color-text-primary));
-    font: inherit;
-    cursor: pointer;
-    transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
-}
-.ghostBtn:hover:not(:disabled) {
-    border-color: var(--color-main-primary);
-    background-color: var(--shop-row-hover, var(--color-neutral-100));
-}
-.ghostBtn:disabled {
-    border-color: var(--color-input-border-disabled);
-    background-color: var(--color-input-bg-disabled);
-    color: var(--color-text-disabled);
-    cursor: not-allowed;
-    opacity: 1;
-}
-
-.primaryBtn {
-    padding: 6px 16px;
-    border: 0;
-    border-radius: var(--radius-md);
-    background-color: var(--color-button-primary-btn-bg);
-    color: var(--color-button-primary-btn-text-active);
-    font: inherit;
-    font-weight: 600;
-    cursor: pointer;
-}
-.primaryBtn:disabled { cursor: not-allowed; opacity: 0.6; }
-
-.empty { padding: 20px 16px; color: var(--color-text-disabled); }
-.error { margin: 0; color: var(--color-status-error); }
+.empty { padding: 20px 16px; color: var(--color-text-secondary); }
+.error { margin: 0; color: var(--color-text-secondary); }
 
 .backdrop {
     position: fixed;
@@ -411,13 +358,13 @@ onMounted(load);
     padding: 22px;
     border: 1px solid var(--shop-card-border, var(--color-main-divider));
     border-radius: var(--radius-xl);
-    background-color: var(--shop-card-bg, var(--color-main-surface));
-    color: var(--shop-card-text, var(--color-text-secondary));
+    background-color: var(--shop-card-bg, var(--color-main-background));
+    color: var(--shop-card-text, var(--color-text-primary));
 }
 
 .dialogTitle { margin: 0; font-size: 17px; font-weight: 600; }
-.dialogHint { margin: 0; font-size: 13px; color: var(--color-text-disabled); }
-.label { font-size: 13px; color: var(--color-text-disabled); margin-top: 6px; }
+.dialogHint { margin: 0; font-size: 13px; color: var(--color-text-secondary); }
+.label { font-size: 13px; color: var(--color-text-secondary); margin-top: 6px; }
 
 .input {
     box-sizing: border-box;
@@ -426,7 +373,7 @@ onMounted(load);
     border: 1px solid var(--color-input-border);
     border-radius: var(--radius-sm);
     background-color: var(--color-input-bg);
-    color: var(--color-text-input);
+    color: var(--color-text-primary);
     font: inherit;
 }
 .input:focus-visible { outline: none; border-color: var(--color-input-border-focus); }
@@ -450,16 +397,16 @@ onMounted(load);
     border: 1px solid var(--shop-card-border, var(--color-main-divider));
     border-radius: var(--radius-md);
     background: transparent;
-    color: var(--shop-card-muted);
+    color: var(--color-text-secondary);
     font: inherit;
     cursor: pointer;
     transition: border-color 140ms ease, background-color 140ms ease;
 }
-.result:hover { border-color: var(--color-main-primary); }
-.resultSelected { border-color: var(--color-main-primary); background-color: var(--shop-row-hover); }
+.result:hover { border-color: var(--color-text-secondary); }
+.resultSelected { border-color: var(--color-text-primary); background-color: var(--shop-row-hover); }
 .resultName { font-size: 14px; font-weight: 500; }
-.resultId { font-size: 12px; color: var(--color-text-disabled); }
-.resultEmpty { margin: 6px 0; font-size: 13px; color: var(--color-text-disabled); }
+.resultId { font-size: 12px; color: var(--color-text-secondary); }
+.resultEmpty { margin: 6px 0; font-size: 13px; color: var(--color-text-secondary); }
 
 .dialogActions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 12px; }
 </style>

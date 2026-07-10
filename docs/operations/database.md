@@ -229,7 +229,8 @@ Security notes:
 
 ## Migration Workflow
 
-Production migrations are not auto-applied from `main`.
+Production migrations are not auto-applied from `main`; Supabase watches
+`db/migrations` and applies reviewed migrations automatically after they are pushed.
 
 1. Start from the persistent `db/migrations` branch for real schema work.
 2. Create a migration with `supabase migration new <name>`.
@@ -237,10 +238,10 @@ Production migrations are not auto-applied from `main`.
 4. Never edit or delete a migration that has been applied or pushed.
 5. Include constraints, indexes, RLS, grants, policies, and backfills in the migration when needed.
 6. Update matching backend/service JPA entities or SQL queries in the same work.
-7. Apply to production only through the manual migration process, not an automatic `main` deploy.
+7. Push the reviewed migration commit to `db/migrations` to trigger the automatic Supabase migration.
 
 `main` is the repository history/source-of-truth, but it is not the production
-apply mechanism.
+apply mechanism; `db/migrations` is.
 
 ## Debug Starting Points
 

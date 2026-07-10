@@ -1,53 +1,251 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { computed } from "vue";
+import { useRoute } from "vue-router";
+import { icons } from "@/config";
+import { AppFooter } from "@/shared/layout";
+import { PrimaryButton, SecondaryButton } from "@/shared/ui";
 import { EmbedEditor } from "@/shared/ui/embeds";
 
 const route = useRoute();
-const router = useRouter();
 
 const botId = computed(() => String(route.params.botId ?? ""));
 const featureCode = computed(() => String(route.query.feature ?? ""));
-const isSidebarOpen = ref(typeof window === "undefined" ? true : window.innerWidth > 760);
+const configRoute = computed(() => ({ name: "shop-bot-config", params: { botId: botId.value } }));
+const dashboardRoute = computed(() => ({ name: "shop-dashboard" }));
+const featureLabel = computed(() => featureCode.value || "All embeds");
+
+function iconMaskStyle(icon: string): Record<string, string> {
+    return { "--icon-src": `url(${icon})` };
+}
 </script>
 
 <template>
     <div :class="$style.page">
-
-        <main :class="[$style.content, isSidebarOpen ? $style.sidebarOpen : $style.sidebarClosed]">
-            <section :class="$style.titleSection">
-                <div>
-                    <h1 :class="$style.pageTitle" class="type-h1-page-title-sb">EMBED DESIGNER</h1>
+        <main :class="$style.content">
+            <section :class="$style.hero" aria-labelledby="embed-setting-title">
+                <div :class="$style.heroCopy">
+                    <span :class="$style.eyebrow" class="type-overline-sb">Discord message editor</span>
+                    <h1 id="embed-setting-title" :class="$style.pageTitle" class="type-h1-page-title-sb">EMBED SETTING</h1>
                     <p :class="$style.subtitle" class="type-body-small-r">
-                        ปรับแต่งหน้าตา embed ของบอท{{ featureCode ? ` · ฟีเจอร์ ${featureCode}` : "" }} · {{ botId || "—" }}
+                        {{ featureCode ? `ฟีเจอร์ ${featureCode}` : "ทุก Embed Slot" }} · {{ botId || "—" }}
                     </p>
                 </div>
-                <button type="button" :class="$style.backButton" @click="router.push({ name: 'shop-bot-config', params: { botId } })">
-                    ← กลับไป Config
-                </button>
-            </section>
-            <div :class="$style.divider" aria-hidden="true" />
 
-            <EmbedEditor :bot-id="botId" :feature-code="featureCode" />
+                <div :class="$style.heroActions">
+                    <SecondaryButton width-mode="hug" :leading-icon="icons.arrowBack" :to="dashboardRoute">
+                        Dashboard
+                    </SecondaryButton>
+                    <PrimaryButton width-mode="hug" :leading-icon="icons.setting" :to="configRoute">
+                        Bot Config
+                    </PrimaryButton>
+                </div>
+            </section>
+
+            <section :class="$style.summaryGrid" aria-label="Embed setting summary">
+                <article :class="$style.summaryCard">
+                    <span :class="$style.summaryIcon" :style="iconMaskStyle(icons.comment)" aria-hidden="true" />
+                    <div>
+                        <p :class="$style.summaryLabel" class="type-overline-sb">Scope</p>
+                        <strong class="type-body-main-sb">{{ featureLabel }}</strong>
+                        <span :class="$style.summaryHint">แก้ข้อความ embed เฉพาะขอบเขตนี้</span>
+                    </div>
+                </article>
+                <article :class="$style.summaryCard">
+                    <span :class="$style.summaryIcon" :style="iconMaskStyle(icons.image)" aria-hidden="true" />
+                    <div>
+                        <p :class="$style.summaryLabel" class="type-overline-sb">Preview</p>
+                        <strong class="type-body-main-sb">Live Discord Preview</strong>
+                        <span :class="$style.summaryHint">ดูผลลัพธ์ขณะปรับ title, image, field และปุ่ม</span>
+                    </div>
+                </article>
+                <article :class="$style.summaryCard">
+                    <span :class="$style.summaryIcon" :style="iconMaskStyle(icons.setting)" aria-hidden="true" />
+                    <div>
+                        <p :class="$style.summaryLabel" class="type-overline-sb">Components</p>
+                        <strong class="type-body-main-sb">Buttons / Dropdown</strong>
+                        <span :class="$style.summaryHint">แก้เฉพาะหน้าตา ไม่เปลี่ยน custom_id ของบอท</span>
+                    </div>
+                </article>
+            </section>
+
+            <section :class="$style.workspace" aria-label="Embed setting workspace">
+                <div :class="$style.workspaceHeader">
+                    <div>
+                        <h2 class="type-h2-section-title-sb">Message Layout</h2>
+                        <p class="type-body-small-r">เลือก slot ด้านซ้าย ปรับเนื้อหา แล้วดู preview ด้านขวา</p>
+                    </div>
+                </div>
+
+                <EmbedEditor :bot-id="botId" :feature-code="featureCode" />
+            </section>
         </main>
+
+        <AppFooter />
     </div>
 </template>
 
 <style module>
-.page { display: flex; min-height: 100vh; background: var(--color-main-background); color: var(--color-text-primary); }
-.content { display: flex; min-width: 0; flex: 1; flex-direction: column; box-sizing: border-box; padding: var(--spacing-space-6); gap: var(--spacing-space-6); transition: margin-left 260ms cubic-bezier(0.22, 1, 0.36, 1); }
-.sidebarOpen { margin-left: 194px; }
-.sidebarClosed { margin-left: 44px; }
+.page {
+    display: flex;
+    min-height: 100vh;
+    flex-direction: column;
+    box-sizing: border-box;
+    padding-top: 73px;
+    background: var(--color-main-background);
+    color: var(--color-text-primary);
+}
 
-.titleSection { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--spacing-space-4); }
-.pageTitle { margin: 0; color: var(--color-text-primary); }
-.subtitle { margin: 4px 0 0; color: var(--color-text-primary); }
-.divider { height: 1px; background-color: var(--color-main-divider); }
-.backButton { height: 38px; padding: 0 var(--spacing-space-4); border: 1px solid var(--color-main-border); border-radius: var(--radius-full); background: var(--color-main-background); color: var(--color-text-primary); cursor: pointer; white-space: nowrap; }
+:global(.dark) .page,
+:global([data-theme="dark"]) .page {
+    --color-input-background: var(--color-main-surface);
+    --color-input-text: var(--color-text-primary);
+    --color-input-border: var(--color-main-divider);
+    --color-input-title: var(--color-text-secondary);
+    --color-input-disabled: var(--color-button-secondary);
+    --color-input-bg: var(--color-main-surface);
+    --color-text-input: var(--color-text-primary);
+    --color-input-placeholder: var(--color-text-secondary);
+    --color-input-bg-disabled: var(--color-button-secondary);
+    --color-input-border-hover: var(--color-text-secondary);
+    --color-input-border-disabled: var(--color-main-divider);
+}
+
+.content {
+    display: flex;
+    width: 100%;
+    max-width: var(--container-7xl);
+    flex: 1;
+    flex-direction: column;
+    box-sizing: border-box;
+    margin: 0 auto;
+    padding: var(--spacing-space-6);
+    gap: var(--spacing-space-6);
+}
+
+.hero {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--spacing-space-5);
+    padding-bottom: var(--spacing-space-5);
+    border-bottom: 1px solid var(--color-main-divider);
+}
+
+.heroCopy {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: var(--spacing-space-1);
+}
+
+.eyebrow {
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+}
+
+.pageTitle {
+    margin: 0;
+    color: var(--color-text-primary);
+}
+
+.subtitle {
+    margin: 0;
+    color: var(--color-text-secondary);
+}
+
+.heroActions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--spacing-space-3);
+}
+
+.summaryGrid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--spacing-space-4);
+}
+
+.summaryCard {
+    display: flex;
+    min-width: 0;
+    gap: var(--spacing-space-3);
+    padding: var(--spacing-space-5);
+    border: 1px solid var(--color-input-border);
+    border-radius: var(--radius-xl);
+    background: var(--color-main-background);
+}
+
+.summaryIcon {
+    width: var(--spacing-icon-lg);
+    height: var(--spacing-icon-lg);
+    flex-shrink: 0;
+    margin-top: var(--spacing-space-1);
+    background-color: var(--color-text-primary);
+    mask: var(--icon-src) center / contain no-repeat;
+    -webkit-mask: var(--icon-src) center / contain no-repeat;
+}
+
+.summaryLabel,
+.summaryHint {
+    margin: 0;
+}
+
+.summaryHint {
+    display: block;
+    margin-top: var(--spacing-space-1);
+    color: var(--color-text-secondary);
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.workspace {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-space-5);
+    padding: var(--spacing-space-6);
+    border: 1px solid var(--color-input-border);
+    border-radius: var(--radius-2xl);
+    background: var(--color-main-background);
+}
+
+.workspaceHeader {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--spacing-space-4);
+    padding-bottom: var(--spacing-space-5);
+    border-bottom: 1px solid var(--color-main-divider);
+}
+
+.workspaceHeader h2,
+.workspaceHeader p {
+    margin: 0;
+}
+
+.workspaceHeader p {
+    color: var(--color-text-secondary);
+}
 
 @media (max-width: 760px) {
-    .sidebarOpen, .sidebarClosed { margin-left: 44px; }
-    .content { padding: var(--spacing-space-5); }
-    .titleSection { flex-direction: column; }
+    .content {
+        padding: var(--spacing-space-5);
+    }
+
+    .hero {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .heroActions {
+        justify-content: flex-start;
+    }
+
+    .summaryGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .workspace {
+        padding: var(--spacing-space-4);
+    }
 }
 </style>
