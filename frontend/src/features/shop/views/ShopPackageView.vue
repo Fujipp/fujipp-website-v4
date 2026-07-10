@@ -7,7 +7,7 @@ import { PrimaryButton, SecondaryButton } from "@/shared/ui/buttons";
 import { TablePagination } from "@/shared/ui/paginations";
 import { AppFooter } from "@/shared/layout";
 import { useUserStore } from "@/stores";
-import { API_BASE_URL, resolveShopFeatureIcon } from "@/config";
+import { API_BASE_URL, icons, resolveShopFeatureIcon } from "@/config";
 import { priceKindLabel, type CatalogFeature } from "@/features/shop/config/catalog";
 
 type ToastStatus = "info" | "success" | "warning" | "error";
