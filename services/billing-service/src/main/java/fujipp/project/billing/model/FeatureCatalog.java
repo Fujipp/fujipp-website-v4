@@ -34,6 +34,9 @@ public class FeatureCatalog {
     @Column(name = "description", nullable = false)
     private String description = "";
 
+    @Column(name = "icon_key", nullable = false)
+    private String iconKey = "shop-all";
+
     /** SHOP | PAYMENT | ROBLOX | ENGAGEMENT | RUNTIME | ADMIN | AUTOMATION | SUPPORT */
     @Column(name = "category", nullable = false)
     private String category;

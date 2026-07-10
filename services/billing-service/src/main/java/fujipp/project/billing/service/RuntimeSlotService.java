@@ -39,7 +39,7 @@ import java.util.stream.Collectors;
  *
  *   • A seat is sellable when its admin status is FREE and no active runtime sits
  *     on it. Buying locks the seat row, so two buyers can't take the same one.
- *   • A runtime can be bought assigned to a bot (online immediately) or unassigned.
+ *   • A runtime is bought unassigned, then may be assigned to a bot later.
  *   • Assigning/moving a runtime only changes which bot it powers; the seat stays.
  *     Moving to another bot leaves the old bot with no runtime → offline.
  *
@@ -168,7 +168,7 @@ public class RuntimeSlotService {
 
     @Transactional
     public RuntimeSubscriptionResponse purchaseForSlot(UUID userId, UUID slotId, UUID runtimePlanId,
-                                                       String externalSubjectId, String idempotencyKey) {
+                                                       String idempotencyKey) {
         boolean hasKey = idempotencyKey != null && !idempotencyKey.isBlank();
         if (hasKey && orderRepository.findByIdempotencyKey(idempotencyKey).isPresent()) {
             return runtimeSubs.findByVpsSlotIdAndStatus(slotId, ACTIVE)
@@ -195,14 +195,6 @@ public class RuntimeSlotService {
             .filter(RuntimePlan::isActive)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Runtime plan not found"));
 
-        String botId = blankToNull(externalSubjectId);
-        if (botId != null) {
-            requireOwnedBot(userId, botId);
-            if (runtimeSubs.findByExternalSubjectIdAndStatus(botId, ACTIVE).isPresent()) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT, "This bot already has an active runtime");
-            }
-        }
-
         long price = Pricing.effectiveSatang(plan.getPriceSatang(), plan.getPromotionPriceSatang(),
             plan.getPromotionStartsAt(), plan.getPromotionEndsAt(), OffsetDateTime.now());
 
@@ -219,7 +211,7 @@ public class RuntimeSlotService {
         LocalDate today = LocalDate.now();
         RuntimeSubscription sub = new RuntimeSubscription();
         sub.setUserId(userId);
-        sub.setExternalSubjectId(botId);
+        sub.setExternalSubjectId(null);
         sub.setVpsSlotId(slotId);
         sub.setRuntimePlanId(plan.getId());
         sub.setStatus(ACTIVE);
@@ -234,7 +226,7 @@ public class RuntimeSlotService {
         item.setOrderId(order.getId());
         item.setKind("RUNTIME");
         item.setRuntimePlanId(plan.getId());
-        item.setExternalSubjectId(botId);
+        item.setExternalSubjectId(null);
         item.setAmountSatang(price);
         item.setItemCode(plan.getCode());
         item.setItemName(plan.getName());
@@ -251,6 +243,7 @@ public class RuntimeSlotService {
     @Transactional
     public RuntimeSubscriptionResponse assign(UUID userId, UUID runtimeId, String externalSubjectId) {
         RuntimeSubscription sub = ownedRuntime(userId, runtimeId);
+        requireHeldRuntime(sub);
 
         String botId = blankToNull(externalSubjectId);
         if (botId == null) {
@@ -284,6 +277,13 @@ public class RuntimeSlotService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Runtime not found");
         }
         return sub;
+    }
+
+    private static void requireHeldRuntime(RuntimeSubscription sub) {
+        if ((!ACTIVE.equals(sub.getStatus()) && !"PAST_DUE".equals(sub.getStatus())) || sub.getVpsSlotId() == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "Runtime is no longer held; buy an available runtime slot instead");
+        }
     }
 
     private void requireOwnedBot(UUID userId, String botId) {

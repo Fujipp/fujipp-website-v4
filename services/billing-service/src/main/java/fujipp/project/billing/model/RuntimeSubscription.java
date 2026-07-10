@@ -15,8 +15,8 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 /**
- * Runtime hosting subscription — one per subject (bot). Buying a runtime plan
- * extends current_period_end by the plan's duration (stacking).
+ * Runtime hosting subscription — one reserved VPS seat, optionally powering one
+ * bot. A purchase always begins unassigned and locks in its plan for renewals.
  */
 @Entity
 @Table(name = "runtime_subscriptions", schema = "billing")
@@ -44,7 +44,7 @@ public class RuntimeSubscription {
     @Column(name = "runtime_plan_id", columnDefinition = "uuid")
     private UUID runtimePlanId;
 
-    /** ACTIVE | PAST_DUE | SUSPENDED | CANCELED */
+    /** ACTIVE | PAST_DUE | SUSPENDED | CANCELED. A released seat is CANCELED. */
     @Column(name = "status", nullable = false)
     private String status = "ACTIVE";
 

@@ -17,12 +17,11 @@ import java.util.UUID;
 
 /**
  * Daily at 03:00 Asia/Bangkok: ask billing to run the renewal/expiry sweep, then
- * stop every bot that billing just suspended and reflect that on the bot registry.
+ * stop every bot whose Runtime billing just released and reflect that on the bot registry.
  *
- * Gated OFF by default ({@code runtime.automation.enabled=false}) — this charges
- * customer wallets and stops live bots unattended, so it must be turned on
- * deliberately after review. The sweep itself can still be triggered manually via
- * billing's POST /api/billing/automation/run for testing.
+ * Enabled by default so recurring billing and released-seat inventory stay in
+ * sync. It can be paused only for a deliberate maintenance window. The sweep can
+ * still be triggered manually via billing's POST /api/billing/automation/run.
  */
 @Component
 @RequiredArgsConstructor
@@ -53,21 +52,21 @@ public class RuntimeAutomationJob {
             return;
         }
 
-        log.info("Daily sweep: renewed={} pastDue={} suspended={}",
-            result.renewalsCharged(), result.markedPastDue(), result.runtimeSuspended());
+        log.info("Daily sweep: renewed={} pastDue={} released={}",
+            result.renewalsCharged(), result.markedPastDue(), result.runtimeReleased());
 
-        for (String subjectId : result.suspendedSubjectIds()) {
-            stopSuspendedBot(subjectId);
+        for (String subjectId : result.releasedSubjectIds()) {
+            stopReleasedBot(subjectId);
         }
     }
 
     /** Mark the bot SUSPENDED and best-effort stop it; never let one failure abort the rest. */
-    private void stopSuspendedBot(String subjectId) {
+    private void stopReleasedBot(String subjectId) {
         UUID botId;
         try {
             botId = UUID.fromString(subjectId);
         } catch (IllegalArgumentException e) {
-            log.warn("Suspended subject '{}' is not a bot id — skipping stop", subjectId);
+            log.warn("Released subject '{}' is not a bot id — skipping stop", subjectId);
             return;
         }
 
@@ -79,7 +78,7 @@ public class RuntimeAutomationJob {
         try {
             runtime.stop(runtimeRouter.targetFor(botId), subjectId);
         } catch (RuntimeException e) {
-            log.warn("Failed to stop suspended bot {} on the orchestrator", subjectId, e);
+            log.warn("Failed to stop released bot {} on the orchestrator", subjectId, e);
         }
     }
 }

@@ -4,6 +4,8 @@ import fujipp.project.billing.dto.AdminFeaturePriceResponse;
 import fujipp.project.billing.dto.AdminRuntimePlanResponse;
 import fujipp.project.billing.dto.CreateFeaturePriceRequest;
 import fujipp.project.billing.dto.UpdateFeaturePriceRequest;
+import fujipp.project.billing.dto.UpdateFeatureRequest;
+import fujipp.project.billing.dto.FeatureResponse;
 import fujipp.project.billing.dto.UpdateRuntimePlanRequest;
 import fujipp.project.billing.service.AdminCatalogService;
 import lombok.RequiredArgsConstructor;
@@ -49,6 +51,14 @@ public class AdminCatalogController {
     @GetMapping("/feature-prices")
     public ResponseEntity<List<AdminFeaturePriceResponse>> featurePrices() {
         return ResponseEntity.ok(catalog.listFeaturePrices());
+    }
+
+    @PatchMapping("/features/{id}")
+    public ResponseEntity<FeatureResponse> updateFeature(
+            @RequestHeader("X-Admin-Id") UUID adminId,
+            @PathVariable UUID id,
+            @RequestBody UpdateFeatureRequest request) {
+        return ResponseEntity.ok(catalog.updateFeature(adminId, id, request));
     }
 
     @PostMapping("/feature-prices")

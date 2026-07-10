@@ -61,6 +61,7 @@ public class SubscriptionService {
     @Transactional
     public RuntimeSubscriptionResponse setRuntimeAutoRenew(UUID userId, UUID id, boolean autoRenew) {
         RuntimeSubscription sub = ownedRuntime(userId, id);
+        requireHeldRuntime(sub);
         sub.setAutoRenew(autoRenew);
         return RuntimeSubscriptionResponse.from(runtimeSubscriptionRepository.save(sub));
     }
@@ -72,6 +73,25 @@ public class SubscriptionService {
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Subscription not found"));
         sub.setStatus(status);
         runtimeSubscriptionRepository.save(sub);
+    }
+
+    /**
+     * End an expired runtime and return its cabinet seat to inventory. The caller
+     * receives the previous bot id so the gateway can stop that process after the
+     * billing transaction commits. Clearing both links is intentional: the former
+     * customer cannot renew a seat that has become available for a new purchase.
+     */
+    @Transactional
+    public String releaseRuntime(UUID id) {
+        RuntimeSubscription sub = runtimeSubscriptionRepository.findById(id)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Subscription not found"));
+        String previousSubjectId = sub.getExternalSubjectId();
+        sub.setStatus("CANCELED");
+        sub.setAutoRenew(false);
+        sub.setExternalSubjectId(null);
+        sub.setVpsSlotId(null);
+        runtimeSubscriptionRepository.save(sub);
+        return previousSubjectId;
     }
 
     // ── feature assign (Use / move between bots) ────────────────────────────────
@@ -160,6 +180,7 @@ public class SubscriptionService {
 
     @Transactional
     public RuntimeSubscription renewRuntime(RuntimeSubscription sub) {
+        requireHeldRuntime(sub);
         long price = requireRenewPrice(sub.getRenewPriceSatang());
         int months = runtimeTermMonths(sub);
 
@@ -189,6 +210,15 @@ public class SubscriptionService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Subscription not found");
         }
         return sub;
+    }
+
+    private static void requireHeldRuntime(RuntimeSubscription sub) {
+        boolean held = ("ACTIVE".equals(sub.getStatus()) || "PAST_DUE".equals(sub.getStatus()))
+            && sub.getVpsSlotId() != null;
+        if (!held) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "Runtime is no longer held; buy an available runtime slot instead");
+        }
     }
 
     private int featureTermMonths(FeatureSubscription sub) {
