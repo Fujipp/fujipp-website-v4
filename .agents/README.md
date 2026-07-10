@@ -99,9 +99,9 @@ Workflow when a task is finished:
 2. Open a PR and **squash-merge it into `main`** (the auto-deploy runs on merge).
 3. Never commit secrets or local env files (see the push guide's exclusion list).
 
-Database migrations are the exception: production schema changes are staged on
-the persistent `db/migrations` branch and applied through the manual migration
-process, not auto-applied by merging to `main`.
+Database migrations are the exception: Supabase watches the persistent
+`db/migrations` branch. Pushing a migration to that branch applies it
+automatically; merging it to `main` does not apply it.
 
 **Stop and confirm first** (don't auto-merge) when the change is risky or hard to reverse,
 touches secrets/infra/migrations you're unsure about, or you aren't confident it's what the

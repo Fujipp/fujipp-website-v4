@@ -15,8 +15,9 @@ Production migrations are staged on the persistent branch:
 db/migrations
 ```
 
-Use this branch for migration work. `main` keeps the source-of-truth files, but
-merging to `main` is not the production apply step.
+Supabase watches this branch: pushing a migration commit to `db/migrations`
+applies it automatically. `main` keeps the source-of-truth files, but merging to
+`main` is not the production apply step.
 
 ## Creating A Migration
 
@@ -35,7 +36,8 @@ Rules:
 ## Applying Migrations
 
 Do not run `supabase db push` against production from a local shell. Production
-apply should happen through the manual migration process/workflow once prepared.
+apply happens automatically when the reviewed migration commit is pushed to
+`db/migrations`.
 
 `supabase db push` and `supabase migration up` are acceptable only for local or
 explicitly linked development databases.
