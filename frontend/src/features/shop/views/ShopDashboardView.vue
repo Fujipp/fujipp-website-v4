@@ -7,7 +7,7 @@ import { StatusToast, ReadMoreModal, SelectField, type SelectFieldOption } from 
 import { PrimaryButton, SecondaryButton } from "@/shared/ui/buttons";
 import { TablePagination } from "@/shared/ui/paginations";
 import { AppFooter } from "@/shared/layout";
-import { API_BASE_URL, icons } from "@/config";
+import { API_BASE_URL, icons, resolveShopFeatureIcon } from "@/config";
 import { useUserStore } from "@/stores";
 import type { CatalogFeature, RuntimePlan } from "@/features/shop/config/catalog";
 
@@ -193,7 +193,7 @@ const ownedFeatures = computed<FeatureDashboardItem[]>(() => {
             featureId,
             name: feature?.name ?? featureId,
             description: feature?.description ?? "",
-            icon: featureIcon(featureId),
+            icon: resolveShopFeatureIcon(feature?.iconKey),
             count: availableSubIds.length,
             availableSubIds,
         };
@@ -209,25 +209,27 @@ const pagedFeatures = computed(() => {
     return ownedFeatures.value.slice(start, start + FEATURE_PAGE_SIZE);
 });
 
-const runtimes = computed<RuntimeDashboardItem[]>(() => runtimeSubscriptions.value.map((runtime) => {
-    const plan = runtimePlanById.value.get(runtime.runtimePlanId);
-    const position = runtime.vpsSlotId ? slotPosition.value.get(runtime.vpsSlotId) : undefined;
-    // "In use" = the runtime is actually powering a bot; a paid-but-unassigned
-    // runtime should still show "Use" so the user can assign it.
-    const inUse = Boolean(runtime.externalSubjectId);
+const runtimes = computed<RuntimeDashboardItem[]>(() => runtimeSubscriptions.value
+    .filter((runtime) => runtime.status === "ACTIVE" || runtime.status === "PAST_DUE")
+    .map((runtime) => {
+        const plan = runtimePlanById.value.get(runtime.runtimePlanId);
+        const position = runtime.vpsSlotId ? slotPosition.value.get(runtime.vpsSlotId) : undefined;
+        // "In use" = the runtime is actually powering a bot; a paid-but-unassigned
+        // runtime should still show "Use" so the user can assign it.
+        const inUse = Boolean(runtime.externalSubjectId);
 
-    return {
-        id: runtime.id,
-        vps: position ? String(position.vps) : "-",
-        slot: position ? String(position.slot) : "-",
-        meta: `th · ${runtime.status}`,
-        runtime: plan ? `${plan.durationMonths} Month — ${formatPeriod(runtime.currentPeriodEnd)}` : formatPeriod(runtime.currentPeriodEnd),
-        inUse,
-        planName: plan?.name ?? "",
-        renewPriceSatang: runtime.renewPriceSatang ?? plan?.effectivePriceSatang ?? null,
-        botId: runtime.externalSubjectId || null,
-    };
-}));
+        return {
+            id: runtime.id,
+            vps: position ? String(position.vps) : "-",
+            slot: position ? String(position.slot) : "-",
+            meta: `th · ${runtime.status}`,
+            runtime: plan ? `${plan.durationMonths} Month — ${formatPeriod(runtime.currentPeriodEnd)}` : formatPeriod(runtime.currentPeriodEnd),
+            inUse,
+            planName: plan?.name ?? "",
+            renewPriceSatang: runtime.renewPriceSatang ?? plan?.effectivePriceSatang ?? null,
+            botId: runtime.externalSubjectId || null,
+        };
+    }));
 
 const overviewMetrics = computed<OverviewMetric[]>(() => {
     const onlineBotCount = bots.value.filter((bot) => bot.isOnline).length;
@@ -245,17 +247,6 @@ const slotUsage = computed(() => {
     return `${botSlots.value.used}/${botSlots.value.maxSlots} slot`;
 });
 
-// Feature id → shop icon; ids are kebab-case keywords (roblox / wallet / voice / log / review / status).
-function featureIcon(featureId: string): string {
-    const id = featureId.toLowerCase();
-    if (id.includes("roblox") || id.includes("robux")) return icons.shopRoblox;
-    if (id.includes("wallet") || id.includes("topup") || id.includes("top-up")) return icons.shopBank;
-    if (id.includes("voice")) return icons.shopVoice;
-    if (id.includes("log")) return icons.shopLog;
-    if (id.includes("review") || id.includes("credit")) return icons.shopStar;
-    if (id.includes("status")) return icons.shopAll;
-    return icons.featureFlag;
-}
 
 function clearToast(): void {
     if (toastTimeout) {
@@ -489,11 +480,6 @@ function goToWallet(): void {
     void router.push({ name: "shop-wallet" });
 }
 
-function openProfileSetting(): void {
-    // No profile-settings route exists yet — surface that instead of a dead button.
-    notify("info", "หน้าตั้งค่าโปรไฟล์กำลังจะมา", "ยังไม่เปิดใช้งาน — บอกได้ว่าจะให้ลิงก์ไปหน้าไหน");
-}
-
 // Full feature description shown in a read-only modal (the card clamps it to 3 lines).
 const readMore = ref<{ title: string; body: string } | null>(null);
 
@@ -661,7 +647,33 @@ onUnmounted(clearToast);
     <div :class="$style.shopDashboard">
         <main :class="$style.content">
             <section :class="$style.section" aria-labelledby="shop-dashboard-title">
-                <h1 id="shop-dashboard-title" :class="$style.pageTitle">DASHBOARD</h1>
+                <h1 id="shop-dashboard-title" :class="$style.pageTitle">ศูนย์จัดการบอท</h1>
+                <p :class="$style.pageIntro">จัดการเครดิต บอท ฟีเจอร์เสริม และ Runtime ของคุณจากที่เดียว</p>
+            </section>
+
+            <section
+                v-if="!isLoading && !loadError && bots.length === 0"
+                :class="$style.quickStart"
+                aria-labelledby="shop-quick-start-title"
+            >
+                <div :class="$style.quickStartHeading">
+                    <h2 id="shop-quick-start-title" :class="$style.quickStartTitle">เริ่มต้นใช้งาน</h2>
+                    <p :class="$style.quickStartText">ทำตามลำดับนี้เพื่อให้บอทพร้อมใช้งาน</p>
+                </div>
+                <div :class="$style.quickStartGrid">
+                    <button type="button" :class="$style.quickStartAction" @click="goToWallet">
+                        <span :class="$style.quickStartIcon" :style="{ '--quick-icon': `url(${icons.wallet})` }" aria-hidden="true" />
+                        <span><strong>1. เติมเครดิต</strong><small>สำหรับซื้อบริการ</small></span>
+                    </button>
+                    <button type="button" :class="$style.quickStartAction" @click="handleAddBot">
+                        <span :class="$style.quickStartIcon" :style="{ '--quick-icon': `url(${icons.add})` }" aria-hidden="true" />
+                        <span><strong>2. สร้างบอท</strong><small>เพิ่มบอท Discord ของคุณ</small></span>
+                    </button>
+                    <button type="button" :class="$style.quickStartAction" @click="goToRuntimes">
+                        <span :class="$style.quickStartIcon" :style="{ '--quick-icon': `url(${icons.shopServer})` }" aria-hidden="true" />
+                        <span><strong>3. เลือก Runtime</strong><small>เลือก VPS และระยะเวลา</small></span>
+                    </button>
+                </div>
             </section>
 
             <div :class="$style.overviewGrid" aria-label="Shop overview">
@@ -677,7 +689,7 @@ onUnmounted(clearToast);
 
             <section :class="$style.section" aria-labelledby="shop-profile-title">
                 <div :class="$style.sectionHeading">
-                    <h2 id="shop-profile-title" :class="$style.sectionTitle">Profile</h2>
+                    <h2 id="shop-profile-title" :class="$style.sectionTitle">เครดิตของฉัน</h2>
                     <div :class="$style.headingRule" aria-hidden="true" />
                 </div>
 
@@ -690,18 +702,15 @@ onUnmounted(clearToast);
                     />
                     <div :class="$style.profileActions">
                         <PrimaryButton width-mode="hug" :leading-icon="icons.wallet" @click="goToWallet">
-                            Add Money
+                            เติมเครดิต
                         </PrimaryButton>
-                        <SecondaryButton width-mode="hug" :leading-icon="icons.setting" @click="openProfileSetting">
-                            Profile Setting
-                        </SecondaryButton>
                     </div>
                 </div>
             </section>
 
             <section :class="$style.section" aria-labelledby="shop-bot-title">
                 <div :class="$style.sectionHeading">
-                    <h2 id="shop-bot-title" :class="$style.sectionTitle">Bot</h2>
+                    <h2 id="shop-bot-title" :class="$style.sectionTitle">บอทของฉัน</h2>
                     <div :class="$style.headingRule" aria-hidden="true" />
                 </div>
 
@@ -715,7 +724,7 @@ onUnmounted(clearToast);
                         <strong :class="$style.toolbarLabel">{{ slotUsage }}</strong>
                     </div>
                     <PrimaryButton width-mode="hug" :leading-icon="icons.add" @click="handleAddBot">
-                        New Bot
+                        สร้างบอท
                     </PrimaryButton>
                 </div>
 
@@ -740,29 +749,29 @@ onUnmounted(clearToast);
                     </template>
                 </div>
                 <p v-if="!isLoading && !loadError && bots.length === 0" :class="$style.emptyText">
-                    ยังไม่มีบอท — กด New Bot เพื่อสร้างตัวแรก แล้วค่อยซื้อ runtime กับ feature ให้มัน
+                    ยังไม่มีบอท — เริ่มจากสร้างบอท แล้วเลือก Runtime และฟีเจอร์เสริมให้บอทของคุณ
                 </p>
             </section>
 
             <section v-if="loadError" :class="$style.statePanel" aria-live="polite">
                 <h2 :class="$style.stateTitle">โหลดข้อมูลไม่สำเร็จ</h2>
                 <p :class="$style.stateText">{{ loadError }}</p>
-                <button type="button" :class="$style.retryButton" @click="loadDashboard">ลองใหม่</button>
+                <PrimaryButton type="button" width-mode="hug" @click="loadDashboard">ลองใหม่</PrimaryButton>
             </section>
 
             <template v-else>
                 <section :class="$style.section" aria-labelledby="shop-features-title">
                     <div :class="$style.sectionHeading">
-                        <h2 id="shop-features-title" :class="$style.sectionTitle">Features</h2>
+                        <h2 id="shop-features-title" :class="$style.sectionTitle">ฟีเจอร์เสริม</h2>
                         <div :class="$style.headingRule" aria-hidden="true" />
                     </div>
 
                     <div :class="$style.sectionToolbar">
                         <strong :class="$style.toolbarLabel">
-                            กดใช้ Feature เพื่อมอบฟังก์ชันให้บอท — ย้าย Feature ไปบอทอื่นได้ตลอดเวลา
+                            ซื้อฟีเจอร์เก็บไว้ก่อน แล้วเลือกใช้กับบอทที่ต้องการได้ภายหลัง
                         </strong>
                         <PrimaryButton width-mode="hug" :leading-icon="icons.buy" @click="goToPackages">
-                            Buy Feature
+                            เลือกฟีเจอร์
                         </PrimaryButton>
                     </div>
 
@@ -781,7 +790,7 @@ onUnmounted(clearToast);
                         />
                     </div>
                     <p v-if="!isLoading && ownedFeatures.length === 0" :class="$style.emptyText">
-                        ไม่มี Feature ว่างในคลัง — Feature ที่ใช้อยู่จะอยู่กับบอทของมัน กด Buy Feature เพื่อซื้อเพิ่ม
+                        ไม่มีฟีเจอร์ว่างในคลัง — ฟีเจอร์ที่ใช้อยู่จะแสดงอยู่กับบอท กด เลือกฟีเจอร์ เพื่อซื้อเพิ่ม
                     </p>
                     <TablePagination
                         v-if="featurePageCount > 1"
@@ -792,16 +801,16 @@ onUnmounted(clearToast);
 
                 <section :class="$style.section" aria-labelledby="shop-runtime-title">
                     <div :class="$style.sectionHeading">
-                        <h2 id="shop-runtime-title" :class="$style.sectionTitle">Runtimes</h2>
+                        <h2 id="shop-runtime-title" :class="$style.sectionTitle">Runtime สำหรับบอท</h2>
                         <div :class="$style.headingRule" aria-hidden="true" />
                     </div>
 
                     <div :class="$style.sectionToolbar">
                         <strong :class="$style.toolbarLabel">
-                            กดใช้ VPS เพื่อมอบ Runtime ให้บอทออนไลน์ — ย้าย runtime ไปบอทอื่นได้ตลอด
+                            เลือก VPS และระยะเวลา แล้วค่อยเลือกบอทที่จะใช้ Runtime นี้ได้ภายหลัง
                         </strong>
                         <PrimaryButton width-mode="hug" :leading-icon="icons.buy" @click="goToRuntimes">
-                            Buy Runtime
+                            เลือก Runtime
                         </PrimaryButton>
                     </div>
 
@@ -817,13 +826,13 @@ onUnmounted(clearToast);
                             region="th"
                             :state="runtime.meta.split(' · ')[1] ?? runtime.meta"
                             :runtime="runtime.runtime"
-                            :use-label="runtime.inUse ? 'Edit' : 'Use'"
+                            :use-label="runtime.inUse ? 'ย้ายบอท' : 'เลือกบอท'"
                             @use="openAssign(runtime)"
                             @add-time="addTimeRuntime = runtime"
                         />
                     </div>
                     <p v-if="!isLoading && runtimes.length === 0" :class="$style.emptyText">
-                        ยังไม่มี runtime ที่เปิดใช้งาน — กด Buy Runtime เพื่อเลือกช่องว่างในตู้ VPS
+                        ยังไม่มี Runtime ที่ใช้งานอยู่ — กด เลือก Runtime เพื่อเลือก VPS และแพ็กระยะเวลา
                     </p>
                 </section>
             </template>
@@ -857,7 +866,7 @@ onUnmounted(clearToast);
         <Teleport to="body">
             <Transition name="dialog">
                 <div v-if="useFeature" :class="$style.buySlotBackdrop" @click.self="useFeature = null">
-                    <section :class="$style.buySlotModal" role="dialog" aria-modal="true" aria-labelledby="use-feature-title">
+                    <section :class="$style.buySlotModal" role="dialog" aria-modal="true" aria-labelledby="use-feature-title" tabindex="-1" @keydown.esc.stop="useFeature = null">
                         <h2 id="use-feature-title" :class="$style.buySlotTitle">ใช้ Feature กับบอท</h2>
                         <p :class="$style.buySlotText">
                             {{ useFeature.name }} — มี {{ useFeature.count }} item ว่าง
@@ -882,7 +891,7 @@ onUnmounted(clearToast);
         <Teleport to="body">
             <Transition name="dialog">
                 <div v-if="addTimeRuntime" :class="$style.buySlotBackdrop" @click.self="addTimeRuntime = null">
-                    <section :class="$style.buySlotModal" role="dialog" aria-modal="true" aria-labelledby="add-time-title">
+                    <section :class="$style.buySlotModal" role="dialog" aria-modal="true" aria-labelledby="add-time-title" tabindex="-1" @keydown.esc.stop="addTimeRuntime = null">
                         <h2 id="add-time-title" :class="$style.buySlotTitle">ยืนยันการต่อเวลา Runtime</h2>
                         <p :class="$style.buySlotText">
                             โปรดตรวจสอบรายละเอียดการชำระเงินก่อนยืนยัน ระบบจะหักยอดจากกระเป๋าเงินของคุณทันที
@@ -938,7 +947,7 @@ onUnmounted(clearToast);
         <Teleport to="body">
             <Transition name="dialog">
                 <div v-if="assignRuntime" :class="$style.buySlotBackdrop" @click.self="assignRuntime = null">
-                    <section :class="$style.buySlotModal" role="dialog" aria-modal="true" aria-labelledby="assign-runtime-title">
+                    <section :class="$style.buySlotModal" role="dialog" aria-modal="true" aria-labelledby="assign-runtime-title" tabindex="-1" @keydown.esc.stop="assignRuntime = null">
                         <h2 id="assign-runtime-title" :class="$style.buySlotTitle">
                             {{ assignRuntime.inUse ? "ย้าย Runtime ให้บอทอื่น" : "ใช้ Runtime กับบอท" }}
                         </h2>
@@ -965,7 +974,7 @@ onUnmounted(clearToast);
         <Teleport to="body">
             <Transition name="dialog">
                 <div v-if="showBuySlot" :class="$style.buySlotBackdrop" @click.self="showBuySlot = false">
-                    <section :class="$style.buySlotModal" role="dialog" aria-modal="true" aria-labelledby="buy-slot-title">
+                    <section :class="$style.buySlotModal" role="dialog" aria-modal="true" aria-labelledby="buy-slot-title" tabindex="-1" @keydown.esc.stop="showBuySlot = false">
                         <h2 id="buy-slot-title" :class="$style.buySlotTitle">ซื้อ Bot Slot เพิ่ม</h2>
                         <p :class="$style.buySlotText">
                             คุณใช้ครบ {{ botSlots?.maxSlots ?? 3 }} slot แล้ว ({{ botSlots?.freeCount ?? 3 }} ฟรี +
@@ -1021,7 +1030,7 @@ onUnmounted(clearToast);
     flex-direction: column;
     box-sizing: border-box;
     width: 100%;
-    max-width: 1280px;
+    max-width: var(--container-7xl);
     margin: 0 auto;
     padding: var(--spacing-space-3) var(--spacing-space-6);
     gap: var(--spacing-space-4);
@@ -1036,9 +1045,107 @@ onUnmounted(clearToast);
 .pageTitle {
     margin: 0;
     color: var(--color-text-primary);
-    font-size: 22px;
-    font-weight: 800;
-    line-height: 1;
+    font-size: var(--type-size-h1-page-title);
+    font-weight: 600;
+    line-height: normal;
+}
+
+.pageIntro {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--type-size-body-small);
+    line-height: 1.5;
+}
+
+.quickStart {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-space-3);
+    padding: var(--spacing-space-4);
+    border: 1px solid var(--color-main-divider);
+    border-radius: var(--radius-xl);
+    background-color: var(--shop-card-bg, var(--color-main-background));
+}
+
+.quickStartHeading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--spacing-space-2);
+}
+
+.quickStartTitle,
+.quickStartText {
+    margin: 0;
+}
+
+.quickStartTitle {
+    color: var(--color-text-primary);
+    font-size: var(--type-size-body-main);
+    font-weight: 600;
+}
+
+.quickStartText {
+    color: var(--color-text-secondary);
+    font-size: var(--type-size-caption);
+}
+
+.quickStartGrid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--spacing-space-2);
+}
+
+.quickStartAction {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: var(--spacing-space-3);
+    padding: var(--spacing-space-3);
+    border: 1px solid var(--color-main-divider);
+    border-radius: var(--radius-lg);
+    background-color: transparent;
+    color: var(--color-text-primary);
+    cursor: pointer;
+    text-align: left;
+    transition: background-color 160ms ease, border-color 160ms ease;
+}
+
+.quickStartAction:hover {
+    border-color: var(--color-button-border);
+    background-color: var(--color-button-secondary);
+}
+
+.quickStartAction:focus-visible {
+    outline: 2px solid var(--color-main-primary);
+    outline-offset: 2px;
+}
+
+.quickStartAction strong,
+.quickStartAction small {
+    display: block;
+}
+
+.quickStartAction strong {
+    font-size: var(--type-size-caption);
+    font-weight: 600;
+}
+
+.quickStartAction small {
+    margin-top: var(--spacing-space-1);
+    color: var(--color-text-secondary);
+    font-size: var(--type-size-support);
+}
+
+.quickStartIcon {
+    --quick-icon: none;
+    width: var(--spacing-icon-md);
+    height: var(--spacing-icon-md);
+    flex-shrink: 0;
+    background-color: var(--color-text-primary);
+    mask: var(--quick-icon) center / contain no-repeat;
+    -webkit-mask: var(--quick-icon) center / contain no-repeat;
 }
 
 .sectionHeading {
@@ -1050,9 +1157,9 @@ onUnmounted(clearToast);
 .sectionTitle {
     margin: 0;
     color: var(--color-text-primary);
-    font-size: 16px;
-    font-weight: 800;
-    line-height: 1;
+    font-size: var(--type-size-h3-card-title);
+    font-weight: 600;
+    line-height: normal;
 }
 
 .headingRule {
@@ -1189,32 +1296,6 @@ onUnmounted(clearToast);
     color: var(--color-text-secondary);
     font-size: 18px;
     line-height: 1.4;
-}
-
-.retryButton {
-    align-self: flex-start;
-    min-height: 42px;
-    padding: 0 var(--spacing-space-5);
-    border: 0;
-    border-radius: var(--radius-md);
-    background-color: var(--color-button-primary-btn-bg);
-    color: var(--color-button-primary-btn-text-active);
-    cursor: pointer;
-    font-size: 16px;
-    font-weight: 600;
-}
-
-.retryButton:hover {
-    background-color: var(--color-button-primary-btn-hover);
-}
-
-.retryButton:active {
-    background-color: var(--color-button-primary-btn-active);
-}
-
-.retryButton:focus-visible {
-    outline: 2px solid var(--color-main-primary);
-    outline-offset: 2px;
 }
 
 .toastRegion {
@@ -1357,6 +1438,15 @@ onUnmounted(clearToast);
         max-width: 280px;
         margin: 0 auto;
         width: 100%;
+    }
+
+    .quickStartHeading {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .quickStartGrid {
+        grid-template-columns: 1fr;
     }
 
     .cardGrid {

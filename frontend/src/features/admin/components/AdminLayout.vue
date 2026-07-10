@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref } from "vue";
 import { RouterLink, useRoute } from "vue-router";
 import { adminNavItems } from "@/features/admin/config";
+import { AppFooter } from "@/shared/layout";
 
 interface Props {
     /** Page title shown in the content header. */
@@ -11,7 +11,6 @@ interface Props {
 defineProps<Props>();
 
 const route = useRoute();
-const isSidebarOpen = ref(typeof window === "undefined" ? true : window.innerWidth > 760);
 
 function isActive(name: unknown): boolean {
     return typeof name === "object" && name !== null && "name" in name
@@ -22,11 +21,10 @@ function isActive(name: unknown): boolean {
 
 <template>
     <div :class="$style.shell" class="fp-admin">
-
-        <main :class="[$style.content, isSidebarOpen ? $style.contentOpen : $style.contentClosed]">
+        <main :class="$style.content">
             <header :class="$style.pageHeader">
                 <div :class="$style.titleGroup">
-                    <span :class="$style.kicker">Shop Admin</span>
+                    <span class="type-overline-sb" :class="$style.kicker">Shop Admin</span>
                     <h1 :class="$style.pageTitle" class="type-h2-section-title-sb">{{ title }}</h1>
                 </div>
                 <slot name="actions" />
@@ -40,27 +38,32 @@ function isActive(name: unknown): boolean {
                     :class="[$style.adminTab, isActive(item.to) ? $style.adminTabActive : '']"
                     :aria-current="isActive(item.to) ? 'page' : undefined"
                 >
-                    <img :src="item.icon" alt="" aria-hidden="true" :class="$style.tabIcon">
-                    <span>{{ item.label }}</span>
+                    <span :class="$style.tabIcon" :style="{ '--admin-tab-icon': `url(${item.icon})` }" aria-hidden="true"></span>
+                    <span class="type-button-sb">{{ item.label }}</span>
                 </RouterLink>
             </nav>
 
             <slot />
         </main>
+        <AppFooter :class="$style.footer" />
     </div>
 </template>
 
 <style module>
 .shell {
-    --admin-page: var(--color-neutral-50);
-    --shop-card-bg: #ffffff;
-    --shop-card-inset: var(--color-neutral-100);
+    --admin-page: var(--color-main-background);
+    --shop-card-bg: var(--color-main-background);
+    --shop-card-inset: var(--color-main-surface);
     --shop-card-border: var(--color-input-border);
-    --shop-card-text: var(--color-neutral-800);
-    --shop-card-muted: var(--color-neutral-600);
-    --shop-row-hover: var(--color-neutral-100);
+    --shop-card-text: var(--color-text-primary);
+    --shop-card-muted: var(--color-text-secondary);
+    --shop-row-hover: var(--color-table-row-hover);
 
     min-height: 100dvh;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     background-color: var(--admin-page);
     color: var(--color-text-primary);
     font-family: var(--font-sans);
@@ -69,32 +72,38 @@ function isActive(name: unknown): boolean {
 
 :global(.dark) .shell,
 :global([data-theme="dark"]) .shell {
-    --admin-page: var(--color-main-section-background);
+    --admin-page: var(--color-main-background);
     --shop-card-bg: var(--color-main-background);
-    --shop-card-inset: #1f1f1f;
+    --shop-card-inset: var(--color-main-surface);
     --shop-card-border: var(--color-main-divider);
-    --shop-card-text: var(--color-text-secondary);
-    --shop-card-muted: #9aa6b4;
+    --shop-card-text: var(--color-text-primary);
+    --shop-card-muted: var(--color-text-secondary);
     --shop-row-hover: var(--color-table-row-hover);
+
+    /* The global input tokens remain light for public forms. Admin is a dense
+       workspace, so its controls inherit the same dark surface as its tables. */
+    --color-input-background: var(--color-main-surface);
+    --color-input-text: var(--color-text-primary);
+    --color-input-border: var(--color-main-divider);
+    --color-input-title: var(--color-text-secondary);
+    --color-input-disabled: var(--color-button-secondary);
+    --color-input-bg: var(--color-main-surface);
+    --color-text-input: var(--color-text-primary);
+    --color-input-placeholder: var(--color-text-secondary);
+    --color-input-bg-disabled: var(--color-button-secondary);
+    --color-input-border-hover: var(--color-text-secondary);
+    --color-input-border-disabled: var(--color-main-divider);
 }
 
 .content {
     display: flex;
+    width: min(100%, var(--container-7xl));
     min-width: 0;
-    min-height: 100dvh;
     flex-direction: column;
     box-sizing: border-box;
-    padding: var(--spacing-space-6);
+    padding: var(--spacing-space-24) var(--spacing-space-4) var(--spacing-space-10);
     gap: var(--spacing-space-5);
-    transition: margin-left 180ms ease;
-}
-
-.contentOpen {
-    margin-left: 194px;
-}
-
-.contentClosed {
-    margin-left: 44px;
+    flex: 1;
 }
 
 .pageHeader {
@@ -104,7 +113,7 @@ function isActive(name: unknown): boolean {
     flex-wrap: wrap;
     gap: var(--spacing-space-4);
     padding-bottom: var(--spacing-space-4);
-    border-bottom: 1px solid var(--shop-card-border, var(--color-main-divider));
+    border-bottom: 1px solid var(--color-main-divider);
 }
 
 .titleGroup {
@@ -115,11 +124,7 @@ function isActive(name: unknown): boolean {
 }
 
 .kicker {
-    color: var(--color-main-primary);
-    font-size: 13px;
-    font-weight: 800;
-    letter-spacing: 0;
-    line-height: 1;
+    color: var(--color-text-secondary);
     text-transform: uppercase;
 }
 
@@ -133,38 +138,36 @@ function isActive(name: unknown): boolean {
     align-items: center;
     flex-wrap: wrap;
     gap: var(--spacing-space-3);
-    padding: var(--spacing-space-3);
-    border: 1px solid var(--shop-card-border, var(--color-main-border));
+    padding: var(--spacing-space-2);
+    border: 1px solid var(--color-main-divider);
     border-radius: var(--radius-2xl);
-    background-color: var(--shop-card-bg, var(--color-main-surface));
-    color: var(--shop-card-muted, var(--color-neutral-600));
+    background-color: var(--color-main-background);
+    color: var(--color-text-secondary);
     transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease;
 }
 
 .adminTab {
     display: inline-flex;
     align-items: center;
-    min-height: 40px;
+    min-height: var(--spacing-space-10);
     gap: var(--spacing-space-2);
     padding: 0 var(--spacing-space-4);
     border: 1px solid transparent;
-    border-radius: var(--radius-xl);
-    color: var(--shop-card-muted, var(--color-text-secondary));
-    font-size: 15px;
-    font-weight: 600;
-    line-height: 1;
+    border-radius: var(--radius-lg);
+    color: var(--color-text-secondary);
     text-decoration: none;
-    transition: background-color 160ms ease, border-color 160ms ease;
+    transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
 }
 
 .adminTab:hover {
-    background-color: var(--shop-row-hover, var(--color-neutral-100));
+    background-color: var(--color-button-secondary);
+    color: var(--color-text-primary);
 }
 
 .adminTabActive {
-    border-color: var(--color-main-primary);
-    background-color: var(--color-main-primary);
-    color: var(--color-button-primary-btn-text-active);
+    border-color: var(--color-button-border);
+    background-color: var(--color-button-secondary);
+    color: var(--color-text-primary);
 }
 
 .adminTab:focus-visible {
@@ -173,19 +176,22 @@ function isActive(name: unknown): boolean {
 }
 
 .tabIcon {
+    display: inline-block;
     width: var(--spacing-icon-sm);
     height: var(--spacing-icon-sm);
     flex-shrink: 0;
+    background-color: currentColor;
+    mask: var(--admin-tab-icon) center / contain no-repeat;
+    -webkit-mask: var(--admin-tab-icon) center / contain no-repeat;
+}
+
+.footer {
+    margin-top: auto;
 }
 
 @media (max-width: 760px) {
     .content {
-        padding: var(--spacing-space-5) var(--spacing-space-3) var(--spacing-space-10);
-    }
-
-    .contentOpen,
-    .contentClosed {
-        margin-left: 44px;
+        padding: var(--spacing-space-20) var(--spacing-space-3) var(--spacing-space-8);
     }
 
     .adminTabs {
@@ -210,21 +216,21 @@ function isActive(name: unknown): boolean {
 :where(.fp-admin) :where(input[type="text"], input[type="number"], input[type="date"],
                  input[type="search"], input[type="password"], input:not([type]),
                  select, textarea) {
-    min-height: 38px;
+    min-height: var(--spacing-space-10);
     box-sizing: border-box;
-    padding: 0 10px;
+    padding: 0 var(--spacing-space-3);
     border: 1px solid var(--color-input-border);
     border-radius: var(--radius-md);
     background-color: var(--color-input-bg);
-    color: var(--color-text-input);
+    color: var(--color-text-primary);
     font-family: var(--font-sans);
-    font-size: 14px;
+    font-size: var(--type-size-button);
     transition: background-color 200ms ease, border-color 200ms ease, color 200ms ease;
 }
 
 :where(.fp-admin) :where(textarea) {
-    min-height: 88px;
-    padding: 8px 10px;
+    min-height: var(--spacing-space-24);
+    padding: var(--spacing-space-2) var(--spacing-space-3);
     line-height: 1.5;
     resize: vertical;
 }
@@ -240,12 +246,12 @@ function isActive(name: unknown): boolean {
 }
 
 :where(.fp-admin) :where(input::placeholder, textarea::placeholder) {
-    color: var(--color-input-placeholder);
+    color: var(--color-text-secondary);
 }
 
 :where(.fp-admin) :where(input[type="checkbox"], input[type="radio"]) {
-    width: 18px;
-    height: 18px;
+    width: var(--spacing-icon-sm);
+    height: var(--spacing-icon-sm);
     min-height: 0;
     padding: 0;
     accent-color: var(--color-main-primary);
@@ -255,16 +261,16 @@ function isActive(name: unknown): boolean {
 .fp-admin table {
     width: 100%;
     border-collapse: collapse;
-    color: var(--shop-card-text, var(--color-text-secondary));
-    font-size: 14px;
+    color: var(--shop-card-text, var(--color-text-primary));
+    font-size: var(--type-size-caption);
 }
 
 .fp-admin th {
     padding: var(--spacing-space-3) var(--spacing-space-4);
     border-bottom: 1px solid var(--shop-card-border, var(--color-main-divider));
-    background-color: var(--shop-card-inset, var(--color-main-background));
+    background-color: var(--color-main-background);
     color: var(--shop-card-text, var(--color-text-primary));
-    font-size: 13px;
+    font-size: var(--type-size-caption);
     font-weight: 700;
     letter-spacing: 0;
     line-height: 1.2;
@@ -291,10 +297,10 @@ function isActive(name: unknown): boolean {
 
 .fp-admin table input:not([type="checkbox"]):not([type="radio"]),
 .fp-admin table select {
-    min-height: 40px;
+    min-height: var(--spacing-space-10);
     border-radius: var(--radius-lg);
     background-color: var(--color-input-bg);
-    color: var(--color-text-input);
+    color: var(--color-text-primary);
 }
 
 .fp-admin button {

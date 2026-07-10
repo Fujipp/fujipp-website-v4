@@ -89,10 +89,13 @@ export interface AdminFeature {
     code: string;
     name: string;
     description: string | null;
+    iconKey: string;
     category: string;
     featured: boolean;
     prices: AdminFeatureCatalogPrice[];
 }
+
+export interface UpdateFeaturePayload { name?: string; description?: string; iconKey?: string; }
 
 export interface CreateFeaturePricePayload {
     featureId: string;

@@ -100,20 +100,22 @@ onBeforeUnmount(() => resizeObserver?.disconnect());
     box-sizing: border-box;
     width: 100%;
     height: 100%;
-    padding: 12px;
-    gap: 12px;
+    min-height: var(--spacing-space-80);
+    justify-content: space-between;
+    padding: var(--spacing-space-3);
+    gap: var(--spacing-space-3);
     overflow: hidden;
-    border: 1px solid var(--color-main-divider);
+    border: 1px solid var(--shop-card-border, var(--color-main-divider));
     border-radius: var(--radius-xl);
-    background-color: var(--color-main-background);
-    color: var(--color-text-secondary);
+    background-color: var(--shop-card-bg, var(--color-main-background));
+    color: var(--shop-card-muted, var(--color-text-secondary));
     text-align: left;
     transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease;
 }
 
 .icon {
-    width: 96px;
-    height: 96px;
+    width: var(--spacing-space-24);
+    height: var(--spacing-space-24);
     flex-shrink: 0;
     object-fit: contain;
 }
@@ -124,13 +126,13 @@ onBeforeUnmount(() => resizeObserver?.disconnect());
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 6px;
+    gap: var(--spacing-space-2);
 }
 
 .price {
     margin: 0;
     color: var(--color-text-primary);
-    font-size: 32px;
+    font-size: var(--type-size-h3-card-title);
     font-weight: 600;
     line-height: 1.1;
 }
@@ -140,9 +142,9 @@ onBeforeUnmount(() => resizeObserver?.disconnect());
     margin: 0;
     overflow: hidden;
     color: var(--color-text-primary);
-    font-size: 24px;
-    font-weight: 300;
-    line-height: 1.2;
+    font-size: var(--type-size-body-main);
+    font-weight: 600;
+    line-height: normal;
     white-space: nowrap;
     text-overflow: ellipsis;
 }
@@ -153,8 +155,8 @@ onBeforeUnmount(() => resizeObserver?.disconnect());
     min-height: calc(1.5em * 3);
     margin: 0;
     overflow: hidden;
-    font-size: 16px;
-    font-weight: 300;
+    font-size: var(--type-size-body-small);
+    font-weight: 400;
     line-height: 1.5;
     text-overflow: ellipsis;
     -webkit-line-clamp: 3;
@@ -165,7 +167,7 @@ onBeforeUnmount(() => resizeObserver?.disconnect());
    "read more" link is present. */
 .readMoreRow {
     align-self: stretch;
-    min-height: 20px;
+    min-height: var(--spacing-space-5);
 }
 
 .readMore {
@@ -174,7 +176,7 @@ onBeforeUnmount(() => resizeObserver?.disconnect());
     background: none;
     color: var(--color-text-primary);
     font-family: var(--font-sans);
-    font-size: 14px;
+    font-size: var(--type-size-button);
     font-weight: 600;
     text-decoration: underline;
     cursor: pointer;
@@ -195,26 +197,13 @@ onBeforeUnmount(() => resizeObserver?.disconnect());
     align-items: center;
     justify-content: space-between;
     margin-top: auto;
-    gap: 20px;
+    gap: var(--spacing-space-4);
     color: var(--color-text-primary);
 }
 
 .itemsLabel {
-    font-size: 24px;
+    font-size: var(--type-size-h3-card-title);
     font-weight: 600;
 }
 
-@media (max-width: 520px) {
-    .price {
-        font-size: 28px;
-    }
-
-    .title {
-        font-size: 20px;
-    }
-
-    .itemsLabel {
-        font-size: 20px;
-    }
-}
 </style>

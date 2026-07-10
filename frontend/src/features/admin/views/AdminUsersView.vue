@@ -118,8 +118,8 @@ onMounted(load);
     overflow-x: auto;
     border: 1px solid var(--shop-card-border, var(--color-main-divider));
     border-radius: var(--radius-xl);
-    background-color: var(--shop-card-bg, var(--color-main-surface));
-    color: var(--shop-card-text, var(--color-text-secondary));
+    background-color: var(--shop-card-bg, var(--color-main-background));
+    color: var(--shop-card-text, var(--color-text-primary));
 }
 
 .table {
@@ -132,7 +132,7 @@ onMounted(load);
     padding: 14px 16px;
     text-align: left;
     font-weight: 600;
-    color: var(--color-text-disabled);
+    color: var(--color-text-secondary);
     border-bottom: 1px solid var(--shop-card-border, var(--color-main-divider));
     white-space: nowrap;
 }
@@ -180,18 +180,18 @@ onMounted(load);
 }
 
 .roleAdmin {
-    border-color: var(--color-button-primary-btn-bg);
-    color: var(--color-button-primary-btn-bg);
+    border-color: var(--color-text-primary);
+    color: var(--color-text-primary);
 }
 
 .empty {
     margin: 0;
     padding: 20px 16px;
-    color: var(--color-text-disabled);
+    color: var(--color-text-secondary);
 }
 
 .error {
     margin: 0;
-    color: var(--color-status-error);
+    color: var(--color-text-secondary);
 }
 </style>

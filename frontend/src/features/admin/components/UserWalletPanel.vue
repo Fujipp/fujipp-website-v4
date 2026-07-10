@@ -8,6 +8,7 @@ import {
     type AdminWalletTransaction,
 } from "@/features/admin/config";
 import { SelectField, StatusToast, type SelectFieldOption } from "@/shared/ui";
+import { PrimaryButton } from "@/shared/ui/buttons";
 import { TablePagination } from "@/shared/ui/paginations";
 
 interface Props {
@@ -125,9 +126,9 @@ onMounted(load);
             <SelectField v-model="direction" :class="$style.directionSelect" hide-label label="Direction" :options="directionOptions" />
             <input v-model.number="amountBaht" :class="$style.input" type="number" min="0" step="0.01" placeholder="Amount ฿" aria-label="Amount in baht">
             <input v-model="note" :class="[$style.input, $style.note]" type="text" placeholder="Note (reason)" aria-label="Note">
-            <button type="submit" :class="$style.applyBtn" :disabled="!canSubmit">
+            <PrimaryButton type="submit" width-mode="hug" :disabled="!canSubmit">
                 {{ isSubmitting ? "…" : "Apply" }}
-            </button>
+            </PrimaryButton>
         </form>
 
         <div :class="$style.panel">
@@ -169,36 +170,37 @@ onMounted(load);
 </template>
 
 <style module>
-.wrap { display: flex; flex-direction: column; gap: 12px; }
-.heading { margin: 0; font-size: 18px; font-weight: 600; color: var(--color-text-primary); }
+.wrap { display: flex; flex-direction: column; gap: var(--spacing-space-3); }
+.heading { margin: 0; font-size: var(--type-size-h3-card-title); font-weight: 600; color: var(--color-text-primary); }
 
 .balanceCard {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--spacing-space-1);
     box-sizing: border-box;
     width: fit-content;
-    min-width: 200px;
-    padding: 16px 20px;
+    min-width: var(--spacing-space-48);
+    padding: var(--spacing-space-4) var(--spacing-space-5);
     border: 1px solid var(--shop-card-border, var(--color-main-divider));
     border-radius: var(--radius-xl);
-    background-color: var(--shop-card-bg, var(--color-main-surface));
-    color: var(--shop-card-text, var(--color-text-secondary));
+    background-color: var(--shop-card-bg, var(--color-main-background));
+    color: var(--shop-card-text, var(--color-text-primary));
 }
 
-.balanceLabel { font-size: 13px; color: var(--color-text-disabled); }
-.balanceValue { font-size: 26px; font-weight: 600; }
+.balanceLabel { font-size: var(--type-size-input-label); color: var(--color-text-secondary); }
+.balanceValue { font-size: var(--type-size-h3-card-title); font-weight: 600; }
 
 .adjustForm {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 10px;
+    gap: var(--spacing-space-3);
 }
 
 .input {
     box-sizing: border-box;
-    padding: 8px 10px;
+    min-height: var(--spacing-space-10);
+    padding: 0 var(--spacing-space-3);
     border: 1px solid var(--color-input-border);
     border-radius: var(--radius-sm);
     background-color: var(--color-input-bg);
@@ -210,43 +212,28 @@ onMounted(load);
 .directionSelect { width: 180px; }
 .input:focus-visible { outline: none; border-color: var(--color-input-border-focus); }
 
-.applyBtn {
-    padding: 9px 18px;
-    border: 0;
-    border-radius: var(--radius-md);
-    background-color: var(--color-button-primary-btn-bg);
-    color: var(--color-button-primary-btn-text-active);
-    font: inherit;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background-color 140ms ease;
-}
-
-.applyBtn:hover { background-color: var(--color-button-primary-btn-hover); }
-.applyBtn:disabled { cursor: not-allowed; opacity: 0.6; }
-
 .panel {
     box-sizing: border-box;
     overflow-x: auto;
     border: 1px solid var(--shop-card-border, var(--color-main-divider));
     border-radius: var(--radius-xl);
-    background-color: var(--shop-card-bg, var(--color-main-surface));
-    color: var(--shop-card-text, var(--color-text-secondary));
+    background-color: var(--shop-card-bg, var(--color-main-background));
+    color: var(--shop-card-text, var(--color-text-primary));
 }
 
-.table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.table { width: 100%; border-collapse: collapse; font-size: var(--type-size-caption); }
 
 .th {
-    padding: 12px;
+    padding: var(--spacing-space-3);
     text-align: left;
     font-weight: 600;
-    color: var(--color-text-disabled);
+    color: var(--color-text-secondary);
     border-bottom: 1px solid var(--shop-card-border, var(--color-main-divider));
     white-space: nowrap;
 }
 
 .td {
-    padding: 8px 12px;
+    padding: var(--spacing-space-2) var(--spacing-space-3);
     border-bottom: 1px solid var(--shop-card-border, var(--color-main-divider));
     white-space: nowrap;
 }
@@ -254,7 +241,7 @@ onMounted(load);
 .credit { color: var(--color-status-success); font-weight: 700; text-align: center; }
 .debit { color: var(--color-status-error); font-weight: 700; text-align: center; }
 
-.empty { padding: 16px 12px; color: var(--color-text-disabled); }
+.empty { padding: 16px 12px; color: var(--color-text-secondary); }
 .error { margin: 0; color: var(--color-status-error); }
 
 .tableFoot {

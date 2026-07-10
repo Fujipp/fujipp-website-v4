@@ -107,13 +107,16 @@ const powerAction = computed(() => (props.status === "online" ? "pause" : "play"
     align-items: center;
     box-sizing: border-box;
     width: 100%;
-    padding: 10px;
-    gap: 12px;
+    min-height: var(--spacing-space-80);
+    height: 100%;
+    justify-content: space-between;
+    padding: var(--spacing-space-3);
+    gap: var(--spacing-space-3);
     overflow: hidden;
-    border: 1px solid var(--color-main-divider);
+    border: 1px solid var(--shop-card-border, var(--color-main-divider));
     border-radius: var(--radius-xl);
-    background-color: var(--color-main-background);
-    color: var(--color-text-secondary);
+    background-color: var(--shop-card-bg, var(--color-main-background));
+    color: var(--shop-card-muted, var(--color-text-secondary));
     text-align: left;
     transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease;
 }
@@ -123,13 +126,13 @@ const powerAction = computed(() => (props.status === "online" ? "pause" : "play"
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 10px;
-    padding-top: 6px;
+    gap: var(--spacing-space-3);
+    padding-top: var(--spacing-space-2);
 }
 
 .avatar {
-    width: 100px;
-    height: 100px;
+    width: var(--spacing-space-24);
+    height: var(--spacing-space-24);
     border-radius: var(--radius-full);
     object-fit: cover;
     user-select: none;
@@ -144,7 +147,7 @@ const powerAction = computed(() => (props.status === "online" ? "pause" : "play"
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
+    gap: var(--spacing-space-2);
 }
 
 .name {
@@ -156,7 +159,7 @@ const powerAction = computed(() => (props.status === "online" ? "pause" : "play"
 .detailLine {
     align-self: stretch;
     margin: 0;
-    font-size: 18px;
+    font-size: var(--type-size-body-small);
     line-height: 1.3;
 }
 
@@ -172,8 +175,8 @@ const powerAction = computed(() => (props.status === "online" ? "pause" : "play"
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 4px;
-    gap: 10px;
+    padding: var(--spacing-space-1);
+    gap: var(--spacing-space-2);
     border-radius: var(--radius-xl);
 }
 
@@ -181,14 +184,14 @@ const powerAction = computed(() => (props.status === "online" ? "pause" : "play"
 .skeletonBlock {
     flex-shrink: 0;
     border-radius: var(--radius-xl);
-    background: linear-gradient(110deg, #151515 0%, #ffffff 48%, #151515 100%);
+    background: linear-gradient(110deg, var(--shop-card-inset, var(--color-main-surface)) 0%, var(--shop-card-bg, var(--color-main-background)) 48%, var(--shop-card-inset, var(--color-main-surface)) 100%);
     background-size: 220% 100%;
     animation: shop-bot-control-shimmer 1800ms ease-in-out infinite;
 }
 
 .skeletonAvatar {
-    width: 100px;
-    height: 100px;
+    width: var(--spacing-space-24);
+    height: var(--spacing-space-24);
     border-radius: var(--radius-full);
 }
 
@@ -217,9 +220,4 @@ const powerAction = computed(() => (props.status === "online" ? "pause" : "play"
     }
 }
 
-@media (max-width: 520px) {
-    .detailLine {
-        font-size: 16px;
-    }
-}
 </style>

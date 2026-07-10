@@ -2,17 +2,18 @@
 import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { storeToRefs } from "pinia";
+import { icons } from "@/config";
 import { useUserStore } from "@/stores";
 
 const POSITION_STORAGE_KEY = "fujipp-admin-profile-control-position";
-const DEFAULT_BUTTON_SIZE = 64;
+const DEFAULT_BUTTON_SIZE = 48;
 const DRAG_MARGIN = 12;
 const CLICK_MOVE_LIMIT = 6;
 
 const route = useRoute();
 const router = useRouter();
 const store = useUserStore();
-const { isAdmin, isAuthenticated, profile, user } = storeToRefs(store);
+const { isAdmin, isAuthenticated, profile } = storeToRefs(store);
 const controlRef = ref<HTMLElement | null>(null);
 const isExpanded = ref(false);
 const isDragging = ref(false);
@@ -27,35 +28,19 @@ const controlStyle = computed(() => ({
     left: `${position.value.x}px`,
     top: `${position.value.y}px`,
 }));
-const actionStyles = computed(() => {
+const panelStyle = computed<Record<string, string>>(() => {
     if (typeof window === "undefined") {
-        return getActionStyles(-1, -1);
+        return { right: "0", bottom: "calc(100% + var(--spacing-space-2))" };
     }
 
-    const centerX = position.value.x + (DEFAULT_BUTTON_SIZE / 2);
-    const centerY = position.value.y + (DEFAULT_BUTTON_SIZE / 2);
-    const directionX = centerX > window.innerWidth / 2 ? -1 : 1;
-    const directionY = centerY > window.innerHeight / 2 ? -1 : 1;
+    const opensLeft = position.value.x + (DEFAULT_BUTTON_SIZE / 2) > window.innerWidth / 2;
+    const opensUp = position.value.y > 220;
 
-    return getActionStyles(directionX, directionY);
+    return {
+        [opensLeft ? "right" : "left"]: "0",
+        [opensUp ? "bottom" : "top"]: "calc(100% + var(--spacing-space-2))",
+    };
 });
-
-function getActionStyle(x: number, y: number): Record<string, string> {
-    return {
-        "--menu-x": `${x}px`,
-        "--menu-y": `${y}px`,
-    };
-}
-
-function getActionStyles(directionX: number, directionY: number): Record<string, Record<string, string>> {
-    return {
-        dashboard: getActionStyle(0, 94 * directionY),
-        users: getActionStyle(40 * directionX, 85 * directionY),
-        pricing: getActionStyle(72 * directionX, 60 * directionY),
-        logout: getActionStyle(91 * directionX, 24 * directionY),
-    };
-}
-
 function clamp(value: number, min: number, max: number): number {
     return Math.min(Math.max(value, min), max);
 }
@@ -219,14 +204,14 @@ onUnmounted(() => {
         ref="controlRef"
         :class="[$style.userControl, isExpanded ? $style.expanded : '', isDragging ? $style.dragging : '']"
         :style="controlStyle"
-        aria-label="Admin island"
+        aria-label="Admin tools"
         @focusout="handleFocusOut"
     >
         <button
             :class="$style.profileButton"
             type="button"
             :aria-expanded="isExpanded"
-            aria-label="Admin profile control"
+            aria-label="Open admin tools"
             @pointerdown="handlePointerDown"
             @pointermove="handlePointerMove"
             @pointerup="handlePointerUp"
@@ -247,47 +232,47 @@ onUnmounted(() => {
             <span :class="$style.statusDot" aria-hidden="true" />
         </button>
 
-        <nav v-show="isExpanded" :class="$style.actionList" aria-label="Admin quick actions">
+        <nav v-show="isExpanded" :class="$style.actionList" :style="panelStyle" aria-label="Admin quick actions">
+            <div :class="$style.menuHeader">
+                <span :class="$style.menuTitle">Admin tools</span>
+                <span :class="$style.menuStatus">Online</span>
+            </div>
             <RouterLink
-                :class="[$style.actionButton, $style.actionDashboard]"
-                :style="actionStyles.dashboard"
+                :class="$style.actionButton"
                 :to="{ name: 'admin-dashboard' }"
                 aria-label="Admin dashboard"
-                title="Dashboard"
                 @click="isExpanded = false"
             >
-                <img :class="$style.actionIcon" src="/icons/navigation/home.svg" alt="" aria-hidden="true" draggable="false">
+                <span :class="$style.actionIcon" :style="{ '--action-icon': `url(${icons.home})` }" aria-hidden="true" />
+                <span>Dashboard</span>
             </RouterLink>
             <RouterLink
-                :class="[$style.actionButton, $style.actionUsers]"
-                :style="actionStyles.users"
+                :class="$style.actionButton"
                 :to="{ name: 'admin-users' }"
                 aria-label="Admin users"
-                title="Users"
                 @click="isExpanded = false"
             >
-                <img :class="$style.actionIcon" src="/icons/navigation/about.svg" alt="" aria-hidden="true" draggable="false">
+                <span :class="$style.actionIcon" :style="{ '--action-icon': `url(${icons.user})` }" aria-hidden="true" />
+                <span>Users</span>
             </RouterLink>
             <RouterLink
-                :class="[$style.actionButton, $style.actionPricing]"
-                :style="actionStyles.pricing"
+                :class="$style.actionButton"
                 :to="{ name: 'admin-pricing' }"
                 aria-label="Admin pricing"
-                title="Pricing"
                 @click="isExpanded = false"
             >
-                <img :class="$style.actionIcon" src="/icons/navigation/package.svg" alt="" aria-hidden="true" draggable="false">
+                <span :class="$style.actionIcon" :style="{ '--action-icon': `url(${icons.package})` }" aria-hidden="true" />
+                <span>Pricing</span>
             </RouterLink>
             <button
                 :class="[$style.actionButton, $style.logOutButton]"
-                :style="actionStyles.logout"
                 type="button"
                 :disabled="store.isLoading"
                 aria-label="Log out"
-                title="Log out"
                 @click="handleLogOut"
             >
-                <img :class="$style.actionIcon" src="/icons/navigation/logout.svg" alt="" aria-hidden="true" draggable="false">
+                <span :class="$style.actionIcon" :style="{ '--action-icon': `url(${icons.logout})` }" aria-hidden="true" />
+                <span>Log out</span>
             </button>
         </nav>
     </aside>
@@ -299,17 +284,11 @@ onUnmounted(() => {
     left: 0;
     top: 0;
     z-index: 80;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    box-sizing: border-box;
-    width: 64px;
-    min-height: 64px;
-    gap: 0;
-    border: 0;
-    border-radius: var(--radius-full);
-    background: transparent;
-    color: var(--color-text-secondary);
+    width: 48px;
+    height: 48px;
+    /* The tools panel intentionally uses the dark surface in every theme, so its
+       foreground must be the matching light button token rather than page text. */
+    color: var(--color-button-primary);
     font-family: var(--font-sans);
     touch-action: none;
     pointer-events: none;
@@ -324,39 +303,24 @@ onUnmounted(() => {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 64px;
-    height: 64px;
-    padding: var(--space-1);
-    gap: 0;
-    border: 1px solid color-mix(in srgb, var(--color-neutral-50) 16%, transparent);
-    border-radius: var(--radius-full);
-    background:
-        linear-gradient(
-            135deg,
-            color-mix(in srgb, var(--color-neutral-50) 18%, transparent) 0%,
-            color-mix(in srgb, var(--color-main-surface) 92%, transparent) 56%,
-            color-mix(in srgb, var(--color-main-primary) 28%, var(--color-main-surface)) 100%
-        );
-    box-shadow:
-        inset 0 1px 1px color-mix(in srgb, var(--color-neutral-50) 48%, transparent),
-        0 16px 38px color-mix(in srgb, var(--color-neutral-900) 36%, transparent);
+    width: 48px;
+    height: 48px;
+    padding: var(--spacing-space-1);
+    border: 1px solid var(--color-main-border);
+    border-radius: var(--radius-lg);
+    background-color: var(--color-main-surface);
+    box-shadow: 0 8px 20px color-mix(in srgb, var(--color-neutral-900) 14%, transparent);
     color: inherit;
-    text-align: left;
     cursor: grab;
     pointer-events: auto;
     touch-action: none;
     user-select: none;
-    backdrop-filter: blur(24px) saturate(170%);
-    -webkit-backdrop-filter: blur(24px) saturate(170%);
-    transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease, background-color 180ms ease;
+    transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
 }
 
 .profileButton:hover {
-    border-color: color-mix(in srgb, var(--color-main-primary) 58%, transparent);
-    box-shadow:
-        inset 0 1px 1px color-mix(in srgb, var(--color-neutral-50) 56%, transparent),
-        0 20px 44px color-mix(in srgb, var(--color-neutral-900) 42%, transparent),
-        0 0 0 4px color-mix(in srgb, var(--color-main-primary) 14%, transparent);
+    border-color: var(--color-main-primary);
+    box-shadow: 0 10px 24px color-mix(in srgb, var(--color-neutral-900) 20%, transparent);
 }
 
 .profileButton:active,
@@ -366,62 +330,49 @@ onUnmounted(() => {
 }
 
 .expanded .profileButton {
-    border-color: color-mix(in srgb, var(--color-main-primary) 70%, transparent);
-    box-shadow:
-        inset 0 1px 1px color-mix(in srgb, var(--color-neutral-50) 60%, transparent),
-        0 22px 50px color-mix(in srgb, var(--color-neutral-900) 44%, transparent),
-        0 0 0 5px color-mix(in srgb, var(--color-main-primary) 18%, transparent);
-    transform: scale(1.04);
+    border-color: var(--color-main-primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-main-primary) 14%, transparent);
 }
 
 .avatar,
 .avatarFallback {
-    width: 56px;
-    height: 56px;
+    width: 38px;
+    height: 38px;
     flex-shrink: 0;
     border-radius: var(--radius-full);
-    border: 1px solid color-mix(in srgb, var(--color-neutral-50) 20%, transparent);
-}
-
-.expanded .avatar,
-.expanded .avatarFallback {
-    width: 56px;
-    height: 56px;
+    border: 1px solid var(--color-main-divider);
 }
 
 .avatar {
     object-fit: cover;
     object-position: center;
-    transform: scale(1.14);
     -webkit-user-drag: none;
     user-select: none;
 }
 
 .avatarFallback {
     position: relative;
-    background:
-        radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--color-neutral-50) 46%, transparent), transparent 34%),
-        linear-gradient(135deg, var(--color-main-primary), var(--color-neutral-800));
+    background-color: var(--color-main-primary);
 }
 
 .avatarFallback::after {
     position: absolute;
-    inset: 10px;
+    inset: var(--spacing-space-2);
     border-radius: var(--radius-full);
-    background-color: color-mix(in srgb, var(--color-neutral-50) 72%, transparent);
+    background-color: var(--color-main-background);
     content: "";
 }
 
 .statusDot {
     position: absolute;
-    right: 5px;
-    bottom: 5px;
-    width: 13px;
-    height: 13px;
+    right: 2px;
+    bottom: 2px;
+    width: 10px;
+    height: 10px;
     border: 2px solid var(--color-main-surface);
     border-radius: var(--radius-full);
     background-color: var(--color-status-success);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-status-success) 22%, transparent);
+    box-shadow: none;
     transition: opacity 160ms ease, transform 160ms ease;
 }
 
@@ -432,97 +383,68 @@ onUnmounted(() => {
 
 .actionList {
     position: absolute;
-    inset: 0;
-    pointer-events: none;
+    display: flex;
+    width: 184px;
+    flex-direction: column;
+    gap: var(--spacing-space-1);
+    padding: var(--spacing-space-2);
+    border: 1px solid var(--color-main-border);
+    border-radius: var(--radius-lg);
+    background-color: var(--color-main-surface);
+    box-shadow: 0 12px 28px color-mix(in srgb, var(--color-neutral-900) 18%, transparent);
+    pointer-events: auto;
 }
 
 .actionButton {
-    --menu-x: 0px;
-    --menu-y: 0px;
-    position: absolute;
-    left: 6px;
-    top: 6px;
-    display: inline-flex;
-    width: 52px;
-    height: 52px;
+    display: flex;
+    min-height: 38px;
     align-items: center;
-    justify-content: center;
-    border: 1px solid color-mix(in srgb, var(--color-neutral-50) 18%, transparent);
-    border-radius: var(--radius-full);
-    background:
-        linear-gradient(
-            145deg,
-            color-mix(in srgb, var(--color-neutral-50) 18%, transparent) 0%,
-            color-mix(in srgb, var(--color-main-surface) 94%, transparent) 100%
-        );
-    box-shadow:
-        inset 0 1px 1px color-mix(in srgb, var(--color-neutral-50) 42%, transparent),
-        0 12px 28px color-mix(in srgb, var(--color-neutral-900) 34%, transparent);
-    opacity: 0;
-    pointer-events: auto;
-    transform: translate(0, 0) scale(0.62);
-    transform-origin: center;
-    transition:
-        opacity 180ms ease,
-        transform 260ms cubic-bezier(0.2, 1.3, 0.32, 1),
-        border-color 180ms ease,
-        box-shadow 180ms ease,
-        background-color 180ms ease;
-    backdrop-filter: blur(20px) saturate(160%);
-    -webkit-backdrop-filter: blur(20px) saturate(160%);
-}
-
-.expanded .actionButton {
-    opacity: 1;
-    transform: translate(var(--menu-x), var(--menu-y)) scale(1);
+    gap: var(--spacing-space-3);
+    width: 100%;
+    padding: 0 var(--spacing-space-3);
+    border: 0;
+    border-radius: var(--radius-md);
+    background-color: transparent;
+    color: var(--color-button-primary);
+    font-size: var(--type-size-caption);
+    font-weight: 600;
+    line-height: normal;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 160ms ease, color 160ms ease;
 }
 
 .actionButton:hover {
-    border-color: color-mix(in srgb, var(--color-main-primary) 62%, transparent);
-    box-shadow:
-        inset 0 1px 1px color-mix(in srgb, var(--color-neutral-50) 52%, transparent),
-        0 16px 34px color-mix(in srgb, var(--color-neutral-900) 42%, transparent),
-        0 0 0 4px color-mix(in srgb, var(--color-main-primary) 14%, transparent);
-}
-
-.expanded .actionButton:hover {
-    transform: translate(var(--menu-x), var(--menu-y)) scale(1.08);
+    background-color: color-mix(in srgb, var(--color-main-primary) 10%, transparent);
 }
 
 .actionButton:active {
-    transform: translate(var(--menu-x), var(--menu-y)) scale(0.96);
-}
-
-.actionDashboard {
-    transition-delay: 20ms;
-}
-
-.actionUsers {
-    transition-delay: 55ms;
-}
-
-.actionPricing {
-    transition-delay: 90ms;
+    background-color: color-mix(in srgb, var(--color-main-primary) 16%, transparent);
 }
 
 .logOutButton {
-    border-color: color-mix(in srgb, var(--color-status-error) 62%, transparent);
-    transition-delay: 125ms;
+    margin-top: var(--spacing-space-1);
+    padding-top: var(--spacing-space-2);
+    border-top: 1px solid var(--color-main-divider);
+    border-radius: 0;
+    color: var(--color-status-error);
 }
 
 .logOutButton:hover {
-    border-color: var(--color-button-btn-hover-danger);
-    background-color: color-mix(in srgb, var(--color-button-btn-hover-danger) 32%, var(--color-main-surface));
+    background-color: color-mix(in srgb, var(--color-status-error) 10%, transparent);
 }
 
 .actionIcon {
-    width: var(--spacing-icon-md);
-    height: var(--spacing-icon-md);
-    filter: brightness(0) invert(1);
-    opacity: 0.92;
+    --action-icon: none;
+    width: var(--spacing-icon-sm);
+    height: var(--spacing-icon-sm);
+    flex-shrink: 0;
+    background-color: currentColor;
+    mask: var(--action-icon) center / contain no-repeat;
+    -webkit-mask: var(--action-icon) center / contain no-repeat;
+    opacity: 0.72;
     pointer-events: none;
-    -webkit-user-drag: none;
-    user-select: none;
 }
 
 .actionButton:focus-visible,
@@ -538,6 +460,25 @@ onUnmounted(() => {
 .logOutButton:disabled {
     cursor: not-allowed;
     opacity: 0.6;
+}
+
+.menuHeader {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: var(--spacing-space-2) var(--spacing-space-3) var(--spacing-space-1);
+}
+
+.menuTitle {
+    color: var(--color-button-primary);
+    font-size: var(--type-size-caption);
+    font-weight: 600;
+}
+
+.menuStatus {
+    color: var(--color-status-success);
+    font-size: var(--type-size-support);
+    font-weight: 600;
 }
 
 @media (prefers-reduced-motion: reduce) {

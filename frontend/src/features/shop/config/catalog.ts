@@ -20,6 +20,7 @@ export interface CatalogFeature {
     code: string;
     name: string;
     description: string;
+    iconKey: string;
     category: string;
     featured: boolean;
     prices: CatalogPrice[];

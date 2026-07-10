@@ -311,21 +311,11 @@ function onSubmit(): void {
     flex-direction: column;
     gap: var(--spacing-space-5);
     width: 100%;
-    padding: var(--spacing-space-6);
-    border: 1px solid var(--color-input-border);
-    border-radius: var(--radius-2xl);
-    background: color-mix(in srgb, var(--color-main-background) 96%, var(--color-main-primary) 4%);
     color: var(--color-text-primary);
-    box-shadow: 0 18px 48px color-mix(in srgb, var(--color-text-primary) 8%, transparent);
 }
 
 .header {
-    display: flex;
-    align-items: baseline;
-    gap: var(--spacing-space-3);
-    flex-wrap: wrap;
-    padding-bottom: var(--spacing-space-4);
-    border-bottom: 1px solid var(--color-input-border);
+    display: none;
 }
 
 .title {
@@ -333,7 +323,7 @@ function onSubmit(): void {
 }
 
 .code {
-    color: var(--color-text-disabled);
+    color: var(--color-text-secondary);
 }
 
 .groups {
@@ -355,7 +345,7 @@ function onSubmit(): void {
 
 .groupTitle {
     padding: 0;
-    color: var(--color-text-disabled);
+    color: var(--color-text-secondary);
 }
 
 .groupFields {
@@ -379,7 +369,7 @@ function onSubmit(): void {
 }
 
 .hint {
-    color: var(--color-text-disabled);
+    color: var(--color-text-secondary);
     margin: 0;
 }
 
@@ -390,10 +380,6 @@ function onSubmit(): void {
 }
 
 @media (max-width: 760px) {
-    .form {
-        padding: var(--spacing-space-4);
-    }
-
     .groups,
     .settings {
         grid-template-columns: 1fr;

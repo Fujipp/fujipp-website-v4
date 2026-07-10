@@ -215,6 +215,24 @@ function cycleTheme() {
                     <div v-if="isProfileMenuOpen" role="menu"
                         class="absolute right-0 top-[calc(100%+8px)] z-50 box-border flex min-w-[160px] flex-col gap-space-1 rounded-xl border border-main-divider bg-main-background p-space-2 shadow-lg">
                         <template v-if="userStore.isAuthenticated">
+                            <div v-if="userStore.isAdmin" class="flex flex-col gap-space-1 border-b border-main-divider pb-space-2">
+                                <p class="type-support-sb m-0 px-space-3 pt-space-1 text-text-secondary">ADMIN</p>
+                                <RouterLink to="/admin" role="menuitem"
+                                    class="type-button-sb flex h-[40px] items-center rounded-lg px-space-3 text-text-primary no-underline transition-colors hover:bg-button-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-main-primary"
+                                    @click="isProfileMenuOpen = false">
+                                    Dashboard
+                                </RouterLink>
+                                <RouterLink to="/admin/users" role="menuitem"
+                                    class="type-button-sb flex h-[40px] items-center rounded-lg px-space-3 text-text-primary no-underline transition-colors hover:bg-button-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-main-primary"
+                                    @click="isProfileMenuOpen = false">
+                                    Users
+                                </RouterLink>
+                                <RouterLink to="/admin/pricing" role="menuitem"
+                                    class="type-button-sb flex h-[40px] items-center rounded-lg px-space-3 text-text-primary no-underline transition-colors hover:bg-button-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-main-primary"
+                                    @click="isProfileMenuOpen = false">
+                                    Pricing
+                                </RouterLink>
+                            </div>
                             <RouterLink to="/shop" role="menuitem"
                                 class="type-button-sb flex h-[40px] items-center rounded-lg px-space-3 text-text-primary no-underline transition-colors hover:bg-button-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-main-primary"
                                 @click="isProfileMenuOpen = false">

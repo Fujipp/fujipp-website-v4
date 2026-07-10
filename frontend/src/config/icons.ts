@@ -260,3 +260,21 @@ export function getIconColorMode(icon: string): IconColorMode {
 export function getIconColor(icon: string): string | undefined {
   return getIconColorMode(icon) === "text-primary" ? iconDefaultColor : undefined;
 }
+
+export const shopFeatureIcons: Record<string, { label: string; src: string }> = {
+  "shop-all": { label: "ทั่วไป", src: icons.shopAll },
+  "shop-bank": { label: "กระเป๋าเงิน", src: icons.shopBank },
+  "shop-bot": { label: "บอท", src: icons.shopBot },
+  "shop-log": { label: "บันทึก", src: icons.shopLog },
+  "shop-re-time": { label: "ต่อเวลา", src: icons.shopReTime },
+  "shop-roblox": { label: "Roblox", src: icons.shopRoblox },
+  "shop-renew": { label: "ต่ออายุ", src: icons.shopRenew },
+  "shop-server": { label: "เซิร์ฟเวอร์", src: icons.shopServer },
+  "shop-star": { label: "รีวิว", src: icons.shopStar },
+  "shop-time": { label: "เวลา", src: icons.shopTime },
+  "shop-voice": { label: "ห้องเสียง", src: icons.shopVoice },
+};
+
+export function resolveShopFeatureIcon(iconKey?: string | null): string {
+  return shopFeatureIcons[iconKey ?? ""]?.src ?? icons.shopAll;
+}

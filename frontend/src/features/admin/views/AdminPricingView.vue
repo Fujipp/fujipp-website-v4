@@ -13,7 +13,8 @@ import {
     type UpdateFeaturePricePayload,
     type UpdateRuntimePlanPayload,
 } from "@/features/admin/config";
-import { SelectField, StatusToast, type SelectFieldOption } from "@/shared/ui";
+import { SecondaryButton, SelectField, StatusToast, type SelectFieldOption } from "@/shared/ui";
+import { shopFeatureIcons } from "@/config";
 
 const adminStore = useAdminStore();
 
@@ -40,6 +41,7 @@ interface FeatureDraft {
 // defined objects (no Record index access — keeps noUncheckedIndexedAccess happy).
 interface PlanRow { plan: AdminRuntimePlan; draft: RuntimeDraft }
 interface PriceRow { price: AdminFeaturePrice; draft: FeatureDraft }
+interface FeatureRow { feature: AdminFeature; draft: { name: string; description: string; iconKey: string } }
 
 interface AddPriceDraft {
     featureId: string;
@@ -56,6 +58,7 @@ function emptyAddDraft(): AddPriceDraft {
 const planRows = ref<PlanRow[]>([]);
 const priceRows = ref<PriceRow[]>([]);
 const features = ref<AdminFeature[]>([]);
+const featureRows = ref<FeatureRow[]>([]);
 const addDraft = ref<AddPriceDraft>(emptyAddDraft());
 const addSaving = ref(false);
 const featureOptions = computed<SelectFieldOption[]>(() => [
@@ -114,11 +117,25 @@ async function load(): Promise<void> {
         planRows.value = plans.map((plan) => ({ plan, draft: toRuntimeDraft(plan) }));
         priceRows.value = prices.map((price) => ({ price, draft: toFeatureDraft(price) }));
         features.value = catalog;
+        featureRows.value = catalog.map((feature) => ({ feature, draft: {
+            name: feature.name, description: feature.description ?? "", iconKey: feature.iconKey || "shop-all",
+        } }));
     } catch (cause) {
         loadError.value = cause instanceof Error ? cause.message : "Failed to load catalog";
     } finally {
         isLoading.value = false;
     }
+}
+
+async function saveFeature(row: FeatureRow): Promise<void> {
+    const payload: { name?: string; description?: string; iconKey?: string } = {};
+    if (row.draft.name !== row.feature.name) payload.name = row.draft.name;
+    if (row.draft.description !== (row.feature.description ?? "")) payload.description = row.draft.description;
+    if (row.draft.iconKey !== row.feature.iconKey) payload.iconKey = row.draft.iconKey;
+    await save(row.feature.id, async () => {
+        const updated = await adminStore.updateFeature(row.feature.id, payload);
+        row.feature = { ...row.feature, ...updated };
+    });
 }
 
 /** Promo diff shared by both editors. Returns the promo fields to send, or {} if unchanged. */
@@ -257,14 +274,32 @@ onMounted(load);
                             <td :class="$style.td"><input v-model.number="row.draft.priceBaht" :class="$style.input" type="number" min="0" step="0.01"></td>
                             <td :class="$style.td"><input v-model.number="row.draft.promoBaht" :class="$style.input" type="number" min="0" step="0.01" placeholder="—"></td>
                             <td :class="$style.td"><input v-model="row.draft.promoLabel" :class="[$style.input, $style.text]" type="text" placeholder="—"></td>
-                            <td :class="[$style.td, $style.center]"><input v-model="row.draft.featured" type="checkbox"></td>
+                            <td :class="[$style.td, $style.center]"><input v-model="row.draft.featured" :class="$style.checkbox" type="checkbox" aria-label="Featured runtime plan"></td>
                             <td :class="$style.td"><input v-model.number="row.draft.sortOrder" :class="$style.input" type="number"></td>
-                            <td :class="[$style.td, $style.center]"><input v-model="row.draft.active" type="checkbox"></td>
+                            <td :class="[$style.td, $style.center]"><input v-model="row.draft.active" :class="$style.checkbox" type="checkbox" aria-label="Runtime plan active"></td>
                             <td :class="$style.td">
-                                <button type="button" :class="$style.saveBtn" :disabled="savingId === row.plan.id" @click="savePlan(row)">
+                                <SecondaryButton :class="$style.saveButton" type="button" width-mode="hug" :disabled="savingId === row.plan.id" @click="savePlan(row)">
                                     {{ savingId === row.plan.id ? "…" : "Save" }}
-                                </button>
+                                </SecondaryButton>
                             </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section :class="$style.section" aria-label="Feature details">
+            <h2 :class="$style.heading">Feature details</h2>
+            <div :class="$style.panel">
+                <table :class="$style.table">
+                    <thead><tr><th :class="$style.th">Feature</th><th :class="$style.th">Name</th><th :class="$style.th">Description</th><th :class="$style.th">Icon</th><th :class="$style.th" /></tr></thead>
+                    <tbody>
+                        <tr v-for="row in featureRows" :key="row.feature.id">
+                            <td :class="$style.td">{{ row.feature.code }}</td>
+                            <td :class="$style.td"><input v-model="row.draft.name" :class="[$style.input, $style.text]" type="text"></td>
+                            <td :class="$style.td"><input v-model="row.draft.description" :class="[$style.input, $style.description]" type="text"></td>
+                            <td :class="$style.td"><select v-model="row.draft.iconKey" :class="[$style.input, $style.text]"><option v-for="(icon, key) in shopFeatureIcons" :key="key" :value="key">{{ icon.label }}</option></select></td>
+                            <td :class="$style.td"><SecondaryButton :class="$style.saveButton" type="button" width-mode="hug" :disabled="savingId === row.feature.id" @click="saveFeature(row)">{{ savingId === row.feature.id ? "…" : "Save" }}</SecondaryButton></td>
                         </tr>
                     </tbody>
                 </table>
@@ -296,11 +331,11 @@ onMounted(load);
                             <td :class="$style.td"><input v-model.number="row.draft.durationMonths" :class="$style.input" type="number" min="1" placeholder="—"></td>
                             <td :class="$style.td"><input v-model.number="row.draft.promoBaht" :class="$style.input" type="number" min="0" step="0.01" placeholder="—"></td>
                             <td :class="$style.td"><input v-model="row.draft.promoLabel" :class="[$style.input, $style.text]" type="text" placeholder="—"></td>
-                            <td :class="[$style.td, $style.center]"><input v-model="row.draft.active" type="checkbox"></td>
+                            <td :class="[$style.td, $style.center]"><input v-model="row.draft.active" :class="$style.checkbox" type="checkbox" aria-label="Feature price active"></td>
                             <td :class="$style.td">
-                                <button type="button" :class="$style.saveBtn" :disabled="savingId === row.price.id" @click="savePrice(row)">
+                                <SecondaryButton :class="$style.saveButton" type="button" width-mode="hug" :disabled="savingId === row.price.id" @click="savePrice(row)">
                                     {{ savingId === row.price.id ? "…" : "Save" }}
-                                </button>
+                                </SecondaryButton>
                             </td>
                         </tr>
                     </tbody>
@@ -315,12 +350,24 @@ onMounted(load);
                 <div :class="$style.addForm">
                     <SelectField v-model="addDraft.featureId" :class="$style.featureSelect" label="Feature" :options="featureOptions" />
                     <SelectField v-model="addDraft.kind" :class="$style.kindSelect" label="Kind" :options="kindOptions" />
-                    <input v-model.number="addDraft.priceBaht" :class="$style.input" type="number" min="0" step="0.01" placeholder="ราคา ฿" aria-label="Price">
-                    <input v-if="addDraft.kind === 'RENT_MONTHLY'" v-model.number="addDraft.durationMonths" :class="$style.input" type="number" min="1" placeholder="เดือน" aria-label="Months">
-                    <label :class="$style.activeLabel"><input v-model="addDraft.active" type="checkbox"> Active</label>
-                    <button type="button" :class="$style.saveBtn" :disabled="addSaving" @click="addPrice">
-                        {{ addSaving ? "…" : "Add" }}
-                    </button>
+                    <label :class="$style.field">
+                        <span :class="$style.fieldLabel">Price ฿</span>
+                        <input v-model.number="addDraft.priceBaht" :class="$style.input" type="number" min="0" step="0.01" placeholder="0.00">
+                    </label>
+                    <label v-if="addDraft.kind === 'RENT_MONTHLY'" :class="$style.field">
+                        <span :class="$style.fieldLabel">Months</span>
+                        <input v-model.number="addDraft.durationMonths" :class="$style.input" type="number" min="1" placeholder="1">
+                    </label>
+                    <div :class="$style.activeField">
+                        <span :class="$style.fieldLabel">Status</span>
+                        <label :class="$style.activeLabel"><input v-model="addDraft.active" :class="$style.checkbox" type="checkbox"> Active</label>
+                    </div>
+                    <div :class="$style.actionField">
+                        <span :class="$style.fieldLabel">Action</span>
+                        <SecondaryButton :class="$style.saveButton" type="button" width-mode="hug" :disabled="addSaving" @click="addPrice">
+                            {{ addSaving ? "…" : "Add" }}
+                        </SecondaryButton>
+                    </div>
                 </div>
                 <p :class="$style.note">เลือก feature ที่ยังไม่มีราคา แล้วตั้งราคา (เช่น review-credit). ตั้ง kind ซ้ำของ feature เดิมไม่ได้ — แก้ราคาเดิมในตารางด้านบนแทน</p>
             </div>
@@ -333,31 +380,31 @@ onMounted(load);
 </template>
 
 <style module>
-.section { display: flex; flex-direction: column; gap: 12px; }
-.heading { margin: 0; font-size: 18px; font-weight: 600; color: var(--color-text-primary); }
+.section { display: flex; flex-direction: column; gap: var(--spacing-space-3); }
+.heading { margin: 0; color: var(--color-text-primary); font-size: var(--type-size-h3-card-title); font-weight: 600; }
 
 .panel {
     box-sizing: border-box;
     overflow-x: auto;
     border: 1px solid var(--shop-card-border, var(--color-main-divider));
     border-radius: var(--radius-xl);
-    background-color: var(--shop-card-bg, var(--color-main-surface));
-    color: var(--shop-card-text, var(--color-text-secondary));
+    background-color: var(--shop-card-bg, var(--color-main-background));
+    color: var(--shop-card-text, var(--color-text-primary));
 }
 
-.table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.table { width: 100%; border-collapse: collapse; font-size: var(--type-size-caption); }
 
 .th {
-    padding: 12px 12px;
+    padding: var(--spacing-space-3);
     text-align: left;
     font-weight: 600;
-    color: var(--color-text-disabled);
+    color: var(--color-text-secondary);
     border-bottom: 1px solid var(--shop-card-border, var(--color-main-divider));
     white-space: nowrap;
 }
 
 .td {
-    padding: 8px 12px;
+    padding: var(--spacing-space-2) var(--spacing-space-3);
     border-bottom: 1px solid var(--shop-card-border, var(--color-main-divider));
     white-space: nowrap;
 }
@@ -366,57 +413,93 @@ onMounted(load);
 
 .input {
     box-sizing: border-box;
-    width: 84px;
-    padding: 6px 8px;
+    width: var(--spacing-space-24);
+    min-height: var(--spacing-space-10);
+    height: var(--spacing-space-10);
+    padding: 0 var(--spacing-space-2);
     border: 1px solid var(--color-input-border);
     border-radius: var(--radius-sm);
     background-color: var(--color-input-bg);
-    color: var(--color-text-input);
+    color: var(--color-text-primary);
     font: inherit;
+    font-size: var(--type-size-button);
 }
 
-.text { width: 130px; }
+.text { width: var(--spacing-space-32); }
+.description { width: var(--spacing-space-64); }
+
+.checkbox {
+    appearance: none;
+    display: inline-grid;
+    width: var(--spacing-icon-sm);
+    height: var(--spacing-icon-sm);
+    min-height: 0;
+    place-content: center;
+    margin: 0;
+    border: 1px solid var(--color-input-border);
+    border-radius: var(--radius-sm);
+    background-color: var(--color-input-bg);
+    cursor: pointer;
+}
+
+.checkbox::after {
+    width: var(--spacing-space-2);
+    height: var(--spacing-space-1);
+    border-bottom: 2px solid var(--color-text-primary);
+    border-left: 2px solid var(--color-text-primary);
+    content: "";
+    opacity: 0;
+    transform: rotate(-45deg) translate(1px, -1px);
+}
+
+.checkbox:checked {
+    border-color: var(--color-text-primary);
+    background-color: color-mix(in srgb, var(--color-text-primary) 10%, var(--color-input-bg));
+}
+
+.checkbox:checked::after { opacity: 1; }
+.checkbox:focus-visible { outline: 2px solid var(--color-main-primary); outline-offset: 2px; }
 
 .addForm {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
-    gap: 10px;
-    padding: 14px 12px;
+    align-items: flex-end;
+    gap: var(--spacing-space-3);
+    padding: var(--spacing-space-4);
 }
 
-.featureSelect { width: min(420px, 100%); }
-.kindSelect { width: min(220px, 100%); }
+.featureSelect { flex: 2 1 var(--spacing-space-64); min-width: min(100%, var(--spacing-space-48)); }
+.kindSelect { flex: 1 1 var(--spacing-space-40); min-width: var(--spacing-space-32); }
+
+.field,
+.activeField,
+.actionField {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    gap: var(--spacing-space-2);
+}
+
+.fieldLabel { color: var(--color-text-secondary); font-size: var(--type-size-input-label); font-weight: 600; }
 
 .activeLabel {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    color: var(--shop-card-muted);
+    min-height: var(--spacing-space-10);
+    gap: var(--spacing-space-2);
+    color: var(--color-text-secondary);
+    font-size: var(--type-size-button);
 }
+
+.saveButton { min-height: var(--spacing-space-10); padding-inline: var(--spacing-space-3); }
 
 .input:focus-visible {
     outline: none;
     border-color: var(--color-input-border-focus);
 }
 
-.saveBtn {
-    padding: 6px 14px;
-    border: 0;
-    border-radius: var(--radius-md);
-    background-color: var(--color-button-primary-btn-bg);
-    color: var(--color-button-primary-btn-text-active);
-    font: inherit;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background-color 140ms ease;
-}
-
-.saveBtn:hover { background-color: var(--color-button-primary-btn-hover); }
-.saveBtn:disabled { cursor: not-allowed; opacity: 0.6; }
-
-.note { margin: 0; color: var(--color-text-disabled); }
-.error { margin: 0; color: var(--color-status-error); }
+.note { margin: 0; padding: 0 var(--spacing-space-4) var(--spacing-space-4); color: var(--color-text-secondary); font-size: var(--type-size-body-small); }
+.error { margin: 0; color: var(--color-text-secondary); }
 
 /* Float feedback so Add/Save result is always visible, not pushed below the fold. */
 .toastRegion {

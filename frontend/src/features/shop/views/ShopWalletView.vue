@@ -417,16 +417,16 @@ onUnmounted(() => {
         <main :class="$style.content">
             <section :class="$style.section" aria-labelledby="shop-wallet-title">
                 <div :class="$style.titleRow">
-                    <h1 id="shop-wallet-title" :class="$style.pageTitle">Wallet</h1>
+                    <h1 id="shop-wallet-title" :class="$style.pageTitle">กระเป๋าเงิน</h1>
                     <SecondaryButton width-mode="hug" :leading-icon="icons.arrowBack" @click="goBack">
-                        Back
+                        กลับ
                     </SecondaryButton>
                 </div>
             </section>
 
             <section :class="$style.section" aria-labelledby="shop-wallet-topup-title">
                 <div :class="$style.sectionHeading">
-                    <h2 id="shop-wallet-topup-title" :class="$style.sectionTitle">Top Up</h2>
+                    <h2 id="shop-wallet-topup-title" :class="$style.sectionTitle">เติมเครดิต</h2>
                     <div :class="$style.headingRule" aria-hidden="true" />
                 </div>
 
@@ -490,6 +490,7 @@ onUnmounted(() => {
     --shop-card-border: var(--color-input-border);
     --shop-card-text: var(--color-text-primary);
     --shop-card-muted: var(--color-neutral-600);
+    --shop-card-inset: var(--color-main-surface);
 
     display: flex;
     flex-direction: column;
@@ -507,6 +508,18 @@ onUnmounted(() => {
     --shop-card-border: var(--color-main-border);
     --shop-card-text: var(--color-text-secondary);
     --shop-card-muted: var(--color-text-secondary);
+    --shop-card-inset: var(--color-main-surface);
+    --color-input-background: var(--color-main-surface);
+    --color-input-text: var(--color-text-primary);
+    --color-input-border: var(--color-main-divider);
+    --color-input-title: var(--color-text-secondary);
+    --color-input-disabled: var(--color-button-secondary);
+    --color-input-bg: var(--color-main-surface);
+    --color-text-input: var(--color-text-primary);
+    --color-input-placeholder: var(--color-text-secondary);
+    --color-input-bg-disabled: var(--color-button-secondary);
+    --color-input-border-hover: var(--color-text-secondary);
+    --color-input-border-disabled: var(--color-main-divider);
 }
 
 .content {
@@ -515,7 +528,7 @@ onUnmounted(() => {
     flex-direction: column;
     box-sizing: border-box;
     width: 100%;
-    max-width: 1280px;
+    max-width: var(--container-7xl);
     margin: 0 auto;
     padding: var(--spacing-space-3) var(--spacing-space-6);
     gap: var(--spacing-space-4);
@@ -537,9 +550,9 @@ onUnmounted(() => {
 .pageTitle {
     margin: 0;
     color: var(--color-text-primary);
-    font-size: 22px;
-    font-weight: 800;
-    line-height: 1;
+    font-size: var(--type-size-h1-page-title);
+    font-weight: 600;
+    line-height: normal;
 }
 
 .sectionHeading {
@@ -551,9 +564,9 @@ onUnmounted(() => {
 .sectionTitle {
     margin: 0;
     color: var(--color-text-primary);
-    font-size: 16px;
-    font-weight: 800;
-    line-height: 1;
+    font-size: var(--type-size-h3-card-title);
+    font-weight: 600;
+    line-height: normal;
 }
 
 .headingRule {
@@ -570,7 +583,7 @@ onUnmounted(() => {
 }
 
 .creditCard {
-    width: min(100%, 472px);
+    width: min(100%, var(--spacing-space-114));
 }
 
 .statePanel {
@@ -591,14 +604,14 @@ onUnmounted(() => {
 }
 
 .stateTitle {
-    font-size: 24px;
+    font-size: var(--type-size-h3-card-title);
     font-weight: 600;
     line-height: 1.2;
 }
 
 .stateText {
     color: var(--shop-card-muted, var(--color-text-secondary));
-    font-size: 18px;
+    font-size: var(--type-size-body-small);
     line-height: 1.4;
 }
 

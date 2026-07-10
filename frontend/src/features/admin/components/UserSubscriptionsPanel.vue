@@ -12,6 +12,7 @@ import {
     type UpdateRuntimeSubscriptionPayload,
 } from "@/features/admin/config";
 import { SelectField, StatusToast, type SelectFieldOption } from "@/shared/ui";
+import { PrimaryButton } from "@/shared/ui/buttons";
 
 interface Props {
     userId: string;
@@ -194,11 +195,11 @@ onMounted(load);
                             <td :class="$style.td">
                                 <SelectField v-model="row.draft.status" :class="$style.statusSelect" hide-label label="Status" :options="statusOptions" />
                             </td>
-                            <td :class="[$style.td, $style.center]"><input v-model="row.draft.autoRenew" type="checkbox"></td>
+                            <td :class="[$style.td, $style.center]"><input v-model="row.draft.autoRenew" :class="$style.checkbox" type="checkbox" aria-label="Auto renew runtime"></td>
                             <td :class="$style.td">
-                                <button type="button" :class="$style.saveBtn" :disabled="savingId === row.sub.id" @click="saveRuntime(row)">
+                                <PrimaryButton width-mode="hug" :disabled="savingId === row.sub.id" @click="saveRuntime(row)">
                                     {{ savingId === row.sub.id ? "…" : "Save" }}
-                                </button>
+                                </PrimaryButton>
                             </td>
                         </tr>
                         <tr v-if="runtimeRows.length === 0"><td :class="$style.empty" colspan="7">No runtime subscriptions.</td></tr>
@@ -236,13 +237,13 @@ onMounted(load);
                                 <SelectField v-model="row.draft.status" :class="$style.statusSelect" hide-label label="Status" :options="statusOptions" />
                             </td>
                             <td :class="[$style.td, $style.center]">
-                                <input v-if="isRecurring(row.sub.billingType)" v-model="row.draft.autoRenew" type="checkbox">
+                                <input v-if="isRecurring(row.sub.billingType)" v-model="row.draft.autoRenew" :class="$style.checkbox" type="checkbox" aria-label="Auto renew feature">
                                 <span v-else :class="$style.muted">—</span>
                             </td>
                             <td :class="$style.td">
-                                <button type="button" :class="$style.saveBtn" :disabled="savingId === row.sub.id" @click="saveFeature(row)">
+                                <PrimaryButton width-mode="hug" :disabled="savingId === row.sub.id" @click="saveFeature(row)">
                                     {{ savingId === row.sub.id ? "…" : "Save" }}
-                                </button>
+                                </PrimaryButton>
                             </td>
                         </tr>
                         <tr v-if="featureRows.length === 0"><td :class="$style.empty" colspan="7">No feature subscriptions.</td></tr>
@@ -256,32 +257,32 @@ onMounted(load);
 </template>
 
 <style module>
-.wrap { display: flex; flex-direction: column; gap: 12px; }
-.heading { margin: 0; font-size: 18px; font-weight: 600; color: var(--color-text-primary); }
-.subheading { margin: 4px 0 0; font-size: 14px; font-weight: 600; color: var(--color-text-primary); }
+.wrap { display: flex; flex-direction: column; gap: var(--spacing-space-3); }
+.heading { margin: 0; font-size: var(--type-size-h3-card-title); font-weight: 600; color: var(--color-text-primary); }
+.subheading { margin: var(--spacing-space-1) 0 0; font-size: var(--type-size-body-small); font-weight: 600; color: var(--color-text-primary); }
 
 .panel {
     box-sizing: border-box;
     overflow-x: auto;
     border: 1px solid var(--shop-card-border, var(--color-main-divider));
     border-radius: var(--radius-xl);
-    background-color: var(--shop-card-bg, var(--color-main-surface));
-    color: var(--shop-card-text, var(--color-text-secondary));
+    background-color: var(--shop-card-bg, var(--color-main-background));
+    color: var(--shop-card-text, var(--color-text-primary));
 }
 
-.table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.table { width: 100%; border-collapse: collapse; font-size: var(--type-size-caption); }
 
 .th {
-    padding: 12px;
+    padding: var(--spacing-space-3);
     text-align: left;
     font-weight: 600;
-    color: var(--color-text-disabled);
+    color: var(--color-text-secondary);
     border-bottom: 1px solid var(--shop-card-border, var(--color-main-divider));
     white-space: nowrap;
 }
 
 .td {
-    padding: 8px 12px;
+    padding: var(--spacing-space-2) var(--spacing-space-3);
     border-bottom: 1px solid var(--shop-card-border, var(--color-main-divider));
     white-space: nowrap;
 }
@@ -290,8 +291,9 @@ onMounted(load);
 
 .input {
     box-sizing: border-box;
-    width: 110px;
-    padding: 6px 8px;
+    width: var(--spacing-space-32);
+    min-height: var(--spacing-space-10);
+    padding: 0 var(--spacing-space-2);
     border: 1px solid var(--color-input-border);
     border-radius: var(--radius-sm);
     background-color: var(--color-input-bg);
@@ -301,27 +303,39 @@ onMounted(load);
 
 .input:focus-visible { outline: none; border-color: var(--color-input-border-focus); }
 
-.muted { color: var(--color-text-disabled); }
+.muted { color: var(--color-text-secondary); }
 
 .planSelect { width: 300px; }
 .statusSelect { width: 160px; }
 
-.saveBtn {
-    padding: 6px 14px;
-    border: 0;
-    border-radius: var(--radius-md);
-    background-color: var(--color-button-primary-btn-bg);
-    color: var(--color-button-primary-btn-text-active);
-    font: inherit;
-    font-weight: 600;
+.checkbox {
+    appearance: none;
+    display: inline-grid;
+    width: var(--spacing-icon-sm);
+    height: var(--spacing-icon-sm);
+    place-content: center;
+    margin: 0;
+    border: 1px solid var(--color-input-border);
+    border-radius: var(--radius-sm);
+    background-color: var(--color-input-bg);
     cursor: pointer;
-    transition: background-color 140ms ease;
 }
 
-.saveBtn:hover { background-color: var(--color-button-primary-btn-hover); }
-.saveBtn:disabled { cursor: not-allowed; opacity: 0.6; }
+.checkbox::after {
+    width: var(--spacing-space-2);
+    height: var(--spacing-space-1);
+    border-bottom: 2px solid var(--color-text-primary);
+    border-left: 2px solid var(--color-text-primary);
+    content: "";
+    opacity: 0;
+    transform: rotate(-45deg) translate(1px, -1px);
+}
 
-.empty { padding: 16px 12px; color: var(--color-text-disabled); }
-.note { margin: 0; color: var(--color-text-disabled); }
+.checkbox:checked { border-color: var(--color-text-primary); background-color: color-mix(in srgb, var(--color-text-primary) 10%, var(--color-input-bg)); }
+.checkbox:checked::after { opacity: 1; }
+.checkbox:focus-visible { outline: 2px solid var(--color-main-primary); outline-offset: 2px; }
+
+.empty { padding: 16px 12px; color: var(--color-text-secondary); }
+.note { margin: 0; color: var(--color-text-secondary); }
 .error { margin: 0; color: var(--color-status-error); }
 </style>

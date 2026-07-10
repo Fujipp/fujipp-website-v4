@@ -76,7 +76,7 @@ function submit(): void {
     <Teleport to="body">
         <Transition name="dialog">
             <div v-if="open" :class="$style.backdrop" @click.self="emit('cancel')">
-                <section :class="$style.modal" role="dialog" aria-modal="true" aria-labelledby="create-bot-title">
+                <section :class="$style.modal" role="dialog" aria-modal="true" aria-labelledby="create-bot-title" tabindex="-1" @keydown.esc.stop="emit('cancel')">
                     <header :class="$style.header">
                         <h2 id="create-bot-title" :class="$style.title">
                             {{ isEdit ? "Edit Bot Discord" : "New Bot Discord" }}
