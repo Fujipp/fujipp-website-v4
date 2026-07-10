@@ -134,16 +134,27 @@ jobs:
           # missing. Historical chunks stay on the server but are not copied into dist/
           # or re-verified during normal deploys.
           heal_missing() {
+            missing_file="$(mktemp)"
+            export SITE_URL missing_file
+
+            # FTPS upload remains serial because this host drops parallel data
+            # connections. HTTP checks are independent, so four at a time avoids
+            # spending minutes waiting for one request per current-release chunk.
+            find dist/assets -maxdepth 1 -name '*.js' -print0 \
+              | xargs -0 -r -n 1 -P 4 bash -c '
+                  name="$(basename "$1")"
+                  ct="$(curl -s --connect-timeout 5 --max-time 15 -o /dev/null -w "%{content_type}" "$SITE_URL/assets/$name" || true)"
+                  case "$ct" in *javascript*) ;; *) printf "%s\n" "$name" >> "$missing_file";; esac
+                ' _
+
             miss=0
-            for f in dist/assets/*.js; do
-              [ -e "$f" ] || continue
-              name="$(basename "$f")"
-              ct="$(curl -s -o /dev/null -w '%{content_type}' "$SITE_URL/assets/$name" || true)"
-              case "$ct" in
-                *javascript*) ;;
-                *) echo "  ↻ missing on server: $name ($ct) — re-uploading"; put_one "$name" || true; miss=$((miss + 1));;
-              esac
-            done
+            while IFS= read -r name; do
+              [ -n "$name" ] || continue
+              echo "  ↻ missing on server: $name — re-uploading"
+              put_one "$name" || true
+              miss=$((miss + 1))
+            done < "$missing_file"
+            rm -f "$missing_file"
             return $miss
           }
 
