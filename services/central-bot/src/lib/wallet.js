@@ -128,6 +128,27 @@ function makeWallet(subjectId) {
     return rows;
   }
 
+  // Top-up totals over a recent window (default the last 1 month), from the
+  // ledger. memberId null = every member of this bot.
+  async function getTopupSummary({ memberId = null, interval = '1 month' } = {}) {
+    const { rows } = await pool.query(
+      `SELECT COALESCE(SUM(amount_satang), 0)   AS total_satang,
+              COUNT(*)                          AS entry_count,
+              COUNT(DISTINCT member_discord_id) AS member_count
+         FROM shop.wallet_ledger
+        WHERE external_subject_id = $1
+          AND direction = 'CREDIT' AND type = 'TOPUP'
+          AND created_at >= now() - $2::interval
+          AND ($3::text IS NULL OR member_discord_id = $3)`,
+      [subjectId, interval, memberId],
+    );
+    return {
+      totalSatang: Number(rows[0].total_satang),
+      entryCount: Number(rows[0].entry_count),
+      memberCount: Number(rows[0].member_count),
+    };
+  }
+
   // Lifetime top-up leaderboard for this bot's members.
   async function getLeaderboard(limit = 50) {
     const { rows } = await pool.query(
@@ -150,7 +171,7 @@ function makeWallet(subjectId) {
     );
   }
 
-  return { getBalance, credit, debit, setBalance, getTopupHistory, getLeaderboard };
+  return { getBalance, credit, debit, setBalance, getTopupHistory, getTopupSummary, getLeaderboard };
 }
 
 module.exports = { makeWallet, InsufficientFundsError };

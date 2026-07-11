@@ -1,9 +1,10 @@
 # Changelog — Backend
 
-**Current version: `0.5.1`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.5.2`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.5.2` | 2026-07-12 | Added a /topup-monthly command to the wallet top-up feature: members can check their own 1-month top-up total, and admins can view any member's total or the whole shop's monthly total. |
 | `0.5.1` | 2026-07-10 | Admins can now update each Shop feature’s name, description, and icon selection. |
 | `0.5.0` | 2026-07-10 | Runtime is now bought by duration before selecting a bot; overdue or non-renewed Runtime releases its VPS seat back to available inventory after the configured grace period. |
 | `0.4.9` | 2026-07-09 | Added the App Premium Shop feature to central-bot: /app-panel with 3 live category dropdowns from the gafiwshop reseller API, wallet-paid buying with per-product baht margins, account delivery by DM, a public delivered announcement, a full-order admin log channel (the order store — no order table), and automatic refund when the upstream buy fails |

@@ -67,6 +67,34 @@ async function handleWalletAdd(interaction, ctx) {
   ctx.services.rankSync?.(interaction.guild)?.catch(() => {});
 }
 
+// /topup-monthly — top-up totals over the last 1 month (from the ledger).
+// Members see their own total; an admin can pass member for one member, or
+// omit it to see the whole shop's total.
+async function handleTopupMonthly(interaction, ctx) {
+  const target = interaction.options.getUser('member');
+  const admin = isAdmin(interaction, ctx);
+  if (target && !admin) {
+    await interaction.reply({ content: 'ดูยอดของสมาชิกคนอื่นได้เฉพาะแอดมินเซิร์ฟเวอร์', ephemeral: true });
+    return;
+  }
+  await interaction.deferReply({ ephemeral: true });
+
+  if (admin && !target) {
+    const s = await ctx.services.wallet.getTopupSummary();
+    await interaction.editReply(
+      `📅 ยอดเติมเงินรวมทั้งร้านใน 1 เดือนล่าสุด: **${thb(s.totalSatang)}**\n`
+      + `รวม ${s.entryCount} รายการ จากสมาชิก ${s.memberCount} คน`,
+    );
+    return;
+  }
+
+  const member = target ?? interaction.user;
+  const s = await ctx.services.wallet.getTopupSummary({ memberId: member.id });
+  await interaction.editReply(
+    `📅 ยอดเติมเงินของ <@${member.id}> ใน 1 เดือนล่าสุด: **${thb(s.totalSatang)}** (${s.entryCount} รายการ)`,
+  );
+}
+
 // /topup-panel — admin posts a standalone top-up panel into the channel. Members
 // click เติมเงิน to open the method picker, so top-up works without the Roblox feature.
 async function handleTopupPanel(interaction, ctx) {
@@ -101,6 +129,11 @@ module.exports = {
         .addIntegerOption((o) => o.setName('amount').setDescription('จำนวนเงิน (บาท)').setRequired(true).setMinValue(1))
         .toJSON(),
       new SlashCommandBuilder()
+        .setName('topup-monthly')
+        .setDescription('เช็คยอดเติมเงินใน 1 เดือนล่าสุด (แอดมิน: ไม่ระบุสมาชิก = รวมทั้งร้าน)')
+        .addUserOption((o) => o.setName('member').setDescription('สมาชิก (แอดมินเท่านั้น)').setRequired(false))
+        .toJSON(),
+      new SlashCommandBuilder()
         .setName('topup-panel')
         .setDescription('โพสต์แผงเติมเงิน (แอดมินเท่านั้น)')
         .toJSON(),
@@ -110,6 +143,7 @@ module.exports = {
   handlers: {
     wallet: handleWallet,
     'wallet-add': handleWalletAdd,
+    'topup-monthly': handleTopupMonthly,
     'topup-panel': handleTopupPanel,
   },
 
