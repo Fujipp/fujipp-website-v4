@@ -65,10 +65,11 @@ public class ProjectService {
             }
 
             List<ProjectResponse> projects = loadProjects();
-            projectsCache = new CachedProjects(projects, now + PUBLIC_CACHE_TTL_NANOS);
+            long expiresAtNanos = now + PUBLIC_CACHE_TTL_NANOS;
+            projectsCache = new CachedProjects(projects, expiresAtNanos);
             projects.forEach(project -> projectCache.put(
                 project.id(),
-                new CachedProject(project, now + PUBLIC_CACHE_TTL_NANOS)
+                new CachedProject(project, expiresAtNanos)
             ));
             return projects;
         }
