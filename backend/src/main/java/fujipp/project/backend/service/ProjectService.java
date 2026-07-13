@@ -15,6 +15,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.HashSet;
@@ -23,6 +25,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -32,22 +37,55 @@ public class ProjectService {
     private static final List<String> STACK_GROUPS = List.of(
         "language", "frontend", "backend", "database", "external_service", "devops"
     );
+    private static final long PUBLIC_CACHE_TTL_NANOS = TimeUnit.MINUTES.toNanos(5);
 
     private final JdbcTemplate jdbcTemplate;
     private final ProfileRepository profileRepository;
     private final ProjectRepository projectRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final Object publicCacheLock = new Object();
+    private final ConcurrentMap<UUID, CachedProject> projectCache = new ConcurrentHashMap<>();
+    private volatile CachedProjects projectsCache;
 
     @Transactional(readOnly = true)
     public List<ProjectResponse> getProjects() {
-        return projectRepository.findAllByPublishedTrueOrderByDisplayOrderAsc().stream()
-            .map(this::toResponse)
-            .toList();
+        long now = System.nanoTime();
+        CachedProjects cached = projectsCache;
+
+        if (cached != null && cached.expiresAtNanos() > now) {
+            return cached.projects();
+        }
+
+        synchronized (publicCacheLock) {
+            cached = projectsCache;
+            now = System.nanoTime();
+
+            if (cached != null && cached.expiresAtNanos() > now) {
+                return cached.projects();
+            }
+
+            List<ProjectResponse> projects = loadProjects();
+            projectsCache = new CachedProjects(projects, now + PUBLIC_CACHE_TTL_NANOS);
+            projects.forEach(project -> projectCache.put(
+                project.id(),
+                new CachedProject(project, now + PUBLIC_CACHE_TTL_NANOS)
+            ));
+            return projects;
+        }
     }
 
     @Transactional(readOnly = true)
     public ProjectResponse getProject(UUID projectId) {
-        return toResponse(findProject(projectId));
+        long now = System.nanoTime();
+        CachedProject cached = projectCache.get(projectId);
+
+        if (cached != null && cached.expiresAtNanos() > now) {
+            return cached.project();
+        }
+
+        ProjectResponse project = toResponse(findProject(projectId));
+        projectCache.put(projectId, new CachedProject(project, now + PUBLIC_CACHE_TTL_NANOS));
+        return project;
     }
 
     @Transactional
@@ -63,7 +101,9 @@ public class ProjectService {
         applyMainProject(project, request);
         project = projectRepository.saveAndFlush(project);
         replaceChildren(project.getId(), request);
-        return toResponse(project);
+        ProjectResponse response = toResponse(project);
+        invalidatePublicCacheAfterCommit();
+        return response;
     }
 
     @Transactional
@@ -78,7 +118,9 @@ public class ProjectService {
         applyMainProject(project, request);
         project = projectRepository.saveAndFlush(project);
         replaceChildren(projectId, request);
-        return toResponse(project);
+        ProjectResponse response = toResponse(project);
+        invalidatePublicCacheAfterCommit();
+        return response;
     }
 
     @Transactional
@@ -124,19 +166,50 @@ public class ProjectService {
         }
 
         projectRepository.saveAllAndFlush(projects);
-        return getProjects();
+        invalidatePublicCacheAfterCommit();
+        return loadProjects();
     }
 
     @Transactional
     public void deleteProject(UUID userId, UUID projectId) {
         requireAdmin(userId);
         projectRepository.delete(findProject(projectId));
+        invalidatePublicCacheAfterCommit();
+    }
+
+    private List<ProjectResponse> loadProjects() {
+        return projectRepository.findAllByPublishedTrueOrderByDisplayOrderAsc().stream()
+            .map(this::toResponse)
+            .toList();
+    }
+
+    private void invalidatePublicCache() {
+        projectsCache = null;
+        projectCache.clear();
+    }
+
+    private void invalidatePublicCacheAfterCommit() {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            invalidatePublicCache();
+            return;
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                invalidatePublicCache();
+            }
+        });
     }
 
     private Project findProject(UUID projectId) {
         return projectRepository.findById(projectId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
     }
+
+    private record CachedProjects(List<ProjectResponse> projects, long expiresAtNanos) {}
+
+    private record CachedProject(ProjectResponse project, long expiresAtNanos) {}
 
     private void requireAdmin(UUID userId) {
         Profile profile = profileRepository.findById(userId)

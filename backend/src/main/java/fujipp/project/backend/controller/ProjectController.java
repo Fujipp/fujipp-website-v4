@@ -6,6 +6,7 @@ import fujipp.project.backend.dto.ProjectResponse;
 import fujipp.project.backend.service.ProjectService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 
@@ -30,13 +32,17 @@ public class ProjectController {
     private final ProjectService projectService;
 
     @GetMapping("/public/projects")
-    public List<ProjectResponse> getProjects() {
-        return projectService.getProjects();
+    public ResponseEntity<List<ProjectResponse>> getProjects() {
+        return ResponseEntity.ok()
+            .cacheControl(publicProjectCacheControl())
+            .body(projectService.getProjects());
     }
 
     @GetMapping("/public/projects/{projectId}")
-    public ProjectResponse getProject(@PathVariable UUID projectId) {
-        return projectService.getProject(projectId);
+    public ResponseEntity<ProjectResponse> getProject(@PathVariable UUID projectId) {
+        return ResponseEntity.ok()
+            .cacheControl(publicProjectCacheControl())
+            .body(projectService.getProject(projectId));
     }
 
     @PostMapping("/projects")
@@ -73,5 +79,11 @@ public class ProjectController {
 
     private UUID getUserId(Jwt jwt) {
         return UUID.fromString(jwt.getSubject());
+    }
+
+    private CacheControl publicProjectCacheControl() {
+        return CacheControl.maxAge(Duration.ofMinutes(1))
+            .cachePublic()
+            .staleWhileRevalidate(Duration.ofMinutes(5));
     }
 }
