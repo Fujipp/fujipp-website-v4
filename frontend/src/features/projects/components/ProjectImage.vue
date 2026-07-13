@@ -26,6 +26,8 @@ watch(visibleImages, (images) => {
             :class="$style.mainImage"
             :src="activeImage"
             :alt="`${projectName} preview ${activeIndex + 1}`"
+            decoding="async"
+            fetchpriority="high"
             draggable="false"
         >
         <div
@@ -50,6 +52,8 @@ watch(visibleImages, (images) => {
                     :class="$style.thumbnail"
                     :src="image"
                     :alt="`${projectName} thumbnail ${index + 1}`"
+                    decoding="async"
+                    loading="lazy"
                     draggable="false"
                 >
             </button>
@@ -62,17 +66,18 @@ watch(visibleImages, (images) => {
     display: flex;
     flex-direction: column;
     align-items: center;
-    width: 100%;
+    width: min(100%, 993px);
     gap: 8px;
 }
 
 .mainImage {
     align-self: stretch;
     width: 100%;
-    max-height: 542px;
-    aspect-ratio: 16 / 9;
+    height: 542px;
+    border: 1px solid var(--color-main-divider);
     border-radius: var(--radius-xl);
-    background-color: var(--color-main-secondary);
+    background-color: var(--color-main-surface);
+    box-sizing: border-box;
     object-fit: cover;
     user-select: none;
     -webkit-user-drag: none;
@@ -107,9 +112,9 @@ watch(visibleImages, (images) => {
     flex-shrink: 1;
     padding: 0;
     overflow: hidden;
-    border: 2px solid transparent;
+    border: 1px solid var(--color-main-divider);
     border-radius: var(--radius-xl);
-    background: transparent;
+    background: var(--color-main-surface);
     cursor: pointer;
     transition: border-color 160ms ease;
 }
@@ -140,6 +145,11 @@ watch(visibleImages, (images) => {
 }
 
 @media (max-width: 767px) {
+    .mainImage {
+        height: auto;
+        aspect-ratio: 16 / 9;
+    }
+
     .thumbnailButton {
         width: 90px;
         border-radius: var(--radius-lg);

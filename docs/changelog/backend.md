@@ -1,9 +1,11 @@
 # Changelog — Backend
 
-**Current version: `0.5.2`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.5.2.2`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.5.2.2` | 2026-07-13 | Stabilized public Project cache initialization for clean production deployments. |
+| `0.5.2.1` | 2026-07-13 | Public Projects now load from a short-lived cache that refreshes automatically after admin changes. |
 | `0.5.2` | 2026-07-12 | Added a /topup-monthly command to the wallet top-up feature: members can check their own 1-month top-up total, and admins can view any member's total or the whole shop's monthly total. |
 | `0.5.1` | 2026-07-10 | Admins can now update each Shop feature’s name, description, and icon selection. |
 | `0.5.0` | 2026-07-10 | Runtime is now bought by duration before selecting a bot; overdue or non-renewed Runtime releases its VPS seat back to available inventory after the configured grace period. |

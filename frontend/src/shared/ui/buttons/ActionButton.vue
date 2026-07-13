@@ -110,7 +110,7 @@ const iconStyle = computed(() => {
     flex-shrink: 0;
     border: 1px solid var(--color-button-border);
     border-radius: var(--radius-full);
-    background: var(--color-button-secondary);
+    background: var(--color-button-text-secondary);
     padding: 0;
     cursor: pointer;
     transition:
@@ -122,8 +122,8 @@ const iconStyle = computed(() => {
 }
 
 .actionButton:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--color-button-secondary) 88%, var(--color-button-text));
-    border-color: color-mix(in srgb, var(--color-button-border) 70%, var(--color-button-text));
+    background: color-mix(in srgb, var(--color-button-text-secondary) 88%, var(--color-button-secondary));
+    border-color: color-mix(in srgb, var(--color-button-border) 70%, var(--color-button-secondary));
     box-shadow: 0 4px 6px rgb(0 0 0 / 12%);
     transform: translateY(-1px);
 }
@@ -147,7 +147,7 @@ const iconStyle = computed(() => {
     width: 16px;
     height: 16px;
     flex-shrink: 0;
-    background-color: var(--color-button-text);
+    background-color: var(--color-button-secondary);
     mask: var(--action-icon-src) center / contain no-repeat;
     -webkit-mask: var(--action-icon-src) center / contain no-repeat;
     transform: rotate(var(--action-icon-rotation));

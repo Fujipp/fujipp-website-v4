@@ -1,9 +1,90 @@
 # Changelog — Frontend
 
-**Current version: `0.7.0.83.3`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.7.0.95.3`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.7.0.95.3` | 2026-07-13 | Stabilized Project Detail inline saving for complete technology groups and featured stack ordering. |
+| `0.7.0.95.2` | 2026-07-13 | Signing out from Shop maintenance now returns visitors to the public Home page without an unnecessary login redirect. |
+| `0.7.0.95.1` | 2026-07-13 | The maintenance ghost now pops up manga-style speech bubbles with three rotating friendly messages. |
+| `0.7.0.95` | 2026-07-13 | The Shop maintenance notice now shows a shared three-day countdown to the expected return time. |
+| `0.7.0.94.9` | 2026-07-13 | The Shop maintenance notice now uses dialog colors, a standard action button, and an interactive apologetic ghost. |
+| `0.7.0.94.8` | 2026-07-13 | Signed-in Shop areas now show a temporary maintenance notice while wallet top-ups remain available. |
+| `0.7.0.94.7` | 2026-07-13 | Projects now appear from a saved snapshot while fresh data loads, with more efficient gallery image caching. |
+| `0.7.0.94.6` | 2026-07-13 | Center command-wheel icons now follow the primary text color across light and dark themes. |
+| `0.7.0.94.5` | 2026-07-13 | Command-wheel hover now fills each complete segment from the center boundary to the outer edge. |
+| `0.7.0.94.4` | 2026-07-13 | Stabilized command-wheel icon visibility and refined the project picker with compact spacing and readable hover colors. |
+| `0.7.0.94.3` | 2026-07-13 | Improved command-wheel selection, centered Back navigation, editable project dates and status, mapped roles, and image removal controls. |
+| `0.7.0.94.2` | 2026-07-13 | Refined admin project actions, preview ordering, stack selection, certificate uploads, and balanced inline link blocks. |
+| `0.7.0.94.1` | 2026-07-13 | Admin tools can now be dragged to any screen corner and open as an animated, sound-enabled command wheel. |
+| `0.7.0.94` | 2026-07-13 | Added admin project tools with circular shortcuts and direct inline creation and editing on Project Detail. |
+| `0.7.0.93` | 2026-07-13 | Refined Project Add/Edit with the standard Navbar, centered form header, direct Thai/English controls, and design-aligned field order. |
+| `0.7.0.92.3` | 2026-07-13 | Technology chips now use compact floating name tooltips instead of expanding labels, preventing overlap and layout movement. |
+| `0.7.0.92.2` | 2026-07-13 | Technology names now expand as overlays without pushing or rewrapping neighboring stack icons. |
+| `0.7.0.92.1` | 2026-07-13 | Project Detail insight lists now use visible bullets, clearer line spacing, and separation between each item. |
+| `0.7.0.92` | 2026-07-13 | Unified Project Detail's Features, Challenges, and What I Learned into a clear three-part list section. |
+| `0.7.0.91.1` | 2026-07-13 | Project Detail technology chips now match About, revealing names with lift and focus interactions. |
+| `0.7.0.91` | 2026-07-13 | Combined Project Detail's Architecture and technology stack into a responsive image-and-icon showcase section. |
+| `0.7.0.90.5` | 2026-07-13 | Featured Projects now opens with the first-ranked Top 1 project centered instead of Top 2. |
+| `0.7.0.90.4` | 2026-07-13 | Full-width dark sections now keep their content aligned inside the centered 1280px page block. |
+| `0.7.0.90.3` | 2026-07-13 | Dark surface sections on Projects and Project Detail now extend edge to edge like the Home page. |
+| `0.7.0.90.2` | 2026-07-13 | Refined Project Detail's Feasibility and Target Users into a spacious dark information section with clearer typography. |
+| `0.7.0.90.1` | 2026-07-13 | Tightened the mobile transition between Project Detail's Preview and information sections by removing desktop height and padding constraints. |
+| `0.7.0.90` | 2026-07-13 | Consolidated Project Detail's identity, links, status metrics, roles, and overview into a spacious unified information section. |
+| `0.7.0.89.4` | 2026-07-13 | Project Detail now defaults to English and treats its flag controls as simple language actions without a persistent selected state. |
+| `0.7.0.89.3` | 2026-07-13 | Thai and English flag controls now appear only in the Project Detail Preview header beside Back and Preview. |
+| `0.7.0.89.2` | 2026-07-13 | Thai and English flag controls are now visible directly in the Navbar for guests and signed-in users. |
+| `0.7.0.89.1` | 2026-07-13 | Project Detail now uses the standard Navbar for theme and Thai/English language controls, keeping Preview focused on navigation and imagery. |
+| `0.7.0.89` | 2026-07-13 | Refined Project Detail's Preview hero with balanced navigation controls and a precisely sized, bordered gallery layout. |
+| `0.7.0.88.6` | 2026-07-13 | Contribution cells now show only the styled activity tooltip without a duplicate browser tooltip. |
+| `0.7.0.88.5` | 2026-07-13 | Contribution cells now show an accessible tooltip with the full date and exact contribution count on hover or keyboard focus. |
+| `0.7.0.88.4` | 2026-07-13 | Replaced the GitHub Activity year dropdown with compact, keyboard-accessible text year controls. |
+| `0.7.0.88.3` | 2026-07-13 | GitHub Activity now uses the platform's shared dropdown component for contribution-year selection. |
+| `0.7.0.88.2` | 2026-07-13 | GitHub Activity now includes month labels, a detailed contribution intensity legend, and selectable yearly history. |
+| `0.7.0.88.1` | 2026-07-13 | GitHub contribution activity now uses four distinct green intensity levels for clearer daily activity patterns. |
+| `0.7.0.88` | 2026-07-13 | Added a live GitHub Activity section showing Fujipp's contribution total and responsive one-year contribution calendar. |
+| `0.7.0.87.5` | 2026-07-13 | New pages now open at the top while browser back and forward navigation restores the previous reading position. |
+| `0.7.0.87.4` | 2026-07-13 | Restored Featured project button navigation by preventing the card drag gesture from intercepting button and link presses. |
+| `0.7.0.87.3` | 2026-07-13 | Updated table pagination with high-contrast theme colors for its controls, page numbers, icons, and borders. |
+| `0.7.0.87.2` | 2026-07-13 | Refined the All Projects section with balanced spacing, centered vertical layout, and theme-aware surface colors. |
+| `0.7.0.87.1` | 2026-07-13 | Corrected shared button colors so backgrounds, labels, icons, and borders follow the intended light and dark theme pairing. |
+| `0.7.0.87` | 2026-07-13 | Featured project cards now appear in their true ranked order from top 1 through top 3. |
+| `0.7.0.86.9` | 2026-07-13 | Featured project cards can now be dragged left or right with a mouse or touch gesture to rotate the showcase. |
+| `0.7.0.86.8` | 2026-07-13 | Featured project cards now rotate: clicking a side card swings it into the center where it grows to full size, with dots to jump between cards. |
+| `0.7.0.86.7` | 2026-07-13 | Redesigned the featured projects showcase as a dark carousel with the top project enlarged in the center, rank-labeled view buttons, and swipeable cards with indicator dots on mobile. |
+| `0.7.0.86.6` | 2026-07-13 | Added a Projects hero introducing the top 3 featured projects, with a Slide down button that scrolls to the next section. |
+| `0.7.0.86.5` | 2026-07-13 | The About banner now uses the standard dark surface tone instead of a photo texture, keeping the animated ghosts consistent with the site theme. |
+| `0.7.0.86.4` | 2026-07-13 | The footer now uses the same left-aligned layout on mobile as on desktop. |
+| `0.7.0.86.3` | 2026-07-13 | Polished the About page with scroll-reveal sections, skill chips that expand their names on hover, lifting design cards, an avatar ring, and self-drawing heading accents. |
+| `0.7.0.86.2` | 2026-07-13 | Removed the language toggle from the About page contact row. |
+| `0.7.0.86.1` | 2026-07-13 | About banner ghosts now watch the cursor with eyes that follow the pointer and blink. |
+| `0.7.0.86` | 2026-07-13 | Turned the About banner into an interactive scene with floating ghost mascots, twinkling sparkles, and a gliding light sweep. |
+| `0.7.0.85.9` | 2026-07-13 | Refreshed the About page layout with a My design logo showcase, icon-based skill chips, refined profile row, and updated intro copy in both languages. |
+| `0.7.0.85.8` | 2026-07-12 | Filled the footer area on the Home page with the standard background color across the full width. |
+| `0.7.0.85.7` | 2026-07-12 | Added the site footer to the Home page. |
+| `0.7.0.85.6` | 2026-07-12 | Applied the standard background color to the Home services and developer sections. |
+| `0.7.0.85.5` | 2026-07-12 | Added a Home section introducing the developer behind the platform, with a button linking to all projects. |
+| `0.7.0.85.4` | 2026-07-12 | Added a Home section highlighting the Discord communities already running on the platform, with their logos. |
+| `0.7.0.85.3` | 2026-07-12 | Aligned the Home services section content width with the sections above it on wide screens. |
+| `0.7.0.85.2` | 2026-07-12 | Added a Home section presenting premium bot features and reliable hosting, covering custom bot features and flexible 1-3 month runtime plans. |
+| `0.7.0.85.1` | 2026-07-12 | Balanced the Home ghost mascot accents with an additional floating pair on the left side. |
+| `0.7.0.85` | 2026-07-12 | Tilted the Home ghost mascot accents to match the design and added a gentle floating animation that respects reduced-motion preferences. |
+| `0.7.0.84.9` | 2026-07-12 | Added a Home section introducing effortless Discord bot setup, with a Discord art card, ghost mascot accents on desktop, and a stacked centered layout on mobile. |
+| `0.7.0.84.8` | 2026-07-12 | Redesigned the Home hero with the Rammetto One display font, a welcome heading beside the mascot image on desktop, and a centered text-only layout on mobile. |
+| `0.7.0.84.7` | 2026-07-12 | Restored mobile profile settings as a bottom sheet and raised it to approximately half the viewport height. |
+| `0.7.0.84.6` | 2026-07-12 | Expanded the mobile authentication sheet to nearly full height and centered mobile profile settings for easier interaction. |
+| `0.7.0.84.5` | 2026-07-12 | Replaced Navbar authentication page links with responsive sign-in and sign-up modals, including a mobile bottom-sheet experience and connected OAuth actions. |
+| `0.7.0.84.4` | 2026-07-12 | Connected the Footer directly to Fujipp's email, Discord community, and GitHub profile. |
+| `0.7.0.84.3` | 2026-07-12 | Refreshed the responsive Footer with clearer company details, policy links, and social contact access. |
+| `0.7.0.84.2` | 2026-07-12 | Refined profile settings with a glass-selected theme control and simpler language switching. |
+| `0.7.0.84.1` | 2026-07-12 | Improved Navbar feedback with inverted authentication buttons and clearer hover, pressed, and active Portal links. |
+| `0.7.0.84` | 2026-07-12 | Rebuilt desktop and mobile navigation around clear guest and customer journeys, with responsive account settings. |
+| `0.7.0.83.9` | 2026-07-12 | Unified field labels and input text with the refreshed responsive typography system. |
+| `0.7.0.83.8` | 2026-07-12 | Aligned toggle, radio, and checkbox states with the refreshed light and dark color system. |
+| `0.7.0.83.7` | 2026-07-12 | Restored responsive button hover motion and refined the primary glass effect to use neutral highlights. |
+| `0.7.0.83.6` | 2026-07-12 | Refined primary and secondary buttons with glass depth, consistent shadows, and clearer disabled states. |
+| `0.7.0.83.5` | 2026-07-12 | Added language, social media, and directional icons to the shared visual library. |
+| `0.7.0.83.4` | 2026-07-12 | Refreshed light and dark theme colors and added Rammetto One for distinctive display typography. |
 | `0.7.0.83.3` | 2026-07-10 | Admins can now edit Shop feature names, descriptions, and icons; Shop cards reflect those choices. |
 | `0.7.0.83.2` | 2026-07-10 | The Shop setup guide now appears only for customers without a bot. |
 | `0.7.0.83.1` | 2026-07-10 | Protected Shop and Admin pages now return to Login immediately after signing out. |

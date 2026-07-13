@@ -67,9 +67,9 @@ const iconStyle = computed(() => (props.icon ? { "--filter-icon-src": `url(${pro
     gap: 12px;
     border: 0.5px solid var(--color-button-border);
     border-radius: var(--radius-xl);
-    background: var(--color-button-secondary);
+    background: var(--color-button-text-secondary);
     padding: 8px 8px 8px 12px;
-    color: var(--color-button-text);
+    color: var(--color-button-secondary);
     font-family: var(--font-sans);
     font-size: var(--type-size-button);
     line-height: normal;
@@ -82,8 +82,8 @@ const iconStyle = computed(() => (props.icon ? { "--filter-icon-src": `url(${pro
 }
 
 .filterButton:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--color-button-secondary) 88%, var(--color-button-text));
-    border-color: color-mix(in srgb, var(--color-button-border) 70%, var(--color-button-text));
+    background: color-mix(in srgb, var(--color-button-text-secondary) 88%, var(--color-button-secondary));
+    border-color: color-mix(in srgb, var(--color-button-border) 70%, var(--color-button-secondary));
 }
 
 .filterButton:focus-visible {
@@ -106,20 +106,20 @@ const iconStyle = computed(() => (props.icon ? { "--filter-icon-src": `url(${pro
     width: 12px;
     height: 12px;
     flex-shrink: 0;
-    background-color: var(--color-button-text);
+    background-color: var(--color-button-secondary);
     mask: var(--filter-icon-src) center / contain no-repeat;
     -webkit-mask: var(--filter-icon-src) center / contain no-repeat;
 }
 
 .label {
-    font-weight: 300;
+    font-weight: 600;
 }
 
 .arrow {
     width: 10px;
     height: 10px;
     flex-shrink: 0;
-    background-color: var(--color-button-text);
+    background-color: var(--color-button-secondary);
     mask: var(--filter-arrow-src) center / contain no-repeat;
     -webkit-mask: var(--filter-arrow-src) center / contain no-repeat;
     transform: rotate(var(--filter-arrow-rotation));

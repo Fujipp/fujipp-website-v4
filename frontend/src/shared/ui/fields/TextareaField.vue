@@ -28,10 +28,10 @@ const emit = defineEmits<{
 
 <template>
     <label :class="$style.textArea">
-        <span v-if="label" :class="$style.title" class="type-overline-r">{{ label }}</span>
+        <span v-if="label" :class="$style.title" class="type-input-label-sb">{{ label }}</span>
         <textarea
             :class="[$style.field, error ? $style.errorField : '']"
-            class="type-body-small-r"
+            class="type-input-label-r"
             :disabled="disabled"
             :name="name"
             :placeholder="placeholder"
@@ -65,8 +65,6 @@ const emit = defineEmits<{
 
 .title {
     color: var(--color-input-title);
-    font-family: var(--font-sans);
-    font-weight: 800;
 }
 
 .field {
@@ -80,7 +78,6 @@ const emit = defineEmits<{
     outline: 0;
     background-color: var(--color-input-bg);
     color: var(--color-text-input);
-    font-weight: 300;
     transition: border-color 160ms ease;
 }
 

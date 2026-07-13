@@ -38,12 +38,12 @@ function openPicker(): void {
 
 <template>
     <label :class="$style.dateField">
-        <span v-if="label" :class="$style.title" class="type-overline-r">{{ label }}</span>
+        <span v-if="label" :class="$style.title" class="type-input-label-sb">{{ label }}</span>
         <span :class="[$style.field, error ? $style.errorField : '']">
             <input
                 ref="input"
                 :class="[$style.input, !modelValue && $style.empty]"
-                class="type-body-small-r"
+                class="type-input-label-r"
                 :type="withTime ? 'datetime-local' : 'date'"
                 :value="modelValue"
                 :disabled="disabled"
@@ -89,8 +89,6 @@ function openPicker(): void {
 
 .title {
     color: var(--color-input-title);
-    font-family: var(--font-sans);
-    font-weight: 800;
 }
 
 .field {
@@ -131,8 +129,6 @@ function openPicker(): void {
     background: none;
     padding: 0;
     color: var(--color-text-input);
-    font-family: var(--font-sans);
-    font-weight: 300;
     color-scheme: light;
 }
 

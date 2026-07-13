@@ -1,4 +1,4 @@
-/* Inter and Sora - SIL Open Font License 1.1. See /public/fonts/inter/OFL.txt and /public/fonts/sora/OFL.txt. */
+/* Inter, Sora, and Rammetto One - SIL Open Font License 1.1. See each font folder's OFL.txt. */
 @font-face {
   font-family: "Inter";
   font-style: normal;
@@ -47,10 +47,19 @@
   src: url("/fonts/sora/sora-extrabold.ttf") format("truetype");
 }
 
+@font-face {
+  font-family: "Rammetto One";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/rammetto-one/rammetto-one-regular.ttf") format("truetype");
+}
+
 @theme static {
   --font-sans: "Inter", "SF Pro Text", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial,
     sans-serif;
   --font-sora: "Sora", var(--font-sans);
+  --font-rammetto-one: "Rammetto One", var(--font-sans);
   --font-thai: "SF Pro Text", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Noto Sans Thai", Tahoma, sans-serif;
 }
 

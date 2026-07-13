@@ -16,6 +16,7 @@ export const icons = {
   search: "/icons/action/search.svg",
   setting: "/icons/action/setting.svg",
   save: "/icons/action/save.svg",
+  tools: "/icons/action/tools.svg",
 
   slide: "/icons/common/slide.svg",
   calendar: "/icons/common/calendar.svg",
@@ -49,7 +50,14 @@ export const icons = {
   gmail: "/icons/link/gmail.svg",
   google: "/icons/link/google.svg",
   instagram: "/icons/link/instagram.svg",
+  facebook: "/icons/link/facebook.svg",
+  linkedin: "/icons/link/linkedin.svg",
+  tiktok: "/icons/link/tiktok.svg",
   youtube: "/icons/link/youtube.svg",
+
+  language: "/icons/language/language.svg",
+  languageThai: "/icons/language/thai.svg",
+  languageUs: "/icons/language/us.svg",
 
   about: "/icons/navigation/about.svg",
   contact: "/icons/navigation/contact.svg",
@@ -66,6 +74,11 @@ export const icons = {
   sidebarClose: "/icons/navigation/sidebar-close.svg",
   sidebarOpen: "/icons/navigation/sidebar-open.svg",
   wallet: "/icons/navigation/wallet.svg",
+
+  directionDown: "/icons/navigation/direction/down.svg",
+  directionLeft: "/icons/navigation/direction/left.svg",
+  directionRight: "/icons/navigation/direction/right.svg",
+  directionUp: "/icons/navigation/direction/up.svg",
 
   modeDark: "/icons/navigation/theme/mode-dark.svg",
   modeLight: "/icons/navigation/theme/mode-light.svg",
@@ -192,6 +205,8 @@ const originalColorIcons = new Set<string>([
   icons.certificate,
   // icons.demo,
   icons.google,
+  icons.languageThai,
+  icons.languageUs,
   icons.youtube,
   icons.shopLog,
   icons.success,

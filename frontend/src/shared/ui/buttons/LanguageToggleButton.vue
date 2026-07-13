@@ -86,7 +86,7 @@ function resetButtonTilt(event: PointerEvent | FocusEvent): void {
     backdrop-filter: blur(18px) saturate(160%);
     -webkit-backdrop-filter: blur(18px) saturate(160%);
     padding: 12px 16px;
-    color: var(--color-button-text);
+    color: var(--color-button-secondary);
     font-family: var(--font-sans);
     font-size: var(--type-size-button);
     line-height: normal;
@@ -155,6 +155,6 @@ function resetButtonTilt(event: PointerEvent | FocusEvent): void {
     width: 1px;
     height: 20px;
     flex-shrink: 0;
-    background: color-mix(in srgb, var(--color-button-text) 60%, transparent);
+    background: color-mix(in srgb, var(--color-button-secondary) 60%, transparent);
 }
 </style>

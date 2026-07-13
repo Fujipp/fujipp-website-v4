@@ -39,6 +39,7 @@ const buttonClass = computed(() => [
     "primaryButton",
     props.widthMode,
     isIconOnly.value ? "iconOnly" : "",
+    props.disabled ? "disabled" : "",
 ]);
 const buttonStyle = computed(() => ({
     "--button-fixed-width": props.fixedWidth,
@@ -57,7 +58,7 @@ function iconMaskStyle(icon: string): Record<string, string> {
 function updateButtonTilt(event: PointerEvent): void {
     const target = event.currentTarget as HTMLElement | null;
 
-    if (!target) return;
+    if (!target || props.disabled) return;
 
     const rect = target.getBoundingClientRect();
     const x = ((event.clientX - rect.left) / rect.width - 0.5) * 2;
@@ -87,6 +88,9 @@ function resetButtonTilt(event: PointerEvent | FocusEvent): void {
         :target="target"
         :rel="rel"
         :aria-label="ariaLabel"
+        :aria-disabled="disabled || undefined"
+        :tabindex="disabled ? -1 : undefined"
+        @click="disabled && $event.preventDefault()"
         @pointermove="updateButtonTilt"
         @pointerleave="resetButtonTilt"
         @blur="resetButtonTilt"
@@ -108,6 +112,9 @@ function resetButtonTilt(event: PointerEvent | FocusEvent): void {
         :style="buttonStyle"
         :to="to"
         :aria-label="ariaLabel"
+        :aria-disabled="disabled || undefined"
+        :tabindex="disabled ? -1 : undefined"
+        @click="disabled && $event.preventDefault()"
         @pointermove="updateButtonTilt"
         @pointerleave="resetButtonTilt"
         @blur="resetButtonTilt"
@@ -161,22 +168,15 @@ function resetButtonTilt(event: PointerEvent | FocusEvent): void {
     min-height: 44px;
     gap: 10px;
     overflow: hidden;
-    border: 1px solid color-mix(in srgb, var(--color-button-primary) 32%, transparent);
+    isolation: isolate;
+    border: 0;
     border-radius: var(--radius-xl);
-    background:
-        linear-gradient(
-            145deg,
-            color-mix(in srgb, var(--color-button-primary) 34%, transparent) 0%,
-            color-mix(in srgb, var(--color-button-primary) 16%, transparent) 48%,
-            color-mix(in srgb, var(--color-button-primary) 24%, transparent) 100%
-        );
-    box-shadow:
-        inset 0 1px 1px color-mix(in srgb, var(--color-button-primary) 28%, transparent),
-        0 4px 4px rgb(0 0 0 / 10%);
-    backdrop-filter: blur(18px) saturate(160%);
-    -webkit-backdrop-filter: blur(18px) saturate(160%);
+    background: transparent;
+    box-shadow: 0 4px 4px rgb(0 0 0 / 10%);
+    backdrop-filter: saturate(160%) contrast(105%);
+    -webkit-backdrop-filter: saturate(160%) contrast(105%);
     padding: 10px;
-    color: var(--color-button-text);
+    color: var(--color-button-secondary);
     font-family: var(--font-sans);
     font-size: var(--type-size-button);
     font-weight: 600;
@@ -186,25 +186,44 @@ function resetButtonTilt(event: PointerEvent | FocusEvent): void {
     text-decoration: none;
     cursor: pointer;
     transition:
-        border-color 180ms ease,
         background 180ms ease,
         box-shadow 180ms ease,
-        opacity 180ms ease,
         transform 180ms ease;
 }
 
-.primaryButton:hover:not(:disabled) {
-    border-color: color-mix(in srgb, var(--color-button-primary) 52%, transparent);
+.primaryButton::before,
+.primaryButton::after {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    content: "";
+    pointer-events: none;
+}
+
+.primaryButton::before {
+    z-index: -2;
     background:
         linear-gradient(
-            145deg,
-            color-mix(in srgb, var(--color-button-primary) 40%, transparent) 0%,
-            color-mix(in srgb, var(--color-button-primary) 20%, transparent) 48%,
-            color-mix(in srgb, var(--color-button-primary) 28%, transparent) 100%
+            180deg,
+            rgb(255 255 255 / 80%) 0%,
+            rgb(255 255 255 / 18%) 18%,
+            rgb(255 255 255 / 4%) 52%,
+            rgb(255 255 255 / 14%) 100%
         );
+    opacity: 0.32;
+}
+
+.primaryButton::after {
+    z-index: -1;
+    border: 1px solid color-mix(in srgb, var(--color-button-primary) 38%, transparent);
+    background: linear-gradient(180deg, transparent 45%, rgb(255 255 255 / 10%));
     box-shadow:
-        inset 0 1px 1px color-mix(in srgb, var(--color-button-primary) 34%, transparent),
-        0 8px 12px rgb(0 0 0 / 14%);
+        inset 0 1px 0 rgb(255 255 255 / 50%),
+        inset 0 -1px 0 rgb(255 255 255 / 12%);
+}
+
+.primaryButton:hover:not(:disabled):not(.disabled) {
+    box-shadow: 0 6px 8px rgb(0 0 0 / 12%);
     transform:
         perspective(700px)
         rotateX(var(--button-tilt-y))
@@ -212,8 +231,8 @@ function resetButtonTilt(event: PointerEvent | FocusEvent): void {
         translateY(-1px);
 }
 
-.primaryButton:active:not(:disabled) {
-    box-shadow: 0 3px 4px rgb(0 0 0 / 10%);
+.primaryButton:active:not(:disabled):not(.disabled) {
+    box-shadow: 0 2px 4px rgb(0 0 0 / 10%);
     transform:
         perspective(700px)
         rotateX(var(--button-tilt-y))
@@ -227,9 +246,9 @@ function resetButtonTilt(event: PointerEvent | FocusEvent): void {
     outline-offset: 2px;
 }
 
-.primaryButton:disabled {
+.primaryButton:disabled,
+.primaryButton.disabled {
     cursor: not-allowed;
-    opacity: 0.45;
 }
 
 .icon,
@@ -248,7 +267,7 @@ function resetButtonTilt(event: PointerEvent | FocusEvent): void {
 }
 
 .maskIcon {
-    background-color: var(--color-text-primary);
+    background-color: var(--color-button-secondary);
     mask: var(--button-icon-src) center / contain no-repeat;
     -webkit-mask: var(--button-icon-src) center / contain no-repeat;
 }
