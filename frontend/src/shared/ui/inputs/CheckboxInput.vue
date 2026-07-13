@@ -64,8 +64,7 @@ function onChange(): void {
     margin: auto;
     width: 62.5%;
     height: 62.5%;
-    /* --color-main-secondary stays light in both themes, so the check must stay dark too. */
-    background-color: var(--color-input-text);
+    background-color: var(--color-button-secondary);
     mask: var(--checkbox-check) center / contain no-repeat;
     -webkit-mask: var(--checkbox-check) center / contain no-repeat;
     opacity: 0;
@@ -80,7 +79,7 @@ function onChange(): void {
 }
 
 .checkboxInput:checked {
-    background: var(--color-main-secondary);
+    background: var(--color-button-text);
 }
 
 .checkboxInput:checked::after {

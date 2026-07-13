@@ -2,7 +2,7 @@
 import { computed, ref, watch } from "vue";
 import type { RouteLocationRaw } from "vue-router";
 import { backend, database, frontend, type ProjectTechStack, type Skills } from "@/config";
-import { ActionButton, SecondaryButton } from "@/shared/ui/buttons";
+import { ActionButton, PrimaryButton, SecondaryButton } from "@/shared/ui/buttons";
 import { CategoryTag, StackTag } from "@/shared/ui/tags";
 
 type StackGroup = "frontend" | "backend" | "database";
@@ -13,8 +13,10 @@ interface Props {
     category?: string;
     changeLabel?: string;
     descriptionShort?: string;
+    imageLoading?: "eager" | "lazy";
     mode?: "loaded" | "skeleton" | "add";
     projectName: string;
+    size?: "large" | "small";
     stackGroups?: readonly StackGroup[];
     techStack?: ProjectTechStack;
     thumbnailAlt?: string;
@@ -29,7 +31,9 @@ const props = withDefaults(defineProps<Props>(), {
     category: "",
     changeLabel: "Change",
     descriptionShort: "",
+    imageLoading: "lazy",
     mode: "loaded",
+    size: "small",
     stackGroups: () => ["frontend", "backend", "database"],
     thumbnailAlt: "",
     thumbnailSrc: "",
@@ -77,6 +81,7 @@ watch(
     <article
         :class="[
             $style.projectFeatured,
+            size === 'large' ? $style.large : $style.small,
             mode === 'add' ? $style.addCard : '',
         ]"
     >
@@ -113,6 +118,9 @@ watch(
                     :class="[$style.thumbnailImage, isThumbnailLoaded ? $style.thumbnailImageLoaded : '']"
                     :src="thumbnailSrc"
                     :alt="thumbnailAlt || projectName"
+                    decoding="async"
+                    :fetchpriority="imageLoading === 'eager' ? 'high' : 'auto'"
+                    :loading="imageLoading"
                     draggable="false"
                     @load="isThumbnailLoaded = true"
                     @error="isThumbnailLoaded = true"
@@ -128,12 +136,13 @@ watch(
             <p :class="$style.description">{{ descriptionShort }}</p>
 
             <div :class="$style.actions">
-                <SecondaryButton :class="$style.actionButton" :to="to">
+                <PrimaryButton :class="$style.viewButton" :to="to">
                     {{ viewLabel }}
-                </SecondaryButton>
+                </PrimaryButton>
                 <SecondaryButton
                     v-if="admin"
-                    :class="$style.actionButton"
+                    :class="$style.changeButton"
+                    width-mode="hug"
                     @click="emit('change')"
                 >
                     {{ changeLabel }}
@@ -149,8 +158,6 @@ watch(
     flex-direction: column;
     align-items: center;
     box-sizing: border-box;
-    width: min(100%, 380px);
-    height: 416px;
     padding: 12px 16px;
     gap: 8px;
     overflow: hidden;
@@ -163,14 +170,23 @@ watch(
     transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease;
 }
 
+.small {
+    width: min(294px, 86vw);
+    height: 414px;
+}
+
+.large {
+    width: min(352px, 92vw);
+    height: 496px;
+}
+
 .thumbnail {
     position: relative;
     align-self: stretch;
-    height: 160px;
-    flex-shrink: 0;
+    flex: 1;
     overflow: hidden;
     border-radius: var(--radius-xl);
-    background-color: var(--color-main-secondary);
+    background-color: var(--color-main-surface);
     transition: background-color 300ms ease;
 }
 
@@ -236,8 +252,13 @@ watch(
     gap: 10px;
 }
 
-.actionButton {
-    width: 160px;
+.viewButton {
+    flex: 1;
+    min-width: 0;
+}
+
+.changeButton {
+    flex-shrink: 0;
 }
 
 .addCard {
@@ -270,8 +291,9 @@ watch(
 }
 
 .skeletonButton {
-    width: 160px;
-    height: 48px;
+    align-self: stretch;
+    flex: 1;
+    height: 44px;
     border-radius: var(--radius-xl);
 }
 
@@ -285,13 +307,4 @@ watch(
     }
 }
 
-@media (max-width: 767px) {
-    .projectFeatured {
-        width: min(100%, 350px);
-    }
-
-    .actionButton {
-        width: 145px;
-    }
-}
 </style>

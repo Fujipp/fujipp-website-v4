@@ -66,7 +66,7 @@ function onChange(): void {
     width: 37.5%;
     height: 37.5%;
     border-radius: var(--radius-full);
-    background: var(--color-button-border);
+    background: var(--color-button-secondary);
     opacity: 0;
     transform: scale(0.6);
     transition:
@@ -79,7 +79,7 @@ function onChange(): void {
 }
 
 .radioInput:checked {
-    background: var(--color-button-secondary);
+    background: var(--color-button-text);
 }
 
 .radioInput:checked::after {

@@ -28,7 +28,7 @@ const emit = defineEmits<{
         <input
             :value="modelValue"
             :class="$style.input"
-            class="type-body-small-r"
+            class="type-input-label-r"
             type="search"
             :aria-label="ariaLabel"
             :placeholder="placeholder"
@@ -77,8 +77,6 @@ const emit = defineEmits<{
     background: transparent;
     color: var(--color-text-input);
     caret-color: var(--color-text-input);
-    font-family: var(--font-sans);
-    font-weight: 300;
     -webkit-text-fill-color: var(--color-text-input);
 }
 

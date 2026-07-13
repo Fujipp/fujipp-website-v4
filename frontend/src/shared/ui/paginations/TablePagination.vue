@@ -73,6 +73,24 @@ function goToPage(page: number): void {
     padding: 10px;
     gap: 10px;
     text-align: center;
+    color: var(--color-button-text-secondary);
+}
+
+/* Pagination uses the high-contrast table treatment from the design:
+   black/white in the light theme and white/black in the dark theme. */
+.pagination > button {
+    background-color: var(--color-button-secondary);
+    color: var(--color-button-text-secondary);
+}
+
+.pagination > button:first-child,
+.pagination > button:last-child {
+    border-color: var(--color-button-border);
+}
+
+.pagination > button:first-child span,
+.pagination > button:last-child span {
+    background-color: var(--color-button-text-secondary);
 }
 
 .pageButton {
@@ -85,8 +103,8 @@ function goToPage(page: number): void {
     padding: 0;
     border: 1px solid var(--color-main-divider);
     border-radius: var(--radius-full);
-    background-color: var(--color-main-secondary);
-    color: var(--color-text-secondary);
+    background-color: var(--color-button-secondary);
+    color: var(--color-button-text-secondary);
     font-family: var(--font-sans);
     font-size: var(--type-size-caption);
     font-weight: 300;
@@ -95,7 +113,7 @@ function goToPage(page: number): void {
 }
 
 .pageButton:hover {
-    background-color: color-mix(in srgb, var(--color-main-secondary) 88%, var(--color-button-text));
+    background-color: color-mix(in srgb, var(--color-button-secondary) 88%, var(--color-button-text-secondary));
 }
 
 .pageButton:active {
@@ -109,8 +127,8 @@ function goToPage(page: number): void {
 
 .currentPage {
     width: 45px;
-    background-color: var(--color-main-primary);
-    color: var(--color-text-primary);
+    background-color: var(--color-button-secondary);
+    color: var(--color-button-text-secondary);
     font-weight: 600;
 }
 </style>

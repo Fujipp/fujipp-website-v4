@@ -6,16 +6,20 @@ export interface NavbarLink {
   icon?: string;
 }
 
-export const navbarLinks = [
-  { label: "HOME", path: "/", icon: icons.home },
-  { label: "PROJECTS", path: "/projects", icon: icons.projects },
-  { label: "ABOUT", path: "/about", icon: icons.about },
-  { label: "SHOP", path: "/shop", icon: icons.shop },
+export const guestNavbarLinks = [
+  { label: "Home", path: "/", icon: icons.home },
+  { label: "Projects", path: "/projects", icon: icons.projects },
+  { label: "About", path: "/about", icon: icons.about },
 ] satisfies readonly NavbarLink[];
 
-export const mobileNavbarLinks = [
-  ...navbarLinks,
-  // { label: "CONTACT", path: "/contact", icon: icons.contact },
-  { label: "PERFORMANCE", path: "/performance", icon: icons.performance },
-  { label: "PRIVACY", path: "/privacy", icon: icons.privacy },
+export const authenticatedNavbarLinks = [
+  { label: "Home", path: "/", icon: icons.home },
+  { label: "My bot", path: "/shop", icon: icons.shopBot },
+  { label: "Store", path: "/shop/package", icon: icons.package },
+  { label: "Add credit", path: "/shop/wallet", icon: icons.wallet },
 ] satisfies readonly NavbarLink[];
+
+/** @deprecated Choose guestNavbarLinks or authenticatedNavbarLinks from auth state. */
+export const navbarLinks = guestNavbarLinks;
+/** @deprecated Choose guestNavbarLinks or authenticatedNavbarLinks from auth state. */
+export const mobileNavbarLinks = guestNavbarLinks;

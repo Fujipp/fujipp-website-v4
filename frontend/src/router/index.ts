@@ -26,6 +26,7 @@ const ShopDashboardView = () => import('@/features/shop/views/ShopDashboardView.
 const ShopWalletView = () => import('@/features/shop/views/ShopWalletView.vue')
 const ShopPackageView = () => import('@/features/shop/views/ShopPackageView.vue')
 const ShopRuntimeView = () => import('@/features/shop/views/ShopRuntimeView.vue')
+const ShopMaintenanceView = () => import('@/features/shop/views/ShopGuideView.vue')
 const BotConfigView = () => import('@/features/shop/views/BotConfigView.vue')
 const EmbedDesignerView = () => import('@/features/shop/views/EmbedDesignerView.vue')
 const AuthView = () => import('@/features/auth/views/AuthView.vue')
@@ -60,10 +61,16 @@ function getCleanAuthCallbackLocation(to: RouteLocationNormalized) {
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
+  scrollBehavior(_to, _from, savedPosition) {
+    // New pages start at the top; browser back/forward restores the user's
+    // previous reading position instead of unexpectedly resetting it.
+    return savedPosition ?? { top: 0, left: 0 }
+  },
   routes: [
     { path: '/',            name: 'home',        component: HomeView },
     { path: '/components',  name: 'components',  component: ComponentView },
     { path: '/projects',    name: 'projects',    component: ProjectsView },
+    { path: '/projects/inline/new', name: 'project-inline-new', component: ProjectDetailView, meta: { requiresAuth: true, requiresAdmin: true } },
     { path: '/projects/new', name: 'project-new', component: NewProjectView, meta: { requiresAuth: true, requiresAdmin: true } },
     { path: '/projects/:projectId/edit', name: 'project-edit', component: NewProjectView, meta: { requiresAuth: true, requiresAdmin: true } },
     { path: '/projects/:projectId', name: 'project-detail', component: ProjectDetailView },
@@ -78,7 +85,8 @@ const router = createRouter({
     { path: '/shop/wallet', name: 'shop-wallet', component: ShopWalletView, meta: { requiresAuth: true } },
     { path: '/shop/package', name: 'shop-package', component: ShopPackageView, meta: { requiresAuth: true } },
     { path: '/shop/runtime', name: 'shop-runtime', component: ShopRuntimeView, meta: { requiresAuth: true } },
-    { path: '/shop/guide', redirect: { name: 'shop-dashboard' } },
+    { path: '/shop/maintenance', name: 'shop-maintenance', component: ShopMaintenanceView, meta: { requiresAuth: true } },
+    { path: '/shop/guide', redirect: { name: 'shop-maintenance' } },
     { path: '/shop/bots/:botId/config', name: 'shop-bot-config', component: BotConfigView, meta: { requiresAuth: true } },
     { path: '/shop/bots/:botId/embeds', name: 'shop-bot-embeds', component: EmbedDesignerView, meta: { requiresAuth: true } },
 
@@ -123,6 +131,15 @@ router.beforeEach(async (to) => {
 
   if (to.meta.requiresAdmin && !store.isAdmin) {
     return { name: 'projects' }
+  }
+
+  const isUnavailableShopRoute = to.path.startsWith('/shop')
+    && to.name !== 'shop-wallet'
+    && to.name !== 'shop-maintenance'
+    && !to.meta.requiresAdmin
+
+  if (store.isAuthenticated && (to.name === 'home' || isUnavailableShopRoute)) {
+    return { name: 'shop-maintenance' }
   }
 
   if (to.meta.guestOnly && store.isAuthenticated) {

@@ -26,6 +26,7 @@ When an AI can access Figma, it should inspect the relevant component or frame b
 | Shared element defaults | `src/styles/base.css` |
 | Local Inter assets and license | `public/fonts/inter/` |
 | Local Sora assets and license | `public/fonts/sora/` |
+| Local Rammetto One assets and license | `public/fonts/rammetto-one/` |
 
 `src/style.css` is the only global entrypoint imported from application code. Token files are assembled there.
 
@@ -46,6 +47,9 @@ Colors are semantic tokens imported from Figma's `Colors` variable collection. U
 | Input state | `bg-input-bg`, `border-input-border`, `hover:border-input-border-hover`, `focus:border-input-border-focus` |
 | Neutral palette | `bg-neutral-50` through `bg-neutral-900` |
 | Chart/pastel colors | `bg-data-pastel-1` through `bg-data-pastel-8` |
+| Dialog surfaces and text | `bg-dialog-background`, `text-dialog-text-primary`, `border-dialog-divider` |
+| Navigation surfaces and text | `bg-nav-background`, `bg-nav-background-selected`, `text-nav-text` |
+| Footer surfaces and text | `bg-footer-background`, `text-footer-text`, `border-footer-divider` |
 
 Light theme is the default. Enable the dark Figma mode on a containing element with either:
 
@@ -59,11 +63,11 @@ or:
 <html data-theme="dark">
 ```
 
-Dark overrides currently apply to background, border, primary/secondary text, and status colors. Components should reference semantic tokens so these overrides work automatically.
+Dark overrides cover every semantic color group, including dialog, navigation, and footer surfaces. Components should reference semantic tokens so these overrides work automatically.
 
 ## Typography
 
-The primary English font family is **Inter**. **Sora** is also hosted locally for alternate display use during UI revisions. Thai text falls through the system stack led by **SF Pro** on Apple platforms.
+The primary English font family is **Inter**. **Sora** is hosted locally for alternate display use, and **Rammetto One** is available for decorative display text through `font-rammetto-one`. Thai text falls through the system stack led by **SF Pro** on Apple platforms.
 
 Fonts are hosted locally and must not be replaced with a CDN or runtime font import. The typography scale supports Regular (`400`), Semibold (`600`), and Extrabold (`800`).
 
@@ -133,8 +137,10 @@ Application code should import icon paths from `src/config/icons.ts` (`icons.add
 /icons/action/add.svg
 /icons/common/image.svg
 /icons/input/eye-close.svg
+/icons/language/thai.svg
 /icons/link/github.svg
 /icons/navigation/home.svg
+/icons/navigation/direction/right.svg
 /icons/navigation/theme/mode-dark.svg
 /icons/shop/renew.svg
 /icons/stack/frontend/vuejs.svg

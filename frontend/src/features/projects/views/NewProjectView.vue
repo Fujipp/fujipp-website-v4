@@ -1,15 +1,14 @@
 <script setup lang="ts">
 import { computed, onUnmounted, reactive, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { storeToRefs } from "pinia";
 import { AppFooter } from "@/shared/layout";
-import { ActionButton, LanguageToggleButton, PrimaryButton } from "@/shared/ui/buttons";
+import { ActionButton, PrimaryButton } from "@/shared/ui/buttons";
 import { SelectField, TextareaField, TextField } from "@/shared/ui/fields";
-import { backend, database, devops, frontend, language, externalService, getIconColorMode, icons, ThemeApp } from "@/config";
+import { backend, database, devops, frontend, language, externalService, getIconColorMode, icons } from "@/config";
 import type { ProjectLocale, ProjectLocalizedContent, ProjectRecord } from "@/config";
 import { useProjectStore } from "@/features/projects/stores";
 import type { ProjectPayload } from "@/features/projects/stores";
-import { useThemeStore, useToastStore } from "@/stores";
+import { useToastStore } from "@/stores";
 
 interface LocalizedForm {
     challenges: StructuredItem[];
@@ -60,19 +59,6 @@ const editingProjectId = computed(() => (
     typeof route.params.projectId === "string" ? route.params.projectId : ""
 ));
 const isEditing = computed(() => Boolean(editingProjectId.value));
-
-const themeStore = useThemeStore();
-const { selectedTheme } = storeToRefs(themeStore);
-const currentThemeIcon = computed(() => (
-    ThemeApp.find((theme) => theme.mode === selectedTheme.value)?.src ?? icons.modeSystem
-));
-
-function cycleTheme(): void {
-    const index = ThemeApp.findIndex((theme) => theme.mode === selectedTheme.value);
-    const next = ThemeApp[(index + 1) % ThemeApp.length]!;
-
-    themeStore.setTheme(next.mode);
-}
 
 /* Icon-only Back on mobile: drop the label slot so PrimaryButton renders square. */
 const mobileQuery = typeof window !== "undefined" ? window.matchMedia("(max-width: 767px)") : null;
@@ -623,34 +609,34 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <main :class="$style.newProject">
+    <main :class="$style.newProject" class="pt-16">
             <form :class="$style.pageContainer" @submit.prevent="handleSubmit">
             <div :class="$style.section">
                 <div :class="$style.headRow">
-                    <h1 :class="$style.pageTitle">{{ isEditing ? "EDIT PROJECT" : "NEW PROJECT" }}</h1>
-                    <div :class="$style.headActions">
-                        <LanguageToggleButton v-model="locale" />
-                        <PrimaryButton
-                            width-mode="hug"
-                            :leading-icon="currentThemeIcon"
-                            :aria-label="`Theme: ${selectedTheme.toLowerCase()} — switch theme`"
-                            @click="cycleTheme"
-                        />
-                        <PrimaryButton
-                            v-if="isMobile"
-                            width-mode="hug"
-                            :leading-icon="icons.arrowBack"
-                            to="/projects"
-                            aria-label="Back to projects"
-                        />
-                        <PrimaryButton
-                            v-else
-                            width-mode="hug"
-                            :leading-icon="icons.arrowBack"
-                            to="/projects"
-                        >
-                            Back to projects
-                        </PrimaryButton>
+                    <PrimaryButton
+                        v-if="isMobile"
+                        width-mode="hug"
+                        :leading-icon="icons.arrowBack"
+                        to="/projects"
+                        aria-label="Back to projects"
+                    />
+                    <PrimaryButton
+                        v-else
+                        :class="$style.backButton"
+                        width-mode="hug"
+                        :leading-icon="icons.arrowBack"
+                        to="/projects"
+                    >
+                        Back to projects
+                    </PrimaryButton>
+                    <h1 :class="$style.pageTitle">{{ isEditing ? "Edit projects" : "New projects" }}</h1>
+                    <div :class="$style.headActions" aria-label="Project form language">
+                        <button type="button" :class="$style.languageButton" aria-label="Edit Thai content" @click="locale = 'th'">
+                            <img :src="icons.languageThai" alt="" aria-hidden="true">
+                        </button>
+                        <button type="button" :class="$style.languageButton" aria-label="Edit English content" @click="locale = 'en'">
+                            <img :src="icons.languageUs" alt="" aria-hidden="true">
+                        </button>
                     </div>
                 </div>
 
@@ -660,6 +646,13 @@ onUnmounted(() => {
                         :class="$style.nameField"
                         label="Project Name"
                         placeholder="Placeholder"
+                    />
+                    <TextareaField
+                        v-model="activeContent.descriptionShort"
+                        :class="$style.shortDescriptionField"
+                        label="Projects Description Short"
+                        placeholder="Placeholder"
+                        :rows="2"
                     />
                     <SelectField
                         v-model="form.category"
@@ -675,19 +668,12 @@ onUnmounted(() => {
                         placeholder="Placeholder"
                         :options="statuses"
                     />
-                    <TextareaField
-                        v-model="activeContent.descriptionShort"
-                        :class="$style.shortDescriptionField"
-                        label="Projects Description Short"
-                        placeholder="Placeholder"
-                        :rows="2"
-                    />
                 </div>
             </div>
 
             <section :class="$style.section" aria-label="At a glance">
                 <div :class="$style.sectionHeader">
-                    <h2 :class="$style.sectionTitle">AT A GLANCE</h2>
+                    <h2 :class="$style.sectionTitle">At a glance</h2>
                     <span :class="$style.sectionRule" aria-hidden="true" />
                 </div>
                 <div :class="$style.fieldRow">
@@ -726,7 +712,7 @@ onUnmounted(() => {
                 </div>
 
                 <div :class="$style.sectionHeader">
-                    <h2 :class="$style.sectionTitle">SUMMARY</h2>
+                    <h2 :class="$style.sectionTitle">Summary</h2>
                     <span :class="$style.sectionRule" aria-hidden="true" />
                 </div>
                 <TextareaField
@@ -737,13 +723,13 @@ onUnmounted(() => {
                 />
                 <TextareaField
                     v-model="activeContent.targetUsers"
-                    label="Target Users"
+                    label="Intended Users"
                     placeholder="Placeholder"
                     :rows="3"
                 />
                 <TextareaField
                     v-model="activeContent.feasibility"
-                    label="Feasibility"
+                    label="Feasibility Study"
                     placeholder="Placeholder"
                     :rows="3"
                 />
@@ -751,7 +737,7 @@ onUnmounted(() => {
 
             <section :class="$style.section" aria-label="Features">
                 <div :class="$style.sectionHeader">
-                    <h2 :class="$style.sectionTitle">FEATURES</h2>
+                    <h2 :class="$style.sectionTitle">Feature</h2>
                     <span :class="$style.sectionRule" aria-hidden="true" />
                 </div>
                 <div
@@ -782,7 +768,7 @@ onUnmounted(() => {
 
             <section :class="$style.section" aria-label="System architecture">
                 <div :class="$style.sectionHeader">
-                    <h2 :class="$style.sectionTitle">ARCHITECTURE</h2>
+                    <h2 :class="$style.sectionTitle">Architecture</h2>
                     <span :class="$style.sectionRule" aria-hidden="true" />
                 </div>
                 <img
@@ -816,7 +802,7 @@ onUnmounted(() => {
                 </div>
 
                 <div :class="$style.sectionHeader">
-                    <h2 :class="$style.sectionTitle">STACK</h2>
+                    <h2 :class="$style.sectionTitle">Stack</h2>
                     <span :class="$style.sectionRule" aria-hidden="true" />
                 </div>
                 <template v-for="group in techStackGroups" :key="group.key">
@@ -858,7 +844,7 @@ onUnmounted(() => {
 
             <section :class="$style.section" aria-label="Preview gallery">
                 <div :class="$style.sectionHeader">
-                    <h2 :class="$style.sectionTitle">PREVIEW</h2>
+                    <h2 :class="$style.sectionTitle">Previews</h2>
                     <span :class="$style.sectionRule" aria-hidden="true" />
                 </div>
                 <div :class="$style.galleryRow">
@@ -911,7 +897,7 @@ onUnmounted(() => {
 
             <section :class="$style.section" aria-label="Challenges">
                 <div :class="$style.sectionHeader">
-                    <h2 :class="$style.sectionTitle">CHALLENGES</h2>
+                    <h2 :class="$style.sectionTitle">Challenges</h2>
                     <span :class="$style.sectionRule" aria-hidden="true" />
                 </div>
                 <template v-for="(challenge, index) in activeContent.challenges" :key="index">
@@ -949,7 +935,7 @@ onUnmounted(() => {
 
             <section :class="$style.section" aria-label="Lessons">
                 <div :class="$style.sectionHeader">
-                    <h2 :class="$style.sectionTitle">LESSONS</h2>
+                    <h2 :class="$style.sectionTitle">Lessons</h2>
                     <span :class="$style.sectionRule" aria-hidden="true" />
                 </div>
                 <template v-for="(lesson, index) in activeContent.whatILearned" :key="index">
@@ -987,7 +973,7 @@ onUnmounted(() => {
 
             <section :class="$style.section" aria-label="Project links">
                 <div :class="$style.sectionHeader">
-                    <h2 :class="$style.sectionTitle">LINK</h2>
+                    <h2 :class="$style.sectionTitle">Link</h2>
                     <span :class="$style.sectionRule" aria-hidden="true" />
                 </div>
                 <div :class="$style.fieldRow">
@@ -1071,20 +1057,53 @@ onUnmounted(() => {
     align-items: center;
     justify-content: space-between;
     align-self: stretch;
-    flex-wrap: wrap;
-    gap: 8px 20px;
+    gap: 20px;
 }
 
 .pageTitle {
     margin: 0;
     font-size: var(--type-size-h1-page-title);
     font-weight: 300;
+    text-align: center;
 }
 
 .headActions {
     display: flex;
     align-items: center;
+    justify-content: flex-end;
+    width: 180px;
     gap: 8px;
+}
+
+.backButton {
+    width: 180px;
+}
+
+.languageButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: var(--spacing-space-1);
+    border: 0;
+    border-radius: var(--radius-base);
+    background: transparent;
+    cursor: pointer;
+}
+
+.languageButton img {
+    width: 24px;
+    height: 24px;
+}
+
+.languageButton:hover {
+    box-shadow: 0 4px 4px rgb(0 0 0 / 10%);
+}
+
+.languageButton:focus-visible {
+    outline: 2px solid var(--color-main-primary);
+    outline-offset: 2px;
 }
 
 .sectionHeader {
@@ -1174,11 +1193,12 @@ onUnmounted(() => {
     display: flex;
     align-items: flex-end;
     align-self: stretch;
+    justify-content: center;
     gap: 12px;
 }
 
 .itemField {
-    width: min(100%, 526px);
+    width: min(100%, 600px);
 }
 
 .itemDelete {
@@ -1186,13 +1206,14 @@ onUnmounted(() => {
 }
 
 .itemDetail {
-    align-self: stretch;
+    align-self: center;
+    width: min(100%, 600px);
 }
 
 .architecturePreview {
     align-self: stretch;
     width: 100%;
-    max-height: 672px;
+    height: 664px;
     border-radius: var(--radius-xl);
     object-fit: cover;
 }
@@ -1285,9 +1306,9 @@ onUnmounted(() => {
     align-items: center;
     justify-content: center;
     box-sizing: border-box;
-    width: 275px;
+    width: 205px;
     max-width: 100%;
-    height: 150px;
+    height: 112px;
     overflow: hidden;
     border: 1px dashed var(--color-main-divider);
     border-radius: var(--radius-xl);
@@ -1357,8 +1378,17 @@ onUnmounted(() => {
         padding: 4px 8px;
     }
 
+    .headActions {
+        width: auto;
+    }
+
     .galleryRow {
         justify-content: center;
+    }
+
+    .architecturePreview {
+        height: auto;
+        aspect-ratio: 16 / 9;
     }
 }
 </style>

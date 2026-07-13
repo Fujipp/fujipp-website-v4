@@ -6,6 +6,8 @@ import type { ProjectRecord } from "@/config";
 import { useUserStore } from "@/stores";
 
 const PROJECT_ASSETS_BUCKET = "project-assets";
+const PROJECT_CACHE_KEY = "fujipp.projects.v1";
+const PROJECT_ASSET_CACHE_SECONDS = "31536000";
 
 export type ProjectPayload = Omit<ProjectRecord, "id">;
 export type FeaturedProjectId = ProjectRecord["id"];
@@ -15,8 +17,24 @@ export const useProjectStore = defineStore("project", () => {
     const isLoading = ref(false);
     const error = ref<string | null>(null);
     const hasLoadedAll = ref(false);
+    let projectsRequest: Promise<ProjectRecord[]> | null = null;
 
     async function fetchProjects(): Promise<ProjectRecord[]> {
+        if (projectsRequest) {
+            return projectsRequest;
+        }
+
+        projectsRequest = loadProjects();
+
+        try {
+            return await projectsRequest;
+        } finally {
+            projectsRequest = null;
+        }
+    }
+
+    async function loadProjects(): Promise<ProjectRecord[]> {
+        const restoredFromCache = restoreProjects();
         isLoading.value = true;
         error.value = null;
 
@@ -24,9 +42,15 @@ export const useProjectStore = defineStore("project", () => {
             const response = await fetch(`${API_BASE_URL}/api/public/projects`);
             projects.value = await parseResponse<ProjectRecord[]>(response);
             hasLoadedAll.value = true;
+            persistProjects();
             return projects.value;
         } catch (cause) {
             error.value = getErrorMessage(cause);
+
+            if (restoredFromCache) {
+                return projects.value;
+            }
+
             throw cause;
         } finally {
             isLoading.value = false;
@@ -47,6 +71,7 @@ export const useProjectStore = defineStore("project", () => {
             const response = await fetch(`${API_BASE_URL}/api/public/projects/${projectId}`);
             const project = await parseResponse<ProjectRecord>(response);
             projects.value = [project, ...projects.value.filter((item) => String(item.id) !== String(project.id))];
+            persistProjects();
             return project;
         } catch (cause) {
             error.value = getErrorMessage(cause);
@@ -59,18 +84,21 @@ export const useProjectStore = defineStore("project", () => {
     async function createProject(payload: ProjectPayload): Promise<ProjectRecord> {
         const project = await mutate<ProjectRecord>("/api/projects", "POST", payload);
         projects.value = [project, ...projects.value.filter((item) => String(item.id) !== String(project.id))];
+        persistProjects();
         return project;
     }
 
     async function updateProject(projectId: string | number, payload: ProjectPayload): Promise<ProjectRecord> {
         const project = await mutate<ProjectRecord>(`/api/projects/${projectId}`, "PUT", payload);
         projects.value = projects.value.map((item) => (String(item.id) === String(project.id) ? project : item));
+        persistProjects();
         return project;
     }
 
     async function deleteProject(projectId: string | number): Promise<void> {
         await mutate<void>(`/api/projects/${projectId}`, "DELETE");
         projects.value = projects.value.filter((project) => String(project.id) !== String(projectId));
+        persistProjects();
     }
 
     async function updateFeaturedProjects(projectIds: readonly FeaturedProjectId[]): Promise<ProjectRecord[]> {
@@ -79,6 +107,7 @@ export const useProjectStore = defineStore("project", () => {
             "PUT",
             { projectIds },
         );
+        persistProjects();
         return projects.value;
     }
 
@@ -88,7 +117,7 @@ export const useProjectStore = defineStore("project", () => {
         const { error: uploadError } = await supabase.storage
             .from(PROJECT_ASSETS_BUCKET)
             .upload(objectPath, file, {
-                cacheControl: "3600",
+                cacheControl: PROJECT_ASSET_CACHE_SECONDS,
                 contentType: file.type,
                 upsert: false,
             });
@@ -131,6 +160,45 @@ export const useProjectStore = defineStore("project", () => {
             throw cause;
         } finally {
             isLoading.value = false;
+        }
+    }
+
+    function restoreProjects(): boolean {
+        if (projects.value.length > 0 || typeof window === "undefined") {
+            return projects.value.length > 0;
+        }
+
+        try {
+            const cached = window.localStorage.getItem(PROJECT_CACHE_KEY);
+
+            if (!cached) {
+                return false;
+            }
+
+            const parsed = JSON.parse(cached) as ProjectRecord[];
+
+            if (!Array.isArray(parsed)) {
+                return false;
+            }
+
+            projects.value = parsed;
+            hasLoadedAll.value = true;
+            return true;
+        } catch {
+            window.localStorage.removeItem(PROJECT_CACHE_KEY);
+            return false;
+        }
+    }
+
+    function persistProjects(): void {
+        if (typeof window === "undefined") {
+            return;
+        }
+
+        try {
+            window.localStorage.setItem(PROJECT_CACHE_KEY, JSON.stringify(projects.value));
+        } catch {
+            // Storage can be unavailable or full; the in-memory store remains the fallback.
         }
     }
 

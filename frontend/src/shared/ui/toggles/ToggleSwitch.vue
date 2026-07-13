@@ -42,9 +42,9 @@ function toggle(): void {
     height: 28px;
     flex-shrink: 0;
     overflow: hidden;
-    border: 1px solid transparent;
+    border: 1px solid var(--color-button-border);
     border-radius: var(--radius-full);
-    background: var(--color-button-secondary);
+    background: transparent;
     padding: 0;
     cursor: pointer;
     transition:
@@ -53,8 +53,8 @@ function toggle(): void {
         opacity 180ms ease;
 }
 
-.toggleSwitch:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--color-button-secondary) 88%, var(--color-button-text));
+.toggleSwitch:hover:not(:disabled):not(.on) {
+    background: color-mix(in srgb, var(--color-button-secondary) 24%, transparent);
 }
 
 .toggleSwitch:focus-visible {
@@ -68,7 +68,7 @@ function toggle(): void {
 }
 
 .toggleSwitch.on {
-    border-color: var(--color-button-border);
+    background: var(--color-button-text);
 }
 
 .knob {
@@ -78,9 +78,9 @@ function toggle(): void {
     box-sizing: border-box;
     width: 20px;
     height: 20px;
-    border: 1px solid transparent;
+    border: 1px solid var(--color-button-border);
     border-radius: var(--radius-full);
-    background: var(--color-button-primary);
+    background: var(--color-button-secondary);
     transform: translateY(-50%);
     transition:
         left 180ms ease,
@@ -89,6 +89,5 @@ function toggle(): void {
 
 .on .knob {
     left: calc(100% - 24px);
-    border-color: var(--color-button-border);
 }
 </style>

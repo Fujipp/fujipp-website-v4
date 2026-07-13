@@ -112,7 +112,7 @@ watch(isOpen, async (open) => {
 
 <template>
     <div ref="dropdown" :class="$style.dropdown">
-        <span :class="[$style.title, hideLabel ? $style.srOnly : '']" class="type-overline-r">{{ label }}</span>
+        <span :class="[$style.title, hideLabel ? $style.srOnly : '']" class="type-input-label-sb text-text-primary">{{ label }}</span>
         <input v-if="name" type="hidden" :name="name" :value="modelValue">
         <button
             type="button"
@@ -124,7 +124,7 @@ watch(isOpen, async (open) => {
         >
             <span
                 :class="[$style.selectedText, modelValue ? '' : $style.placeholder]"
-                class="type-body-small-r"
+                class="type-input-label-r"
             >
                 {{ selectedLabel }}
             </span>
@@ -147,7 +147,7 @@ watch(isOpen, async (open) => {
                     :key="option.value"
                     type="button"
                     :class="[$style.option, option.value === modelValue ? $style.selectedOption : '']"
-                    class="type-body-small-r"
+                    class="type-input-label-r"
                     role="option"
                     :aria-selected="option.value === modelValue"
                     @click="selectOption(option.value)"
@@ -180,11 +180,6 @@ watch(isOpen, async (open) => {
 :global(.dark) .dropdown,
 :global([data-theme="dark"]) .dropdown {
     color: var(--color-text-secondary);
-}
-
-.title {
-    font-family: var(--font-sans);
-    font-weight: 800;
 }
 
 .srOnly {

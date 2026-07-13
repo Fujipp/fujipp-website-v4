@@ -73,14 +73,14 @@ function openPickerOnClick(event: MouseEvent): void {
 
 <template>
     <label :class="$style.textField">
-        <span v-if="label" :class="$style.title" class="type-overline-r">
+        <span v-if="label" :class="$style.title" class="type-input-label-sb">
             {{ label }}<span v-if="required" :class="$style.requiredMark" aria-hidden="true">*</span>
         </span>
         <span :class="[$style.field, error ? $style.errorField : '']">
-            <span v-if="unit" :class="$style.unit" class="type-body-small-r" aria-hidden="true">{{ unit }}</span>
+            <span v-if="unit" :class="$style.unit" class="type-input-label-r" aria-hidden="true">{{ unit }}</span>
             <input
                 :class="$style.input"
-                class="type-body-small-r"
+                class="type-input-label-r"
                 :autocomplete="autocomplete"
                 :disabled="disabled"
                 :name="name"
@@ -121,8 +121,6 @@ function openPickerOnClick(event: MouseEvent): void {
 
 .title {
     color: var(--color-input-title);
-    font-family: var(--font-sans);
-    font-weight: 800;
 }
 
 .requiredMark {
@@ -173,7 +171,6 @@ function openPickerOnClick(event: MouseEvent): void {
     background: none;
     padding: 0;
     color: var(--color-text-input);
-    font-weight: 300;
     /* Fields keep a light surface in dark theme; without this Chrome draws
        native pickers (e.g. the month calendar icon) white-on-white. */
     color-scheme: light;
