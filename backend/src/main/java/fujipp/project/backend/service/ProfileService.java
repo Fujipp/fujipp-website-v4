@@ -17,6 +17,11 @@ public class ProfileService {
 
     private final ProfileRepository profileRepository;
 
+    @Transactional(readOnly = true)
+    public long countProfiles() {
+        return profileRepository.count();
+    }
+
     @Transactional
     public Profile getOrCreateProfile(UUID userId, String email, String displayName,
                                       String avatarUrl, String provider) {
