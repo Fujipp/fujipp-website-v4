@@ -30,6 +30,11 @@ public class BotService {
     private final DiscordBotClient discord;
 
     @Transactional(readOnly = true)
+    public long countBots() {
+        return bots.count();
+    }
+
+    @Transactional(readOnly = true)
     public List<BotResponse> listBots(UUID userId) {
         Map<String, BillingClient.RuntimeSubView> byBot = runtimeByBot(userId);
         return bots.findByUserIdOrderByCreatedAtDesc(userId).stream()

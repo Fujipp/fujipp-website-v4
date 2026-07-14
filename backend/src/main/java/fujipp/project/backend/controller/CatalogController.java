@@ -1,6 +1,8 @@
 package fujipp.project.backend.controller;
 
 import fujipp.project.backend.billing.BillingClient;
+import fujipp.project.backend.service.BotService;
+import fujipp.project.backend.service.ProfileService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -18,6 +20,15 @@ import org.springframework.web.bind.annotation.RestController;
 public class CatalogController {
 
     private final BillingClient billing;
+    private final ProfileService profiles;
+    private final BotService bots;
+
+    public record ShopOverviewResponse(long users, long bots) {}
+
+    @GetMapping("/overview")
+    public ResponseEntity<ShopOverviewResponse> overview() {
+        return ResponseEntity.ok(new ShopOverviewResponse(profiles.countProfiles(), bots.countBots()));
+    }
 
     @GetMapping("/features")
     public ResponseEntity<String> features() {

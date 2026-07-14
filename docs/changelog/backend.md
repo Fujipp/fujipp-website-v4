@@ -1,9 +1,10 @@
 # Changelog — Backend
 
-**Current version: `0.5.2.2`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.5.3`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.5.3` | 2026-07-14 | Added live platform-wide user and bot totals for the authenticated Shop overview. |
 | `0.5.2.2` | 2026-07-13 | Stabilized public Project cache initialization for clean production deployments. |
 | `0.5.2.1` | 2026-07-13 | Public Projects now load from a short-lived cache that refreshes automatically after admin changes. |
 | `0.5.2` | 2026-07-12 | Added a /topup-monthly command to the wallet top-up feature: members can check their own 1-month top-up total, and admins can view any member's total or the whole shop's monthly total. |
