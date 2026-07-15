@@ -191,6 +191,18 @@ export const useAdminStore = defineStore("admin", () => {
         });
     }
 
+    function detachUserFeature(id: string): Promise<AdminFeatureSubscription> {
+        return adminFetch<AdminFeatureSubscription>(`/api/admin/subscriptions/features/${id}/detach`, {
+            method: "POST",
+        });
+    }
+
+    function removeUserFeature(id: string): Promise<AdminFeatureSubscription> {
+        return adminFetch<AdminFeatureSubscription>(`/api/admin/subscriptions/features/${id}`, {
+            method: "DELETE",
+        });
+    }
+
     // ── wallet (per-user balance + adjustments) ──────────────────────────────
     function fetchUserWallet(userId: string): Promise<AdminWallet> {
         return adminFetch<AdminWallet>(`/api/admin/users/${userId}/wallet`);
@@ -305,7 +317,7 @@ export const useAdminStore = defineStore("admin", () => {
         fetchFeatures, updateFeature, fetchFeatureFields, updateFeatureField,
         fetchFeaturePrices, createFeaturePrice, updateFeaturePrice,
         fetchUserSubscriptions, updateRuntimeSubscription, updateFeatureSubscription,
-        grantUserRuntime, grantUserFeature,
+        grantUserRuntime, grantUserFeature, detachUserFeature, removeUserFeature,
         fetchUserWallet, fetchUserWalletTransactions, adjustUserWallet,
         fetchBots, fetchBotConfig, updateBotConfig, transferBot,
         botRuntimeAction, botStatus, fetchBotSubscriptions, grantBotRuntime, grantBotFeature,

@@ -1,9 +1,10 @@
 # Changelog — Frontend
 
-**Current version: `0.7.5`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.7.6`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.7.6` | 2026-07-16 | Admin Package settings now separate unused and bot-assigned Features, support Detach and Remove confirmations, and only offer free slots from active VPS nodes. |
 | `0.7.5` | 2026-07-16 | Admin user Runtime and Package workspaces can now grant Runtime or monthly/permanent Features, assign them to an owned bot or unused stack, and confirm the action with Toast feedback. |
 | `0.7.4.48` | 2026-07-15 | Clickable Admin user rows now expose button semantics so the platform-wide click sound and accessibility behavior trigger correctly. |
 | `0.7.4.47` | 2026-07-15 | Fixed the cross-route Admin user transition by waiting for the selected-row snapshot and rendering the destination menu before user data finishes loading. |

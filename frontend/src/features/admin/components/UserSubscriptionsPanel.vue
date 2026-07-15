@@ -77,6 +77,7 @@ const grantBotId = ref("");
 const grantSlotId = ref("");
 const grantBillingType = ref<"RENT_MONTHLY" | "RENT_PERMANENT">("RENT_PERMANENT");
 const pendingGrant = ref<"runtime" | "feature" | null>(null);
+const pendingFeatureAction = ref<{ kind: "detach" | "remove"; row: FeatureRow } | null>(null);
 const granting = ref(false);
 
 function planLabel(plan: AdminRuntimePlan): string {
@@ -86,6 +87,21 @@ function planLabel(plan: AdminRuntimePlan): string {
 
 const runtimeRows = ref<RuntimeRow[]>([]);
 const featureRows = ref<FeatureRow[]>([]);
+const unusedFeatureRows = computed(() => featureRows.value.filter((row) =>
+    row.sub.status !== "CANCELED" && !row.sub.externalSubjectId,
+));
+const assignedFeatureRows = computed(() => featureRows.value.filter((row) =>
+    row.sub.status !== "CANCELED" && Boolean(row.sub.externalSubjectId),
+));
+
+function featureLabel(featureId: string): string {
+    return features.value.find((feature) => feature.id === featureId)?.name ?? featureId;
+}
+
+function botLabel(botId: string | null): string {
+    if (!botId) return "Unassigned";
+    return userBots.value.find((bot) => bot.id === botId)?.name ?? botId;
+}
 
 const isLoading = ref(false);
 const loadError = ref("");
@@ -129,7 +145,7 @@ async function load(): Promise<void> {
         runtimePlans.value = plans;
         features.value = catalog;
         userBots.value = bots.filter((bot) => bot.ownerId === props.userId);
-        freeSeats.value = seats.filter((seat) => seat.occupancy === "FREE");
+        freeSeats.value = seats.filter((seat) => seat.nodeStatus === "ACTIVE" && seat.occupancy === "FREE");
         grantPlanId.value ||= plans.find((plan) => plan.active)?.id ?? "";
         grantFeatureId.value ||= catalog[0]?.id ?? "";
         if (!freeSeats.value.some((seat) => seat.slotId === grantSlotId.value)) {
@@ -174,6 +190,28 @@ async function confirmGrant(): Promise<void> {
     } catch (cause) {
         pendingGrant.value = null;
         showToast("error", cause instanceof Error ? cause.message : "Grant failed");
+    } finally {
+        granting.value = false;
+    }
+}
+
+async function confirmFeatureAction(): Promise<void> {
+    const action = pendingFeatureAction.value;
+    if (!action) return;
+    granting.value = true;
+    try {
+        if (action.kind === "detach") {
+            await adminStore.detachUserFeature(action.row.sub.id);
+            showToast("success", "Feature returned to unused stack");
+        } else {
+            await adminStore.removeUserFeature(action.row.sub.id);
+            showToast("success", "Feature removed from user");
+        }
+        pendingFeatureAction.value = null;
+        await load();
+    } catch (cause) {
+        pendingFeatureAction.value = null;
+        showToast("error", cause instanceof Error ? cause.message : "Action failed");
     } finally {
         granting.value = false;
     }
@@ -295,45 +333,64 @@ onMounted(load);
                 <SelectField v-model="grantBotId" label="Assign to" :options="botOptions" />
                 <PrimaryButton width-mode="hug" :disabled="!grantFeatureId" @click="pendingGrant = 'feature'">Add Feature</PrimaryButton>
             </div>
+            <h3 v-if="mode !== 'runtime'" :class="$style.listHeading">Unused Features</h3>
             <div v-if="mode !== 'runtime'" :class="$style.panel">
                 <table :class="$style.table">
                     <thead>
                         <tr>
-                            <th :class="$style.th">Subject</th>
+                            <th :class="$style.th">Feature</th>
                             <th :class="$style.th">Billing</th>
                             <th :class="$style.th">Period end</th>
-                            <th :class="$style.th">Renew ฿</th>
                             <th :class="$style.th">Status</th>
-                            <th :class="$style.th">Auto</th>
-                            <th :class="$style.th" />
+                            <th :class="$style.th">Action</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="row in featureRows" :key="row.sub.id">
-                            <td :class="$style.td">{{ row.sub.externalSubjectId ?? row.sub.scope }}</td>
+                        <tr v-for="row in unusedFeatureRows" :key="row.sub.id">
+                            <td :class="$style.td">{{ featureLabel(row.sub.featureId) }}</td>
                             <td :class="$style.td">{{ row.sub.billingType }}</td>
                             <td :class="$style.td">
                                 <input v-if="isRecurring(row.sub.billingType)" v-model="row.draft.periodEnd" :class="$style.input" type="date">
-                                <span v-else :class="$style.muted">ถาวร</span>
-                            </td>
-                            <td :class="$style.td">
-                                <input v-if="isRecurring(row.sub.billingType)" v-model.number="row.draft.renewBaht" :class="$style.input" type="number" min="0" step="0.01" placeholder="—">
-                                <span v-else :class="$style.muted">—</span>
+                                <span v-else :class="$style.muted">Permanent</span>
                             </td>
                             <td :class="$style.td">
                                 <SelectField v-model="row.draft.status" :class="$style.statusSelect" hide-label label="Status" :options="statusOptions" />
                             </td>
-                            <td :class="[$style.td, $style.center]">
-                                <input v-if="isRecurring(row.sub.billingType)" v-model="row.draft.autoRenew" :class="$style.checkbox" type="checkbox" aria-label="Auto renew feature">
-                                <span v-else :class="$style.muted">—</span>
-                            </td>
                             <td :class="$style.td">
-                                <PrimaryButton width-mode="hug" :disabled="savingId === row.sub.id" @click="saveFeature(row)">
-                                    {{ savingId === row.sub.id ? "…" : "Save" }}
-                                </PrimaryButton>
+                                <div :class="$style.rowActions">
+                                    <PrimaryButton width-mode="hug" :disabled="savingId === row.sub.id" @click="saveFeature(row)">
+                                        {{ savingId === row.sub.id ? "…" : "Save" }}
+                                    </PrimaryButton>
+                                    <PrimaryButton width-mode="hug" @click="pendingFeatureAction = { kind: 'remove', row }">Remove</PrimaryButton>
+                                </div>
                             </td>
                         </tr>
-                        <tr v-if="featureRows.length === 0"><td :class="$style.empty" colspan="7">No feature subscriptions.</td></tr>
+                        <tr v-if="unusedFeatureRows.length === 0"><td :class="$style.empty" colspan="5">No unused Features.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3 v-if="mode !== 'runtime'" :class="$style.listHeading">Assigned Features</h3>
+            <div v-if="mode !== 'runtime'" :class="$style.panel">
+                <table :class="$style.table">
+                    <thead><tr>
+                        <th :class="$style.th">Feature</th>
+                        <th :class="$style.th">Bot</th>
+                        <th :class="$style.th">Billing</th>
+                        <th :class="$style.th">Status</th>
+                        <th :class="$style.th">Action</th>
+                    </tr></thead>
+                    <tbody>
+                        <tr v-for="row in assignedFeatureRows" :key="row.sub.id">
+                            <td :class="$style.td">{{ featureLabel(row.sub.featureId) }}</td>
+                            <td :class="$style.td">{{ botLabel(row.sub.externalSubjectId) }}</td>
+                            <td :class="$style.td">{{ row.sub.billingType }}</td>
+                            <td :class="$style.td">{{ row.sub.status }}</td>
+                            <td :class="$style.td">
+                                <PrimaryButton width-mode="hug" @click="pendingFeatureAction = { kind: 'detach', row }">Detach</PrimaryButton>
+                            </td>
+                        </tr>
+                        <tr v-if="assignedFeatureRows.length === 0"><td :class="$style.empty" colspan="5">No assigned Features.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -351,6 +408,17 @@ onMounted(load);
             @cancel="pendingGrant = null"
             @confirm="confirmGrant"
         />
+        <ConfirmModal
+            v-if="pendingFeatureAction"
+            :disabled="granting"
+            :title="pendingFeatureAction.kind === 'detach' ? 'Detach Feature' : 'Remove Feature'"
+            :reason="pendingFeatureAction.kind === 'detach'
+                ? 'Detach this Feature from the bot and return it to the user’s unused stack?'
+                : 'Remove this unused Feature entitlement from the user?'"
+            :confirm-label="pendingFeatureAction.kind === 'detach' ? 'Detach' : 'Remove'"
+            @cancel="pendingFeatureAction = null"
+            @confirm="confirmFeatureAction"
+        />
     </section>
 </template>
 
@@ -358,6 +426,7 @@ onMounted(load);
 .wrap { display: flex; flex-direction: column; gap: var(--spacing-space-3); }
 .heading { margin: 0; font-size: var(--type-size-h3-card-title); font-weight: 600; color: var(--color-text-primary); }
 .subheading { margin: var(--spacing-space-1) 0 0; font-size: var(--type-size-body-small); font-weight: 600; color: var(--color-text-primary); }
+.listHeading { margin: var(--spacing-space-2) 0 0; font-size: var(--type-size-subtitle); font-weight: 600; color: var(--color-text-primary); }
 
 .panel {
     box-sizing: border-box;
@@ -402,6 +471,7 @@ onMounted(load);
 }
 
 .center { text-align: center; }
+.rowActions { display: flex; align-items: center; gap: var(--spacing-space-2); }
 
 .input {
     box-sizing: border-box;
