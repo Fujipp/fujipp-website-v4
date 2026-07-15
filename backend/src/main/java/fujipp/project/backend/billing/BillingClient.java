@@ -408,6 +408,19 @@ public class BillingClient {
             .onStatus(HttpStatusCode::isError, (req, res) -> raiseWithReason(res)).body(String.class);
     }
 
+    public String adminListFeatureFields(UUID featureId) {
+        return http.get().uri("/api/billing/admin/catalog/features/{id}/fields", featureId)
+            .header("X-Service-Token", serviceToken).retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raiseWithReason(res)).body(String.class);
+    }
+
+    public String adminUpdateFeatureField(UUID adminId, UUID featureId, UUID fieldId, String body) {
+        return http.patch().uri("/api/billing/admin/catalog/features/{featureId}/fields/{fieldId}", featureId, fieldId)
+            .header("X-Service-Token", serviceToken).header("X-Admin-Id", adminId.toString())
+            .contentType(MediaType.APPLICATION_JSON).body(body).retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raiseWithReason(res)).body(String.class);
+    }
+
     /** Partial-update a feature price. {@code body} is the UpdateFeaturePriceRequest JSON. */
     public String adminUpdateFeaturePrice(UUID adminId, UUID priceId, String body) {
         return http.patch().uri("/api/billing/admin/catalog/feature-prices/{id}", priceId)

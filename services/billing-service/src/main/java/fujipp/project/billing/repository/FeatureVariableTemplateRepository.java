@@ -10,4 +10,6 @@ import java.util.UUID;
 public interface FeatureVariableTemplateRepository extends JpaRepository<FeatureVariableTemplate, UUID> {
 
     List<FeatureVariableTemplate> findByFeatureIdInOrderBySortOrder(Collection<UUID> featureIds);
+
+    List<FeatureVariableTemplate> findByFeatureIdOrderBySortOrder(UUID featureId);
 }

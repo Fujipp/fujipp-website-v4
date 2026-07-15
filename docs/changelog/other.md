@@ -1,9 +1,10 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.36.8`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.36.9`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.36.9` | 2026-07-15 | Documented the new customer-facing Runtime expiry alert flow and retired the operator Runtime monitor. |
 | `0.0.36.8` | 2026-07-10 | Clarified that pushing reviewed Supabase migrations to `db/migrations` applies them automatically. |
 | `0.0.36.7` | 2026-07-09 | Linked database agent guidance and operations docs to the new Supabase/Postgres architecture map |
 | `0.0.36.6` | 2026-07-08 | Added agent links to the new backend/services architecture map so future AI handoffs know where to start for backend, billing, voucher, runtime, and bot work |

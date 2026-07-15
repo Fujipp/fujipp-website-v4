@@ -1,9 +1,11 @@
 # Changelog — Backend
 
-**Current version: `0.5.3`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.5.5`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.5.5` | 2026-07-15 | Added audited admin APIs for listing and updating existing Feature setting-field metadata without changing the database schema. |
+| `0.5.4` | 2026-07-15 | Added formal Discord Runtime expiry alerts with selectable timing and DM, server channel, or combined delivery. |
 | `0.5.3` | 2026-07-14 | Added live platform-wide user and bot totals for the authenticated Shop overview. |
 | `0.5.2.2` | 2026-07-13 | Stabilized public Project cache initialization for clean production deployments. |
 | `0.5.2.1` | 2026-07-13 | Public Projects now load from a short-lived cache that refreshes automatically after admin changes. |

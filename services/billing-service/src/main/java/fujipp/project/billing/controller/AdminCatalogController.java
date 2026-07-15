@@ -7,6 +7,7 @@ import fujipp.project.billing.dto.UpdateFeaturePriceRequest;
 import fujipp.project.billing.dto.UpdateFeatureRequest;
 import fujipp.project.billing.dto.FeatureResponse;
 import fujipp.project.billing.dto.UpdateRuntimePlanRequest;
+import fujipp.project.billing.dto.TemplateFieldResponse;
 import fujipp.project.billing.service.AdminCatalogService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -59,6 +60,20 @@ public class AdminCatalogController {
             @PathVariable UUID id,
             @RequestBody UpdateFeatureRequest request) {
         return ResponseEntity.ok(catalog.updateFeature(adminId, id, request));
+    }
+
+    @GetMapping("/features/{id}/fields")
+    public ResponseEntity<List<TemplateFieldResponse>> featureFields(@PathVariable UUID id) {
+        return ResponseEntity.ok(catalog.listFeatureFields(id));
+    }
+
+    @PatchMapping("/features/{featureId}/fields/{fieldId}")
+    public ResponseEntity<TemplateFieldResponse> updateFeatureField(
+            @RequestHeader("X-Admin-Id") UUID adminId,
+            @PathVariable UUID featureId,
+            @PathVariable UUID fieldId,
+            @RequestBody UpdateFeatureRequest.FieldUpdate request) {
+        return ResponseEntity.ok(catalog.updateFeatureField(adminId, featureId, fieldId, request));
     }
 
     @PostMapping("/feature-prices")
