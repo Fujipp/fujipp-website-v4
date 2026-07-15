@@ -152,13 +152,43 @@ jobs:
             "
           }
 
-          # Verify every asset in the current release directly over FTP. The release
-          # manifest tells us what changed, but it cannot prove that an unchanged path
-          # still exists remotely. One FTP session keeps this complete check quick and
-          # prevents index.html from ever pointing at a missing dynamic chunk.
+          # Verify that every asset in the current release exists remotely, then compare
+          # bytes only for changed assets plus the entry chunk. Listing once avoids a
+          # timeout for every absent file while still preventing index.html from ever
+          # pointing at a missing dynamic chunk.
           heal_missing() {
             verify_directory="$(mktemp -d)"
             missing_files="$(mktemp)"
+            remote_assets="$(mktemp)"
+
+            lftp -c "
+              set ftp:ssl-allow true;
+              set ftp:ssl-protect-data true;
+              set ssl:verify-certificate no;
+              set net:max-retries 2;
+              set net:timeout 20;
+              open -u '$FTP_USER','$FTP_PASSWORD' -p ${FTP_PORT:-21} '$FTP_HOST';
+              cls -1 '$FTP_REMOTE_DIR/assets';
+            " | sed 's#/$##; s#.*/##' | sort -u > "$remote_assets" || true
+
+            miss=0
+            while IFS= read -r name; do
+              [ -n "$name" ] || continue
+              if grep -Fxq "$name" "$remote_assets"; then
+                continue
+              fi
+              echo "  ↻ missing on server: $name — re-uploading"
+              echo "assets/$name" >> "$missing_files"
+              miss=$((miss + 1))
+            done < "$current_assets"
+
+            if [ "$miss" -gt 0 ]; then
+              run_put_batch "$missing_files" || true
+              rm -rf "$verify_directory"
+              rm -f "$missing_files" "$remote_assets"
+              return $miss
+            fi
+
             download_commands=""
             while IFS= read -r name; do
               [ -n "$name" ] || continue
@@ -177,7 +207,6 @@ jobs:
               " || true
             fi
 
-            miss=0
             while IFS= read -r name; do
               [ -n "$name" ] || continue
               if cmp -s "dist/assets/$name" "$verify_directory/$name"; then
@@ -189,7 +218,7 @@ jobs:
             done < "$verify_assets"
             run_put_batch "$missing_files" || true
             rm -rf "$verify_directory"
-            rm -f "$missing_files"
+            rm -f "$missing_files" "$remote_assets"
             return $miss
           }
 
@@ -201,6 +230,7 @@ jobs:
           manifest_upload="$(mktemp -d)/.frontend-files.sha256"
           previous_manifest="$(mktemp)"
           changed_files="$(mktemp)"
+          current_assets="$(mktemp)"
           verify_assets="$(mktemp)"
           find dist -type f ! -name 'index.html' -print0 \
             | sort -z \
@@ -225,9 +255,15 @@ jobs:
             "$previous_manifest" "$current_manifest" > "$changed_files"
           echo "Files requiring FTP upload: $(wc -l < "$changed_files" | tr -d ' ')"
 
-          find dist/assets -maxdepth 1 -type f -printf '%f\n' > "$verify_assets"
+          find dist/assets -maxdepth 1 -type f -printf '%f\n' > "$current_assets"
+          sed -n 's#^assets/##p' "$changed_files" > "$verify_assets"
+          if [ -n "$entry" ]; then
+            basename "$entry" >> "$verify_assets"
+          fi
+          sort -u -o "$current_assets" "$current_assets"
           sort -u -o "$verify_assets" "$verify_assets"
-          echo "Current assets requiring FTP verification: $(wc -l < "$verify_assets" | tr -d ' ')"
+          echo "Current assets requiring existence checks: $(wc -l < "$current_assets" | tr -d ' ')"
+          echo "Changed assets requiring byte verification: $(wc -l < "$verify_assets" | tr -d ' ')"
 
           # Upload changed files (NOT index.html), then confirm the current asset set
           # serves. Retry the upload + targeted re-put of any dropped file — a flaky
