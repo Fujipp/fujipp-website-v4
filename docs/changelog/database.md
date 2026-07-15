@@ -1,9 +1,10 @@
 # Changelog — Database
 
-**Current version: `0.3.12`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.3.13`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.3.13` | 2026-07-16 | BOT-scoped Feature subscriptions can now remain unassigned as reusable stack items while assigned live Features stay unique per bot. |
 | `0.3.12` | 2026-07-15 | Replaced the admin Runtime monitor with configurable expiry alerts granted automatically to every bot. |
 | `0.3.11` | 2026-07-10 | Added a stored icon choice for each Shop feature. |
 | `0.3.10` | 2026-07-10 | Set active Runtime durations to 1 month at 99 baht, 2 months at 199 baht, and 3 months at 299 baht. |
