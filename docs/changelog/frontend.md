@@ -1,9 +1,10 @@
 # Changelog — Frontend
 
-**Current version: `0.7.6.1`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.7.6.2`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.7.6.2` | 2026-07-16 | Fixed production type-check failures by making Bot configuration’s nullable Runtime and Feature state explicit and guarding empty dialog focus traps. |
 | `0.7.6.1` | 2026-07-16 | Admin Package settings now describe entitlement duration as Access type and display readable Permanent or Monthly labels instead of billing enums. |
 | `0.7.6` | 2026-07-16 | Admin Package settings now separate unused and bot-assigned Features, support Detach and Remove confirmations, and only offer free slots from active VPS nodes. |
 | `0.7.5` | 2026-07-16 | Admin user Runtime and Package workspaces can now grant Runtime or monthly/permanent Features, assign them to an owned bot or unused stack, and confirm the action with Toast feedback. |
