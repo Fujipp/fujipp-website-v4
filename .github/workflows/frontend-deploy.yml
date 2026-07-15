@@ -143,7 +143,7 @@ jobs:
               set net:timeout 30;
               set xfer:clobber on;
               open -u '$FTP_USER','$FTP_PASSWORD' -p ${FTP_PORT:-21} '$FTP_HOST';
-              put -o '$FTP_REMOTE_DIR/.frontend-files.sha256' '$current_manifest';
+              put -O '$FTP_REMOTE_DIR' '$manifest_upload';
             "
           }
 
@@ -189,6 +189,7 @@ jobs:
           # baseline and let heal_missing() repair anything absent; the immediately
           # preceding full deployment already populated the server.
           current_manifest="$(mktemp)"
+          manifest_upload="$(mktemp -d)/.frontend-files.sha256"
           previous_manifest="$(mktemp)"
           changed_files="$(mktemp)"
           verify_assets="$(mktemp)"
@@ -196,6 +197,7 @@ jobs:
             | sort -z \
             | xargs -0 -r sha256sum \
             | sed 's#  dist/#  #' > "$current_manifest"
+          cp "$current_manifest" "$manifest_upload"
 
           if ! lftp -c "
             set ftp:ssl-allow true;
