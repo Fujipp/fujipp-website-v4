@@ -1,9 +1,10 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.36.13`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.36.14`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.36.14` | 2026-07-16 | Frontend deploy verification now checks changed assets plus the entry chunk instead of repeating HTTP requests for every unchanged release asset. |
 | `0.0.36.13` | 2026-07-16 | Frontend deployment no longer uses FTP mirroring; one SHA-256 manifest now limits uploads across the complete build to content-changed paths only. |
 | `0.0.36.12` | 2026-07-16 | Frontend FTP deploys now use a SHA-256 release manifest and HTTP healing to transfer only changed or missing assets. |
 | `0.0.36.11` | 2026-07-16 | Frontend FTP deploys no longer mirror the growing remote hashed-asset history; they mirror stable files and upload only the current release assets directly. |

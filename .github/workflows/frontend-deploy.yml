@@ -147,9 +147,10 @@ jobs:
             "
           }
 
-          # Verify every current asset returns successfully and is not the SPA fallback
-          # HTML, re-uploading any that don't. Historical chunks stay on the server but
-          # are not copied into dist/ or listed over FTP during normal deploys.
+          # Verify changed assets plus the entry chunk return successfully and are not
+          # the SPA fallback HTML, re-uploading any that don't. Unchanged files already
+          # passed verification in their release and do not need hundreds of repeat HTTP
+          # requests on every deployment.
           heal_missing() {
             missing_file="$(mktemp)"
             export SITE_URL missing_file
@@ -157,12 +158,11 @@ jobs:
             # FTPS upload remains serial because this host drops parallel data
             # connections. HTTP checks are independent, so four at a time avoids
             # spending minutes waiting for one request per current-release chunk.
-            find dist/assets -maxdepth 1 -type f -print0 \
-              | xargs -0 -r -n 1 -P 8 bash -c '
-                  name="$(basename "$1")"
+            xargs -r -n 1 -P 16 bash -c '
+                  name="$1"
                   response="$(curl -s --connect-timeout 5 --max-time 15 -o /dev/null -w "%{http_code}:%{content_type}" "$SITE_URL/assets/$name" || true)"
                   case "$response" in 200:*text/html*) printf "%s\n" "$name" >> "$missing_file";; 200:*) ;; *) printf "%s\n" "$name" >> "$missing_file";; esac
-                ' _
+                ' _ < "$verify_assets"
 
             miss=0
             while IFS= read -r name; do
@@ -182,6 +182,7 @@ jobs:
           current_manifest="$(mktemp)"
           previous_manifest="$(mktemp)"
           changed_files="$(mktemp)"
+          verify_assets="$(mktemp)"
           find dist -type f ! -name 'index.html' -print0 \
             | sort -z \
             | xargs -0 -r sha256sum \
@@ -203,6 +204,13 @@ jobs:
           awk 'NR == FNR { old[$2] = $1; next } old[$2] != $1 { print $2 }' \
             "$previous_manifest" "$current_manifest" > "$changed_files"
           echo "Files requiring FTP upload: $(wc -l < "$changed_files" | tr -d ' ')"
+
+          sed -n 's#^assets/##p' "$changed_files" > "$verify_assets"
+          if [ -n "$entry" ]; then
+            basename "$entry" >> "$verify_assets"
+          fi
+          sort -u -o "$verify_assets" "$verify_assets"
+          echo "Assets requiring HTTP verification: $(wc -l < "$verify_assets" | tr -d ' ')"
 
           # Upload changed files (NOT index.html), then confirm the current asset set
           # serves. Retry the upload + targeted re-put of any dropped file — a flaky

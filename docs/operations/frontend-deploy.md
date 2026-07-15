@@ -27,7 +27,8 @@ VITE_API_BASE_URL=https://api.fujipp.com
 - Deployment does not use FTP mirroring, so it never scans the growing remote file
   history. A small SHA-256 manifest selects only build and public files whose
   content changed since the last verified release.
-- Every current asset is checked over HTTP before `index.html` is flipped. Missing
-  or dropped files are re-uploaded even when the FTP manifest was unavailable.
+- Changed assets and the entry chunk are checked over HTTP before `index.html` is
+  flipped. Missing or dropped files are re-uploaded; unchanged assets retain the
+  verification result from the release that introduced them.
 - Stable public files are compared by content hash, so same-size edits are detected
   while unchanged files are not removed or transferred.
