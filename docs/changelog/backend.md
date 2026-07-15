@@ -1,9 +1,10 @@
 # Changelog — Backend
 
-**Current version: `0.5.8`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.5.8.1`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.5.8.1` | 2026-07-16 | Discord wallet balance embeds now follow successful top-ups, purchases, refunds, and adjustments while the interaction remains active. |
 | `0.5.8` | 2026-07-16 | Added audited Admin actions to detach an assigned Feature back into a user’s unused stack or remove an unused entitlement from the user. |
 | `0.5.7` | 2026-07-16 | Admins can grant a Runtime on a locked free VPS slot or grant monthly/permanent Features to a user, either assigned to an owned bot or left unassigned for later use. |
 | `0.5.6` | 2026-07-15 | Admin dashboard metrics now include paid sales from the last 30 days, the number of paid Package items, and the lifetime value of all paid sales. |

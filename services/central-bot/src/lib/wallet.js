@@ -12,6 +12,33 @@ class InsufficientFundsError extends Error {
 }
 
 function makeWallet(subjectId) {
+  const balanceListeners = new Map();
+
+  function emitBalance(memberId, balanceSatang) {
+    const listeners = balanceListeners.get(String(memberId));
+    if (!listeners) return;
+    for (const listener of listeners) {
+      Promise.resolve(listener(balanceSatang)).catch(() => {});
+    }
+  }
+
+  function subscribeBalance(memberId, listener, ttlMs = 14 * 60 * 1000) {
+    const key = String(memberId);
+    const listeners = balanceListeners.get(key) || new Set();
+    listeners.add(listener);
+    balanceListeners.set(key, listeners);
+
+    let timer = null;
+    const unsubscribe = () => {
+      if (timer) clearTimeout(timer);
+      listeners.delete(listener);
+      if (listeners.size === 0) balanceListeners.delete(key);
+    };
+    timer = setTimeout(unsubscribe, ttlMs);
+    timer.unref?.();
+    return unsubscribe;
+  }
+
   async function getBalance(memberId) {
     const { rows } = await pool.query(
       `SELECT balance_satang FROM shop.member_wallets
@@ -40,6 +67,7 @@ function makeWallet(subjectId) {
       const balanceAfter = Number(rows[0].balance_satang);
       await writeLedger(client, memberId, 'CREDIT', type, amountSatang, balanceAfter, reference, note);
       await client.query('COMMIT');
+      emitBalance(memberId, balanceAfter);
       return balanceAfter;
     } catch (err) {
       await client.query('ROLLBACK').catch(() => {});
@@ -69,6 +97,7 @@ function makeWallet(subjectId) {
       const balanceAfter = Number(rows[0].balance_satang);
       await writeLedger(client, memberId, 'DEBIT', type, amountSatang, balanceAfter, reference, note);
       await client.query('COMMIT');
+      emitBalance(memberId, balanceAfter);
       return balanceAfter;
     } catch (err) {
       if (err.code !== 'INSUFFICIENT_FUNDS') await client.query('ROLLBACK').catch(() => {});
@@ -105,6 +134,7 @@ function makeWallet(subjectId) {
           Math.abs(delta), amountSatang, null, note);
       }
       await client.query('COMMIT');
+      emitBalance(memberId, amountSatang);
       return amountSatang;
     } catch (err) {
       await client.query('ROLLBACK').catch(() => {});
@@ -171,7 +201,16 @@ function makeWallet(subjectId) {
     );
   }
 
-  return { getBalance, credit, debit, setBalance, getTopupHistory, getTopupSummary, getLeaderboard };
+  return {
+    getBalance,
+    credit,
+    debit,
+    setBalance,
+    subscribeBalance,
+    getTopupHistory,
+    getTopupSummary,
+    getLeaderboard,
+  };
 }
 
 module.exports = { makeWallet, InsufficientFundsError };
