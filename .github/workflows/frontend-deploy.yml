@@ -163,9 +163,9 @@ jobs:
             export SITE_URL GITHUB_SHA
             xargs -r -P 8 -I '{}' sh -c '
               name="$1"
-              content_type="$(curl -sS --max-time 20 -H "Cache-Control: no-cache" -o /dev/null -w "%{content_type}" "$SITE_URL/assets/$name?deploy=$GITHUB_SHA")"
+              content_type="$(curl -sS --retry 3 --retry-all-errors --connect-timeout 10 --max-time 30 -H "Cache-Control: no-cache" -o /dev/null -w "%{content_type}" "$SITE_URL/assets/$name?deploy=$GITHUB_SHA" || true)"
               case "$content_type" in
-                text/html*|"") echo "assets/$name" ;;
+                text/html*) echo "assets/$name" ;;
               esac
             ' sh '{}' < "$current_assets" > "$missing_files"
 
