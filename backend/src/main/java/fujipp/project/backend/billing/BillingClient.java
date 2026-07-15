@@ -525,6 +525,24 @@ public class BillingClient {
             .body(String.class);
     }
 
+    public String adminDetachFeatureSubscription(UUID adminId, UUID subId) {
+        return http.post().uri("/api/billing/admin/subscriptions/features/{id}/detach", subId)
+            .header("X-Service-Token", serviceToken)
+            .header("X-Admin-Id", adminId.toString())
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raiseWithReason(res))
+            .body(String.class);
+    }
+
+    public String adminRemoveFeatureSubscription(UUID adminId, UUID subId) {
+        return http.delete().uri("/api/billing/admin/subscriptions/features/{id}", subId)
+            .header("X-Service-Token", serviceToken)
+            .header("X-Admin-Id", adminId.toString())
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raiseWithReason(res))
+            .body(String.class);
+    }
+
     // ── admin wallet (service token + acting admin id) ──────────────────────────
 
     /** Raw JSON of a user's wallet balance for the admin panel. */

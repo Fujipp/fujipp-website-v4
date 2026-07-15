@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -73,6 +74,22 @@ public class AdminSubscriptionController {
         UUID adminId = UUID.fromString(jwt.getSubject());
         adminAccess.requireAdmin(adminId);
         return json(billing.adminUpdateFeatureSubscription(adminId, id, body));
+    }
+
+    @PostMapping("/subscriptions/features/{id}/detach")
+    public ResponseEntity<String> detachFeature(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable UUID id) {
+        UUID adminId = UUID.fromString(jwt.getSubject());
+        adminAccess.requireAdmin(adminId);
+        return json(billing.adminDetachFeatureSubscription(adminId, id));
+    }
+
+    @DeleteMapping("/subscriptions/features/{id}")
+    public ResponseEntity<String> removeFeature(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable UUID id) {
+        UUID adminId = UUID.fromString(jwt.getSubject());
+        adminAccess.requireAdmin(adminId);
+        return json(billing.adminRemoveFeatureSubscription(adminId, id));
     }
 
     private ResponseEntity<String> json(String body) {

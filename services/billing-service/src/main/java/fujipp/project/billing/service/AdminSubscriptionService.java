@@ -261,6 +261,39 @@ public class AdminSubscriptionService {
         return FeatureSubscriptionResponse.from(saved);
     }
 
+    @Transactional
+    public FeatureSubscriptionResponse detachFeature(UUID adminId, UUID subId) {
+        FeatureSubscription sub = featureSubs.findById(subId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Subscription not found"));
+        String previousSubject = sub.getExternalSubjectId();
+        sub.setExternalSubjectId(null);
+        FeatureSubscription saved = featureSubs.save(sub);
+
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("previousSubjectId", previousSubject);
+        audit.record(adminId, "SUBSCRIPTION_DETACH", saved.getUserId(),
+            "FEATURE_SUBSCRIPTION", saved.getId().toString(), details);
+        return FeatureSubscriptionResponse.from(saved);
+    }
+
+    @Transactional
+    public FeatureSubscriptionResponse removeFeature(UUID adminId, UUID subId) {
+        FeatureSubscription sub = featureSubs.findById(subId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Subscription not found"));
+        String previousSubject = sub.getExternalSubjectId();
+        sub.setExternalSubjectId(null);
+        sub.setStatus("CANCELED");
+        sub.setAutoRenew(false);
+        FeatureSubscription saved = featureSubs.save(sub);
+
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("previousSubjectId", previousSubject);
+        details.put("status", "CANCELED");
+        audit.record(adminId, "SUBSCRIPTION_REMOVE", saved.getUserId(),
+            "FEATURE_SUBSCRIPTION", saved.getId().toString(), details);
+        return FeatureSubscriptionResponse.from(saved);
+    }
+
     // ── helpers ─────────────────────────────────────────────────────────────────
 
     private void applyRenewPrice(Boolean clear, Long renewPriceSatang, Long current,
