@@ -53,14 +53,20 @@ public class AdminDashboardService {
 
         // Billing metrics are best-effort — a dashboard should still render if billing is down.
         long revenue30d = 0;
+        long salesRevenue30d = 0;
         long totalBalance = 0;
         long walletCount = 0;
+        long packagesSold = 0;
+        long totalSales = 0;
         List<BillingClient.AuditEntry> recentAudit = List.of();
         try {
             BillingClient.AdminMetrics m = billing.adminMetrics();
             revenue30d = m.topupRevenueSatang30d();
+            salesRevenue30d = m.salesRevenueSatang30d();
             totalBalance = m.totalWalletBalanceSatang();
             walletCount = m.walletCount();
+            packagesSold = m.packagesSold();
+            totalSales = m.totalSalesSatang();
             if (m.recentAudit() != null) recentAudit = m.recentAudit();
         } catch (RuntimeException e) {
             log.warn("Dashboard: billing metrics unavailable", e);
@@ -69,6 +75,6 @@ public class AdminDashboardService {
         return new AdminDashboardResponse(
             totalUsers, adminUsers, totalBots, runningBots,
             nodes.size(), slotsUsed, slotsTotal,
-            revenue30d, totalBalance, walletCount, recentAudit);
+            revenue30d, salesRevenue30d, totalBalance, walletCount, packagesSold, totalSales, recentAudit);
     }
 }
