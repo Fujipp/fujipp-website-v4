@@ -1,9 +1,10 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.36.21`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.36.22`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.36.22` | 2026-07-16 | Frontend releases now probe current browser asset URLs in parallel and repair only HTML fallbacks, without slow FTP history listings. |
 | `0.0.36.21` | 2026-07-16 | Frontend deploys now detect missing release assets from one remote listing and byte-check only changed files, avoiding per-file timeouts. |
 | `0.0.36.20` | 2026-07-16 | Frontend asset uploads and recovery now reuse one serial FTP session per batch, avoiding costly reconnects for every file. |
 | `0.0.36.19` | 2026-07-16 | Frontend releases now verify every current asset before switching pages, and first-time manifests upload the complete build. |

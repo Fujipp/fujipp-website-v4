@@ -152,40 +152,32 @@ jobs:
             "
           }
 
-          # Verify that every asset in the current release exists remotely, then compare
-          # bytes only for changed assets plus the entry chunk. Listing once avoids a
-          # timeout for every absent file while still preventing index.html from ever
-          # pointing at a missing dynamic chunk.
+          # Verify every current-release asset through the same HTTP path browsers use,
+          # then compare bytes only for changed assets plus the entry chunk. Parallel
+          # cache-busted probes avoid both the slow historical FTP listing and a timeout
+          # for every absent file. A missing SPA asset returns index.html, so text/html
+          # is treated as missing even when the fallback status is 200.
           heal_missing() {
             verify_directory="$(mktemp -d)"
             missing_files="$(mktemp)"
-            remote_assets="$(mktemp)"
+            export SITE_URL GITHUB_SHA
+            xargs -r -P 8 -I '{}' sh -c '
+              name="$1"
+              content_type="$(curl -sS --max-time 20 -H "Cache-Control: no-cache" -o /dev/null -w "%{content_type}" "$SITE_URL/assets/$name?deploy=$GITHUB_SHA")"
+              case "$content_type" in
+                text/html*|"") echo "assets/$name" ;;
+              esac
+            ' sh '{}' < "$current_assets" > "$missing_files"
 
-            lftp -c "
-              set ftp:ssl-allow true;
-              set ftp:ssl-protect-data true;
-              set ssl:verify-certificate no;
-              set net:max-retries 2;
-              set net:timeout 20;
-              open -u '$FTP_USER','$FTP_PASSWORD' -p ${FTP_PORT:-21} '$FTP_HOST';
-              cls -1 '$FTP_REMOTE_DIR/assets';
-            " | sed 's#/$##; s#.*/##' | sort -u > "$remote_assets" || true
-
-            miss=0
-            while IFS= read -r name; do
-              [ -n "$name" ] || continue
-              if grep -Fxq "$name" "$remote_assets"; then
-                continue
-              fi
-              echo "  ↻ missing on server: $name — re-uploading"
-              echo "assets/$name" >> "$missing_files"
-              miss=$((miss + 1))
-            done < "$current_assets"
+            miss="$(wc -l < "$missing_files" | tr -d ' ')"
 
             if [ "$miss" -gt 0 ]; then
+              while IFS= read -r path; do
+                [ -n "$path" ] && echo "  ↻ missing on server: ${path#assets/} — re-uploading"
+              done < "$missing_files"
               run_put_batch "$missing_files" || true
               rm -rf "$verify_directory"
-              rm -f "$missing_files" "$remote_assets"
+              rm -f "$missing_files"
               return $miss
             fi
 
@@ -218,7 +210,7 @@ jobs:
             done < "$verify_assets"
             run_put_batch "$missing_files" || true
             rm -rf "$verify_directory"
-            rm -f "$missing_files" "$remote_assets"
+            rm -f "$missing_files"
             return $miss
           }
 
@@ -262,7 +254,7 @@ jobs:
           fi
           sort -u -o "$current_assets" "$current_assets"
           sort -u -o "$verify_assets" "$verify_assets"
-          echo "Current assets requiring existence checks: $(wc -l < "$current_assets" | tr -d ' ')"
+          echo "Current assets requiring HTTP existence checks: $(wc -l < "$current_assets" | tr -d ' ')"
           echo "Changed assets requiring byte verification: $(wc -l < "$verify_assets" | tr -d ' ')"
 
           # Upload changed files (NOT index.html), then confirm the current asset set
