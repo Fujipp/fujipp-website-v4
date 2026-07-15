@@ -74,9 +74,11 @@ jobs:
           echo "Entry chunk: ${entry:-<none found>}"
 
           # Upload serially (parallel FTPS data connections on this shared host silently
-          # drop large files — that is the flaky-deploy root cause). The build output is
-          # current-release only; old hashed assets are kept on the server because this
-          # mirror does not delete remote files.
+          # drop large files — that is the flaky-deploy root cause). GitHub checkout gives
+          # every local file a fresh timestamp, so --ignore-time prevents lftp from
+          # replacing unchanged same-size files on every release. Vite's changed JS/CSS
+          # assets have new content-hashed names; changed stable files with a different
+          # size are still transferred. Old hashed assets remain available remotely.
           #
           # CRITICAL ordering: this mirror EXCLUDES index.html (-X index.html). We upload
           # every hashed chunk first, prove they all serve, and only then put index.html
@@ -93,7 +95,7 @@ jobs:
               set net:reconnect-interval-base 5;
               set xfer:clobber on;
               open -u '$FTP_USER','$FTP_PASSWORD' -p ${FTP_PORT:-21} '$FTP_HOST';
-              mirror -R --parallel=1 --verbose -X index.html dist/ '$FTP_REMOTE_DIR';
+              mirror -R --parallel=1 --verbose --ignore-time -X index.html dist/ '$FTP_REMOTE_DIR';
             "
           }
 
