@@ -126,7 +126,7 @@ jobs:
               set net:timeout 30;
               set xfer:clobber on;
               open -u '$FTP_USER','$FTP_PASSWORD' -p ${FTP_PORT:-21} '$FTP_HOST';
-              mkdir -p '$remote_directory';
+              mkdir -pf '$remote_directory';
               put -O '$remote_directory' 'dist/$path';
             "
           }
