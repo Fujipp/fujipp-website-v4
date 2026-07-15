@@ -160,7 +160,7 @@ jobs:
             # spending minutes waiting for one request per current-release chunk.
             xargs -r -n 1 -P 16 bash -c '
                   name="$1"
-                  response="$(curl -s --connect-timeout 5 --max-time 15 -o /dev/null -w "%{http_code}:%{content_type}" "$SITE_URL/assets/$name" || true)"
+                  response="$(curl -s -H "Cache-Control: no-cache" --connect-timeout 5 --max-time 15 -o /dev/null -w "%{http_code}:%{content_type}" "$SITE_URL/assets/$name?deploy=$GITHUB_SHA" || true)"
                   case "$response" in 200:*text/html*) printf "%s\n" "$name" >> "$missing_file";; 200:*) ;; *) printf "%s\n" "$name" >> "$missing_file";; esac
                 ' _ < "$verify_assets"
 
@@ -225,7 +225,7 @@ jobs:
               put_index || { echo "::error::index.html upload failed"; exit 1; }
               put_manifest || { echo "::error::file manifest upload failed"; exit 1; }
               if [ -n "$entry" ]; then
-                echo "Entry now served as: $(curl -s -o /dev/null -w '%{content_type}' "$SITE_URL$entry" || true)"
+              echo "Entry now served as: $(curl -s -H 'Cache-Control: no-cache' -o /dev/null -w '%{content_type}' "$SITE_URL$entry?deploy=$GITHUB_SHA" || true)"
               fi
               echo "Deploy complete ✅"; exit 0
             fi
