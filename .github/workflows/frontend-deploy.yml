@@ -8,6 +8,7 @@ on:
     branches: [main]
     paths:
       - 'frontend/**'
+      - '.github/workflows/frontend-deploy.yml'
       - '!frontend/README.md'
       - '!frontend/AGENTS.md'
       - '!frontend/docs/**'
@@ -147,9 +148,10 @@ jobs:
             "
           }
 
-          # Verify changed assets plus the entry chunk directly over FTP. Download them
-          # in one session and compare bytes with dist/, avoiding stale CDN 404 responses.
-          # Unchanged files already passed verification in their original release.
+          # Verify every asset in the current release directly over FTP. The release
+          # manifest tells us what changed, but it cannot prove that an unchanged path
+          # still exists remotely. One FTP session keeps this complete check quick and
+          # prevents index.html from ever pointing at a missing dynamic chunk.
           heal_missing() {
             verify_directory="$(mktemp -d)"
             download_commands=""
@@ -185,9 +187,9 @@ jobs:
           }
 
           # Compare the local release against the tiny manifest from the last verified
-          # release. On the first manifest-based deployment, use the current set as the
-          # baseline and let heal_missing() repair anything absent; the immediately
-          # preceding full deployment already populated the server.
+          # release. With no previous manifest, use an empty baseline so the first run
+          # uploads the complete release instead of incorrectly treating every file as
+          # already deployed.
           current_manifest="$(mktemp)"
           manifest_upload="$(mktemp -d)/.frontend-files.sha256"
           previous_manifest="$(mktemp)"
@@ -208,20 +210,17 @@ jobs:
             open -u '$FTP_USER','$FTP_PASSWORD' -p ${FTP_PORT:-21} '$FTP_HOST';
             get '$FTP_REMOTE_DIR/.frontend-files.sha256' -o '$previous_manifest';
           "; then
-            echo "No previous file manifest; bootstrapping from the verified live release."
-            cp "$current_manifest" "$previous_manifest"
+            echo "No previous file manifest; uploading the complete current release."
+            : > "$previous_manifest"
           fi
 
           awk 'NR == FNR { old[$2] = $1; next } old[$2] != $1 { print $2 }' \
             "$previous_manifest" "$current_manifest" > "$changed_files"
           echo "Files requiring FTP upload: $(wc -l < "$changed_files" | tr -d ' ')"
 
-          sed -n 's#^assets/##p' "$changed_files" > "$verify_assets"
-          if [ -n "$entry" ]; then
-            basename "$entry" >> "$verify_assets"
-          fi
+          find dist/assets -maxdepth 1 -type f -printf '%f\n' > "$verify_assets"
           sort -u -o "$verify_assets" "$verify_assets"
-          echo "Assets requiring HTTP verification: $(wc -l < "$verify_assets" | tr -d ' ')"
+          echo "Current assets requiring FTP verification: $(wc -l < "$verify_assets" | tr -d ' ')"
 
           # Upload changed files (NOT index.html), then confirm the current asset set
           # serves. Retry the upload + targeted re-put of any dropped file — a flaky
