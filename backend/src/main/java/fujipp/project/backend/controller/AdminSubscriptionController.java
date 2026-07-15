@@ -9,6 +9,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -25,6 +26,9 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AdminSubscriptionController {
 
+    public record GrantRuntimeRequest(String subjectId, UUID runtimePlanId, UUID vpsSlotId) {}
+    public record GrantFeatureRequest(String subjectId, UUID featureId, UUID priceId, String billingType) {}
+
     private final AdminAccessService adminAccess;
     private final BillingClient billing;
 
@@ -33,6 +37,26 @@ public class AdminSubscriptionController {
             @AuthenticationPrincipal Jwt jwt, @PathVariable UUID userId) {
         adminAccess.requireAdmin(UUID.fromString(jwt.getSubject()));
         return json(billing.adminListUserSubscriptions(userId));
+    }
+
+    @PostMapping("/users/{userId}/subscriptions/runtime")
+    public ResponseEntity<String> grantRuntime(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable UUID userId,
+            @RequestBody GrantRuntimeRequest request) {
+        UUID adminId = UUID.fromString(jwt.getSubject());
+        adminAccess.requireAdmin(adminId);
+        return json(billing.adminGrantRuntime(adminId, userId, request.subjectId(),
+            request.runtimePlanId(), request.vpsSlotId()));
+    }
+
+    @PostMapping("/users/{userId}/subscriptions/features")
+    public ResponseEntity<String> grantFeature(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable UUID userId,
+            @RequestBody GrantFeatureRequest request) {
+        UUID adminId = UUID.fromString(jwt.getSubject());
+        adminAccess.requireAdmin(adminId);
+        return json(billing.adminGrantFeature(adminId, userId, request.subjectId(),
+            request.featureId(), request.priceId(), request.billingType()));
     }
 
     @PatchMapping("/subscriptions/runtime/{id}")

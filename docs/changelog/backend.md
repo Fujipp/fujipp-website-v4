@@ -1,9 +1,10 @@
 # Changelog — Backend
 
-**Current version: `0.5.6`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.5.7`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.5.7` | 2026-07-16 | Admins can grant a Runtime on a locked free VPS slot or grant monthly/permanent Features to a user, either assigned to an owned bot or left unassigned for later use. |
 | `0.5.6` | 2026-07-15 | Admin dashboard metrics now include paid sales from the last 30 days, the number of paid Package items, and the lifetime value of all paid sales. |
 | `0.5.5` | 2026-07-15 | Added audited admin APIs for listing and updating existing Feature setting-field metadata without changing the database schema. |
 | `0.5.4` | 2026-07-15 | Added formal Discord Runtime expiry alerts with selectable timing and DM, server channel, or combined delivery. |
