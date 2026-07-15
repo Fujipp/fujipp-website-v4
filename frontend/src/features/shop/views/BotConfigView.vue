@@ -541,7 +541,8 @@ async function renewRuntime(): Promise<void> {
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         notify("success", "ต่ออายุ Runtime แล้ว", "ตัดเครดิตและขยายเวลาเรียบร้อย");
-        await loadRuntime();
+        window.dispatchEvent(new Event("fujipp:wallet-balance-changed"));
+        await Promise.all([loadRuntime(), loadBot()]);
     } catch {
         notify("error", "ต่ออายุไม่สำเร็จ", "เครดิตอาจไม่พอ — ลองเติมเงินก่อน");
     } finally {

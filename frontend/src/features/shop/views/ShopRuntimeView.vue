@@ -204,6 +204,7 @@ async function confirmBuy(): Promise<void> {
         });
         if (!res.ok) throw new Error(await parseError(res) || `HTTP ${res.status}`);
         notify("success", "ซื้อ Runtime แล้ว", "เลือกบอทที่จะใช้ Runtime นี้ได้จากหน้า Dashboard");
+        window.dispatchEvent(new Event("fujipp:wallet-balance-changed"));
         await load();
     } catch (e) {
         notify("error", "ซื้อ Runtime ไม่สำเร็จ", (e as Error).message || "เครดิตอาจไม่พอ — เติมเงินแล้วลองใหม่");

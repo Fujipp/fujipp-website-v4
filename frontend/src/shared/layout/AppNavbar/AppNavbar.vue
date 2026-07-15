@@ -55,6 +55,7 @@ let sheetPointerId: number | null = null;
 let sheetDragStartY = 0;
 let sheetDragStartedAt = 0;
 const CREDENTIALS_ENABLED = false as const;
+const WALLET_BALANCE_CHANGED_EVENT = "fujipp:wallet-balance-changed";
 
 const isAuthenticated = computed(() => userStore.isAuthenticated);
 const navigationLinks = computed(() => (
@@ -220,6 +221,10 @@ function closeOnEscape(event: KeyboardEvent): void {
     if (event.key === "Escape") closeOverlays();
 }
 
+function handleWalletBalanceChanged(): void {
+    void loadWalletBalance();
+}
+
 watch(() => route.fullPath, closeOverlays);
 watch(
     [() => userStore.isAuthenticated, () => userStore.accessToken],
@@ -239,11 +244,13 @@ watch(
 onMounted(() => {
     document.addEventListener("click", closeOnOutsideClick);
     document.addEventListener("keydown", closeOnEscape);
+    window.addEventListener(WALLET_BALANCE_CHANGED_EVENT, handleWalletBalanceChanged);
 });
 
 onUnmounted(() => {
     document.removeEventListener("click", closeOnOutsideClick);
     document.removeEventListener("keydown", closeOnEscape);
+    window.removeEventListener(WALLET_BALANCE_CHANGED_EVENT, handleWalletBalanceChanged);
     document.body.style.overflow = "";
 });
 </script>

@@ -253,6 +253,17 @@ async function onBalance(interaction, ctx) {
     balance: thb(balance),
   });
   await interaction.editReply({ embeds: [embed] });
+  const unsubscribe = wallet.subscribeBalance(interaction.user.id, async (nextBalance) => {
+    try {
+      const nextEmbed = await ctx.services.embeds.renderEmbed('balance', {
+        member: interaction.user.id,
+        balance: thb(nextBalance),
+      });
+      await interaction.editReply({ embeds: [nextEmbed] });
+    } catch {
+      unsubscribe();
+    }
+  });
 }
 
 async function onTopup(interaction, ctx) {

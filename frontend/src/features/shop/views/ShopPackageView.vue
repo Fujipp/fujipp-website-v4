@@ -147,6 +147,7 @@ async function confirmPurchase(): Promise<void> {
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         notify("success", "สั่งซื้อสำเร็จ", "เก็บไว้ในคลังแล้ว — กด Use ที่หน้า Dashboard เพื่อผูกกับบอท");
+        window.dispatchEvent(new Event("fujipp:wallet-balance-changed"));
         await loadCatalog();
     } catch {
         notify("error", "สั่งซื้อไม่สำเร็จ", "เครดิตอาจไม่พอ หรือรายการซ้ำ — ลองใหม่อีกครั้ง");

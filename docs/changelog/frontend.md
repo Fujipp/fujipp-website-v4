@@ -1,9 +1,10 @@
 # Changelog — Frontend
 
-**Current version: `0.7.6.2`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.7.6.3`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.7.6.3` | 2026-07-16 | Wallet credit and Runtime expiry now refresh immediately after Shop transactions, and Admin Tools links to every Shop admin workspace. |
 | `0.7.6.2` | 2026-07-16 | Fixed production type-check failures by making Bot configuration’s nullable Runtime and Feature state explicit and guarding empty dialog focus traps. |
 | `0.7.6.1` | 2026-07-16 | Admin Package settings now describe entitlement duration as Access type and display readable Permanent or Monthly labels instead of billing enums. |
 | `0.7.6` | 2026-07-16 | Admin Package settings now separate unused and bot-assigned Features, support Detach and Remove confirmations, and only offer free slots from active VPS nodes. |
