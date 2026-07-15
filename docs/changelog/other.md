@@ -1,9 +1,10 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.36.19`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.36.20`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.36.20` | 2026-07-16 | Frontend asset uploads and recovery now reuse one serial FTP session per batch, avoiding costly reconnects for every file. |
 | `0.0.36.19` | 2026-07-16 | Frontend releases now verify every current asset before switching pages, and first-time manifests upload the complete build. |
 | `0.0.36.18` | 2026-07-16 | The frontend release manifest is now uploaded with an lftp-compatible local filename and remote-directory put. |
 | `0.0.36.17` | 2026-07-16 | Changed frontend assets are now verified by direct FTP byte comparison, avoiding slow or stale CDN missing-file responses. |
