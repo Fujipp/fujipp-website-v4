@@ -44,6 +44,12 @@ function isRecurring(billingType: string): boolean {
     return billingType === "RENT_MONTHLY";
 }
 
+function accessTypeLabel(billingType: string): string {
+    if (billingType === "RENT_PERMANENT") return "Permanent";
+    if (billingType === "RENT_MONTHLY") return "Monthly";
+    return billingType;
+}
+
 // Runtime plans drive both the current-plan label the customer sees ("X Month") and
 // the renewal term (months added per renewal). The admin picks one plan; we set the
 // subscription's runtimePlanId (label) and renewPlanId (renewal) to it together.
@@ -329,7 +335,7 @@ onMounted(load);
             <h3 v-if="mode !== 'runtime'" :class="$style.subheading">Packages</h3>
             <div v-if="mode !== 'runtime'" :class="$style.grantPanel">
                 <SelectField v-model="grantFeatureId" label="Feature" :options="featureOptions" />
-                <SelectField v-model="grantBillingType" label="Billing type" :options="billingOptions" />
+                <SelectField v-model="grantBillingType" label="Access type" :options="billingOptions" />
                 <SelectField v-model="grantBotId" label="Assign to" :options="botOptions" />
                 <PrimaryButton width-mode="hug" :disabled="!grantFeatureId" @click="pendingGrant = 'feature'">Add Feature</PrimaryButton>
             </div>
@@ -339,7 +345,7 @@ onMounted(load);
                     <thead>
                         <tr>
                             <th :class="$style.th">Feature</th>
-                            <th :class="$style.th">Billing</th>
+                            <th :class="$style.th">Access type</th>
                             <th :class="$style.th">Period end</th>
                             <th :class="$style.th">Status</th>
                             <th :class="$style.th">Action</th>
@@ -348,7 +354,7 @@ onMounted(load);
                     <tbody>
                         <tr v-for="row in unusedFeatureRows" :key="row.sub.id">
                             <td :class="$style.td">{{ featureLabel(row.sub.featureId) }}</td>
-                            <td :class="$style.td">{{ row.sub.billingType }}</td>
+                            <td :class="$style.td">{{ accessTypeLabel(row.sub.billingType) }}</td>
                             <td :class="$style.td">
                                 <input v-if="isRecurring(row.sub.billingType)" v-model="row.draft.periodEnd" :class="$style.input" type="date">
                                 <span v-else :class="$style.muted">Permanent</span>
@@ -376,7 +382,7 @@ onMounted(load);
                     <thead><tr>
                         <th :class="$style.th">Feature</th>
                         <th :class="$style.th">Bot</th>
-                        <th :class="$style.th">Billing</th>
+                        <th :class="$style.th">Access type</th>
                         <th :class="$style.th">Status</th>
                         <th :class="$style.th">Action</th>
                     </tr></thead>
@@ -384,7 +390,7 @@ onMounted(load);
                         <tr v-for="row in assignedFeatureRows" :key="row.sub.id">
                             <td :class="$style.td">{{ featureLabel(row.sub.featureId) }}</td>
                             <td :class="$style.td">{{ botLabel(row.sub.externalSubjectId) }}</td>
-                            <td :class="$style.td">{{ row.sub.billingType }}</td>
+                            <td :class="$style.td">{{ accessTypeLabel(row.sub.billingType) }}</td>
                             <td :class="$style.td">{{ row.sub.status }}</td>
                             <td :class="$style.td">
                                 <PrimaryButton width-mode="hug" @click="pendingFeatureAction = { kind: 'detach', row }">Detach</PrimaryButton>
