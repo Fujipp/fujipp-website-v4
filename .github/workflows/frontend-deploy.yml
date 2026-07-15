@@ -147,31 +147,40 @@ jobs:
             "
           }
 
-          # Verify changed assets plus the entry chunk return successfully and are not
-          # the SPA fallback HTML, re-uploading any that don't. Unchanged files already
-          # passed verification in their release and do not need hundreds of repeat HTTP
-          # requests on every deployment.
+          # Verify changed assets plus the entry chunk directly over FTP. Download them
+          # in one session and compare bytes with dist/, avoiding stale CDN 404 responses.
+          # Unchanged files already passed verification in their original release.
           heal_missing() {
-            missing_file="$(mktemp)"
-            export SITE_URL missing_file
+            verify_directory="$(mktemp -d)"
+            download_commands=""
+            while IFS= read -r name; do
+              [ -n "$name" ] || continue
+              download_commands="$download_commands get '$FTP_REMOTE_DIR/assets/$name' -o '$verify_directory/$name';"
+            done < "$verify_assets"
 
-            # FTPS upload remains serial because this host drops parallel data
-            # connections. HTTP checks are independent, so four at a time avoids
-            # spending minutes waiting for one request per current-release chunk.
-            xargs -r -n 1 -P 16 bash -c '
-                  name="$1"
-                  response="$(curl -s -H "Cache-Control: no-cache" --connect-timeout 5 --max-time 15 -o /dev/null -w "%{http_code}:%{content_type}" "$SITE_URL/assets/$name?deploy=$GITHUB_SHA" || true)"
-                  case "$response" in 200:*text/html*) printf "%s\n" "$name" >> "$missing_file";; 200:*) ;; *) printf "%s\n" "$name" >> "$missing_file";; esac
-                ' _ < "$verify_assets"
+            if [ -n "$download_commands" ]; then
+              lftp -c "
+                set ftp:ssl-allow true;
+                set ftp:ssl-protect-data true;
+                set ssl:verify-certificate no;
+                set net:max-retries 1;
+                set net:timeout 20;
+                open -u '$FTP_USER','$FTP_PASSWORD' -p ${FTP_PORT:-21} '$FTP_HOST';
+                $download_commands
+              " || true
+            fi
 
             miss=0
             while IFS= read -r name; do
               [ -n "$name" ] || continue
+              if cmp -s "dist/assets/$name" "$verify_directory/$name"; then
+                continue
+              fi
               echo "  ↻ missing on server: $name — re-uploading"
               put_one "assets/$name" || true
               miss=$((miss + 1))
-            done < "$missing_file"
-            rm -f "$missing_file"
+            done < "$verify_assets"
+            rm -rf "$verify_directory"
             return $miss
           }
 

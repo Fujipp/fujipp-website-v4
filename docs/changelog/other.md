@@ -1,9 +1,10 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.36.16`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.36.17`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.36.17` | 2026-07-16 | Changed frontend assets are now verified by direct FTP byte comparison, avoiding slow or stale CDN missing-file responses. |
 | `0.0.36.16` | 2026-07-16 | Frontend asset verification now bypasses cached missing-file responses after a new hashed chunk is uploaded. |
 | `0.0.36.15` | 2026-07-16 | Manifest-based frontend uploads now tolerate existing remote directories before putting changed or healed files. |
 | `0.0.36.14` | 2026-07-16 | Frontend deploy verification now checks changed assets plus the entry chunk instead of repeating HTTP requests for every unchanged release asset. |
