@@ -380,6 +380,7 @@ async function verifySlip(): Promise<void> {
         topup.value = null;
         currentStep.value = 1;
         await loadWallet();
+        window.dispatchEvent(new Event("fujipp:wallet-balance-changed"));
     } catch (error) {
         showToast(
             "error",

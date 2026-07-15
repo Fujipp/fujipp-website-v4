@@ -264,6 +264,24 @@ onUnmounted(() => {
                 <span :class="$style.actionIcon" :style="{ '--action-icon': `url(${icons.package})` }" aria-hidden="true" />
                 <span>Pricing</span>
             </RouterLink>
+            <RouterLink
+                :class="$style.actionButton"
+                :to="{ name: 'admin-bots' }"
+                aria-label="Admin bots"
+                @click="isExpanded = false"
+            >
+                <span :class="$style.actionIcon" :style="{ '--action-icon': `url(${icons.shopBot})` }" aria-hidden="true" />
+                <span>Bots</span>
+            </RouterLink>
+            <RouterLink
+                :class="$style.actionButton"
+                :to="{ name: 'admin-vps' }"
+                aria-label="Admin VPS"
+                @click="isExpanded = false"
+            >
+                <span :class="$style.actionIcon" :style="{ '--action-icon': `url(${icons.shopServer})` }" aria-hidden="true" />
+                <span>VPS</span>
+            </RouterLink>
             <button
                 :class="[$style.actionButton, $style.logOutButton]"
                 type="button"

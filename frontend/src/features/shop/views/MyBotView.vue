@@ -282,6 +282,7 @@ async function renewRuntime(subscription: RuntimeSubscription): Promise<void> {
         });
         if (!response.ok) throw new Error("Runtime renewal failed");
         notify("success", "ต่อ Runtime สำเร็จ", "วันหมดอายุของ Runtime ถูกอัปเดตแล้ว");
+        window.dispatchEvent(new Event("fujipp:wallet-balance-changed"));
         await loadData();
     } catch {
         notify("error", "ต่อ Runtime ไม่สำเร็จ", "กรุณาตรวจสอบเครดิตคงเหลือแล้วลองใหม่อีกครั้ง");
