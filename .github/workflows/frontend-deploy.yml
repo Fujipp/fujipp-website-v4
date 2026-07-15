@@ -86,11 +86,38 @@ jobs:
           # index.html keeps pointing at the OLD chunks (still present, never deleted)
           # until the NEW chunks are fully on disk — no white-screen window mid-deploy.
           upload() {
+            run_put_batch "$changed_files"
+          }
+
+          # Keep transfers serial for this shared host, but reuse one authenticated FTP
+          # session for the whole batch. Reconnecting once per file made recovery runs
+          # unnecessarily slow even though the bytes themselves were small.
+          run_put_batch() {
+            list_file="$1"
+            upload_commands=""
             while IFS= read -r path; do
               [ -n "$path" ] || continue
               echo "  ↑ changed file: $path"
-              put_one "$path" || return 1
-            done < "$changed_files"
+              directory="$(dirname "$path")"
+              if [ "$directory" = "." ]; then
+                remote_directory="$FTP_REMOTE_DIR"
+              else
+                remote_directory="$FTP_REMOTE_DIR/$directory"
+              fi
+              upload_commands="$upload_commands mkdir -pf '$remote_directory'; put -O '$remote_directory' 'dist/$path';"
+            done < "$list_file"
+
+            [ -n "$upload_commands" ] || return 0
+            lftp -c "
+              set ftp:ssl-allow true;
+              set ftp:ssl-protect-data true;
+              set ssl:verify-certificate no;
+              set net:max-retries 3;
+              set net:timeout 30;
+              set xfer:clobber on;
+              open -u '$FTP_USER','$FTP_PASSWORD' -p ${FTP_PORT:-21} '$FTP_HOST';
+              $upload_commands
+            "
           }
 
           # Put the entry document LAST, after every chunk is confirmed serving. This is
@@ -106,29 +133,6 @@ jobs:
               set xfer:clobber on;
               open -u '$FTP_USER','$FTP_PASSWORD' -p ${FTP_PORT:-21} '$FTP_HOST';
               put -O '$FTP_REMOTE_DIR' 'dist/index.html';
-            "
-          }
-
-          # Upload one release path. mkdir -p also supports newly introduced public
-          # directories without requiring a remote mirror/listing operation.
-          put_one() {
-            path="$1"
-            directory="$(dirname "$path")"
-            if [ "$directory" = "." ]; then
-              remote_directory="$FTP_REMOTE_DIR"
-            else
-              remote_directory="$FTP_REMOTE_DIR/$directory"
-            fi
-            lftp -c "
-              set ftp:ssl-allow true;
-              set ftp:ssl-protect-data true;
-              set ssl:verify-certificate no;
-              set net:max-retries 3;
-              set net:timeout 30;
-              set xfer:clobber on;
-              open -u '$FTP_USER','$FTP_PASSWORD' -p ${FTP_PORT:-21} '$FTP_HOST';
-              mkdir -pf '$remote_directory';
-              put -O '$remote_directory' 'dist/$path';
             "
           }
 
@@ -154,6 +158,7 @@ jobs:
           # prevents index.html from ever pointing at a missing dynamic chunk.
           heal_missing() {
             verify_directory="$(mktemp -d)"
+            missing_files="$(mktemp)"
             download_commands=""
             while IFS= read -r name; do
               [ -n "$name" ] || continue
@@ -179,10 +184,12 @@ jobs:
                 continue
               fi
               echo "  ↻ missing on server: $name — re-uploading"
-              put_one "assets/$name" || true
+              echo "assets/$name" >> "$missing_files"
               miss=$((miss + 1))
             done < "$verify_assets"
+            run_put_batch "$missing_files" || true
             rm -rf "$verify_directory"
+            rm -f "$missing_files"
             return $miss
           }
 
