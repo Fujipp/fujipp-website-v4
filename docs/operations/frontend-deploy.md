@@ -24,9 +24,10 @@ VITE_API_BASE_URL=https://api.fujipp.com
 - The workflow uploads hashed assets before `index.html` to avoid a white-screen
   window while chunks are still uploading.
 - Old hashed chunks stay on the host intentionally so cached pages can keep loading.
-- FTP mirroring ignores checkout timestamps and compares file sizes, preventing
-  unchanged files from being removed and uploaded again on every deployment.
-- Vite JS/CSS assets are content-hashed, so changed bundles always have a new name.
-  For a stable file under `frontend/public/`, avoid replacing it with different
-  content of exactly the same byte size; rename it or change its size so FTP can
-  detect the update.
+- FTP mirroring excludes `assets/`, so it does not scan the growing history of old
+  hashed chunks on every deployment. The current build's assets are uploaded
+  directly in one serial FTPS session instead.
+- Stable public files are mirrored with checkout timestamps ignored and file sizes
+  compared, preventing unchanged files from being removed and uploaded again. For
+  a stable file under `frontend/public/`, avoid replacing it with different content
+  of exactly the same byte size; rename it or change its size so FTP detects it.
