@@ -56,7 +56,7 @@ jobs:
       - name: Build
         run: bun run build
 
-      - name: Deploy current dist/ over FTP, then verify current JS chunks
+      - name: Deploy changed dist/ files over FTP, then verify current assets
         env:
           FTP_HOST: ${{ secrets.FTP_HOST }}
           FTP_PORT: ${{ secrets.FTP_PORT }}
@@ -74,35 +74,22 @@ jobs:
           echo "Entry chunk: ${entry:-<none found>}"
 
           # Upload serially (parallel FTPS data connections on this shared host silently
-          # drop large files — that is the flaky-deploy root cause). Mirror only stable
-          # public files and exclude assets/: that remote directory intentionally keeps
-          # old Vite chunks and scanning its growing history made every deploy take
-          # minutes. Assets are selected later from a SHA-256 release manifest, so only
-          # content that actually changed is transferred.
+          # drop large files — that is the flaky-deploy root cause). Do not use FTP mirror:
+          # listing and comparing hundreds of remote public files plus historical Vite
+          # chunks made every release take minutes. A SHA-256 release manifest selects
+          # the exact changed paths locally, so FTP only receives files that need a put.
           #
-          # CRITICAL ordering: this mirror EXCLUDES index.html (-X index.html). We upload
-          # every hashed chunk first, prove they all serve, and only then put index.html
+          # CRITICAL ordering: index.html is excluded from the manifest. We upload every
+          # changed file first, prove the current assets serve, and only then put index.html
           # (see below). That makes the rollover atomic from a client's view: the live
           # index.html keeps pointing at the OLD chunks (still present, never deleted)
           # until the NEW chunks are fully on disk — no white-screen window mid-deploy.
           upload() {
-            lftp -c "
-              set ftp:ssl-allow true;
-              set ftp:ssl-protect-data true;
-              set ssl:verify-certificate no;
-              set net:max-retries 3;
-              set net:timeout 30;
-              set net:reconnect-interval-base 5;
-              set xfer:clobber on;
-              open -u '$FTP_USER','$FTP_PASSWORD' -p ${FTP_PORT:-21} '$FTP_HOST';
-              mirror -R --parallel=1 --verbose --ignore-time -X index.html -X assets/ dist/ '$FTP_REMOTE_DIR';
-            "
-
-            while IFS= read -r name; do
-              [ -n "$name" ] || continue
-              echo "  ↑ changed asset: $name"
-              put_one "$name" || return 1
-            done < "$changed_assets"
+            while IFS= read -r path; do
+              [ -n "$path" ] || continue
+              echo "  ↑ changed file: $path"
+              put_one "$path" || return 1
+            done < "$changed_files"
           }
 
           # Put the entry document LAST, after every chunk is confirmed serving. This is
@@ -121,10 +108,16 @@ jobs:
             "
           }
 
-          # Re-upload a single asset the mirror dropped (shared-host FTPS silently loses
-          # some transfers — verifying only the entry chunk let dropped lazy chunks slip
-          # through as false successes). Puts one local file into the remote assets dir.
+          # Upload one release path. mkdir -p also supports newly introduced public
+          # directories without requiring a remote mirror/listing operation.
           put_one() {
+            path="$1"
+            directory="$(dirname "$path")"
+            if [ "$directory" = "." ]; then
+              remote_directory="$FTP_REMOTE_DIR"
+            else
+              remote_directory="$FTP_REMOTE_DIR/$directory"
+            fi
             lftp -c "
               set ftp:ssl-allow true;
               set ftp:ssl-protect-data true;
@@ -133,11 +126,12 @@ jobs:
               set net:timeout 30;
               set xfer:clobber on;
               open -u '$FTP_USER','$FTP_PASSWORD' -p ${FTP_PORT:-21} '$FTP_HOST';
-              put -O '$FTP_REMOTE_DIR/assets' 'dist/assets/$1';
+              mkdir -p '$remote_directory';
+              put -O '$remote_directory' 'dist/$path';
             "
           }
 
-          # Publish the exact asset hashes only after the release has passed HTTP
+          # Publish the exact file hashes only after the release has passed HTTP
           # verification. The next deployment downloads this tiny file instead of
           # listing hundreds of historical chunks over FTP.
           put_manifest() {
@@ -149,7 +143,7 @@ jobs:
               set net:timeout 30;
               set xfer:clobber on;
               open -u '$FTP_USER','$FTP_PASSWORD' -p ${FTP_PORT:-21} '$FTP_HOST';
-              put -o '$FTP_REMOTE_DIR/.frontend-assets.sha256' '$current_manifest';
+              put -o '$FTP_REMOTE_DIR/.frontend-files.sha256' '$current_manifest';
             "
           }
 
@@ -174,7 +168,7 @@ jobs:
             while IFS= read -r name; do
               [ -n "$name" ] || continue
               echo "  ↻ missing on server: $name — re-uploading"
-              put_one "$name" || true
+              put_one "assets/$name" || true
               miss=$((miss + 1))
             done < "$missing_file"
             rm -f "$missing_file"
@@ -187,11 +181,11 @@ jobs:
           # preceding full deployment already populated the server.
           current_manifest="$(mktemp)"
           previous_manifest="$(mktemp)"
-          changed_assets="$(mktemp)"
-          find dist/assets -maxdepth 1 -type f -print0 \
+          changed_files="$(mktemp)"
+          find dist -type f ! -name 'index.html' -print0 \
             | sort -z \
             | xargs -0 -r sha256sum \
-            | sed 's#  dist/assets/#  #' > "$current_manifest"
+            | sed 's#  dist/#  #' > "$current_manifest"
 
           if ! lftp -c "
             set ftp:ssl-allow true;
@@ -200,17 +194,17 @@ jobs:
             set net:max-retries 3;
             set net:timeout 30;
             open -u '$FTP_USER','$FTP_PASSWORD' -p ${FTP_PORT:-21} '$FTP_HOST';
-            get '$FTP_REMOTE_DIR/.frontend-assets.sha256' -o '$previous_manifest';
+            get '$FTP_REMOTE_DIR/.frontend-files.sha256' -o '$previous_manifest';
           "; then
-            echo "No previous asset manifest; bootstrapping from the verified live release."
+            echo "No previous file manifest; bootstrapping from the verified live release."
             cp "$current_manifest" "$previous_manifest"
           fi
 
           awk 'NR == FNR { old[$2] = $1; next } old[$2] != $1 { print $2 }' \
-            "$previous_manifest" "$current_manifest" > "$changed_assets"
-          echo "Assets requiring FTP upload: $(wc -l < "$changed_assets" | tr -d ' ')"
+            "$previous_manifest" "$current_manifest" > "$changed_files"
+          echo "Files requiring FTP upload: $(wc -l < "$changed_files" | tr -d ' ')"
 
-          # Upload changed assets (NOT index.html), then confirm the current asset set
+          # Upload changed files (NOT index.html), then confirm the current asset set
           # serves. Retry the upload + targeted re-put of any dropped file — a flaky
           # deploy now self-heals every missing chunk and only fails loudly when one
           # truly can't be delivered. Only once all chunks pass do we flip index.html,
@@ -221,7 +215,7 @@ jobs:
             if heal_missing; then
               echo "All current assets are serving correctly ✅ — flipping index.html"
               put_index || { echo "::error::index.html upload failed"; exit 1; }
-              put_manifest || { echo "::error::asset manifest upload failed"; exit 1; }
+              put_manifest || { echo "::error::file manifest upload failed"; exit 1; }
               if [ -n "$entry" ]; then
                 echo "Entry now served as: $(curl -s -o /dev/null -w '%{content_type}' "$SITE_URL$entry" || true)"
               fi
@@ -229,5 +223,5 @@ jobs:
             fi
             echo "Re-uploaded missing chunk(s) — re-verifying after a pause…"; sleep 8
           done
-          echo "::error::Deploy incomplete — some JS chunks never served as JavaScript (index.html left untouched)"
+          echo "::error::Deploy incomplete — some current assets never served correctly (index.html left untouched)"
           exit 1
