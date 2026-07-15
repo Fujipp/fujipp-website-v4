@@ -10,6 +10,10 @@ interface Props {
     channelOptions?: readonly SelectFieldOption[];
     roleOptions?: readonly SelectFieldOption[];
     saving?: boolean;
+    submitFixedWidth?: string;
+    submitIcon?: string;
+    submitLabel?: string;
+    submitWidthMode?: "fill" | "hug" | "fixed";
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -17,6 +21,9 @@ const props = withDefaults(defineProps<Props>(), {
     channelOptions: () => [],
     roleOptions: () => [],
     saving: false,
+    submitFixedWidth: "160px",
+    submitLabel: "บันทึกการตั้งค่า",
+    submitWidthMode: "fill",
 });
 
 const emit = defineEmits<{ submit: [values: Record<string, string>] }>();
@@ -82,8 +89,9 @@ function onSubmit(): void {
         </div>
 
         <div :class="$style.actions">
-            <PrimaryButton type="submit" :disabled="saving">
-                {{ saving ? "กำลังบันทึก…" : "บันทึกการตั้งค่า" }}
+            <slot name="actions" />
+            <PrimaryButton type="submit" :disabled="saving" :fixed-width="submitFixedWidth" :leading-icon="submitIcon" :width-mode="submitWidthMode">
+                {{ saving ? "กำลังบันทึก…" : submitLabel }}
             </PrimaryButton>
         </div>
     </form>
@@ -118,11 +126,20 @@ function onSubmit(): void {
 
 .actions {
     display: flex;
+    flex-wrap: nowrap;
     justify-content: flex-end;
+    gap: var(--spacing-space-2);
+    overflow: visible;
     padding-top: var(--spacing-space-1);
+    padding-bottom: var(--spacing-space-3);
 }
 
 @media (max-width: 760px) {
+    .actions {
+        overflow-x: auto;
+        padding-inline: var(--spacing-space-2);
+    }
+
     .fields {
         grid-template-columns: 1fr;
     }

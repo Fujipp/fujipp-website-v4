@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useI18n } from "vue-i18n";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import {
     API_BASE_URL,
     authenticatedNavbarLinks,
@@ -15,11 +15,25 @@ import { saveLocale, type SupportedLocale } from "@/i18n";
 import { useThemeStore, useUserStore } from "@/stores";
 import { AuthCard } from "@/features/auth/components";
 import { SecondaryButton } from "@/shared/ui/buttons";
+import { ToggleSwitch } from "@/shared/ui/toggles";
+
+interface Props {
+    adminToolsEnabled?: boolean;
+}
+
+withDefaults(defineProps<Props>(), {
+    adminToolsEnabled: true,
+});
+
+const emit = defineEmits<{
+    "update:adminToolsEnabled": [value: boolean];
+}>();
 
 type AuthMode = "login" | "register";
 type OAuthProvider = "google" | "discord" | "github";
 
 const route = useRoute();
+const router = useRouter();
 const userStore = useUserStore();
 const themeStore = useThemeStore();
 const { selectedTheme } = storeToRefs(themeStore);
@@ -35,6 +49,11 @@ const password = ref("");
 const confirmPassword = ref("");
 const agreementAccepted = ref(false);
 const passwordMismatch = ref(false);
+const sheetDragY = ref(0);
+const isDraggingSheet = ref(false);
+let sheetPointerId: number | null = null;
+let sheetDragStartY = 0;
+let sheetDragStartedAt = 0;
 const CREDENTIALS_ENABLED = false as const;
 
 const isAuthenticated = computed(() => userStore.isAuthenticated);
@@ -54,9 +73,9 @@ const formattedCredit = computed(() => (
     `${(walletBalanceSatang.value / 100).toLocaleString("en-US", {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
-    })} credit`
+    })} THB`
 ));
-const accountPath = computed(() => userStore.isAdmin ? "/shop/admin" : "/shop");
+const accountPath = computed(() => userStore.isAdmin ? "/shop/admin" : "/store");
 const currentLocale = computed<SupportedLocale>(() => locale.value === "th" ? "th" : "en");
 const authError = computed(() => passwordMismatch.value ? "Passwords do not match" : userStore.error ?? "");
 
@@ -64,6 +83,42 @@ function closeOverlays(): void {
     isMenuOpen.value = false;
     isProfileOpen.value = false;
     authMode.value = null;
+}
+
+function startSheetDrag(event: PointerEvent): void {
+    if (window.innerWidth > 767 || !event.isPrimary) return;
+    if (!(event.target as HTMLElement).closest("[data-sheet-handle]")) return;
+
+    sheetPointerId = event.pointerId;
+    sheetDragStartY = event.clientY;
+    sheetDragStartedAt = performance.now();
+    sheetDragY.value = 0;
+    isDraggingSheet.value = true;
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+}
+
+function moveSheetDrag(event: PointerEvent): void {
+    if (sheetPointerId !== event.pointerId) return;
+    sheetDragY.value = Math.max(0, event.clientY - sheetDragStartY);
+}
+
+function endSheetDrag(event: PointerEvent): void {
+    if (sheetPointerId !== event.pointerId) return;
+
+    const elapsed = Math.max(performance.now() - sheetDragStartedAt, 1);
+    const velocity = sheetDragY.value / elapsed;
+    const shouldClose = sheetDragY.value >= Math.min(120, window.innerHeight * 0.12)
+        || (sheetDragY.value > 24 && velocity > 0.65);
+
+    sheetPointerId = null;
+    isDraggingSheet.value = false;
+
+    if (shouldClose) {
+        closeOverlays();
+        window.setTimeout(() => { sheetDragY.value = 0; }, 280);
+    } else {
+        sheetDragY.value = 0;
+    }
 }
 
 function openAuth(mode: AuthMode): void {
@@ -129,6 +184,10 @@ function formatMobileLabel(label: string): string {
 
 async function handleLogout(): Promise<void> {
     closeOverlays();
+    // Leave the protected Shop route before clearing auth. Otherwise App.vue
+    // correctly treats the session loss as an expired session and preserves
+    // the current path in /login?redirect=... instead of completing logout.
+    await router.replace({ name: "home" });
     await userStore.signOut();
 }
 
@@ -330,6 +389,15 @@ onUnmounted(() => {
                             </button>
                         </div>
                     </div>
+                    <div v-if="userStore.isAdmin" :class="$style.divider" />
+                    <div v-if="userStore.isAdmin" :class="$style.settingRow">
+                        <span>Tools</span>
+                        <ToggleSwitch
+                            :model-value="adminToolsEnabled"
+                            aria-label="Show admin tools"
+                            @update:model-value="emit('update:adminToolsEnabled', $event)"
+                        />
+                    </div>
                     <RouterLink :to="accountPath" :class="$style.manageAccount" @click="closeOverlays">
                         <span>Manage Account</span>
                         <span
@@ -423,8 +491,21 @@ onUnmounted(() => {
         :enter-from-class="$style.sheetHidden"
         :leave-to-class="$style.sheetHidden"
     >
-        <section v-if="isAuthenticated && isProfileOpen" :class="$style.mobileProfileSheet" role="dialog" aria-modal="true" aria-label="Profile settings">
-            <span :class="$style.sheetIndicator" aria-hidden="true" />
+        <section
+            v-if="isAuthenticated && isProfileOpen"
+            :class="[$style.mobileProfileSheet, isDraggingSheet ? $style.sheetDragging : '']"
+            :style="{ '--sheet-drag-y': `${sheetDragY}px` }"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Profile settings"
+            @pointerdown="startSheetDrag"
+            @pointermove="moveSheetDrag"
+            @pointerup="endSheetDrag"
+            @pointercancel="endSheetDrag"
+        >
+            <button :class="$style.sheetHandle" type="button" data-sheet-handle aria-label="ลากลงเพื่อปิด">
+                <span :class="$style.sheetIndicator" aria-hidden="true" />
+            </button>
             <div :class="$style.sheetHeader">
                 <span>Setting</span>
                 <button type="button" :class="$style.sheetClose" aria-label="Close profile settings" @click="closeOverlays">
@@ -480,6 +561,15 @@ onUnmounted(() => {
                     </button>
                 </div>
             </div>
+            <div v-if="userStore.isAdmin" :class="$style.divider" />
+            <div v-if="userStore.isAdmin" :class="$style.settingRow">
+                <span>Tools</span>
+                <ToggleSwitch
+                    :model-value="adminToolsEnabled"
+                    aria-label="Show admin tools"
+                    @update:model-value="emit('update:adminToolsEnabled', $event)"
+                />
+            </div>
             <RouterLink :to="accountPath" :class="$style.manageAccount" @click="closeOverlays">
                 <span>Manage Account</span>
                 <span :class="$style.maskIcon" :style="{ '--navbar-icon': `url(${icons.directionRight})` }" aria-hidden="true" />
@@ -502,7 +592,8 @@ onUnmounted(() => {
                 @click.self="closeOverlays"
             >
                 <AuthCard
-                    :class="$style.authDialog"
+                    :class="[$style.authDialog, isDraggingSheet ? $style.sheetDragging : '']"
+                    :style="{ '--sheet-drag-y': `${sheetDragY}px` }"
                     :mode="authMode"
                     modal
                     v-model:username="username"
@@ -514,6 +605,10 @@ onUnmounted(() => {
                     :credentials-enabled="CREDENTIALS_ENABLED"
                     role="dialog"
                     aria-modal="true"
+                    @pointerdown="startSheetDrag"
+                    @pointermove="moveSheetDrag"
+                    @pointerup="endSheetDrag"
+                    @pointercancel="endSheetDrag"
                     @oauth="handleOAuth"
                     @submit="handleAuthSubmit"
                     @switch-mode="switchAuthMode"
@@ -534,6 +629,7 @@ onUnmounted(() => {
     box-sizing: border-box;
     background: var(--color-nav-background);
     color: var(--color-nav-text);
+    view-transition-name: app-navbar;
 }
 
 .navbarContainer {
@@ -824,6 +920,7 @@ onUnmounted(() => {
 .drawerHidden { transform: translateX(-100%); }
 .sheetTransition { transition: transform 280ms ease; }
 .sheetHidden { transform: translateY(100%); }
+.sheetDragging { transition: none !important; }
 
 .authOverlay {
     position: fixed;
@@ -861,7 +958,7 @@ onUnmounted(() => {
     .signInLink { padding: 10px; border: 1px solid var(--color-nav-text); }
 
     .authOverlay { align-items: flex-end; padding: 0; }
-    .authDialog { width: 100%; max-width: none; box-shadow: 0 -12px 36px rgb(0 0 0 / 18%); }
+    .authDialog { width: 100%; max-width: none; box-shadow: 0 -12px 36px rgb(0 0 0 / 18%); transform: translateY(var(--sheet-drag-y, 0)); }
     .authHidden .authDialog { transform: translateY(100%); }
 
     .mobileBackdrop {
@@ -954,8 +1051,14 @@ onUnmounted(() => {
         background: var(--color-dialog-background);
         color: var(--color-dialog-text-primary);
         box-shadow: 0 -8px 24px rgb(0 0 0 / 14%);
+        transform: translateY(var(--sheet-drag-y, 0));
     }
 
+    .mobileProfileSheet.sheetHidden { transform: translateY(100%); }
+
+    .sheetHandle { display: flex; align-items: center; justify-content: center; align-self: stretch; min-height: var(--spacing-space-4); padding: 0; border: 0; background: transparent; cursor: grab; touch-action: none; }
+    .sheetHandle:active { cursor: grabbing; }
+    .sheetHandle:focus-visible { outline: 2px solid var(--color-main-primary); outline-offset: 2px; }
     .sheetIndicator { align-self: center; width: 24px; height: 4px; border-radius: var(--radius-sm); background: var(--color-dialog-text-primary); }
     .sheetHeader { display: flex; align-items: center; justify-content: space-between; min-height: 32px; font-size: var(--type-size-button); font-weight: 600; }
     .sheetClose { width: 32px; height: 32px; padding: 4px; }

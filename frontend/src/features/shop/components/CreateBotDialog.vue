@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from "vue";
 import { TextField } from "@/shared/ui";
-import { SecondaryButton } from "@/shared/ui/buttons";
+import { PrimaryButton, SecondaryButton } from "@/shared/ui/buttons";
+import { BaseDialog } from "@/shared/ui/modals";
 import { icons } from "@/config";
 import type { RuntimePlan } from "@/features/shop/config/catalog";
 
@@ -73,10 +74,8 @@ function submit(): void {
 </script>
 
 <template>
-    <Teleport to="body">
-        <Transition name="dialog">
-            <div v-if="open" :class="$style.backdrop" @click.self="emit('cancel')">
-                <section :class="$style.modal" role="dialog" aria-modal="true" aria-labelledby="create-bot-title" tabindex="-1" @keydown.esc.stop="emit('cancel')">
+    <BaseDialog v-if="open" size="medium" aria-labelled-by="create-bot-title" @close="emit('cancel')">
+                <section :class="$style.modalContent">
                     <header :class="$style.header">
                         <h2 id="create-bot-title" :class="$style.title">
                             {{ isEdit ? "Edit Bot Discord" : "New Bot Discord" }}
@@ -118,49 +117,30 @@ function submit(): void {
 
                     <div :class="$style.actions">
                         <SecondaryButton width-mode="hug" @click="emit('cancel')">Close</SecondaryButton>
-                        <SecondaryButton
+                        <PrimaryButton
                             width-mode="hug"
                             :leading-icon="icons.add"
                             :disabled="submitting"
                             @click="submit"
                         >
                             {{ submitting ? "กำลังบันทึก…" : (isEdit ? "Save" : "Add") }}
-                        </SecondaryButton>
+                        </PrimaryButton>
                     </div>
                 </section>
-            </div>
-        </Transition>
-    </Teleport>
+    </BaseDialog>
 </template>
 
 <style module>
-.backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 1000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: var(--spacing-space-4);
-    background: color-mix(in srgb, var(--color-main-background) 70%, transparent);
-    backdrop-filter: blur(4px);
-}
-
-/* Adaptive pairing (matches shared ConfirmModal): main-background + text-primary
-   + main-divider flip together in dark mode. */
-.modal {
+.modalContent {
     display: flex;
     width: 100%;
-    max-width: 480px;
-    max-height: 90vh;
+    max-height: min(80vh, 640px);
     flex-direction: column;
     box-sizing: border-box;
     gap: var(--spacing-space-2);
     padding: var(--spacing-space-3) var(--spacing-space-4);
-    border: 1px solid var(--color-main-divider);
-    border-radius: var(--radius-xl);
-    background-color: var(--color-main-background);
-    color: var(--color-text-primary);
+    background-color: var(--color-dialog-background);
+    color: var(--color-dialog-text-primary);
 }
 
 .header {
@@ -171,7 +151,7 @@ function submit(): void {
 
 .title {
     margin: 0;
-    color: var(--color-text-primary);
+    color: var(--color-dialog-text-primary);
     font-family: var(--font-sans);
     font-size: 24px;
     font-weight: 600;
@@ -179,7 +159,7 @@ function submit(): void {
 
 .divider {
     height: 1px;
-    background-color: var(--color-main-divider);
+    background-color: var(--color-dialog-divider);
 }
 
 .fields {
@@ -189,7 +169,7 @@ function submit(): void {
     overflow-y: auto;
     padding-right: var(--spacing-space-1);
     scrollbar-width: thin;
-    scrollbar-color: color-mix(in srgb, var(--color-main-primary) 72%, transparent) transparent;
+    scrollbar-color: color-mix(in srgb, var(--color-dialog-text-secondary) 72%, transparent) transparent;
 }
 
 .fields::-webkit-scrollbar {
@@ -204,12 +184,12 @@ function submit(): void {
 .fields::-webkit-scrollbar-thumb {
     border: 2px solid transparent;
     border-radius: var(--radius-full);
-    background-color: color-mix(in srgb, var(--color-main-primary) 72%, transparent);
+    background-color: color-mix(in srgb, var(--color-dialog-text-secondary) 72%, transparent);
     background-clip: content-box;
 }
 
 .fields::-webkit-scrollbar-thumb:hover {
-    background-color: var(--color-main-primary);
+    background-color: var(--color-dialog-text-secondary);
 }
 
 .error {
@@ -230,7 +210,7 @@ function submit(): void {
 .plansLegend {
     padding: 0;
     margin-bottom: var(--spacing-space-1);
-    color: var(--color-text-secondary);
+    color: var(--color-dialog-text-secondary);
     font-size: 13px;
 }
 
@@ -239,19 +219,19 @@ function submit(): void {
     align-items: center;
     gap: var(--spacing-space-3);
     padding: var(--spacing-space-3);
-    border: 1px solid var(--color-main-border);
+    border: 1px solid var(--color-dialog-divider);
     border-radius: var(--radius-lg);
     cursor: pointer;
     transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
 .planActive {
-    border-color: var(--color-main-primary);
-    background-color: color-mix(in srgb, var(--color-main-primary) 8%, transparent);
+    border-color: var(--color-dialog-text-primary);
+    background-color: color-mix(in srgb, var(--color-dialog-text-primary) 8%, var(--color-dialog-background));
 }
 
 .planRadio {
-    accent-color: var(--color-main-primary);
+    accent-color: var(--color-dialog-text-primary);
 }
 
 .planName {

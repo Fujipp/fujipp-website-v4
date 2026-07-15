@@ -3,9 +3,12 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import DiscordEmbedPreview, { SLOT_ROLES } from "./DiscordEmbedPreview.vue";
 import type { EmbedObject, ComponentConfig, PreviewRole } from "./DiscordEmbedPreview.vue";
-import { TextField } from "@/shared/ui/fields";
+import { DateField, SelectField, TextareaField, TextField } from "@/shared/ui/fields";
+import { ActionButton, PrimaryButton, SecondaryButton } from "@/shared/ui/buttons";
+import { CheckboxInput } from "@/shared/ui/inputs";
 import { StatusToast } from "@/shared/ui/toasts";
-import { API_BASE_URL } from "@/config";
+import { ConfirmModal } from "@/shared/ui/modals";
+import { API_BASE_URL, icons } from "@/config";
 import { useUserStore } from "@/stores";
 import { supabase } from "@/shared/lib/supabase";
 
@@ -14,8 +17,13 @@ import { supabase } from "@/shared/lib/supabase";
  * API base path so both the shop ("/api/bots") and admin ("/api/admin/bots") reuse it.
  */
 const props = withDefaults(
-    defineProps<{ botId: string; basePath?: string; featureCode?: string }>(),
-    { basePath: "/api/bots", featureCode: "" },
+    defineProps<{
+        botId: string;
+        basePath?: string;
+        featureCode?: string;
+        previewConfigValues?: Record<string, string>;
+    }>(),
+    { basePath: "/api/bots", featureCode: "", previewConfigValues: () => ({}) },
 );
 
 type ToastStatus = "info" | "success" | "warning" | "error";
@@ -44,8 +52,20 @@ const isLoading = ref(false);
 const isSaving = ref(false);
 const loadError = ref("");
 const toast = ref<{ status: ToastStatus; title: string; description?: string } | null>(null);
+const confirmation = ref<{
+    title: string;
+    reason: string;
+    confirmLabel: string;
+    variant: "default" | "danger";
+    action: () => void | Promise<void>;
+} | null>(null);
+const confirmationBusy = ref(false);
 
 const selected = computed(() => slots.value.find((s) => s.slotKey === selectedKey.value) ?? null);
+const effectiveConfigValues = computed(() => ({
+    ...configValues.value,
+    ...props.previewConfigValues,
+}));
 
 // Editable component roles per slot come from the shared SLOT_ROLES map (kept in
 // DiscordEmbedPreview so the form and preview never drift). custom_id/behaviour
@@ -53,10 +73,10 @@ const selected = computed(() => slots.value.find((s) => s.slotKey === selectedKe
 type Role = PreviewRole;
 const COMPONENT_ROLES = SLOT_ROLES;
 const BUTTON_STYLES = [
-    { value: "primary", label: "น้ำเงิน (primary)" },
-    { value: "secondary", label: "เทา (secondary)" },
-    { value: "success", label: "เขียว (success)" },
-    { value: "danger", label: "แดง (danger)" },
+    { value: "primary", label: "Blue (Primary)" },
+    { value: "secondary", label: "Gray (Secondary)" },
+    { value: "success", label: "Green (Success)" },
+    { value: "danger", label: "Red (Danger)" },
 ];
 const roles = computed<Role[]>(() => COMPONENT_ROLES[selectedKey.value] ?? []);
 
@@ -81,6 +101,28 @@ function toggleSection(key: SectionKey): void {
 
 function notify(status: ToastStatus, title: string, description?: string): void {
     toast.value = { status, title, description };
+}
+
+function requestConfirmation(
+    title: string,
+    reason: string,
+    confirmLabel: string,
+    variant: "default" | "danger",
+    action: () => void | Promise<void>,
+): void {
+    confirmation.value = { title, reason, confirmLabel, variant, action };
+}
+
+async function runConfirmedAction(): Promise<void> {
+    const pending = confirmation.value;
+    if (!pending || confirmationBusy.value) return;
+    confirmationBusy.value = true;
+    try {
+        await pending.action();
+        confirmation.value = null;
+    } finally {
+        confirmationBusy.value = false;
+    }
 }
 
 // Authenticated fetch that self-heals a stale token: if the first try is 401, refresh
@@ -180,6 +222,17 @@ function addField(): void {
 
 function removeField(index: number): void {
     draft.value?.fields?.splice(index, 1);
+    notify("success", "Field removed");
+}
+
+function confirmRemoveField(index: number): void {
+    requestConfirmation(
+        "Remove field?",
+        `Field ${index + 1} will be removed from this Embed draft.`,
+        "Remove",
+        "danger",
+        () => removeField(index),
+    );
 }
 
 function moveField(index: number, dir: -1 | 1): void {
@@ -220,6 +273,17 @@ function removeComponent(roleKey: string): void {
     if (!draft.value) return;
     draft.value.components = draft.value.components ?? {};
     draft.value.components[roleKey] = {};
+    notify("success", "Button removed", "Save Embed to apply this change to the bot.");
+}
+
+function confirmRemoveComponent(roleKey: string, roleLabel: string): void {
+    requestConfirmation(
+        "Remove button?",
+        `${roleLabel} will be hidden from this Embed.`,
+        "Remove button",
+        "danger",
+        () => removeComponent(roleKey),
+    );
 }
 
 function cleanComponent(role: Role, cfg: ComponentConfig): ComponentConfig | null {
@@ -325,6 +389,16 @@ async function save(): Promise<void> {
     }
 }
 
+function confirmSave(): void {
+    requestConfirmation(
+        "Save Embed?",
+        `Save your changes to ${selected.value?.label || "this Embed"}?`,
+        "Save Embed",
+        "default",
+        save,
+    );
+}
+
 // Pull the bot config so the preview can mock {{vars}} / dynamic lists from real data.
 async function loadConfigValues(): Promise<void> {
     if (!props.botId) return;
@@ -346,7 +420,7 @@ watch(() => props.botId, loadConfigValues);
         <p v-if="isLoading" :class="$style.state" class="type-body-small-r">กำลังโหลด…</p>
         <section v-else-if="loadError" :class="$style.statePanel">
             <p :class="$style.stateText">{{ loadError }}</p>
-            <button type="button" :class="$style.retryButton" @click="loadSlots">ลองใหม่</button>
+            <PrimaryButton width-mode="hug" :leading-icon="icons.restart" @click="loadSlots">Retry</PrimaryButton>
         </section>
 
         <div v-else :class="$style.layout">
@@ -356,11 +430,15 @@ watch(() => props.botId, loadConfigValues);
                     v-for="slot in slots"
                     :key="slot.slotKey"
                     type="button"
+                    :aria-pressed="slot.slotKey === selectedKey"
                     :class="[$style.slotItem, slot.slotKey === selectedKey ? $style.slotActive : '']"
                     @click="selectSlot(slot.slotKey)"
                 >
-                    <span>{{ slot.label }}</span>
-                    <span v-if="slot.overridden" :class="$style.dot" title="แก้ไขแล้ว" />
+                    <span :class="$style.slotLabel">{{ slot.label }}</span>
+                    <span :class="$style.slotMeta">
+                        <span v-if="slot.slotKey === selectedKey" :class="$style.selectedState" aria-hidden="true">✓ Selected</span>
+                        <span v-if="slot.overridden" :class="$style.dot" title="Edited" />
+                    </span>
                 </button>
                 <p v-if="slots.length === 0" :class="$style.state" class="type-body-small-r">ไม่มี embed slot</p>
             </nav>
@@ -374,12 +452,16 @@ watch(() => props.botId, loadConfigValues);
                     <section :class="$style.section">
                         <button type="button" :class="$style.sectionHead" @click="toggleSection('body')">
                             <span :class="[$style.chevron, openSections.body ? $style.chevronOpen : '']">›</span>
-                            <span>เนื้อหา (body)</span>
+                            <span>Body</span>
                         </button>
                         <div v-show="openSections.body" :class="$style.sectionBody">
                             <template v-if="supportsContent">
-                                <label :class="$style.fieldLabel">ข้อความนำหน้า (content)</label>
-                                <textarea v-model="draft.content" :class="$style.textarea" rows="2" placeholder="ข้อความเหนือ embed — ใส่ {{member}} เพื่อ tag คนที่กดปุ่ม + custom emoji ได้" />
+                                <TextareaField
+                                    v-model="draft.content"
+                                    label="Content"
+                                    :rows="2"
+                                    placeholder="Text above the embed — use {{member}} to mention the member"
+                                />
                             </template>
 
                             <label :class="$style.colorRow">
@@ -390,8 +472,12 @@ watch(() => props.botId, loadConfigValues);
                             <TextField v-model="draft.title" label="หัวข้อ (title)" placeholder="ใส่ข้อความ + emoji ได้" />
                             <TextField v-model="draft.url" label="ลิงก์หัวข้อ (title url)" placeholder="https:// (กดหัวข้อแล้วเปิดลิงก์)" />
 
-                            <label :class="$style.fieldLabel">รายละเอียด (description)</label>
-                            <textarea v-model="draft.description" :class="$style.textarea" rows="5" placeholder="รองรับ markdown + ตัวแปร + custom emoji" />
+                            <TextareaField
+                                v-model="draft.description"
+                                label="Description"
+                                :rows="5"
+                                placeholder="Supports Markdown, variables, and custom emoji"
+                            />
 
                             <div v-if="selected.availableVars.length" :class="$style.vars">
                                 <span :class="$style.varsLabel">ตัวแปร:</span>
@@ -410,7 +496,7 @@ watch(() => props.botId, loadConfigValues);
                     <section :class="$style.section">
                         <button type="button" :class="$style.sectionHead" @click="toggleSection('author')">
                             <span :class="[$style.chevron, openSections.author ? $style.chevronOpen : '']">›</span>
-                            <span>ผู้เขียน (author)</span>
+                            <span>Author</span>
                         </button>
                         <div v-show="openSections.author" :class="$style.sectionBody">
                             <TextField v-model="draft.author!.name" label="ชื่อผู้เขียน" placeholder="(ไม่บังคับ)" />
@@ -425,7 +511,7 @@ watch(() => props.botId, loadConfigValues);
                     <section :class="$style.section">
                         <button type="button" :class="$style.sectionHead" @click="toggleSection('images')">
                             <span :class="[$style.chevron, openSections.images ? $style.chevronOpen : '']">›</span>
-                            <span>รูปภาพ (images)</span>
+                            <span>Images</span>
                         </button>
                         <div v-show="openSections.images" :class="$style.sectionBody">
                             <div :class="$style.grid2">
@@ -439,12 +525,12 @@ watch(() => props.botId, loadConfigValues);
                     <section :class="$style.section">
                         <button type="button" :class="$style.sectionHead" @click="toggleSection('fields')">
                             <span :class="[$style.chevron, openSections.fields ? $style.chevronOpen : '']">›</span>
-                            <span>ช่อง (fields)</span>
+                            <span>Fields</span>
                         </button>
                         <div v-show="openSections.fields" :class="$style.sectionBody">
                             <div :class="$style.fieldsHead">
                                 <span :class="$style.helperText">{{ (draft.fields ?? []).length }} ช่อง</span>
-                                <button type="button" :class="$style.addBtn" @click="addField">+ เพิ่มช่อง</button>
+                                <PrimaryButton width-mode="hug" :leading-icon="icons.add" @click="addField">Add field</PrimaryButton>
                             </div>
                             <div v-for="(f, i) in draft.fields ?? []" :key="i" :class="$style.fieldRow">
                                 <div :class="$style.fieldInputs">
@@ -452,11 +538,14 @@ watch(() => props.botId, loadConfigValues);
                                     <TextField v-model="f.value" label="ค่า" placeholder="รองรับ markdown + ตัวแปร" />
                                 </div>
                                 <div :class="$style.fieldActions">
-                                    <label :class="$style.inlineToggle"><input type="checkbox" v-model="f.inline" /> inline</label>
-                                    <button type="button" :class="$style.iconBtn" title="เลื่อนขึ้น" :disabled="i === 0" @click="moveField(i, -1)">↑</button>
-                                    <button type="button" :class="$style.iconBtn" title="เลื่อนลง" :disabled="i === (draft.fields?.length ?? 0) - 1" @click="moveField(i, 1)">↓</button>
-                                    <button type="button" :class="$style.iconBtn" title="ทำซ้ำ" @click="duplicateField(i)">⧉</button>
-                                    <button type="button" :class="$style.removeBtn" @click="removeField(i)">ลบ</button>
+                                    <label :class="$style.inlineToggle">
+                                        <CheckboxInput v-model="f.inline" size="m" :aria-label="`Display field ${i + 1} inline`" />
+                                        <span>Inline</span>
+                                    </label>
+                                    <ActionButton action="scroll-top" aria-label="Move field up" :disabled="i === 0" @click="moveField(i, -1)" />
+                                    <ActionButton action="scroll-bottom" aria-label="Move field down" :disabled="i === (draft.fields?.length ?? 0) - 1" @click="moveField(i, 1)" />
+                                    <SecondaryButton width-mode="hug" @click="duplicateField(i)">Duplicate</SecondaryButton>
+                                    <SecondaryButton width-mode="hug" :leading-icon="icons.delete" @click="confirmRemoveField(i)">Remove</SecondaryButton>
                                 </div>
                             </div>
                         </div>
@@ -466,7 +555,7 @@ watch(() => props.botId, loadConfigValues);
                     <section :class="$style.section">
                         <button type="button" :class="$style.sectionHead" @click="toggleSection('footer')">
                             <span :class="[$style.chevron, openSections.footer ? $style.chevronOpen : '']">›</span>
-                            <span>ท้าย (footer)</span>
+                            <span>Footer</span>
                         </button>
                         <div v-show="openSections.footer" :class="$style.sectionBody">
                             <div :class="$style.grid2">
@@ -474,14 +563,8 @@ watch(() => props.botId, loadConfigValues);
                                 <TextField v-model="draft.footer!.icon_url" label="ไอคอนท้าย (icon url)" placeholder="https://" />
                             </div>
                             <div :class="$style.grid2">
-                                <div :class="$style.selectField">
-                                    <label :class="$style.fieldLabel">วันที่ (timestamp)</label>
-                                    <input v-model="tsDate" type="date" :class="$style.nativeSelect" />
-                                </div>
-                                <div :class="$style.selectField">
-                                    <label :class="$style.fieldLabel">เวลา</label>
-                                    <input v-model="tsTime" type="time" :class="$style.nativeSelect" />
-                                </div>
+                                <DateField v-model="tsDate" label="Timestamp date" />
+                                <TextField v-model="tsTime" label="Timestamp time" type="time" />
                             </div>
                         </div>
                     </section>
@@ -490,8 +573,8 @@ watch(() => props.botId, loadConfigValues);
                     <section v-if="roles.length" :class="$style.section">
                         <button type="button" :class="$style.sectionHead" @click="toggleSection('components')">
                             <span :class="[$style.chevron, openSections.components ? $style.chevronOpen : '']">›</span>
-                            <span>ปุ่ม / Dropdown</span>
-                            <span :class="$style.helperText">แก้เฉพาะหน้าตา · custom_id คงที่</span>
+                            <span>Buttons / Dropdown</span>
+                            <span :class="$style.helperText">Appearance only · custom_id remains unchanged</span>
                         </button>
                         <div v-show="openSections.components" :class="$style.sectionBody">
                             <div v-for="role in roles" :key="role.key" :class="$style.componentRow">
@@ -500,14 +583,14 @@ watch(() => props.botId, loadConfigValues);
                                     <code>{{ role.key }}</code>
                                 </div>
                                 <div v-if="role.optional" :class="$style.optionalBar">
-                                    <span v-if="roleInUse(role.key)" :class="$style.shownTag">● แสดงอยู่</span>
-                                    <span v-else :class="$style.hiddenTag">○ ซ่อนอยู่ — ใส่ Label เพื่อแสดงปุ่มนี้</span>
-                                    <button
+                                    <span v-if="roleInUse(role.key)" :class="$style.shownTag">● Visible</span>
+                                    <span v-else :class="$style.hiddenTag">○ Hidden — enter a label to show this button</span>
+                                    <SecondaryButton
                                         v-if="roleInUse(role.key)"
-                                        type="button"
-                                        :class="$style.removeRole"
-                                        @click="removeComponent(role.key)"
-                                    >ลบปุ่มนี้</button>
+                                        width-mode="hug"
+                                        :leading-icon="icons.delete"
+                                        @click="confirmRemoveComponent(role.key, role.label)"
+                                    >Remove button</SecondaryButton>
                                 </div>
 
                                 <div :class="$style.grid2">
@@ -515,26 +598,24 @@ watch(() => props.botId, loadConfigValues);
                                         v-if="role.type !== 'select'"
                                         v-model="componentConfig(role.key).label"
                                         label="Label"
-                                        placeholder="ข้อความบนปุ่ม"
+                                        placeholder="Button label"
                                     />
-                                    <TextField v-model="componentConfig(role.key).emoji" label="Emoji" placeholder="😀 หรือ <:name:id>" />
+                                    <TextField v-model="componentConfig(role.key).emoji" label="Emoji" placeholder="😀 or <:name:id>" />
                                 </div>
 
-                                <div v-if="role.type === 'button'" :class="$style.selectField">
-                                    <label :class="$style.fieldLabel">Style</label>
-                                    <select v-model="componentConfig(role.key).style" :class="$style.nativeSelect">
-                                        <option value="">ค่าเริ่มต้น</option>
-                                        <option v-for="style in BUTTON_STYLES" :key="style.value" :value="style.value">
-                                            {{ style.label }}
-                                        </option>
-                                    </select>
-                                </div>
+                                <SelectField
+                                    v-if="role.type === 'button'"
+                                    v-model="componentConfig(role.key).style"
+                                    label="Style"
+                                    :options="BUTTON_STYLES"
+                                    placeholder="Default"
+                                />
 
                                 <TextField
                                     v-if="role.type === 'select'"
                                     v-model="componentConfig(role.key).placeholder"
                                     label="Placeholder"
-                                    placeholder="ข้อความใน dropdown"
+                                    placeholder="Dropdown placeholder"
                                 />
 
                                 <TextField
@@ -547,14 +628,14 @@ watch(() => props.botId, loadConfigValues);
                         </div>
                     </section>
 
-                    <button type="button" :class="$style.saveButton" :disabled="isSaving" @click="save">
-                        {{ isSaving ? "กำลังบันทึก…" : "บันทึก Embed" }}
-                    </button>
+                    <PrimaryButton width-mode="fill" :leading-icon="icons.save" :disabled="isSaving" @click="confirmSave">
+                        {{ isSaving ? "Saving…" : "Save Embed" }}
+                    </PrimaryButton>
                 </div>
 
                 <div :class="$style.previewCol">
                     <span :class="$style.previewLabel" class="type-body-small-r">พรีวิว</span>
-                    <DiscordEmbedPreview :embed="draft" :slot-key="selectedKey" :config-values="configValues" />
+                    <DiscordEmbedPreview :embed="draft" :slot-key="selectedKey" :config-values="effectiveConfigValues" />
                     <p :class="$style.previewHint" class="type-body-small-r">
                         custom emoji วาง <code>&lt;:name:id&gt;</code> จากเซิร์ฟเวอร์ Discord ได้
                     </p>
@@ -565,6 +646,17 @@ watch(() => props.botId, loadConfigValues);
         <div v-if="toast" :class="$style.toastRegion" aria-live="polite">
             <StatusToast :status="toast.status" :title="toast.title" :description="toast.description" @close="toast = null" />
         </div>
+
+        <ConfirmModal
+            v-if="confirmation"
+            :title="confirmation.title"
+            :reason="confirmation.reason"
+            :confirm-label="confirmation.confirmLabel"
+            :variant="confirmation.variant"
+            :disabled="confirmationBusy"
+            @cancel="confirmation = null"
+            @confirm="runConfirmedAction"
+        />
     </div>
 </template>
 
@@ -577,9 +669,12 @@ watch(() => props.botId, loadConfigValues);
 .layout { display: grid; grid-template-columns: 220px 1fr; gap: var(--spacing-space-5); align-items: start; }
 
 .slotList { display: flex; flex-direction: column; gap: 4px; }
-.slotItem { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border: 1px solid var(--color-main-border); border-radius: var(--radius-lg); background: var(--color-main-background); color: var(--color-text-primary); font-size: 14px; cursor: pointer; text-align: left; }
+.slotItem { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border: 1px solid var(--color-main-divider); border-radius: var(--radius-lg); background: var(--color-main-background); color: var(--color-text-primary); font-size: 14px; cursor: pointer; text-align: left; }
 .slotItem:hover { border-color: var(--color-input-border-hover); }
-.slotActive { border-color: var(--color-main-primary); color: var(--color-text-primary); }
+.slotActive { border-color: var(--color-text-primary); background: var(--color-main-background); color: var(--color-text-primary); box-shadow: inset 4px 0 0 var(--color-text-primary); }
+.slotMeta { display: inline-flex; flex-shrink: 0; align-items: center; gap: var(--spacing-space-2); }
+.slotLabel { min-width: 0; }
+.selectedState { color: var(--color-text-primary); font-size: 12px; font-weight: 600; white-space: nowrap; }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-main-primary); flex-shrink: 0; }
 
 .editor { display: grid; grid-template-columns: 1fr 460px; gap: var(--spacing-space-5); align-items: start; }
@@ -590,52 +685,40 @@ watch(() => props.botId, loadConfigValues);
 .colorInput { width: 48px; height: 32px; padding: 0; border: 1px solid var(--color-main-border); border-radius: 6px; background: none; cursor: pointer; }
 
 .fieldLabel { color: var(--color-text-primary); font-size: 14px; }
-.textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--color-main-border); border-radius: var(--radius-lg); background: var(--color-main-background); color: var(--color-text-primary); font-family: var(--font-sans); font-size: 14px; resize: vertical; }
-
 .vars { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .varsLabel { color: var(--color-text-primary); font-size: 13px; }
 .varChip { padding: 3px 8px; border: 1px solid var(--color-main-border); border-radius: var(--radius-full); background: var(--color-main-background); color: var(--color-text-primary); font-size: 12px; font-family: monospace; cursor: pointer; }
 .varChip:hover { border-color: var(--color-main-primary); color: var(--color-text-primary); }
 
-.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-space-3); }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--spacing-space-3); }
+
+.grid2 > * { min-width: 0; }
 
 /* Collapsible sections */
-.section { border: 1px solid var(--color-main-border); border-radius: var(--radius-lg); overflow: hidden; }
+.section { border: 1px solid var(--color-main-divider); border-radius: var(--radius-lg); overflow: hidden; background: var(--color-main-background); }
 .sectionHead { display: flex; align-items: center; gap: var(--spacing-space-2); width: 100%; padding: 10px 12px; border: 0; background: var(--color-main-background); color: var(--color-text-primary); font-size: 14px; font-weight: 600; cursor: pointer; text-align: left; }
-.sectionHead:hover { background: color-mix(in srgb, var(--color-text-primary) 5%, transparent); }
+.sectionHead:hover { background: color-mix(in srgb, var(--color-text-primary) 8%, var(--color-main-background)); }
 .chevron { display: inline-block; transition: transform 0.15s ease; color: var(--color-text-primary); font-size: 16px; line-height: 1; }
 .chevronOpen { transform: rotate(90deg); }
 .sectionBody { display: flex; flex-direction: column; gap: var(--spacing-space-3); padding: var(--spacing-space-3); border-top: 1px solid var(--color-main-border); }
 
 .fieldsHead { display: flex; align-items: center; justify-content: space-between; }
 .helperText { color: var(--color-text-primary); font-size: 12px; margin-left: auto; }
-.addBtn { padding: 4px 10px; border: 1px solid var(--color-main-border); border-radius: var(--radius-full); background: var(--color-main-background); color: var(--color-text-primary); font-size: 13px; cursor: pointer; }
-.addBtn:hover { border-color: var(--color-main-primary); color: var(--color-text-primary); }
 .fieldRow { display: flex; flex-direction: column; gap: var(--spacing-space-2); padding: var(--spacing-space-2); border: 1px solid var(--color-main-border); border-radius: var(--radius-lg); }
-.fieldInputs { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-space-2); }
+.fieldInputs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--spacing-space-2); }
+.fieldInputs > * { min-width: 0; }
 .fieldActions { display: flex; align-items: center; gap: var(--spacing-space-2); flex-wrap: wrap; }
 .inlineToggle { display: inline-flex; align-items: center; gap: 4px; color: var(--color-text-primary); font-size: 12px; white-space: nowrap; margin-right: auto; }
 .inlineToggle input { accent-color: var(--color-main-primary); }
-.iconBtn { height: 30px; min-width: 30px; padding: 0 8px; border: 1px solid var(--color-main-border); border-radius: var(--radius-lg); background: var(--color-main-background); color: var(--color-text-primary); font-size: 14px; cursor: pointer; }
-.iconBtn:hover:not(:disabled) { border-color: var(--color-main-primary); }
-.iconBtn:disabled { opacity: 0.4; cursor: not-allowed; }
-.removeBtn { height: 30px; padding: 0 10px; border: 0; border-radius: var(--radius-lg); background: var(--color-status-error); color: var(--color-button-primary); font-size: 13px; cursor: pointer; }
 
-.componentRow { display: flex; flex-direction: column; gap: var(--spacing-space-2); padding: var(--spacing-space-3); border: 1px solid var(--color-main-border); border-radius: var(--radius-lg); background: var(--color-main-background); }
+.componentRow { display: flex; min-width: 0; flex-direction: column; gap: var(--spacing-space-2); padding: var(--spacing-space-3); border: 1px solid var(--color-main-divider); border-radius: var(--radius-lg); background: var(--color-main-background); color: var(--color-text-primary); }
 .componentTitle { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-space-2); color: var(--color-text-primary); font-size: 14px; font-weight: 600; }
 .componentTitle code { color: var(--color-text-primary); font-family: monospace; font-size: 12px; font-weight: 400; }
 .optionalBar { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-space-2); }
 .shownTag { font-size: 12px; color: var(--color-status-success); }
-.hiddenTag { font-size: 12px; color: var(--color-text-secondary); }
-.removeRole { padding: 4px 10px; border: 1px solid var(--color-input-border); border-radius: var(--radius-full); background: var(--color-main-background); color: var(--color-text-secondary); font: inherit; font-size: 12px; cursor: pointer; transition: border-color 0.15s ease, color 0.15s ease; }
-.removeRole:hover { border-color: var(--color-status-error); color: var(--color-status-error); }
-.selectField { display: flex; flex-direction: column; gap: 6px; }
-.nativeSelect { width: 100%; height: 40px; padding: 0 12px; border: 1px solid var(--color-main-border); border-radius: var(--radius-lg); background: var(--color-main-background); color: var(--color-text-primary); font-family: var(--font-sans); font-size: 14px; }
+.hiddenTag { font-size: 12px; color: var(--color-text-primary); }
 
 @media (max-width: 700px) { .fieldInputs { grid-template-columns: 1fr; } }
-
-.saveButton { margin-top: var(--spacing-space-2); height: 44px; border: 0; border-radius: var(--radius-xl); background: var(--color-button-primary-btn-bg); color: var(--color-button-primary-btn-text-active); font-weight: 600; font-size: 15px; cursor: pointer; }
-.saveButton:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .previewCol { position: sticky; top: var(--spacing-space-4); display: flex; flex-direction: column; gap: var(--spacing-space-2); }
 .previewLabel { color: var(--color-text-primary); }
@@ -652,7 +735,7 @@ watch(() => props.botId, loadConfigValues);
 
 .state {
     margin: 0;
-    color: var(--color-text-secondary);
+    color: var(--color-text-primary);
 }
 
 .statePanel {
@@ -666,7 +749,7 @@ watch(() => props.botId, loadConfigValues);
 }
 
 .stateText {
-    color: var(--color-text-secondary);
+    color: var(--color-text-primary);
 }
 
 .layout {
@@ -691,7 +774,10 @@ watch(() => props.botId, loadConfigValues);
 
 .slotActive {
     border-color: var(--color-text-primary);
-    background: var(--color-button-secondary);
+    background: var(--color-main-background);
+    color: var(--color-text-primary);
+    border-width: 2px;
+    box-shadow: inset 4px 0 0 var(--color-text-primary);
 }
 
 .dot {
@@ -703,7 +789,7 @@ watch(() => props.botId, loadConfigValues);
 }
 
 .slotDesc {
-    color: var(--color-text-secondary);
+    color: var(--color-text-primary);
 }
 
 .section,
@@ -721,7 +807,7 @@ watch(() => props.botId, loadConfigValues);
 }
 
 .sectionHead:hover {
-    background: var(--color-button-secondary);
+    background: color-mix(in srgb, var(--color-text-primary) 8%, var(--color-main-background));
 }
 
 .sectionBody {
@@ -738,27 +824,10 @@ watch(() => props.botId, loadConfigValues);
 .previewLabel,
 .previewHint,
 .hiddenTag {
-    color: var(--color-text-secondary);
+    color: var(--color-text-primary);
 }
 
-.textarea,
-.nativeSelect {
-    border-color: var(--color-input-border);
-    background: var(--color-input-bg);
-    color: var(--color-text-input);
-}
-
-.textarea:focus-visible,
-.nativeSelect:focus-visible {
-    outline: 2px solid var(--color-main-primary);
-    outline-offset: 2px;
-    border-color: var(--color-main-primary);
-}
-
-.varChip,
-.addBtn,
-.iconBtn,
-.removeRole {
+.varChip {
     border-color: var(--color-input-border);
     color: var(--color-text-primary);
 }
@@ -768,21 +837,7 @@ watch(() => props.botId, loadConfigValues);
 }
 
 .componentTitle code {
-    color: var(--color-text-secondary);
-}
-
-.removeBtn {
-    color: var(--color-button-primary);
-}
-
-.saveButton {
-    border: 1px solid var(--color-button-border);
-    background: var(--color-button-primary);
-    color: var(--color-button-text);
-}
-
-.saveButton:hover:not(:disabled) {
-    background: var(--color-button-secondary);
+    color: var(--color-text-primary);
 }
 
 .previewCol {
@@ -791,6 +846,7 @@ watch(() => props.botId, loadConfigValues);
     border: 1px solid var(--color-input-border);
     border-radius: var(--radius-xl);
     background: var(--color-main-background);
+    color: var(--color-text-primary);
 }
 
 @media (max-width: 1080px) {

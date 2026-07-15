@@ -14,9 +14,9 @@ export const guestNavbarLinks = [
 
 export const authenticatedNavbarLinks = [
   { label: "Home", path: "/", icon: icons.home },
-  { label: "My bot", path: "/shop", icon: icons.shopBot },
-  { label: "Store", path: "/shop/package", icon: icons.package },
-  { label: "Add credit", path: "/shop/wallet", icon: icons.wallet },
+  { label: "Store", path: "/store", icon: icons.package },
+  { label: "My bot", path: "/my-bot", icon: icons.shopBot },
+  { label: "Add credit", path: "/add-credit", icon: icons.wallet },
 ] satisfies readonly NavbarLink[];
 
 /** @deprecated Choose guestNavbarLinks or authenticatedNavbarLinks from auth state. */

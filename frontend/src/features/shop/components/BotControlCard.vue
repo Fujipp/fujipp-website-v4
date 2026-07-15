@@ -1,24 +1,20 @@
 <script setup lang="ts">
-import { computed } from "vue";
-import { ActionButton } from "@/shared/ui/buttons";
+import { computed, ref, watch } from "vue";
+import { PrimaryButton } from "@/shared/ui/buttons";
+import { icons } from "@/config";
 import BotStatusBadge, { type BotOnlineStatus } from "./BotStatusBadge.vue";
 
 export type BotControlCardMode = "default" | "skeleton";
-// The control the user pressed. `power` toggles between play/pause based on the
-// current status; the card only emits intent — the parent runs the action.
 export type BotControlAction = "power" | "restart" | "edit";
 
 interface Props {
     mode?: BotControlCardMode;
     name?: string;
     status?: BotOnlineStatus;
-    // The bot's round avatar image.
     avatar?: string;
-    // Pre-formatted display strings (e.g. "30 Days" / "23:59:60").
     runtimeDays?: string;
     runtimeClock?: string;
-    vps?: string | number;
-    slot?: string | number;
+    disabled?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -26,75 +22,63 @@ const props = withDefaults(defineProps<Props>(), {
     name: "Bot Name",
     status: "offline",
     avatar: "",
-    runtimeDays: "30 Days",
-    runtimeClock: "23:59:60",
-    vps: 1,
-    slot: 1,
+    runtimeDays: "No Runtime",
+    runtimeClock: "",
+    disabled: false,
 });
 
 const emit = defineEmits<{ control: [action: BotControlAction] }>();
+const avatarFailed = ref(false);
+const powerLabel = computed(() => (props.status === "online" ? "Stop" : "Start"));
+const powerIcon = computed(() => (props.status === "online" ? icons.pause : icons.play));
 
-const powerAction = computed(() => (props.status === "online" ? "pause" : "play"));
+watch(() => props.avatar, () => { avatarFailed.value = false; });
 </script>
 
 <template>
-    <article
-        :class="[$style.card, mode === 'skeleton' ? $style.skeletonCard : '']"
-        :aria-label="`${name} bot card`"
-    >
+    <article :class="[$style.card, mode === 'skeleton' ? $style.skeletonCard : '']" :aria-label="`${name} bot card`">
         <template v-if="mode === 'skeleton'">
-            <div :class="[$style.skeletonBlock, $style.skeletonAvatar]" />
-            <div :class="[$style.skeletonBlock, $style.skeletonTitle]" />
-            <div :class="[$style.skeletonBlock, $style.skeletonLine]" />
-            <div :class="[$style.skeletonBlock, $style.skeletonLine]" />
+            <div :class="$style.summary">
+                <div :class="[$style.skeletonBlock, $style.skeletonAvatar]" />
+                <div :class="$style.skeletonCopy">
+                    <div :class="[$style.skeletonBlock, $style.skeletonTitle]" />
+                    <div :class="[$style.skeletonBlock, $style.skeletonStatus]" />
+                    <div :class="[$style.skeletonBlock, $style.skeletonRuntime]" />
+                </div>
+            </div>
+            <div :class="$style.divider" />
             <div :class="[$style.skeletonBlock, $style.skeletonActions]" />
         </template>
 
         <template v-else>
-            <div :class="$style.header">
-                <img
-                    v-if="avatar"
-                    :class="$style.avatar"
-                    :src="avatar"
-                    :alt="name"
-                    draggable="false"
-                >
-                <div v-else :class="[$style.avatar, $style.avatarFallback]" aria-hidden="true" />
+            <div :class="$style.summary">
+                <img v-if="avatar && !avatarFailed" :class="$style.avatar" :src="avatar" :alt="`${name} avatar`" draggable="false" @error="avatarFailed = true">
+                <div v-else :class="[$style.avatar, $style.avatarFallback]" aria-hidden="true">
+                    <span>{{ name.slice(0, 1).toUpperCase() }}</span>
+                </div>
 
-                <div :class="$style.titleRow">
+                <div :class="$style.copy">
                     <h3 :class="$style.name" class="type-h3-card-title-eb">{{ name }}</h3>
                     <BotStatusBadge :status="status" />
+                    <p :class="$style.runtime" class="type-body-small-r">
+                        <strong>{{ runtimeDays }}</strong>
+                        <span v-if="runtimeClock"> {{ runtimeClock }}</span>
+                    </p>
                 </div>
             </div>
 
-            <p :class="$style.detailLine">
-                <span :class="$style.detailLabel">Runtime : </span>
-                <span :class="$style.detailValue">{{ runtimeDays }}</span>
-                <span :class="$style.detailValue"> {{ runtimeClock }}</span>
-            </p>
-            <p :class="$style.detailLine">
-                <span :class="$style.detailLabel">VPS : </span>
-                <span :class="$style.detailValue">{{ vps }}</span>
-                <span :class="$style.detailLabel"> Slot : </span>
-                <span :class="$style.detailValue">{{ slot }}</span>
-            </p>
+            <div :class="$style.divider" />
 
             <div :class="$style.controls" aria-label="Bot controls">
-                <ActionButton
-                    :action="powerAction"
-                    :aria-label="`${powerAction} ${name}`"
-                    @click="emit('control', 'power')"
-                />
-                <ActionButton
-                    action="restart"
-                    :aria-label="`restart ${name}`"
-                    @click="emit('control', 'restart')"
-                />
-                <ActionButton
-                    action="edit"
-                    :aria-label="`edit ${name}`"
-                    @click="emit('control', 'edit')"
-                />
+                <PrimaryButton width-mode="hug" :leading-icon="powerIcon" :disabled="disabled" @click="emit('control', 'power')">
+                    {{ powerLabel }}
+                </PrimaryButton>
+                <PrimaryButton width-mode="hug" :leading-icon="icons.restart" :disabled="disabled" @click="emit('control', 'restart')">
+                    Restart
+                </PrimaryButton>
+                <PrimaryButton width-mode="hug" :leading-icon="icons.setting" :disabled="disabled" @click="emit('control', 'edit')">
+                    Setting
+                </PrimaryButton>
             </div>
         </template>
     </article>
@@ -103,121 +87,111 @@ const powerAction = computed(() => (props.status === "online" ? "pause" : "play"
 <style module>
 .card {
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    box-sizing: border-box;
     width: 100%;
-    min-height: var(--spacing-space-80);
-    height: 100%;
-    justify-content: space-between;
+    flex-direction: column;
+    box-sizing: border-box;
     padding: var(--spacing-space-3);
     gap: var(--spacing-space-3);
     overflow: hidden;
-    border: 1px solid var(--shop-card-border, var(--color-main-divider));
+    border: 1px solid var(--color-main-border);
     border-radius: var(--radius-xl);
-    background-color: var(--shop-card-bg, var(--color-main-background));
-    color: var(--shop-card-muted, var(--color-text-secondary));
-    text-align: left;
-    transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease;
+    background-color: var(--color-main-background);
+    color: var(--color-text-primary);
 }
 
-.header {
-    align-self: stretch;
+.summary {
     display: flex;
-    flex-direction: column;
-    align-items: center;
+    min-width: 0;
+    align-items: flex-start;
     gap: var(--spacing-space-3);
-    padding-top: var(--spacing-space-2);
 }
 
 .avatar {
-    width: var(--spacing-space-24);
-    height: var(--spacing-space-24);
-    border-radius: var(--radius-full);
+    width: 100px;
+    height: 100px;
+    flex: 0 0 100px;
+    border-radius: var(--radius-xl);
     object-fit: cover;
-    user-select: none;
-    -webkit-user-drag: none;
 }
 
 .avatarFallback {
+    display: grid;
+    place-items: center;
     background: var(--gradient-card-highlight);
+    color: var(--color-text-primary);
+    font-size: var(--type-size-h2-section-title);
+    font-weight: 800;
 }
 
-.titleRow {
+.copy,
+.skeletonCopy {
     display: flex;
+    min-width: 0;
+    flex: 1;
     flex-direction: column;
-    align-items: center;
+    align-items: flex-start;
     gap: var(--spacing-space-2);
 }
 
+.name,
+.runtime {
+    margin: 0;
+}
+
 .name {
-    margin: 0;
+    max-width: 100%;
+    overflow: hidden;
     color: var(--color-text-primary);
-    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.detailLine {
+.runtime {
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-space-1);
+    color: var(--color-text-muted);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.divider {
     align-self: stretch;
-    margin: 0;
-    font-size: var(--type-size-body-small);
-    line-height: 1.3;
-}
-
-.detailLabel {
-    font-weight: 300;
-}
-
-.detailValue {
-    font-weight: 600;
+    height: 1px;
+    background-color: var(--color-main-divider);
 }
 
 .controls {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: var(--spacing-space-1);
+    flex-wrap: wrap;
     gap: var(--spacing-space-2);
-    border-radius: var(--radius-xl);
 }
 
-/* Skeleton */
+.controls > * {
+    flex: 1 1 96px;
+}
+
 .skeletonBlock {
-    flex-shrink: 0;
     border-radius: var(--radius-xl);
-    background: linear-gradient(110deg, var(--shop-card-inset, var(--color-main-surface)) 0%, var(--shop-card-bg, var(--color-main-background)) 48%, var(--shop-card-inset, var(--color-main-surface)) 100%);
+    background: linear-gradient(110deg, var(--color-main-surface) 0%, var(--color-main-background) 48%, var(--color-main-surface) 100%);
     background-size: 220% 100%;
-    animation: shop-bot-control-shimmer 1800ms ease-in-out infinite;
+    animation: shimmer 1800ms ease-in-out infinite;
 }
 
-.skeletonAvatar {
-    width: var(--spacing-space-24);
-    height: var(--spacing-space-24);
-    border-radius: var(--radius-full);
+.skeletonAvatar { width: 100px; height: 100px; flex: 0 0 100px; }
+.skeletonTitle { width: 70%; height: 28px; }
+.skeletonStatus { width: 76px; height: 28px; }
+.skeletonRuntime { width: 90%; height: 22px; }
+.skeletonActions { align-self: stretch; height: 44px; }
+
+@keyframes shimmer {
+    from { background-position: 120% 0; }
+    to { background-position: -120% 0; }
 }
 
-.skeletonTitle {
-    width: 140px;
-    height: 29px;
+@media (prefers-reduced-motion: reduce) {
+    .skeletonBlock { animation: none; }
 }
-
-.skeletonLine {
-    width: 240px;
-    height: 22px;
-}
-
-.skeletonActions {
-    width: 116px;
-    height: 32px;
-}
-
-@keyframes shop-bot-control-shimmer {
-    0% {
-        background-position: 120% 0;
-    }
-
-    100% {
-        background-position: -120% 0;
-    }
-}
-
 </style>

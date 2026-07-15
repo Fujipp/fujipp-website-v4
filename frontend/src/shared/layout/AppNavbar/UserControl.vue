@@ -183,9 +183,9 @@ function handlePointerCancel(event: PointerEvent): void {
 }
 
 async function handleLogOut(): Promise<void> {
-    await store.signOut();
     isExpanded.value = false;
-    await router.push({ name: "home" });
+    await router.replace({ name: "home" });
+    await store.signOut();
 }
 
 onMounted(() => {

@@ -1,9 +1,96 @@
 # Changelog — Frontend
 
-**Current version: `0.7.0.95.3`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.7.5`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.7.5` | 2026-07-16 | Admin user Runtime and Package workspaces can now grant Runtime or monthly/permanent Features, assign them to an owned bot or unused stack, and confirm the action with Toast feedback. |
+| `0.7.4.48` | 2026-07-15 | Clickable Admin user rows now expose button semantics so the platform-wide click sound and accessibility behavior trigger correctly. |
+| `0.7.4.47` | 2026-07-15 | Fixed the cross-route Admin user transition by waiting for the selected-row snapshot and rendering the destination menu before user data finishes loading. |
+| `0.7.4.46` | 2026-07-15 | Opening an Admin user now morphs the selected table row into the user menu and reveals the user breadcrumb trail from left to right. |
+| `0.7.4.45` | 2026-07-15 | The Users config Back button now follows browser history through each user workspace level, with a safe fallback to the users list. |
+| `0.7.4.44` | 2026-07-15 | Admin user workspaces now use nested browser-history routes, clickable breadcrumbs, fixed-height breadcrumb rows, and Bot-config-style shared-card transitions. |
+| `0.7.4.43` | 2026-07-15 | Users config now aligns Search with the Main breadcrumb above the table while keeping Back in the page header. |
+| `0.7.4.42` | 2026-07-15 | Admin Dashboard metrics now use a full-viewport Home-style Main Surface band with centered cards, secondary text, and matching icons. |
+| `0.7.4.41` | 2026-07-15 | Simplified the Admin workspace header to a single page title and removed the redundant Shop Admin tabs and Platform overview hero. |
+| `0.7.4.40` | 2026-07-15 | Admin Dashboard now provides four configuration menus, seven live platform and commerce metrics, recent activity, a searchable Users config table, and per-user User, Wallet, Runtime, and Package workspaces. |
+| `0.7.4.39` | 2026-07-15 | Core features now keeps its own shared-frame transition identity instead of inheriting the Package setting animation. |
+| `0.7.4.38` | 2026-07-15 | Add Credit navigation now uses the concise Back and Next labels instead of Next step. |
+| `0.7.4.37` | 2026-07-15 | Shared inputs now use the dark Main Surface palette in dark mode, including teleported Select menus, selected options, disabled states, text, borders, and native picker color schemes. |
+| `0.7.4.36` | 2026-07-15 | Bot Setting now separates the always-included Bot Presence and Runtime Expiry Alert from purchased Packages under a dedicated Core features flow with nested browser history. |
+| `0.7.4.35` | 2026-07-15 | Admin Pricing now opens a reusable Feature Settings editor for customer-facing field labels, descriptions, defaults, enum options, flags, and ordering, starting with Shop Status. |
+| `0.7.4.34` | 2026-07-15 | Bot, Feature, Package, Runtime, and Embed Save/Remove actions now require the shared ConfirmModal and report outcomes through existing Toast notifications. |
+| `0.7.4.33` | 2026-07-15 | Bot config Cancel and all Runtime setting actions now use PrimaryButton consistently with their existing icons and widths. |
+| `0.7.4.32` | 2026-07-15 | Bot Setting slide states now have dedicated nested URLs for Bot config, Runtime, Package, Feature, and Embed setting, with browser Back/Forward restoring each inline state. |
+| `0.7.4.31` | 2026-07-15 | Embed editor two-column field grids now use shrink-safe minmax columns and zero-width children so TextField controls no longer overflow their cards. |
+| `0.7.4.30` | 2026-07-15 | Embed component editor headings, role names, visibility states, helper text, and control placeholders now use English while preserving the bot's real Thai fallback labels in Discord Preview. |
+| `0.7.4.29` | 2026-07-15 | Embed Fields, Footer, and Components sections now use shared Primary/Secondary/Action buttons, CheckboxInput, DateField, TextField, and SelectField controls; ActionButton also supports downward movement. |
+| `0.7.4.28` | 2026-07-15 | Embed Content and Description inputs now use the shared TextareaField component instead of duplicated native textarea markup and styles. |
+| `0.7.4.27` | 2026-07-15 | The selected Embed slot now has a thicker Primary Text border, inset selection rail, checkmarked Selected label, and accessible pressed state. |
+| `0.7.4.26` | 2026-07-15 | Embed setting now uses Main Background across its container, slots, editor sections, fields, and preview wrapper, with Primary Text applied to labels and editor icons. |
+| `0.7.4.25` | 2026-07-15 | Embed setting fields, textareas, selects, borders, and slot labels now explicitly inherit the Main color family instead of the light Input palette in dark mode. |
+| `0.7.4.24` | 2026-07-15 | Embed setting now uses Surface/secondary text colors consistently, English action labels, and the standard PrimaryButton with Save icon for saving embeds. |
+| `0.7.4.23` | 2026-07-15 | Embed setting now continues inline from each Package feature with a four-level breadcrumb, three-column slot/editor/Discord preview workspace, and live Feature Config values in its preview. |
+| `0.7.4.22` | 2026-07-15 | Removed the legacy Advanced setup and Configuration workspace from the Bot Setting main view. |
+| `0.7.4.21` | 2026-07-15 | Desktop Runtime and Package action rows no longer use clipping scroll containers; horizontal scrolling is now limited to mobile. |
+| `0.7.4.20` | 2026-07-15 | Single-row Runtime and Package action containers now preserve full button shadows instead of clipping their lower edges. |
+| `0.7.4.19` | 2026-07-15 | Runtime and Package feature action buttons now stay on one row and share the width required by their longest label. |
+| `0.7.4.18` | 2026-07-15 | Bot status Start/Stop and Restart controls now use SecondaryButton while the page Back action remains PrimaryButton. |
+| `0.7.4.17` | 2026-07-15 | Bot Setting Back, Start/Stop, and Restart controls now use PrimaryButton. |
+| `0.7.4.16` | 2026-07-15 | Package table actions now use PrimaryButton, and Package Embed setting actions now use the edit icon. |
+| `0.7.4.15` | 2026-07-15 | Bot Setting action groups now use equal-width standard buttons, while Package feature forms use three icon-led Primary actions and slide their feature breadcrumb from Package setting. |
+| `0.7.4.14` | 2026-07-15 | Package setting now lists bot-assigned features with Setting and Remove actions, plus dedicated per-feature configuration and Embed access. |
+| `0.7.4.13` | 2026-07-15 | Runtime setting now expands from its Main menu card into a dedicated server panel with expiry, auto-renew, removal, and renewal controls. |
+| `0.7.4.12` | 2026-07-15 | The Main > Bot config breadcrumb now matches the Store breadcrumb typography, spacing, interaction, and reduced-motion-aware destination reveal. |
+| `0.7.4.11` | 2026-07-15 | The fixed Navbar now remains above the Bot config shared-frame animation, including when the page is scrolled. |
+| `0.7.4.10` | 2026-07-15 | Main now matches the Bot config breadcrumb size, and the Bot config Menu card expands into the full inline form with a shared-frame transition and staged field actions. |
+| `0.7.4.9` | 2026-07-15 | Bot config now opens inline within Bot Setting as a Main > Bot config state with a full-width edit form instead of a modal or separate route. |
+| `0.7.4.8` | 2026-07-15 | My Bot and Bot Setting now start on the same vertical axis as All Products, and Bot Setting no longer shows a divider below its header. |
+| `0.7.4.7` | 2026-07-15 | Bot Setting now uses Secondary controls and pairs Surface backgrounds with secondary text and icon colors, including Menu hover states. |
+| `0.7.4.6` | 2026-07-15 | Bot Setting now opens with a live bot summary, Start and Restart controls, and responsive navigation cards for bot, Runtime, Package, and permission configuration. |
+| `0.7.4.5` | 2026-07-15 | The Add Bot modal now uses the shared Dialog surface colors and standard Primary and Secondary actions. |
+| `0.7.4.4` | 2026-07-15 | My Bot toast notifications now sit below the fixed Navbar on desktop and mobile. |
+| `0.7.4.3` | 2026-07-15 | My Bot purchase tables now share aligned columns and Runtime actions, while bot cards show live second-level countdowns and safe avatar fallbacks. |
+| `0.7.4.2` | 2026-07-15 | Runtime purchases can now be edited, unassigned, or renewed directly from My Bot. |
+| `0.7.4.1` | 2026-07-15 | My Bot now groups unused duplicate Packages into stack counts and hides Packages already assigned to bots. |
+| `0.7.4` | 2026-07-15 | Added My Bot management with live bot controls and assignable Package and Runtime purchase tables. |
+| `0.7.3.7` | 2026-07-15 | Add Credit now uses the concise `/add-credit` URL, with previous Shop paths retained as safe redirects. |
+| `0.7.3.6` | 2026-07-15 | Add Credit now uses a clear dedicated URL while existing Wallet links continue to redirect safely. |
+| `0.7.3.5` | 2026-07-15 | Signing out from protected Shop pages now returns directly to public Home without preserving the previous page as a login redirect. |
+| `0.7.3.4` | 2026-07-15 | Package and Runtime checkout dialogs now use the shared accessible BaseDialog foundation. |
+| `0.7.3.3` | 2026-07-15 | Shared modals now use one accessible BaseDialog foundation for consistent focus, dismissal, scrolling, colors, sizing, and motion. |
+| `0.7.3.2` | 2026-07-15 | Shared modals now use dialog colors, standard action buttons, and smoother accessible motion. |
+| `0.7.3.1` | 2026-07-15 | Toast notifications now use clearer status accents, refined spacing, improved contrast, and smoother stacking motion. |
+| `0.7.3` | 2026-07-15 | Added accessible success and failure payment dialogs with distinct audio feedback and component previews. |
+| `0.7.2.3` | 2026-07-15 | Navbar wallet balances now display the clear THB currency label. |
+| `0.7.2.2` | 2026-07-15 | The Add Credit header is now cleaner, with navigation kept inside the guided top-up flow. |
+| `0.7.2.1` | 2026-07-15 | Back navigation now uses a consistent left-direction icon throughout the platform. |
+| `0.7.2` | 2026-07-15 | Add Credit now guides customers through amount entry, QR payment, and slip upload in three clear steps. |
+| `0.7.1.3` | 2026-07-14 | Package and Runtime checkout dialogs now share consistent dialog colors and standard action buttons. |
+| `0.7.1.2` | 2026-07-14 | Runtime plan dividers now use a balanced centered height for a cleaner pricing layout. |
+| `0.7.1.1` | 2026-07-14 | Runtime plan prices now use full-height divider lines for clearer visual separation. |
+| `0.7.1` | 2026-07-14 | Runtime pricing and availability countdowns now stay aligned on a single line within every card. |
+| `0.7.0.99` | 2026-07-14 | Runtime now supports VPS selection, live slot availability countdowns, and clear purchasable or unavailable cards. |
+| `0.7.0.98.5` | 2026-07-14 | Package purchase buttons now present prices with a clear trailing THB currency label. |
+| `0.7.0.98.4` | 2026-07-14 | Store breadcrumbs now reveal the active destination with subtle, reduced-motion-aware movement. |
+| `0.7.0.98.3` | 2026-07-14 | Unified Store paths and fixed header/control row heights so Store pages remain precisely aligned. |
+| `0.7.0.98.2` | 2026-07-14 | Search controls now match input text colors, while Store breadcrumbs keep consistent typography and vertical alignment. |
+| `0.7.0.98.1` | 2026-07-14 | Packages now uses Home-style product cards, clickable Store navigation, and one continuous searchable catalog. |
+| `0.7.0.98` | 2026-07-14 | Refined the Packages catalog with Store navigation, a responsive product grid, and name-based search. |
+| `0.7.0.97` | 2026-07-14 | Added a centered Store menu with Packages and Runtime choices plus the standard site footer. |
+| `0.7.0.96.12` | 2026-07-14 | Refined Admin Tools selection feedback and aligned Navigation text sizing with the other command-wheel items. |
+| `0.7.0.96.11` | 2026-07-14 | Project Admin Tools actions and edit/delete project pickers now use a balanced five-segment radial layout without an empty slice. |
+| `0.7.0.96.10` | 2026-07-14 | Fixed clipped Top 3 rows on mobile and expanded Admin Tools with all-page visibility, full navigation, and an admin-only profile toggle. |
+| `0.7.0.96.9` | 2026-07-14 | Every existing mobile bottom sheet can now be dragged down to dismiss, including authentication and profile settings. |
+| `0.7.0.96.8` | 2026-07-14 | Top 3 Projects now opens and closes with responsive modal motion, and its mobile sheet can be dragged down to dismiss. |
+| `0.7.0.96.7` | 2026-07-14 | Admin Tools now manages all Top 3 Projects in one responsive desktop dialog and mobile bottom sheet, keeping showcase cards clean. |
+| `0.7.0.96.6` | 2026-07-14 | Project table statuses now use polished tinted badges with compact Inter on mobile and Sora on desktop. |
+| `0.7.0.96.5` | 2026-07-14 | Featured Project cards now follow drag gestures smoothly with frame-synchronized movement and gentler snapping. |
+| `0.7.0.96.4` | 2026-07-14 | Recommended Shop cards now use calm surface artwork placeholders without neon gradients or glow. |
+| `0.7.0.96.3` | 2026-07-14 | Root Home now presents the public site to guests and Shop Main to signed-in customers, with a surface-colored overview section. |
+| `0.7.0.96.2` | 2026-07-14 | Shop Main now shows platform-wide totals and lets customers review and pay for recommended features directly. |
+| `0.7.0.96.1` | 2026-07-14 | Authenticated Home navigation and sign-in now open the new Shop Main directly. |
+| `0.7.0.96` | 2026-07-14 | Redesigned Shop Main with rotating highlights, live service totals, and six recommended feature packages. |
 | `0.7.0.95.3` | 2026-07-13 | Stabilized Project Detail inline saving for complete technology groups and featured stack ordering. |
 | `0.7.0.95.2` | 2026-07-13 | Signing out from Shop maintenance now returns visitors to the public Home page without an unnecessary login redirect. |
 | `0.7.0.95.1` | 2026-07-13 | The maintenance ghost now pops up manga-style speech bubbles with three rotating friendly messages. |

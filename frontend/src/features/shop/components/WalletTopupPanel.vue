@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { SecondaryButton } from "@/shared/ui/buttons";
+import { PrimaryButton } from "@/shared/ui/buttons";
+import { TextField } from "@/shared/ui/fields";
 import { icons } from "@/config";
 
 interface Props {
@@ -10,14 +11,10 @@ interface Props {
     dragActive?: boolean;
     fileName?: string;
     generating?: boolean;
-    quickAmounts: readonly number[];
     qrImageUrl?: string;
-    selectedAmount?: number | null;
+    step?: 1 | 2 | 3;
     topupAmount: string;
     verifying?: boolean;
-    // Bank account name shown in the instructions.
-    payeeName?: string;
-    supportText?: string;
 }
 
 withDefaults(defineProps<Props>(), {
@@ -28,102 +25,95 @@ withDefaults(defineProps<Props>(), {
     fileName: "",
     generating: false,
     qrImageUrl: "",
-    selectedAmount: null,
+    step: 1,
     verifying: false,
-    payeeName: "อนวัตร กรุดธูป",
-    supportText: "โอนตามยอดของ QR แล้วแนบสลิปด้านขวา",
 });
 
 const emit = defineEmits<{
+    back: [];
     dragActiveChange: [value: boolean];
     dropFile: [event: DragEvent];
     fileChange: [event: Event];
     generate: [];
-    inputAmount: [event: Event];
-    selectAmount: [amount: number];
+    inputAmount: [value: string];
+    next: [];
     verify: [];
 }>();
 </script>
 
 <template>
     <article :class="$style.panel">
-        <p :class="$style.instructions">
-            <strong>วิธีการชำระเงิน</strong><br>
-            1) เข้าแอพธนาคาร ชำระเงินด้วย QR CODE ที่สร้างขึ้น ชื่อ {{ payeeName }}<br>
-            2) เมื่อโอนเงินเสร็จแล้ว โปรดนำสลิปที่ได้จากการโอนเงินมาแนบในเว็บ
-        </p>
+        <nav :class="$style.steps" aria-label="Top up progress">
+            <template v-for="stepNumber in 3" :key="stepNumber">
+                <span :class="[$style.step, stepNumber <= step && $style.stepActive]" :aria-current="stepNumber === step ? 'step' : undefined">
+                    Step {{ stepNumber }}
+                </span>
+                <span v-if="stepNumber < 3" :class="[$style.chevron, stepNumber < step && $style.stepActive]" aria-hidden="true">&gt;</span>
+            </template>
+        </nav>
 
-        <div :class="$style.row">
-            <div :class="$style.col">
-                <button
-                    v-if="!qrImageUrl"
-                    type="button"
-                    :class="[$style.qrBox, $style.qrButton]"
-                    :disabled="!canGenerate"
-                    @click="emit('generate')"
-                >
-                    <span :class="$style.qrHint">
-                        {{ generating ? "กำลังสร้าง QR…" : (canGenerate ? "กดเพื่อสร้าง QR" : "กรอกจำนวนก่อน") }}
-                    </span>
-                </button>
-                <div v-else :class="$style.qrBox">
-                    <img :class="$style.qrImage" :src="qrImageUrl" :alt="`QR Code ${topupAmount} บาท`">
+        <div :class="$style.stage" aria-live="polite">
+            <Transition name="topup-step" mode="out-in">
+                <div v-if="step === 1" key="amount" :class="$style.stepContent">
+                    <TextField
+                        :model-value="customAmount"
+                        label="Top-up amount"
+                        unit="฿"
+                        placeholder="50"
+                        support-text="Minimum 50.00 THB"
+                        :error="amountError"
+                        @update:model-value="emit('inputAmount', $event)"
+                    />
                 </div>
 
-                <div :class="$style.fieldWrap">
-                    <label :class="$style.fieldLabel" for="wallet-topup-amount">ระบุจำนวนเงินที่ต้องการเติม</label>
-                    <div :class="[$style.field, amountError ? $style.fieldError : '']">
-                        <span :class="$style.unit">฿</span>
-                        <input
-                            id="wallet-topup-amount"
-                            :value="customAmount"
-                            inputmode="numeric"
-                            autocomplete="off"
-                            placeholder="ขั้นต่ำ 50 บาท"
-                            :class="$style.input"
-                            :aria-invalid="!!amountError"
-                            aria-describedby="wallet-topup-support"
-                            @input="emit('inputAmount', $event)"
-                        >
+                <div v-else-if="step === 2" key="qr" :class="$style.stepContent">
+                    <div :class="$style.qrBox">
+                        <img v-if="qrImageUrl" :class="$style.qrImage" :src="qrImageUrl" :alt="`QR Code ${topupAmount} THB`">
+                        <span v-else :class="$style.qrHint">QR Code is unavailable</span>
                     </div>
-                    <span
-                        id="wallet-topup-support"
-                        :class="[$style.supportText, amountError ? $style.errorText : '']"
-                    >
-                        {{ amountError || supportText }}
-                    </span>
-
+                    <p :class="$style.amountLabel">{{ topupAmount }} THB</p>
                 </div>
-            </div>
 
-            <div :class="$style.col">
-                <label
-                    :class="[$style.uploadBox, dragActive ? $style.uploadActive : '']"
-                    for="wallet-slip-file"
-                    @dragenter.prevent="emit('dragActiveChange', true)"
-                    @dragover.prevent="emit('dragActiveChange', true)"
-                    @dragleave.prevent="emit('dragActiveChange', false)"
-                    @drop.prevent="emit('dropFile', $event)"
-                >
-                    <img :class="$style.uploadIcon" :src="icons.upload" alt="" aria-hidden="true">
-                    <span :class="$style.uploadText">{{ fileName || "อัปโหลดสลิป" }}</span>
-                    <input
-                        id="wallet-slip-file"
-                        type="file"
-                        accept="image/png,image/jpeg,image/webp"
-                        :class="$style.fileInput"
-                        @change="emit('fileChange', $event)"
+                <div v-else key="upload" :class="$style.stepContent">
+                    <label
+                        :class="[$style.uploadBox, dragActive ? $style.uploadActive : '']"
+                        for="wallet-slip-file"
+                        @dragenter.prevent="emit('dragActiveChange', true)"
+                        @dragover.prevent="emit('dragActiveChange', true)"
+                        @dragleave.prevent="emit('dragActiveChange', false)"
+                        @drop.prevent="emit('dropFile', $event)"
                     >
-                </label>
+                        <img :class="$style.uploadIcon" :src="icons.upload" alt="" aria-hidden="true">
+                        <span :class="$style.uploadText">{{ fileName || "อัปโหลดสลิป" }}</span>
+                        <input
+                            id="wallet-slip-file"
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp"
+                            :class="$style.fileInput"
+                            @change="emit('fileChange', $event)"
+                        >
+                    </label>
+                </div>
+            </Transition>
+        </div>
 
-                <SecondaryButton
-                    width-mode="fill"
-                    :disabled="verifying || !canVerify"
-                    @click="emit('verify')"
-                >
-                    {{ verifying ? "กำลังยืนยัน…" : "ยืนยัน" }}
-                </SecondaryButton>
-            </div>
+        <div :class="$style.actions">
+            <PrimaryButton width-mode="hug" :leading-icon="icons.directionLeft" @click="emit('back')">Back</PrimaryButton>
+            <PrimaryButton
+                v-if="step === 1"
+                width-mode="hug"
+                :trailing-icon="icons.directionRight"
+                :disabled="!canGenerate || generating"
+                @click="emit('generate')"
+            >
+                {{ generating ? "Generating…" : "Next" }}
+            </PrimaryButton>
+            <PrimaryButton v-else-if="step === 2" width-mode="hug" :trailing-icon="icons.directionRight" @click="emit('next')">
+                Next
+            </PrimaryButton>
+            <PrimaryButton v-else width-mode="hug" :disabled="verifying || !canVerify" @click="emit('verify')">
+                {{ verifying ? "Submitting…" : "Submit" }}
+            </PrimaryButton>
         </div>
     </article>
 </template>
@@ -132,82 +122,65 @@ const emit = defineEmits<{
 .panel {
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
+    align-items: center;
     box-sizing: border-box;
     width: 100%;
-    padding: 12px;
-    gap: 12px;
-    border: 1px solid var(--shop-card-border, var(--color-main-border));
-    border-radius: var(--radius-xl);
-    background-color: var(--shop-card-bg, var(--color-main-surface));
+    gap: var(--spacing-space-8);
     color: var(--shop-card-text, var(--color-text-primary));
     text-align: left;
-    transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease;
 }
 
-.instructions {
+.steps {
     align-self: stretch;
-    margin: 0;
-    font-size: 16px;
-    font-weight: 300;
-    line-height: 1.6;
-}
-
-.instructions strong {
-    font-size: 20px;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-space-1);
+    font-size: var(--type-size-caption);
     font-weight: 600;
 }
 
-.row {
-    align-self: stretch;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    align-items: start;
-    gap: 12px;
+.step,
+.chevron {
+    color: var(--color-text-disabled);
+    transition: color 180ms ease;
 }
 
-.col {
+.stepActive {
+    color: var(--color-text-primary);
+}
+
+.stage {
     display: flex;
+    align-self: stretch;
+    min-height: 329px;
+    justify-content: center;
+}
+
+.stepContent {
+    display: flex;
+    width: min(100%, 295px);
     flex-direction: column;
     align-items: center;
-    gap: 10px;
-    min-width: 0;
+    justify-content: center;
+    gap: var(--spacing-space-3);
 }
 
 .qrBox {
     display: flex;
-    width: 100%;
-    aspect-ratio: 1 / 1;
-    min-height: 320px;
+    width: 253px;
+    height: 253px;
     align-items: center;
     justify-content: center;
     box-sizing: border-box;
     overflow: hidden;
+    border: 1px solid var(--color-main-divider);
     border-radius: var(--radius-2xl);
     background-color: var(--color-neutral-50);
 }
 
-.qrButton {
-    border: 1px dashed var(--shop-card-border, var(--color-main-border));
-    color: var(--shop-card-muted, var(--color-text-secondary));
-    font-size: 16px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: border-color 160ms ease, background-color 160ms ease, opacity 160ms ease;
-}
-
-.qrButton:hover:not(:disabled) {
-    border-color: var(--color-main-primary);
-    background-color: color-mix(in srgb, var(--color-main-primary) 8%, var(--color-neutral-50));
-}
-
-.qrButton:disabled {
-    cursor: not-allowed;
-    opacity: 0.7;
-}
-
 .qrHint {
-    padding: 0 16px;
+    padding: 0 var(--spacing-space-4);
+    color: var(--color-text-secondary);
     text-align: center;
 }
 
@@ -217,101 +190,38 @@ const emit = defineEmits<{
     object-fit: contain;
 }
 
-.fieldWrap {
-    display: flex;
-    width: 100%;
-    flex-direction: column;
-    align-items: flex-start;
-    padding: 0;
-    box-sizing: border-box;
-    gap: 8px;
-}
-
-.fieldLabel {
-    align-self: stretch;
-    font-size: 14px;
-    font-weight: 800;
-    color: var(--shop-card-muted, var(--color-text-secondary));
-}
-
-.field {
-    align-self: stretch;
-    display: flex;
-    align-items: center;
-    box-sizing: border-box;
-    height: 48px;
-    padding: 12px 16px;
-    gap: 8px;
-    border: 1px solid var(--color-input-border);
-    border-radius: var(--radius-lg);
-    background-color: var(--color-input-bg);
-}
-
-.field:focus-within {
-    border-color: var(--color-input-border-focus);
-    outline: 2px solid var(--color-main-primary);
-    outline-offset: 2px;
-}
-
-.fieldError {
-    border-color: var(--color-status-error);
-}
-
-.unit {
-    flex-shrink: 0;
-    color: var(--color-text-input);
-    font-size: 16px;
-    line-height: 18px;
-}
-
-.input {
-    flex: 1;
-    min-width: 0;
-    border: 0;
-    background: transparent;
-    color: var(--color-text-input);
-    font: inherit;
-    font-size: 16px;
-    font-weight: 300;
-}
-
-.input:focus {
-    outline: none;
-}
-
-.input::placeholder {
-    color: var(--color-input-placeholder);
-}
-
-.supportText {
-    align-self: stretch;
-    font-size: 10px;
-    color: var(--shop-card-muted, var(--color-text-secondary));
-}
-
-.errorText {
-    color: var(--color-status-error);
+.amountLabel {
+    margin: 0;
+    color: var(--color-text-primary);
+    font-size: var(--type-size-body-main);
+    font-weight: 600;
 }
 
 .uploadBox {
     position: relative;
     display: flex;
-    width: 100%;
-    aspect-ratio: 1 / 1;
-    min-height: 320px;
+    width: 253px;
+    height: 253px;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     box-sizing: border-box;
-    gap: 4px;
+    gap: var(--spacing-space-1);
     border: 1px dashed var(--shop-card-border, var(--color-main-border));
     border-radius: var(--radius-2xl);
     color: var(--shop-card-text, var(--color-text-primary));
-    font-size: 16px;
+    font-size: var(--type-size-caption);
     font-weight: 300;
     text-align: center;
     cursor: pointer;
     transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+.actions {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: var(--spacing-space-8);
 }
 
 .uploadActive {
@@ -320,12 +230,12 @@ const emit = defineEmits<{
 }
 
 .uploadIcon {
-    width: 24px;
-    height: 24px;
+    width: var(--spacing-icon-md);
+    height: var(--spacing-icon-md);
 }
 
 .uploadText {
-    padding: 0 12px;
+    padding: 0 var(--spacing-space-3);
     overflow-wrap: anywhere;
 }
 
@@ -339,15 +249,31 @@ const emit = defineEmits<{
 }
 
 @media (max-width: 520px) {
-    .row {
-        grid-template-columns: minmax(0, 1fr);
-    }
-
-    .qrBox,
-    .uploadBox,
-    .fieldWrap {
+    .actions {
         width: 100%;
-        min-height: 260px;
+        gap: var(--spacing-space-3);
+    }
+}
+
+:global(.topup-step-enter-active),
+:global(.topup-step-leave-active) {
+    transition: opacity 180ms ease, transform 180ms ease;
+}
+
+:global(.topup-step-enter-from) {
+    opacity: 0;
+    transform: translateX(var(--spacing-space-3));
+}
+
+:global(.topup-step-leave-to) {
+    opacity: 0;
+    transform: translateX(calc(var(--spacing-space-3) * -1));
+}
+
+@media (prefers-reduced-motion: reduce) {
+    :global(.topup-step-enter-active),
+    :global(.topup-step-leave-active) {
+        transition: none;
     }
 }
 </style>

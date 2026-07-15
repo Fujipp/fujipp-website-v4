@@ -8,17 +8,21 @@ import {
     type AdminFeatureSubscription,
     type AdminRuntimePlan,
     type AdminRuntimeSubscription,
+    type AdminFeature,
+    type AdminBot,
+    type AdminSeat,
     type UpdateFeatureSubscriptionPayload,
     type UpdateRuntimeSubscriptionPayload,
 } from "@/features/admin/config";
-import { SelectField, StatusToast, type SelectFieldOption } from "@/shared/ui";
+import { ConfirmModal, SelectField, StatusToast, type SelectFieldOption } from "@/shared/ui";
 import { PrimaryButton } from "@/shared/ui/buttons";
 
 interface Props {
+    mode?: "all" | "runtime" | "features";
     userId: string;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), { mode: "all" });
 const adminStore = useAdminStore();
 
 interface Draft {
@@ -44,11 +48,36 @@ function isRecurring(billingType: string): boolean {
 // the renewal term (months added per renewal). The admin picks one plan; we set the
 // subscription's runtimePlanId (label) and renewPlanId (renewal) to it together.
 const runtimePlans = ref<AdminRuntimePlan[]>([]);
+const features = ref<AdminFeature[]>([]);
+const userBots = ref<AdminBot[]>([]);
+const freeSeats = ref<AdminSeat[]>([]);
 const runtimePlanOptions = computed<SelectFieldOption[]>(() => [
     { label: "—", value: "" },
-    ...runtimePlans.value.map((plan) => ({ label: planLabel(plan), value: plan.id })),
+    ...runtimePlans.value.filter((plan) => plan.active).map((plan) => ({ label: planLabel(plan), value: plan.id })),
 ]);
 const statusOptions: SelectFieldOption[] = SUBSCRIPTION_STATUSES.map((status) => ({ label: status, value: status }));
+const botOptions = computed<SelectFieldOption[]>(() => [
+    { label: "Unassigned stack", value: "" },
+    ...userBots.value.map((bot) => ({ label: bot.name, value: bot.id })),
+]);
+const featureOptions = computed<SelectFieldOption[]>(() => features.value.map((feature) => ({
+    label: feature.name, value: feature.id,
+})));
+const seatOptions = computed<SelectFieldOption[]>(() => freeSeats.value.map((seat) => ({
+    label: `${seat.nodeName} · Slot ${seat.slotIndex}`, value: seat.slotId,
+})));
+const billingOptions: SelectFieldOption[] = [
+    { label: "Permanent", value: "RENT_PERMANENT" },
+    { label: "Monthly", value: "RENT_MONTHLY" },
+];
+
+const grantPlanId = ref("");
+const grantFeatureId = ref("");
+const grantBotId = ref("");
+const grantSlotId = ref("");
+const grantBillingType = ref<"RENT_MONTHLY" | "RENT_PERMANENT">("RENT_PERMANENT");
+const pendingGrant = ref<"runtime" | "feature" | null>(null);
+const granting = ref(false);
 
 function planLabel(plan: AdminRuntimePlan): string {
     const baht = satangToBaht(plan.priceSatang) ?? 0;
@@ -90,17 +119,63 @@ async function load(): Promise<void> {
     isLoading.value = true;
     loadError.value = "";
     try {
-        const [data, plans] = await Promise.all([
+        const [data, plans, catalog, bots, seats] = await Promise.all([
             adminStore.fetchUserSubscriptions(props.userId),
             adminStore.fetchRuntimePlans(),
+            adminStore.fetchFeatures(),
+            adminStore.fetchBots(),
+            adminStore.fetchRuntimeCabinet(),
         ]);
         runtimePlans.value = plans;
+        features.value = catalog;
+        userBots.value = bots.filter((bot) => bot.ownerId === props.userId);
+        freeSeats.value = seats.filter((seat) => seat.occupancy === "FREE");
+        grantPlanId.value ||= plans.find((plan) => plan.active)?.id ?? "";
+        grantFeatureId.value ||= catalog[0]?.id ?? "";
+        if (!freeSeats.value.some((seat) => seat.slotId === grantSlotId.value)) {
+            grantSlotId.value = freeSeats.value[0]?.slotId ?? "";
+        }
         runtimeRows.value = data.runtime.map((sub) => ({ sub, draft: toDraft(sub) }));
         featureRows.value = data.features.map((sub) => ({ sub, draft: toDraft(sub) }));
     } catch (cause) {
         loadError.value = cause instanceof Error ? cause.message : "Failed to load subscriptions";
     } finally {
         isLoading.value = false;
+    }
+}
+
+function selectedFeaturePrice(): string | null {
+    const feature = features.value.find((item) => item.id === grantFeatureId.value);
+    return feature?.prices.find((price) => price.kind === grantBillingType.value)?.id ?? null;
+}
+
+async function confirmGrant(): Promise<void> {
+    const kind = pendingGrant.value;
+    if (!kind) return;
+    granting.value = true;
+    try {
+        if (kind === "runtime") {
+            await adminStore.grantUserRuntime(props.userId, {
+                subjectId: grantBotId.value || null,
+                runtimePlanId: grantPlanId.value,
+                vpsSlotId: grantSlotId.value,
+            });
+        } else {
+            await adminStore.grantUserFeature(props.userId, {
+                subjectId: grantBotId.value || null,
+                featureId: grantFeatureId.value,
+                priceId: selectedFeaturePrice(),
+                billingType: grantBillingType.value,
+            });
+        }
+        pendingGrant.value = null;
+        showToast("success", kind === "runtime" ? "Runtime added" : "Feature added");
+        await load();
+    } catch (cause) {
+        pendingGrant.value = null;
+        showToast("error", cause instanceof Error ? cause.message : "Grant failed");
+    } finally {
+        granting.value = false;
     }
 }
 
@@ -170,8 +245,14 @@ onMounted(load);
         <p v-if="isLoading" :class="$style.note">Loading…</p>
 
         <template v-if="!isLoading">
-            <h3 :class="$style.subheading">Runtime</h3>
-            <div :class="$style.panel">
+            <h3 v-if="mode !== 'features'" :class="$style.subheading">Runtime</h3>
+            <div v-if="mode !== 'features'" :class="$style.grantPanel">
+                <SelectField v-model="grantPlanId" label="Runtime plan" :options="runtimePlanOptions" />
+                <SelectField v-model="grantSlotId" label="VPS slot" :options="seatOptions" />
+                <SelectField v-model="grantBotId" label="Assign to" :options="botOptions" />
+                <PrimaryButton width-mode="hug" :disabled="!grantPlanId || !grantSlotId" @click="pendingGrant = 'runtime'">Add Runtime</PrimaryButton>
+            </div>
+            <div v-if="mode !== 'features'" :class="$style.panel">
                 <table :class="$style.table">
                     <thead>
                         <tr>
@@ -207,8 +288,14 @@ onMounted(load);
                 </table>
             </div>
 
-            <h3 :class="$style.subheading">Features</h3>
-            <div :class="$style.panel">
+            <h3 v-if="mode !== 'runtime'" :class="$style.subheading">Packages</h3>
+            <div v-if="mode !== 'runtime'" :class="$style.grantPanel">
+                <SelectField v-model="grantFeatureId" label="Feature" :options="featureOptions" />
+                <SelectField v-model="grantBillingType" label="Billing type" :options="billingOptions" />
+                <SelectField v-model="grantBotId" label="Assign to" :options="botOptions" />
+                <PrimaryButton width-mode="hug" :disabled="!grantFeatureId" @click="pendingGrant = 'feature'">Add Feature</PrimaryButton>
+            </div>
+            <div v-if="mode !== 'runtime'" :class="$style.panel">
                 <table :class="$style.table">
                     <thead>
                         <tr>
@@ -253,6 +340,17 @@ onMounted(load);
         </template>
 
         <StatusToast v-if="toast" :status="toast.status" :title="toast.title" />
+        <ConfirmModal
+            v-if="pendingGrant"
+            :disabled="granting"
+            :title="pendingGrant === 'runtime' ? 'Add Runtime' : 'Add Feature'"
+            :reason="pendingGrant === 'runtime'
+                ? 'Grant this runtime and reserve the selected VPS slot for this user?'
+                : 'Grant this feature to the selected bot or add it to the user’s unused stack?'"
+            confirm-label="Confirm"
+            @cancel="pendingGrant = null"
+            @confirm="confirmGrant"
+        />
     </section>
 </template>
 
@@ -268,6 +366,22 @@ onMounted(load);
     border-radius: var(--radius-xl);
     background-color: var(--shop-card-bg, var(--color-main-background));
     color: var(--shop-card-text, var(--color-text-primary));
+}
+
+.grantPanel {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(180px, 1fr)) auto;
+    align-items: end;
+    gap: var(--spacing-space-3);
+    box-sizing: border-box;
+    padding: var(--spacing-space-4);
+    border: 1px solid var(--shop-card-border, var(--color-main-divider));
+    border-radius: var(--radius-xl);
+    background: var(--shop-card-bg, var(--color-main-background));
+}
+
+@media (max-width: 900px) {
+    .grantPanel { grid-template-columns: 1fr; }
 }
 
 .table { width: 100%; border-collapse: collapse; font-size: var(--type-size-caption); }

@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { nextTick, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { AdminLayout } from "@/features/admin/components";
 import { useAdminStore } from "@/features/admin/stores";
 import type { AdminUser } from "@/features/admin/config";
-import { SearchField } from "@/shared/ui";
+import { PrimaryButton, SearchField } from "@/shared/ui";
+import { icons } from "@/config";
 
 const router = useRouter();
 const adminStore = useAdminStore();
@@ -13,6 +14,7 @@ const query = ref("");
 const users = ref<AdminUser[]>([]);
 const isLoading = ref(false);
 const loadError = ref("");
+const transitioningUserId = ref<string | null>(null);
 let searchDebounce: ReturnType<typeof setTimeout> | undefined;
 
 async function load(): Promise<void> {
@@ -33,8 +35,19 @@ function onSearch(value: string): void {
     searchDebounce = setTimeout(load, 250);
 }
 
-function openUser(user: AdminUser): void {
-    void router.push({ name: "admin-user-detail", params: { userId: user.id } });
+async function openUser(user: AdminUser): Promise<void> {
+    const navigate = () => router.push({ name: "admin-user-detail", params: { userId: user.id } });
+    const transitionDocument = document as Document & {
+        startViewTransition?: (callback: () => Promise<unknown>) => unknown;
+    };
+
+    transitioningUserId.value = user.id;
+    await nextTick();
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || !transitionDocument.startViewTransition) {
+        await navigate();
+        return;
+    }
+    transitionDocument.startViewTransition(navigate);
 }
 
 function displayName(user: AdminUser): string {
@@ -49,15 +62,21 @@ onMounted(load);
 </script>
 
 <template>
-    <AdminLayout title="Users">
+    <AdminLayout title="Users config">
         <template #actions>
+            <PrimaryButton width-mode="hug" :leading-icon="icons.directionLeft" :to="{ name: 'admin-dashboard' }">Back</PrimaryButton>
+        </template>
+
+        <div :class="$style.tableToolbar">
+            <nav class="type-caption-sb" :class="$style.breadcrumb" aria-label="Users config breadcrumb">Main</nav>
             <SearchField
                 :model-value="query"
+                :class="$style.searchField"
                 aria-label="Search users"
                 placeholder="Search name, username, email"
                 @update:model-value="onSearch"
             />
-        </template>
+        </div>
 
         <p v-if="loadError" :class="$style.error" role="alert">{{ loadError }}</p>
 
@@ -70,16 +89,20 @@ onMounted(load);
                         <th :class="$style.th">Email</th>
                         <th :class="$style.th">Role</th>
                         <th :class="$style.th">Joined</th>
+                        <th :class="$style.th">Action</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr
                         v-for="user in users"
                         :key="user.id"
-                        :class="$style.row"
+                        :class="[$style.row, transitioningUserId === user.id ? $style.transitioningRow : '']"
+                        role="button"
                         tabindex="0"
-                        @click="openUser(user)"
-                        @keydown.enter="openUser(user)"
+                        :aria-label="`Open settings for ${displayName(user)}`"
+                        @click="void openUser(user)"
+                        @keydown.enter="void openUser(user)"
+                        @keydown.space.prevent="void openUser(user)"
                     >
                         <td :class="$style.td">
                             <span :class="$style.userCell">
@@ -102,6 +125,9 @@ onMounted(load);
                             </span>
                         </td>
                         <td :class="$style.td">{{ formatJoined(user.createdAt) }}</td>
+                        <td :class="$style.td">
+                            <PrimaryButton width-mode="hug" :leading-icon="icons.setting" @click.stop="void openUser(user)">Setting</PrimaryButton>
+                        </td>
                     </tr>
                 </tbody>
             </table>
@@ -113,6 +139,21 @@ onMounted(load);
 </template>
 
 <style module>
+.tableToolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-space-4);
+}
+
+.breadcrumb {
+    color: var(--color-text-primary);
+}
+
+.searchField {
+    width: min(100%, var(--spacing-space-96));
+}
+
 .panel {
     box-sizing: border-box;
     overflow-x: auto;
@@ -146,6 +187,28 @@ onMounted(load);
 .row:focus-visible {
     outline: 2px solid var(--color-main-primary);
     outline-offset: -2px;
+}
+
+.transitioningRow {
+    view-transition-name: admin-user-menu-panel;
+}
+
+:global(::view-transition-group(admin-user-menu-panel)) {
+    z-index: 1;
+    overflow: clip;
+    border-radius: var(--radius-xl);
+    animation-duration: 420ms;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+:global(::view-transition-group(app-navbar)) {
+    z-index: 2;
+    animation: none;
+}
+
+:global(::view-transition-old(app-navbar)),
+:global(::view-transition-new(app-navbar)) {
+    animation: none;
 }
 
 .td {
@@ -193,5 +256,17 @@ onMounted(load);
 .error {
     margin: 0;
     color: var(--color-text-secondary);
+}
+
+@media (max-width: 760px) {
+    .tableToolbar {
+        width: 100%;
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .searchField {
+        width: 100%;
+    }
 }
 </style>

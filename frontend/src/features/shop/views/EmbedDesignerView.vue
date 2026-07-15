@@ -32,7 +32,7 @@ function iconMaskStyle(icon: string): Record<string, string> {
                 </div>
 
                 <div :class="$style.heroActions">
-                    <SecondaryButton width-mode="hug" :leading-icon="icons.arrowBack" :to="dashboardRoute">
+                    <SecondaryButton width-mode="hug" :leading-icon="icons.directionLeft" :to="dashboardRoute">
                         Dashboard
                     </SecondaryButton>
                     <PrimaryButton width-mode="hug" :leading-icon="icons.setting" :to="configRoute">

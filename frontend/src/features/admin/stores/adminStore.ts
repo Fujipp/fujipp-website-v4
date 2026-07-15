@@ -7,15 +7,19 @@ import type {
     AdminRuntimePlan,
     AdminFeaturePrice,
     AdminFeature,
+    AdminFeatureField,
     CreateFeaturePricePayload,
     UpdateRuntimePlanPayload,
     UpdateFeaturePricePayload,
     UpdateFeaturePayload,
+    UpdateFeatureFieldPayload,
     AdminUserSubscriptions,
     AdminRuntimeSubscription,
     AdminFeatureSubscription,
     UpdateRuntimeSubscriptionPayload,
     UpdateFeatureSubscriptionPayload,
+    GrantRuntimeSubscriptionPayload,
+    GrantFeatureSubscriptionPayload,
     AdminWallet,
     AdminWalletTransaction,
     WalletAdjustPayload,
@@ -117,6 +121,19 @@ export const useAdminStore = defineStore("admin", () => {
         return adminFetch<AdminFeature>(`/api/admin/catalog/features/${id}`, { method: "PATCH", body: payload });
     }
 
+    function fetchFeatureFields(featureId: string): Promise<AdminFeatureField[]> {
+        return adminFetch<AdminFeatureField[]>(`/api/admin/catalog/features/${featureId}/fields`);
+    }
+
+    function updateFeatureField(
+        featureId: string, fieldId: string, payload: UpdateFeatureFieldPayload,
+    ): Promise<AdminFeatureField> {
+        return adminFetch<AdminFeatureField>(`/api/admin/catalog/features/${featureId}/fields/${fieldId}`, {
+            method: "PATCH",
+            body: payload,
+        });
+    }
+
     function fetchFeaturePrices(): Promise<AdminFeaturePrice[]> {
         return adminFetch<AdminFeaturePrice[]>("/api/admin/catalog/feature-prices");
     }
@@ -155,6 +172,22 @@ export const useAdminStore = defineStore("admin", () => {
         return adminFetch<AdminFeatureSubscription>(`/api/admin/subscriptions/features/${id}`, {
             method: "PATCH",
             body: payload,
+        });
+    }
+
+    function grantUserRuntime(
+        userId: string, payload: GrantRuntimeSubscriptionPayload,
+    ): Promise<AdminRuntimeSubscription> {
+        return adminFetch<AdminRuntimeSubscription>(`/api/admin/users/${userId}/subscriptions/runtime`, {
+            method: "POST", body: payload,
+        });
+    }
+
+    function grantUserFeature(
+        userId: string, payload: GrantFeatureSubscriptionPayload,
+    ): Promise<AdminFeatureSubscription> {
+        return adminFetch<AdminFeatureSubscription>(`/api/admin/users/${userId}/subscriptions/features`, {
+            method: "POST", body: payload,
         });
     }
 
@@ -269,8 +302,10 @@ export const useAdminStore = defineStore("admin", () => {
         updateVpsNode, setSlotStatus, moveRuntimeSeat,
         fetchUsers, fetchUser, updateUser,
         fetchRuntimePlans, updateRuntimePlan,
-        fetchFeatures, updateFeature, fetchFeaturePrices, createFeaturePrice, updateFeaturePrice,
+        fetchFeatures, updateFeature, fetchFeatureFields, updateFeatureField,
+        fetchFeaturePrices, createFeaturePrice, updateFeaturePrice,
         fetchUserSubscriptions, updateRuntimeSubscription, updateFeatureSubscription,
+        grantUserRuntime, grantUserFeature,
         fetchUserWallet, fetchUserWalletTransactions, adjustUserWallet,
         fetchBots, fetchBotConfig, updateBotConfig, transferBot,
         botRuntimeAction, botStatus, fetchBotSubscriptions, grantBotRuntime, grantBotFeature,

@@ -4,7 +4,7 @@ import { ActionButton, ButtonSkeleton, FilterButton, LanguageToggleButton, Prima
 import { DateField, SearchField, SelectField, TextareaField, TextField } from "@/shared/ui/fields";
 import { CheckboxInput, RadioInput, StarRating } from "@/shared/ui/inputs";
 import { CategoryTag, StackTag, StatusTag } from "@/shared/ui/tags";
-import { ConfirmModal } from "@/shared/ui/modals";
+import { ConfirmModal, PaymentResultDialog } from "@/shared/ui/modals";
 import { ToggleSwitch } from "@/shared/ui/toggles";
 import { backend, database, frontend, icons } from "@/config";
 import { useToastStore, type ToastStatus } from "@/stores";
@@ -16,6 +16,7 @@ type ModalVariant = "default" | "danger" | "close";
 
 const previewModal = ref<ModalVariant | null>(null);
 const modalVariants: ModalVariant[] = ["default", "danger", "close"];
+const previewPaymentResult = ref<"success" | "fail" | null>(null);
 
 function firePreviewToast(status: ToastStatus): void {
     toastStore.show(
@@ -389,6 +390,29 @@ function togglePreviewFilterOption(option: string, checked: boolean): void {
                         reason="Reason. Lorem ipsum dolor sit amet, consectetur adipiscing elit."
                         @cancel="previewModal = null"
                         @confirm="previewModal = null"
+                    />
+                </article>
+
+                <article :class="$style.previewPanel">
+                    <div :class="$style.panelHeader">
+                        <h2 class="type-h3-card-title-eb">Payment Result Dialog</h2>
+                        <span class="type-support-sb">Success / Fail · Sound</span>
+                    </div>
+                    <div :class="$style.controlRow">
+                        <SecondaryButton width-mode="hug" @click="previewPaymentResult = 'success'">
+                            Success dialog
+                        </SecondaryButton>
+                        <SecondaryButton width-mode="hug" @click="previewPaymentResult = 'fail'">
+                            Fail dialog
+                        </SecondaryButton>
+                    </div>
+                    <PaymentResultDialog
+                        v-if="previewPaymentResult"
+                        :status="previewPaymentResult"
+                        :message="previewPaymentResult === 'success'
+                            ? '50.00 THB has been added to your wallet.'
+                            : 'The payment slip could not be verified. Please try again.'"
+                        @close="previewPaymentResult = null"
                     />
                 </article>
 

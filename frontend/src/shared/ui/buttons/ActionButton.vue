@@ -14,7 +14,8 @@ type ActionKind =
     | "delete"
     | "edit"
     | "setting"
-    | "scroll-top";
+    | "scroll-top"
+    | "scroll-bottom";
 
 interface Props {
     action: ActionKind;
@@ -39,6 +40,7 @@ const iconByAction: Partial<Record<ActionKind, string>> = {
     edit: icons.edit,
     setting: icons.setting,
     "scroll-top": icons.arrowBack,
+    "scroll-bottom": icons.arrowBack,
 };
 
 const defaultLabelByAction: Record<ActionKind, string> = {
@@ -54,6 +56,7 @@ const defaultLabelByAction: Record<ActionKind, string> = {
     "edit": "Edit",
     "setting": "Settings",
     "scroll-top": "Scroll to top",
+    "scroll-bottom": "Scroll to bottom",
 };
 
 const isChevron = computed(() => ["back", "next", "skip-back", "skip-next"].includes(props.action));
@@ -68,6 +71,8 @@ const iconStyle = computed(() => {
        arrow-back.svg also points left; rotate it up for scroll-top. */
     const rotation = props.action === "scroll-top"
         ? "90deg"
+        : props.action === "scroll-bottom"
+            ? "-90deg"
         : pointsRight.value ? "180deg" : "0deg";
 
     return {

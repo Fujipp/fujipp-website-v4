@@ -2,10 +2,13 @@
 export type StatusTagValue = "Active" | "Completed" | "In Progress" | "Archived";
 
 interface Props {
+    table?: boolean;
     status: StatusTagValue;
 }
 
-defineProps<Props>();
+withDefaults(defineProps<Props>(), {
+    table: false,
+});
 
 function statusClass(status: StatusTagValue): string {
     return `status${status.replace(/\s+/g, "")}`;
@@ -13,7 +16,7 @@ function statusClass(status: StatusTagValue): string {
 </script>
 
 <template>
-    <span :class="[$style.statusTag, $style[statusClass(status)]]">
+    <span :class="[$style.statusTag, table ? $style.tableTag : '', $style[statusClass(status)]]">
         <span :class="$style.statusDot" />
         <span :class="$style.label">{{ status }}</span>
     </span>
@@ -32,26 +35,53 @@ function statusClass(status: StatusTagValue): string {
     overflow: hidden;
     border: 1px solid var(--status-tag-accent, var(--color-main-divider));
     border-radius: var(--radius-xl);
-    background-color: var(--color-main-background);
+    background-color: color-mix(in srgb, var(--status-tag-accent, var(--color-main-divider)) 10%, var(--color-main-background));
     color: var(--color-text-primary);
     font-family: var(--font-sans);
     font-size: var(--type-size-body-main);
     font-weight: 300;
     text-align: left;
     white-space: nowrap;
-    transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease;
+    transition: background-color 200ms ease, border-color 200ms ease, color 200ms ease, box-shadow 200ms ease;
 }
 
 .statusDot {
     flex-shrink: 0;
-    width: 15px;
-    height: 15px;
+    width: 10px;
+    height: 10px;
     border-radius: var(--radius-full);
     background-color: var(--status-tag-dot, var(--status-tag-accent, var(--color-main-divider)));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--status-tag-dot, var(--status-tag-accent, var(--color-main-divider))) 18%, transparent);
 }
 
 .label {
     flex-shrink: 0;
+}
+
+.tableTag {
+    width: 118px;
+    height: 28px;
+    justify-content: center;
+    padding: 0 10px;
+    gap: 8px;
+    border-color: color-mix(in srgb, var(--status-tag-accent, var(--color-main-divider)) 52%, var(--color-main-divider));
+    border-radius: var(--radius-full);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    font-size: var(--type-size-caption);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+
+@media (min-width: 768px) {
+    .tableTag {
+        width: 132px;
+        height: 34px;
+        padding: 0 14px;
+        gap: 10px;
+        font-family: var(--font-sora);
+        font-size: var(--type-size-caption);
+    }
 }
 
 .statusActive {

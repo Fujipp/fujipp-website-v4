@@ -97,6 +97,31 @@ export interface AdminFeature {
 
 export interface UpdateFeaturePayload { name?: string; description?: string; iconKey?: string; }
 
+export interface AdminFeatureField {
+    id: string;
+    featureId: string;
+    variableKey: string;
+    label: string;
+    description: string | null;
+    valueType: string;
+    isRequired: boolean;
+    isSensitive: boolean;
+    defaultValue: string | null;
+    sortOrder: number;
+    options: string | null;
+}
+
+export interface UpdateFeatureFieldPayload {
+    label?: string;
+    description?: string;
+    valueType?: string;
+    required?: boolean;
+    sensitive?: boolean;
+    defaultValue?: string;
+    sortOrder?: number;
+    options?: string;
+}
+
 export interface CreateFeaturePricePayload {
     featureId: string;
     kind: string;
@@ -111,7 +136,8 @@ export const FEATURE_PRICE_KINDS = ["RENT_MONTHLY", "RENT_PERMANENT", "SOURCE_CO
 // ── subscriptions (what a user already owns) ─────────────────────────────────
 export interface AdminRuntimeSubscription {
     id: string;
-    externalSubjectId: string;
+    externalSubjectId: string | null;
+    vpsSlotId?: string | null;
     runtimePlanId: string | null;
     status: string;
     currentPeriodStart: string | null;
@@ -137,6 +163,19 @@ export interface AdminFeatureSubscription {
 export interface AdminUserSubscriptions {
     runtime: AdminRuntimeSubscription[];
     features: AdminFeatureSubscription[];
+}
+
+export interface GrantRuntimeSubscriptionPayload {
+    subjectId: string | null;
+    runtimePlanId: string;
+    vpsSlotId: string;
+}
+
+export interface GrantFeatureSubscriptionPayload {
+    subjectId: string | null;
+    featureId: string;
+    priceId: string | null;
+    billingType: "RENT_MONTHLY" | "RENT_PERMANENT";
 }
 
 export interface UpdateRuntimeSubscriptionPayload {
@@ -272,8 +311,11 @@ export interface AdminDashboard {
     vpsSlotsUsed: number;
     vpsSlotsTotal: number;
     topupRevenueSatang30d: number;
+    salesRevenueSatang30d: number;
     totalWalletBalanceSatang: number;
     walletCount: number;
+    packagesSold: number;
+    totalSalesSatang: number;
     recentAudit: AdminAuditEntry[];
 }
 

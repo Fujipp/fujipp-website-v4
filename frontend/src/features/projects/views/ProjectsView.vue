@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { AppFooter } from "@/shared/layout";
 import { PrimaryButton } from "@/shared/ui/buttons";
 import { FeaturedProjectCard, FeatureModal, ProjectTable } from "@/features/projects/components";
@@ -25,14 +25,13 @@ interface GithubContributionResponse {
 const GITHUB_CONTRIBUTIONS_URL = "https://gh-calendar.rschristian.dev/user/Fujipp";
 
 const router = useRouter();
+const route = useRoute();
 const userStore = useUserStore();
 const { isAdmin } = storeToRefs(userStore);
 const projectStore = useProjectStore();
 const toastStore = useToastStore();
 const { error, isLoading, projects } = storeToRefs(projectStore);
 const isFeatureModalOpen = ref(false);
-const editingSlot = ref(0);
-const editingProjectId = ref<FeaturedProjectId | null>(null);
 const contributionTotal = ref<number | null>(null);
 const contributionWeeks = ref<GithubContributionDay[][]>([]);
 const contributionError = ref(false);
@@ -67,10 +66,6 @@ const featuredProjects = computed(() => projects.value
 
 const featuredSkeletonCards = computed(() => isLoading.value && projects.value.length === 0
     ? Array.from({ length: 3 }, (_, index) => index)
-    : []);
-
-const featuredAddCards = computed(() => isAdmin.value && featuredSkeletonCards.value.length === 0
-    ? Array.from({ length: Math.max(0, 3 - featuredProjects.value.length) }, (_, index) => index)
     : []);
 
 const shouldShowFeaturedSection = computed(() => (
@@ -163,6 +158,8 @@ const dragStartX = ref<number | null>(null);
 const draggedPointerId = ref<number | null>(null);
 const didDrag = ref(false);
 const DRAG_THRESHOLD = 56;
+let dragFrame: number | null = null;
+let pendingDragOffset = 0;
 
 const showcaseSlides = computed(() => [
     ...featuredSkeletonCards.value.map((index) => ({
@@ -175,11 +172,6 @@ const showcaseSlides = computed(() => [
         key: entry.project.id,
         project: entry.project,
         slot: entry.slot,
-    })),
-    ...featuredAddCards.value.map((index) => ({
-        kind: "add" as const,
-        key: `featured-add-${index}`,
-        slot: featuredProjects.value.length + index,
     })),
 ]);
 
@@ -220,6 +212,7 @@ function onDragStart(event: PointerEvent): void {
     dragStartX.value = event.clientX;
     draggedPointerId.value = event.pointerId;
     dragOffset.value = 0;
+    pendingDragOffset = 0;
     didDrag.value = false;
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
 }
@@ -227,22 +220,41 @@ function onDragStart(event: PointerEvent): void {
 function onDragMove(event: PointerEvent): void {
     if (dragStartX.value === null || draggedPointerId.value !== event.pointerId) return;
 
-    dragOffset.value = event.clientX - dragStartX.value;
-    if (Math.abs(dragOffset.value) > 6) didDrag.value = true;
+    const coalescedEvents = event.getCoalescedEvents?.() ?? [event];
+    const latestEvent = coalescedEvents[coalescedEvents.length - 1] ?? event;
+    pendingDragOffset = (latestEvent.clientX - dragStartX.value) * 0.9;
+    if (Math.abs(pendingDragOffset) > 6) didDrag.value = true;
+
+    if (dragFrame !== null) return;
+    dragFrame = requestAnimationFrame(() => {
+        dragOffset.value = pendingDragOffset;
+        dragFrame = null;
+    });
 }
 
 function onDragEnd(event: PointerEvent): void {
     if (dragStartX.value === null || draggedPointerId.value !== event.pointerId) return;
 
-    const direction = dragOffset.value < 0 ? 1 : -1;
-    if (Math.abs(dragOffset.value) >= DRAG_THRESHOLD) {
+    if (dragFrame !== null) {
+        cancelAnimationFrame(dragFrame);
+        dragFrame = null;
+    }
+    dragOffset.value = pendingDragOffset;
+
+    const direction = pendingDragOffset < 0 ? 1 : -1;
+    if (Math.abs(pendingDragOffset) >= DRAG_THRESHOLD) {
         centerSlide.value = (centerSlide.value + direction + slideCount.value) % slideCount.value;
     }
 
     dragStartX.value = null;
     draggedPointerId.value = null;
     dragOffset.value = 0;
+    pendingDragOffset = 0;
 }
+
+onUnmounted(() => {
+    if (dragFrame !== null) cancelAnimationFrame(dragFrame);
+});
 
 function preventClickAfterDrag(event: MouseEvent): void {
     if (!didDrag.value) return;
@@ -256,32 +268,18 @@ function openProject(row: ProjectTableRow): void {
     void router.push({ name: "project-detail", params: { projectId: row.id } });
 }
 
-/* Each featured card edits its own slot: change replaces it, add appends. */
-function openFeatureModal(slot: number): void {
-    editingSlot.value = slot;
-    editingProjectId.value = featuredProjects.value[slot]?.id ?? null;
-    isFeatureModalOpen.value = true;
+async function closeFeatureModal(): Promise<void> {
+    isFeatureModalOpen.value = false;
+    if (route.query.top3 === "manage") {
+        const query = { ...route.query };
+        delete query.top3;
+        await router.replace({ query });
+    }
 }
 
-const excludedFeaturedIds = computed(() => featuredProjects.value
-    .filter((_, index) => index !== editingSlot.value)
-    .map((project) => project.id));
-
-async function saveFeaturedSlot(projectId: FeaturedProjectId | null): Promise<void> {
-    const projectIds = featuredProjects.value.map((project) => project.id);
-
-    if (editingSlot.value < projectIds.length) {
-        if (projectId === null) {
-            projectIds.splice(editingSlot.value, 1);
-        } else {
-            projectIds[editingSlot.value] = projectId;
-        }
-    } else if (projectId !== null) {
-        projectIds.push(projectId);
-    }
-
+async function saveFeaturedProjects(projectIds: FeaturedProjectId[]): Promise<void> {
     /* Close right away; the outcome is reported through a toast only. */
-    isFeatureModalOpen.value = false;
+    await closeFeatureModal();
 
     try {
         await projectStore.updateFeaturedProjects(projectIds);
@@ -296,6 +294,14 @@ async function saveFeaturedSlot(projectId: FeaturedProjectId | null): Promise<vo
         toastStore.show("Unable to update featured projects", message, "error");
     }
 }
+
+watch(
+    [() => route.query.top3, isAdmin],
+    ([top3, admin]) => {
+        if (top3 === "manage" && admin) isFeatureModalOpen.value = true;
+    },
+    { immediate: true },
+);
 </script>
 
 <template>
@@ -346,7 +352,6 @@ async function saveFeaturedSlot(projectId: FeaturedProjectId | null): Promise<vo
                         />
                         <FeaturedProjectCard
                             v-else-if="slide.kind === 'project'"
-                            :admin="isAdmin"
                             :category="slide.project.category"
                             :description-short="slide.project.content.en.descriptionShort"
                             :image-loading="slideOffset(index) === 0 ? 'eager' : 'lazy'"
@@ -357,14 +362,6 @@ async function saveFeaturedSlot(projectId: FeaturedProjectId | null): Promise<vo
                             :thumbnail-src="slide.project.gallery[0] ?? ''"
                             :to="{ name: 'project-detail', params: { projectId: slide.project.id } }"
                             :view-label="`View top ${slide.slot + 1}`"
-                            @change="openFeatureModal(slide.slot)"
-                        />
-                        <FeaturedProjectCard
-                            v-else
-                            mode="add"
-                            project-name="Add featured project"
-                            size="large"
-                            @change="openFeatureModal(slide.slot)"
                         />
                     </div>
                 </div>
@@ -473,13 +470,12 @@ async function saveFeaturedSlot(projectId: FeaturedProjectId | null): Promise<vo
         <AppFooter />
         <FeatureModal
             v-if="isFeatureModalOpen"
-            :model-value="editingProjectId"
-            :title="`Featured ${editingSlot + 1}`"
+            :model-value="featuredProjects.map((project) => project.id)"
+            title="Top 3 Projects"
             :disabled="isLoading"
-            :exclude-ids="excludedFeaturedIds"
             :rows="projectRows"
-            @cancel="isFeatureModalOpen = false"
-            @save="saveFeaturedSlot"
+            @cancel="closeFeatureModal"
+            @save="saveFeaturedProjects"
         />
     </main>
 </template>
@@ -569,12 +565,14 @@ async function saveFeaturedSlot(projectId: FeaturedProjectId | null): Promise<vo
     top: 50%;
     left: 50%;
     z-index: 1;
+    backface-visibility: hidden;
     transform:
-        translate(-50%, -50%)
-        translateX(var(--drag-x, 0px))
-        translateX(calc(var(--slide-x, 0) * var(--carousel-shift)))
+        translate3d(-50%, -50%, 0)
+        translate3d(var(--drag-x, 0px), 0, 0)
+        translate3d(calc(var(--slide-x, 0) * var(--carousel-shift)), 0, 0)
         scale(var(--slide-scale, 1));
-    transition: transform 450ms cubic-bezier(0.22, 1, 0.36, 1);
+    transition: transform 380ms cubic-bezier(0.16, 1, 0.3, 1);
+    will-change: transform;
 }
 
 .stageDragging .slide {

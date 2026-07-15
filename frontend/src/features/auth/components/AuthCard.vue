@@ -58,7 +58,15 @@ const fieldsDisabled = (): boolean => !props.credentialsEnabled || props.loading
         :class="[$style.authCard, modal ? $style.modalCard : '']"
         :aria-label="mode === 'login' ? 'Sign in to Fujipp' : 'Sign up for Fujipp'"
     >
-        <span v-if="modal" :class="$style.sheetIndicator" aria-hidden="true" />
+        <button
+            v-if="modal"
+            :class="$style.sheetHandle"
+            type="button"
+            data-sheet-handle
+            aria-label="ลากลงเพื่อปิด"
+        >
+            <span :class="$style.sheetIndicator" aria-hidden="true" />
+        </button>
         <div :class="$style.header">
             <span :class="$style.headerSpacer" aria-hidden="true" />
             <span :class="$style.logo" aria-hidden="true" />
@@ -220,11 +228,15 @@ const fieldsDisabled = (): boolean => !props.credentialsEnabled || props.loading
 .switchRow { display: flex; align-items: center; gap: 12px; color: var(--color-text-secondary); font-weight: 300; }
 .switchLink { padding: 0; border: 0; background: none; color: var(--color-dialog-text-primary); font: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; }
 .closeButton:focus-visible, .switchLink:focus-visible { outline: 2px solid var(--color-main-primary); outline-offset: 2px; }
+.sheetHandle,
 .sheetIndicator { display: none; }
 
 @media (max-width: 767px) {
     .modalCard { justify-content: flex-start; height: calc(100dvh - 16px); min-height: 0; max-height: calc(100dvh - 16px); padding: 12px 16px 32px; overflow-y: auto; border-radius: var(--radius-xl) var(--radius-xl) 0 0; }
     .modalCard:has(.termsRow) { min-height: 0; }
+    .sheetHandle { display: flex; align-items: center; justify-content: center; align-self: stretch; min-height: var(--spacing-space-4); padding: 0; border: 0; background: transparent; cursor: grab; touch-action: none; }
+    .sheetHandle:active { cursor: grabbing; }
+    .sheetHandle:focus-visible { outline: 2px solid var(--color-main-primary); outline-offset: 2px; }
     .sheetIndicator { display: block; width: 24px; height: 4px; flex-shrink: 0; border-radius: var(--radius-sm); background: var(--color-dialog-text-primary); }
     .title { font-size: 26px; }
     .form { padding: 12px 0; }

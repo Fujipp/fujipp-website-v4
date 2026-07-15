@@ -7,14 +7,16 @@ import {
     satangToBaht,
     FEATURE_PRICE_KINDS,
     type AdminFeature,
+    type AdminFeatureField,
     type AdminFeaturePrice,
     type AdminRuntimePlan,
     type CreateFeaturePricePayload,
     type UpdateFeaturePricePayload,
     type UpdateRuntimePlanPayload,
 } from "@/features/admin/config";
-import { SecondaryButton, SelectField, StatusToast, type SelectFieldOption } from "@/shared/ui";
-import { shopFeatureIcons } from "@/config";
+import { PrimaryButton, SecondaryButton, SelectField, StatusToast, TextareaField, TextField, type SelectFieldOption } from "@/shared/ui";
+import { CheckboxInput } from "@/shared/ui/inputs";
+import { icons, shopFeatureIcons } from "@/config";
 
 const adminStore = useAdminStore();
 
@@ -59,6 +61,9 @@ const planRows = ref<PlanRow[]>([]);
 const priceRows = ref<PriceRow[]>([]);
 const features = ref<AdminFeature[]>([]);
 const featureRows = ref<FeatureRow[]>([]);
+const editingFeature = ref<AdminFeature | null>(null);
+const editingFields = ref<AdminFeatureField[]>([]);
+const fieldsLoading = ref(false);
 const addDraft = ref<AddPriceDraft>(emptyAddDraft());
 const addSaving = ref(false);
 const featureOptions = computed<SelectFieldOption[]>(() => [
@@ -135,6 +140,35 @@ async function saveFeature(row: FeatureRow): Promise<void> {
     await save(row.feature.id, async () => {
         const updated = await adminStore.updateFeature(row.feature.id, payload);
         row.feature = { ...row.feature, ...updated };
+    });
+}
+
+async function openFeatureSettings(feature: AdminFeature): Promise<void> {
+    editingFeature.value = feature;
+    fieldsLoading.value = true;
+    try {
+        editingFields.value = await adminStore.fetchFeatureFields(feature.id);
+    } catch (cause) {
+        showToast("error", cause instanceof Error ? cause.message : "Failed to load feature fields");
+    } finally {
+        fieldsLoading.value = false;
+    }
+}
+
+async function saveFeatureField(field: AdminFeatureField): Promise<void> {
+    await save(field.id, async () => {
+        const updated = await adminStore.updateFeatureField(field.featureId, field.id, {
+            label: field.label,
+            description: field.description ?? "",
+            valueType: field.valueType,
+            required: field.isRequired,
+            sensitive: field.isSensitive,
+            defaultValue: field.defaultValue ?? "",
+            sortOrder: field.sortOrder,
+            options: field.options ?? "",
+        });
+        const index = editingFields.value.findIndex((item) => item.id === field.id);
+        if (index >= 0) editingFields.value[index] = updated;
     });
 }
 
@@ -299,10 +333,50 @@ onMounted(load);
                             <td :class="$style.td"><input v-model="row.draft.name" :class="[$style.input, $style.text]" type="text"></td>
                             <td :class="$style.td"><input v-model="row.draft.description" :class="[$style.input, $style.description]" type="text"></td>
                             <td :class="$style.td"><select v-model="row.draft.iconKey" :class="[$style.input, $style.text]"><option v-for="(icon, key) in shopFeatureIcons" :key="key" :value="key">{{ icon.label }}</option></select></td>
-                            <td :class="$style.td"><SecondaryButton :class="$style.saveButton" type="button" width-mode="hug" :disabled="savingId === row.feature.id" @click="saveFeature(row)">{{ savingId === row.feature.id ? "…" : "Save" }}</SecondaryButton></td>
+                            <td :class="$style.td">
+                                <div :class="$style.rowActions">
+                                    <PrimaryButton type="button" width-mode="hug" :leading-icon="icons.setting" @click="openFeatureSettings(row.feature)">Settings</PrimaryButton>
+                                    <PrimaryButton :class="$style.saveButton" type="button" width-mode="hug" :leading-icon="icons.save" :disabled="savingId === row.feature.id" @click="saveFeature(row)">{{ savingId === row.feature.id ? "…" : "Save" }}</PrimaryButton>
+                                </div>
+                            </td>
                         </tr>
                     </tbody>
                 </table>
+            </div>
+        </section>
+
+        <section v-if="editingFeature" :class="$style.section" aria-label="Feature setting fields">
+            <div :class="$style.editorHeading">
+                <div>
+                    <h2 :class="$style.heading">{{ editingFeature.name }} settings</h2>
+                    <p :class="$style.editorDescription">Edit the customer-facing labels, descriptions, defaults, and ordering for {{ editingFeature.code }}.</p>
+                </div>
+                <PrimaryButton width-mode="hug" :leading-icon="icons.directionLeft" @click="editingFeature = null">Close</PrimaryButton>
+            </div>
+            <div :class="$style.fieldEditorPanel">
+                <p v-if="fieldsLoading" :class="$style.note">Loading settings…</p>
+                <article v-for="field in editingFields" v-else :key="field.id" :class="$style.fieldEditorCard">
+                    <header :class="$style.fieldEditorHeader">
+                        <div>
+                            <strong>{{ field.variableKey }}</strong>
+                            <span>{{ field.valueType }}</span>
+                        </div>
+                        <PrimaryButton width-mode="hug" :leading-icon="icons.save" :disabled="savingId === field.id" @click="saveFeatureField(field)">
+                            {{ savingId === field.id ? "Saving…" : "Save field" }}
+                        </PrimaryButton>
+                    </header>
+                    <div :class="$style.fieldEditorGrid">
+                        <TextField v-model="field.label" label="Label" />
+                        <TextField :model-value="field.defaultValue ?? ''" label="Default value" @update:model-value="field.defaultValue = $event" />
+                        <TextareaField :model-value="field.description ?? ''" label="Description" :rows="3" @update:model-value="field.description = $event" />
+                        <TextareaField :model-value="field.options ?? ''" label="Options JSON" :rows="3" support-text="Used by ENUM fields only" @update:model-value="field.options = $event" />
+                        <TextField :model-value="String(field.sortOrder)" label="Sort order" type="number" @update:model-value="field.sortOrder = Number($event) || 0" />
+                        <div :class="$style.fieldFlags">
+                            <label><CheckboxInput v-model="field.isRequired" size="m" aria-label="Required field" /> Required</label>
+                            <label><CheckboxInput v-model="field.isSensitive" size="m" aria-label="Sensitive field" /> Sensitive</label>
+                        </div>
+                    </div>
+                </article>
             </div>
         </section>
 
@@ -410,6 +484,56 @@ onMounted(load);
 }
 
 .center { text-align: center; }
+
+.rowActions,
+.editorHeading,
+.fieldEditorHeader,
+.fieldFlags,
+.fieldFlags label {
+    display: flex;
+    align-items: center;
+}
+
+.rowActions { gap: var(--spacing-space-2); }
+
+.editorHeading,
+.fieldEditorHeader { justify-content: space-between; gap: var(--spacing-space-4); }
+
+.editorDescription { margin: var(--spacing-space-1) 0 0; color: var(--color-text-secondary); }
+
+.fieldEditorPanel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-space-3);
+}
+
+.fieldEditorCard {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-space-4);
+    padding: var(--spacing-space-4);
+    border: 1px solid var(--color-main-divider);
+    border-radius: var(--radius-xl);
+    background: var(--color-main-background);
+}
+
+.fieldEditorHeader > div { display: flex; flex-direction: column; gap: var(--spacing-space-1); }
+.fieldEditorHeader span { color: var(--color-text-secondary); font-size: var(--type-size-caption); }
+
+.fieldEditorGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--spacing-space-3);
+}
+
+.fieldEditorGrid > * { min-width: 0; }
+.fieldFlags { gap: var(--spacing-space-5); }
+.fieldFlags label { gap: var(--spacing-space-2); }
+
+@media (max-width: 760px) {
+    .fieldEditorGrid { grid-template-columns: 1fr; }
+    .editorHeading, .fieldEditorHeader { align-items: flex-start; flex-direction: column; }
+}
 
 .input {
     box-sizing: border-box;

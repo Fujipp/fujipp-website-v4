@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { RuntimeSlotCard } from "@/features/shop/components";
 import { StatusToast } from "@/shared/ui";
 import { PrimaryButton, SecondaryButton } from "@/shared/ui/buttons";
-import { TablePagination } from "@/shared/ui/paginations";
+import { BaseDialog } from "@/shared/ui/modals";
 import { AppFooter } from "@/shared/layout";
 import { API_BASE_URL, icons } from "@/config";
 import { useUserStore } from "@/stores";
@@ -12,7 +11,8 @@ import type { RuntimePlan } from "@/features/shop/config/catalog";
 
 type ToastStatus = "info" | "success" | "warning" | "error";
 
-const PAGE_SIZE = 8;
+const SKELETON_COUNT = 8;
+const VPS_REFRESH_MS = 30_000;
 
 interface VpsSlot {
     id: string;
@@ -35,12 +35,11 @@ interface VpsNode {
     slots: VpsSlot[];
 }
 
-// A free seat flattened out of the cabinets, ready to render as one sell card.
-interface FreeSlotCard {
+// One visible seat from the selected VPS, including occupied/disabled states.
+interface SlotCard {
     slot: VpsSlot;
+    node: VpsNode;
     vps: number;
-    slotIndex: number;
-    region: string;
 }
 
 const router = useRouter();
@@ -49,9 +48,12 @@ const userStore = useUserStore();
 const isLoading = ref(false);
 const loadError = ref("");
 const isBusy = ref(false);
-const page = ref(1);
+const selectedNodeId = ref("");
+const now = ref(Date.now());
 const toast = ref<{ status: ToastStatus; title: string; description?: string } | null>(null);
 let toastTimeout: ReturnType<typeof setTimeout> | undefined;
+let countdownInterval: ReturnType<typeof setInterval> | undefined;
+let vpsRefreshInterval: ReturnType<typeof setInterval> | undefined;
 
 const nodes = ref<VpsNode[]>([]);
 const plans = ref<RuntimePlan[]>([]);
@@ -64,19 +66,11 @@ const buyPlanId = ref("");
 
 // Cheapest first, so the card's starting price and the dialog default line up.
 const sortedPlans = computed(() => [...plans.value].sort((a, b) => a.effectivePriceSatang - b.effectivePriceSatang));
-const startingPrice = computed(() => sortedPlans.value[0] ? formatPrice(sortedPlans.value[0].effectivePriceSatang) : "—");
-const planSummary = computed(() => sortedPlans.value.map(planDurationLabel).join(" / ") || "เลือกแพ็กตอนซื้อ");
-
-const freeSlots = computed<FreeSlotCard[]>(() =>
-    nodes.value.flatMap((node, index) =>
-        node.slots
-            .filter((slot) => slot.occupancy === "FREE")
-            .map((slot) => ({ slot, vps: index + 1, slotIndex: slot.slotIndex, region: node.region || "th" })),
-    ),
-);
-
-const pageCount = computed(() => Math.max(1, Math.ceil(freeSlots.value.length / PAGE_SIZE)));
-const pagedSlots = computed(() => freeSlots.value.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE));
+const selectedNode = computed(() => nodes.value.find((node) => node.id === selectedNodeId.value) ?? nodes.value[0] ?? null);
+const selectedNodeNumber = computed(() => Math.max(1, nodes.value.findIndex((node) => node.id === selectedNode.value?.id) + 1));
+const visibleSlots = computed<SlotCard[]>(() => selectedNode.value
+    ? selectedNode.value.slots.map((slot) => ({ slot, node: selectedNode.value!, vps: selectedNodeNumber.value }))
+    : []);
 
 // Payment summary: selected plan price → current balance → balance after charge.
 const buyPrice = computed(() => {
@@ -110,7 +104,23 @@ function formatMoney(satang: number): string {
 }
 
 function formatPrice(satang: number): string {
-    return `฿ ${formatMoney(satang)}`;
+    return `${formatMoney(satang)} THB`;
+}
+
+function isAvailable(card: SlotCard): boolean {
+    return card.node.status === "ACTIVE" && card.slot.occupancy === "FREE";
+}
+
+function availabilityLabel(slot: VpsSlot): string {
+    if (slot.occupancy === "MAINTENANCE") return "Unavailable during maintenance";
+    if (!slot.expiresAt) return slot.occupancy === "RESERVED" ? "Reserved" : "Currently unavailable";
+    const remaining = Math.max(0, new Date(slot.expiresAt).getTime() - now.value);
+    const totalSeconds = Math.floor(remaining / 1000);
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return `Available in : ${days}d ${hours}h ${minutes}m ${seconds}s`;
 }
 
 async function parseError(res: Response): Promise<string> {
@@ -128,7 +138,7 @@ async function load(): Promise<void> {
     loadError.value = "";
     try {
         const headers = await authHeaders();
-        if (!headers) { await router.push({ name: "login", query: { redirect: "/shop/runtime" } }); return; }
+        if (!headers) { await router.push({ name: "login", query: { redirect: "/store/runtime" } }); return; }
         const [vpsRes, plansRes, walletRes] = await Promise.all([
             fetch(`${API_BASE_URL}/api/runtime/vps`, { headers }),
             fetch(`${API_BASE_URL}/api/catalog/runtime-plans`, { headers }),
@@ -138,7 +148,9 @@ async function load(): Promise<void> {
         nodes.value = await vpsRes.json() as VpsNode[];
         plans.value = await plansRes.json() as RuntimePlan[];
         walletBalanceSatang.value = walletRes.ok ? (((await walletRes.json()).balanceSatang as number) ?? 0) : 0;
-        page.value = 1;
+        if (!nodes.value.some((node) => node.id === selectedNodeId.value)) {
+            selectedNodeId.value = nodes.value[0]?.id ?? "";
+        }
     } catch {
         nodes.value = []; plans.value = [];
         walletBalanceSatang.value = 0;
@@ -148,14 +160,27 @@ async function load(): Promise<void> {
     }
 }
 
-function openBuy(card: FreeSlotCard): void {
+function openBuy(card: SlotCard): void {
+    if (!isAvailable(card)) return;
     buySlot.value = card.slot;
     buyVps.value = card.vps;
     buyPlanId.value = sortedPlans.value[0]?.id ?? "";
 }
 
 function planDurationLabel(plan: RuntimePlan): string {
-    return `${plan.durationMonths} เดือน`;
+    if (plan.durationMonths <= 0) return plan.name;
+    return `${plan.durationMonths} Month${plan.durationMonths === 1 ? "" : "s"}`;
+}
+
+async function refreshVps(): Promise<void> {
+    const headers = await authHeaders();
+    if (!headers) return;
+    const response = await fetch(`${API_BASE_URL}/api/runtime/vps`, { headers });
+    if (!response.ok) return;
+    nodes.value = await response.json() as VpsNode[];
+    if (!nodes.value.some((node) => node.id === selectedNodeId.value)) {
+        selectedNodeId.value = nodes.value[0]?.id ?? "";
+    }
 }
 
 async function confirmBuy(): Promise<void> {
@@ -166,7 +191,7 @@ async function confirmBuy(): Promise<void> {
     buySlot.value = null;
 
     const headers = await authHeaders();
-    if (!headers) { await router.push({ name: "login", query: { redirect: "/shop/runtime" } }); return; }
+    if (!headers) { await router.push({ name: "login", query: { redirect: "/store/runtime" } }); return; }
     isBusy.value = true;
     try {
         const res = await fetch(`${API_BASE_URL}/api/runtime/slots/${slot.id}/purchase`, {
@@ -195,8 +220,16 @@ function goBack(): void {
     void router.push({ name: "shop-dashboard" });
 }
 
-onMounted(load);
-onUnmounted(clearToast);
+onMounted(() => {
+    void load();
+    countdownInterval = setInterval(() => { now.value = Date.now(); }, 1000);
+    vpsRefreshInterval = setInterval(() => { void refreshVps(); }, VPS_REFRESH_MS);
+});
+onUnmounted(() => {
+    clearToast();
+    if (countdownInterval) clearInterval(countdownInterval);
+    if (vpsRefreshInterval) clearInterval(vpsRefreshInterval);
+});
 </script>
 
 <template>
@@ -204,21 +237,36 @@ onUnmounted(clearToast);
         <main :class="$style.content">
             <section :class="$style.section" aria-labelledby="shop-runtime-title">
                 <div :class="$style.titleRow">
-                    <h1 id="shop-runtime-title" :class="$style.pageTitle">Runtime สำหรับบอท</h1>
-                    <SecondaryButton width-mode="hug" :leading-icon="icons.arrowBack" @click="goBack">
-                        กลับ
-                    </SecondaryButton>
+                    <h1 id="shop-runtime-title" :class="$style.pageTitle">All Products</h1>
+                    <PrimaryButton width-mode="hug" :leading-icon="icons.directionLeft" @click="goBack">Back</PrimaryButton>
                 </div>
             </section>
 
             <section :class="$style.section" aria-labelledby="shop-runtime-slots-title">
-                <div :class="$style.sectionHeading">
-                    <h2 id="shop-runtime-slots-title" :class="$style.sectionTitle">เลือก VPS และแพ็กระยะเวลา</h2>
-                    <div :class="$style.headingRule" aria-hidden="true" />
+                <div :class="$style.controlsRow">
+                    <h2 id="shop-runtime-slots-title" :class="$style.sectionTitle" class="type-caption-sb">
+                        <RouterLink :class="$style.breadcrumbLink" :to="{ name: 'shop-dashboard' }">Main</RouterLink>
+                        <span :class="$style.breadcrumbTrail">
+                            <span aria-hidden="true">&gt;</span><span>Runtime</span>
+                            <span aria-hidden="true">&gt;</span><span>VPS {{ selectedNodeNumber }}</span>
+                        </span>
+                    </h2>
+                    <div :class="$style.nodeTabs" aria-label="Choose VPS server">
+                        <button
+                            v-for="(node, index) in nodes"
+                            :key="node.id"
+                            type="button"
+                            :class="[$style.nodeTab, node.id === selectedNode?.id && $style.nodeTabActive]"
+                            :aria-pressed="node.id === selectedNode?.id"
+                            @click="selectedNodeId = node.id"
+                        >
+                            VPS {{ index + 1 }}
+                        </button>
+                    </div>
                 </div>
 
                 <div v-if="isLoading" :class="$style.cardGrid">
-                    <div v-for="n in PAGE_SIZE" :key="`sk-${n}`" :class="[$style.cardItem, $style.skeletonCard]" />
+                    <div v-for="n in SKELETON_COUNT" :key="`sk-${n}`" :class="[$style.runtimeCard, $style.skeletonCard]" />
                 </div>
 
                 <section v-else-if="loadError" :class="$style.statePanel" aria-live="polite">
@@ -229,28 +277,50 @@ onUnmounted(clearToast);
 
                 <template v-else>
                     <div :class="$style.cardGrid">
-                        <RuntimeSlotCard
-                            v-for="card in pagedSlots"
+                        <article
+                            v-for="card in visibleSlots"
                             :key="card.slot.id"
-                            :class="$style.cardItem"
-                            variant="sell"
-                            :icon="icons.shopServer"
-                            :price="startingPrice"
-                            :vps="card.vps"
-                            :slot="card.slotIndex"
-                            :region="card.region"
-                            state="ว่าง"
-                            :runtime="planSummary"
-                            buy-label="เลือกแพ็ก"
-                            @buy="openBuy(card)"
-                        />
+                            :class="[$style.runtimeCard, !isAvailable(card) && $style.runtimeCardDisabled]"
+                        >
+                            <h3 :class="$style.slotTitle">{{ (card.node.region || "TH").toUpperCase() }} SLOT-{{ card.slot.slotIndex }}</h3>
+                            <span :class="$style.serverIcon" :style="{ '--server-icon': `url(${icons.shopServer})` }" aria-hidden="true" />
+
+                            <div :class="$style.planBlock">
+                                <div :class="$style.divider" aria-hidden="true" />
+                                <div :class="$style.planList">
+                                    <template v-for="(plan, index) in sortedPlans" :key="plan.id">
+                                        <span v-if="index > 0" :class="$style.planSeparator" aria-hidden="true" />
+                                        <span :class="$style.planItem">
+                                            <strong>{{ formatPrice(plan.effectivePriceSatang) }}</strong>
+                                            <span>{{ planDurationLabel(plan) }}</span>
+                                        </span>
+                                    </template>
+                                </div>
+                                <div :class="$style.divider" aria-hidden="true" />
+                            </div>
+
+                            <p v-if="!isAvailable(card)" :class="$style.availability">
+                                <span :class="$style.renewIcon" :style="{ '--renew-icon': `url(${icons.shopRenew})` }" aria-hidden="true" />
+                                {{ availabilityLabel(card.slot) }}
+                            </p>
+
+                            <PrimaryButton
+                                v-if="isAvailable(card)"
+                                width-mode="fill"
+                                :leading-icon="icons.buy"
+                                @click="openBuy(card)"
+                            >
+                                Buy
+                            </PrimaryButton>
+                            <PrimaryButton v-else width-mode="fill" :leading-icon="icons.not" disabled aria-label="Runtime slot unavailable">
+                                <span :class="$style.visuallyHidden">Unavailable</span>
+                            </PrimaryButton>
+                        </article>
                     </div>
 
-                    <p v-if="freeSlots.length === 0" :class="$style.emptyText">
-                        ตอนนี้ไม่มีช่อง VPS ว่าง — ลองเช็กใหม่อีกครั้งภายหลัง หรือติดต่อผู้ดูแลให้เปิดตู้เพิ่ม
+                    <p v-if="visibleSlots.length === 0" :class="$style.emptyText">
+                        VPS นี้ยังไม่มี Slot ที่เปิดให้บริการ
                     </p>
-
-                    <TablePagination v-if="pageCount > 1" v-model="page" :page-count="pageCount" />
                 </template>
             </section>
 
@@ -262,67 +332,67 @@ onUnmounted(clearToast);
         <AppFooter />
 
         <!-- Buy a free seat: pick the renewal duration now; assign a bot later on the Dashboard. -->
-        <Teleport to="body">
-            <Transition name="dialog">
-                <div v-if="buySlot" :class="$style.backdrop" @click.self="buySlot = null">
-                    <section :class="$style.modal" role="dialog" aria-modal="true" aria-labelledby="buy-runtime-title" tabindex="-1" @keydown.esc.stop="buySlot = null">
-                        <h2 id="buy-runtime-title" :class="$style.modalTitle">
-                            เลือกแพ็ก Runtime — VPS {{ buyVps }} ช่อง #{{ buySlot.slotIndex }}
-                        </h2>
-                        <fieldset :class="$style.group">
-                            <legend :class="$style.groupLabel">เลือกแพ็ก</legend>
-                            <label
-                                v-for="plan in sortedPlans"
-                                :key="plan.id"
-                                :class="[$style.option, buyPlanId === plan.id && $style.optionActive]"
-                            >
-                                <input v-model="buyPlanId" type="radio" name="plan" :value="plan.id" :class="$style.radio">
-                                <span>{{ planDurationLabel(plan) }}</span>
-                                <span :class="$style.optionMeta">{{ plan.name }}</span>
-                                <span :class="$style.optionPrice">฿{{ formatMoney(plan.effectivePriceSatang) }}</span>
-                            </label>
-                            <p v-if="sortedPlans.length === 0" :class="$style.stateText">ยังไม่มีแพ็ก Runtime ที่เปิดขาย</p>
-                        </fieldset>
-                        <p :class="$style.assignmentNote">
-                            หลังชำระเงิน Runtime จะอยู่ในคลังของคุณก่อน แล้วเลือกบอทที่จะใช้งานได้จากหน้า Dashboard
-                        </p>
+        <BaseDialog
+            v-if="buySlot"
+            aria-labelled-by="buy-runtime-title"
+            @close="buySlot = null"
+        >
+            <div :class="$style.modalContent">
+                <h2 id="buy-runtime-title" :class="$style.modalTitle">
+                    เลือกแพ็ก Runtime — VPS {{ buyVps }} ช่อง #{{ buySlot.slotIndex }}
+                </h2>
+                <fieldset :class="$style.group">
+                    <legend :class="$style.groupLabel">เลือกแพ็ก</legend>
+                    <label
+                        v-for="plan in sortedPlans"
+                        :key="plan.id"
+                        :class="[$style.option, buyPlanId === plan.id && $style.optionActive]"
+                    >
+                        <input v-model="buyPlanId" type="radio" name="plan" :value="plan.id" :class="$style.radio">
+                        <span>{{ planDurationLabel(plan) }}</span>
+                        <span :class="$style.optionMeta">{{ plan.name }}</span>
+                        <span :class="$style.optionPrice">฿{{ formatMoney(plan.effectivePriceSatang) }}</span>
+                    </label>
+                    <p v-if="sortedPlans.length === 0" :class="$style.stateText">ยังไม่มีแพ็ก Runtime ที่เปิดขาย</p>
+                </fieldset>
+                <p :class="$style.assignmentNote">
+                    หลังชำระเงิน Runtime จะอยู่ในคลังของคุณก่อน แล้วเลือกบอทที่จะใช้งานได้จากหน้า Dashboard
+                </p>
 
-                        <dl :class="$style.paymentSummary">
-                            <div :class="$style.paymentRow">
-                                <dt :class="$style.paymentLabel">ยอดชำระ</dt>
-                                <dd :class="[$style.paymentValue, buyPrice != null ? $style.paymentAmount : $style.paymentPlaceholder]">
-                                    {{ buyPrice != null ? `${formatMoney(buyPrice)} บาท` : "เลือกแพ็กก่อน" }}
-                                </dd>
-                            </div>
-                            <div :class="[$style.paymentRow, $style.paymentDivider]">
-                                <dt :class="$style.paymentLabel">ยอดเงินในกระเป๋า</dt>
-                                <dd :class="$style.paymentValue">{{ formatMoney(walletBalanceSatang) }} บาท</dd>
-                            </div>
-                            <div v-if="buyBalanceAfter != null" :class="$style.paymentRow">
-                                <dt :class="$style.paymentLabel">คงเหลือหลังชำระ</dt>
-                                <dd :class="[$style.paymentValue, buyInsufficient ? $style.paymentNegative : '']">
-                                    {{ formatMoney(buyBalanceAfter) }} บาท
-                                </dd>
-                            </div>
-                        </dl>
+                <dl :class="$style.paymentSummary">
+                    <div :class="$style.paymentRow">
+                        <dt :class="$style.paymentLabel">ยอดชำระ</dt>
+                        <dd :class="[$style.paymentValue, buyPrice != null ? $style.paymentAmount : $style.paymentPlaceholder]">
+                            {{ buyPrice != null ? `${formatMoney(buyPrice)} บาท` : "เลือกแพ็กก่อน" }}
+                        </dd>
+                    </div>
+                    <div :class="[$style.paymentRow, $style.paymentDivider]">
+                        <dt :class="$style.paymentLabel">ยอดเงินในกระเป๋า</dt>
+                        <dd :class="$style.paymentValue">{{ formatMoney(walletBalanceSatang) }} บาท</dd>
+                    </div>
+                    <div v-if="buyBalanceAfter != null" :class="$style.paymentRow">
+                        <dt :class="$style.paymentLabel">คงเหลือหลังชำระ</dt>
+                        <dd :class="[$style.paymentValue, buyInsufficient ? $style.paymentNegative : '']">
+                            {{ formatMoney(buyBalanceAfter) }} บาท
+                        </dd>
+                    </div>
+                </dl>
 
-                        <p v-if="buyInsufficient" :class="$style.paymentWarning">
-                            ยอดเงินในกระเป๋าไม่เพียงพอ — กรุณาเติมเงินก่อนทำรายการ
-                        </p>
+                <p v-if="buyInsufficient" :class="$style.paymentWarning">
+                    ยอดเงินในกระเป๋าไม่เพียงพอ — กรุณาเติมเงินก่อนทำรายการ
+                </p>
 
-                        <div :class="$style.modalActions">
-                            <SecondaryButton width-mode="hug" @click="buySlot = null">ยกเลิก</SecondaryButton>
-                            <PrimaryButton v-if="buyInsufficient" width-mode="hug" @click="goToWallet">
-                                เติมเงิน
-                            </PrimaryButton>
-                            <PrimaryButton v-else width-mode="hug" :disabled="isBusy || !buyPlanId" @click="confirmBuy">
-                                ยืนยันชำระเงิน
-                            </PrimaryButton>
-                        </div>
-                    </section>
+                <div :class="$style.modalActions">
+                    <SecondaryButton width-mode="hug" @click="buySlot = null">ยกเลิก</SecondaryButton>
+                    <PrimaryButton v-if="buyInsufficient" width-mode="hug" @click="goToWallet">
+                        เติมเงิน
+                    </PrimaryButton>
+                    <PrimaryButton v-else width-mode="hug" :disabled="isBusy || !buyPlanId" @click="confirmBuy">
+                        ยืนยันชำระเงิน
+                    </PrimaryButton>
                 </div>
-            </Transition>
-        </Teleport>
+            </div>
+        </BaseDialog>
     </div>
 </template>
 
@@ -360,18 +430,21 @@ onUnmounted(clearToast);
     width: 100%;
     max-width: var(--container-7xl);
     margin: 0 auto;
-    padding: var(--spacing-space-3) var(--spacing-space-6);
-    gap: var(--spacing-space-4);
+    padding: var(--spacing-space-16) var(--spacing-space-8);
+    gap: var(--spacing-space-8);
 }
 
 .section {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-space-3);
+    gap: var(--spacing-space-8);
 }
 
 .titleRow {
     display: flex;
+    width: 100%;
+    height: var(--spacing-space-12);
+    flex: 0 0 var(--spacing-space-12);
     align-items: center;
     justify-content: space-between;
     gap: var(--spacing-space-4);
@@ -381,46 +454,210 @@ onUnmounted(clearToast);
     margin: 0;
     color: var(--color-text-primary);
     font-size: var(--type-size-h1-page-title);
-    font-weight: 600;
+    font-weight: 800;
     line-height: normal;
 }
 
-.sectionHeading {
+.controlsRow {
     display: flex;
-    align-items: center;
-    gap: var(--spacing-space-3);
+    width: 100%;
+    min-height: var(--spacing-space-12);
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-space-5);
 }
 
 .sectionTitle {
+    display: flex;
+    align-items: center;
     margin: 0;
+    gap: var(--spacing-space-1);
     color: var(--color-text-primary);
-    font-size: var(--type-size-h3-card-title);
-    font-weight: 600;
-    line-height: normal;
 }
 
-.headingRule {
+.breadcrumbLink {
+    color: inherit;
+    line-height: inherit;
+    text-decoration: none;
+}
+
+.breadcrumbLink:hover {
+    box-shadow: inset 0 -1px currentColor;
+}
+
+.breadcrumbLink:focus-visible {
+    border-radius: var(--radius-sm);
+    outline: 2px solid var(--color-main-primary);
+    outline-offset: 2px;
+}
+
+.breadcrumbTrail {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-space-1);
+    animation: runtime-breadcrumb-reveal 320ms cubic-bezier(.2, .8, .2, 1) forwards;
+}
+
+@keyframes runtime-breadcrumb-reveal {
+    from { opacity: 0; transform: translateX(calc(var(--spacing-space-3) * -1)); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+.nodeTabs {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--spacing-space-2);
+}
+
+.nodeTab {
+    min-height: 41px;
+    padding: var(--spacing-space-3) var(--spacing-space-4);
+    border: 1px solid var(--color-main-border);
+    border-radius: var(--radius-full);
+    background: transparent;
+    color: var(--color-text-primary);
+    cursor: pointer;
+    font: inherit;
+    font-weight: 600;
+}
+
+.nodeTabActive {
+    background-color: var(--color-text-primary);
+    color: var(--color-main-background);
+}
+
+.nodeTab:focus-visible {
+    outline: 2px solid var(--color-main-primary);
+    outline-offset: 2px;
+}
+
+.cardGrid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, var(--spacing-space-64)));
+    align-items: stretch;
+    justify-content: space-between;
+    gap: var(--spacing-space-8) var(--spacing-space-5);
+}
+
+.runtimeCard {
+    display: flex;
+    width: 100%;
+    min-height: 427px;
+    min-width: 0;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    box-sizing: border-box;
+    padding: var(--spacing-space-3) var(--spacing-space-4);
+    gap: var(--spacing-space-2);
+    overflow: hidden;
+    border: 1px solid var(--color-main-border);
+    border-radius: var(--radius-xl);
+    background-color: var(--color-main-background);
+    color: var(--color-text-primary);
+}
+
+.runtimeCardDisabled {
+    color: var(--color-text-disabled);
+}
+
+.runtimeCardDisabled .planItem > span {
+    color: inherit;
+}
+
+.slotTitle {
+    align-self: stretch;
+    margin: 0;
+    font-size: var(--type-size-h3-card-title);
+    font-weight: 600;
+    text-align: center;
+}
+
+.serverIcon {
+    width: 156px;
+    height: 156px;
+    flex-shrink: 0;
+    background-color: currentColor;
+    mask: var(--server-icon) center / contain no-repeat;
+    -webkit-mask: var(--server-icon) center / contain no-repeat;
+}
+
+.planBlock {
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-space-2);
+}
+
+.divider {
     height: 1px;
-    flex: 1;
+    background-color: var(--color-main-border);
+}
+
+.planList {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: nowrap;
+    gap: var(--spacing-space-1);
+}
+
+.planItem {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    align-items: center;
+    font-size: var(--type-size-caption);
+    white-space: nowrap;
+}
+
+.planItem > span {
+    color: var(--color-text-secondary);
+    font-size: var(--type-size-overline);
+}
+
+.planSeparator {
+    width: 1px;
+    height: var(--spacing-space-8);
+    align-self: center;
+    flex-shrink: 0;
     background-color: var(--color-main-divider);
 }
 
-/* 4 columns × 2 rows per page on desktop; 1fr keeps the cards filling the full
-   width (no leftover gutter on the right) and steps down on smaller screens. */
-.cardGrid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    align-items: stretch;
-    gap: var(--spacing-space-3);
+.availability {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    gap: var(--spacing-space-2);
+    color: var(--color-status-error);
+    font-size: var(--type-size-overline);
+    white-space: nowrap;
 }
 
-.cardItem {
-    min-width: 0;
+.renewIcon {
+    width: var(--spacing-icon-md);
+    height: var(--spacing-icon-md);
+    flex-shrink: 0;
+    background-color: currentColor;
+    mask: var(--renew-icon) center / contain no-repeat;
+    -webkit-mask: var(--renew-icon) center / contain no-repeat;
+}
+
+.visuallyHidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }
 
 .skeletonCard {
-    height: 300px;
-    border-radius: var(--radius-xl);
     background: linear-gradient(110deg, var(--color-main-surface) 0%, var(--color-main-background) 48%, var(--color-main-surface) 100%);
     background-size: 220% 100%;
     animation: shop-runtime-shimmer 1800ms ease-in-out infinite;
@@ -476,30 +713,14 @@ onUnmounted(clearToast);
     width: min(360px, calc(100vw - var(--spacing-space-10)));
 }
 
-.backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 70;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: var(--spacing-space-5);
-    background: color-mix(in srgb, #000 55%, transparent);
-    backdrop-filter: blur(4px);
-}
-
-/* Adaptive pairing (matches shared ConfirmModal): main-background + text-primary
-   + main-divider flip together in dark mode. */
-.modal {
+.modalContent {
     display: flex;
     flex-direction: column;
+    box-sizing: border-box;
+    max-height: min(80vh, 640px);
     gap: var(--spacing-space-4);
-    width: min(440px, 100%);
+    overflow-y: auto;
     padding: var(--spacing-space-6);
-    border: 1px solid var(--color-main-divider);
-    border-radius: var(--radius-xl);
-    background-color: var(--color-main-background);
-    color: var(--color-text-primary);
 }
 
 .modalTitle {
@@ -518,7 +739,7 @@ onUnmounted(clearToast);
 }
 
 .groupLabel {
-    color: var(--color-text-secondary);
+    color: var(--color-dialog-text-secondary);
     font-size: 14px;
     font-weight: 600;
 }
@@ -528,37 +749,37 @@ onUnmounted(clearToast);
     align-items: center;
     gap: var(--spacing-space-3);
     padding: var(--spacing-space-3);
-    border: 1px solid var(--color-main-border);
+    border: 1px solid var(--color-dialog-divider);
     border-radius: var(--radius-md);
-    color: var(--color-text-secondary);
+    color: var(--color-dialog-text-secondary);
     cursor: pointer;
 }
 
 .optionActive {
-    border-color: var(--color-main-primary);
-    background-color: color-mix(in srgb, var(--color-main-primary) 10%, transparent);
+    border-color: var(--color-dialog-text-primary);
+    background-color: color-mix(in srgb, var(--color-dialog-text-primary) 8%, var(--color-dialog-background));
 }
 
 .optionPrice {
     margin-left: auto;
-    color: var(--color-text-secondary);
+    color: var(--color-dialog-text-primary);
     font-weight: 700;
 }
 
 .optionMeta {
-    color: var(--color-text-secondary);
+    color: var(--color-dialog-text-secondary);
     font-size: 13px;
 }
 
 .assignmentNote {
     margin: 0;
-    color: var(--color-text-secondary);
+    color: var(--color-dialog-text-secondary);
     font-size: 14px;
     line-height: 1.5;
 }
 
 .radio {
-    accent-color: var(--color-main-primary);
+    accent-color: var(--color-dialog-text-primary);
 }
 
 /* Payment summary rows (label left, value right) — same recipe as the Dashboard modals. */
@@ -568,9 +789,9 @@ onUnmounted(clearToast);
     gap: var(--spacing-space-2);
     margin: 0;
     padding: var(--spacing-space-4);
-    border: 1px solid var(--color-main-divider);
+    border: 1px solid var(--color-dialog-divider);
     border-radius: var(--radius-md);
-    background-color: color-mix(in srgb, var(--color-text-primary) 4%, var(--color-main-background));
+    background-color: color-mix(in srgb, var(--color-dialog-text-primary) 4%, var(--color-dialog-background));
 }
 
 .paymentRow {
@@ -583,32 +804,32 @@ onUnmounted(clearToast);
 .paymentDivider {
     margin-top: var(--spacing-space-2);
     padding-top: var(--spacing-space-3);
-    border-top: 1px solid var(--color-main-divider);
+    border-top: 1px solid var(--color-dialog-divider);
 }
 
 .paymentLabel {
     margin: 0;
-    color: var(--color-text-secondary);
+    color: var(--color-dialog-text-secondary);
     font-size: 14px;
     font-weight: 300;
 }
 
 .paymentValue {
     margin: 0;
-    color: var(--color-text-primary);
+    color: var(--color-dialog-text-primary);
     font-size: 15px;
     font-weight: 600;
     text-align: right;
 }
 
 .paymentAmount {
-    color: var(--color-text-primary);
+    color: var(--color-dialog-text-primary);
     font-size: 18px;
     font-weight: 800;
 }
 
 .paymentPlaceholder {
-    color: var(--color-text-secondary);
+    color: var(--color-dialog-text-secondary);
     font-size: 15px;
     font-weight: 600;
 }
@@ -633,17 +854,27 @@ onUnmounted(clearToast);
 
 @media (max-width: 1080px) {
     .cardGrid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, var(--spacing-space-64)));
     }
 }
 
 @media (max-width: 760px) {
     .content {
-        padding: var(--spacing-space-2) var(--spacing-space-2);
+        padding: var(--spacing-space-8) var(--spacing-space-4);
+    }
+
+    .controlsRow {
+        height: auto;
+        flex-direction: column;
+    }
+
+    .nodeTabs {
+        justify-content: flex-start;
     }
 
     .cardGrid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, var(--spacing-space-64)));
+        justify-content: space-between;
     }
 
     .toastRegion {
@@ -653,9 +884,16 @@ onUnmounted(clearToast);
     }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 600px) {
     .cardGrid {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, var(--spacing-space-64));
+        justify-content: center;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .breadcrumbTrail {
+        animation: none;
     }
 }
 </style>

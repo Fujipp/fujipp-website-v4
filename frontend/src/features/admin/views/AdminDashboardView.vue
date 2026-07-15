@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
+import { RouterLink } from "vue-router";
 import { icons } from "@/config";
 import { AdminLayout } from "@/features/admin/components";
 import { useAdminStore } from "@/features/admin/stores";
@@ -12,6 +13,13 @@ interface MetricCard {
     hint: string;
     icon: string;
 }
+
+const menuItems = [
+    { label: "Users config", icon: icons.user, to: { name: "admin-users" } },
+    { label: "Package config", icon: icons.package, to: { name: "admin-pricing" } },
+    { label: "Bot config", icon: icons.shopBot, to: { name: "admin-bots" } },
+    { label: "Runtime config", icon: icons.shopServer, to: { name: "admin-vps" } },
+] as const;
 
 const adminStore = useAdminStore();
 
@@ -42,20 +50,12 @@ const cards = computed(() => {
     return [
         { label: "Users", value: String(d.totalUsers), hint: `${d.adminUsers} admin`, icon: icons.user },
         { label: "Bots", value: String(d.totalBots), hint: `${d.runningBots} running`, icon: icons.shopBot },
-        { label: "VPS slots", value: `${d.vpsSlotsUsed} / ${d.vpsSlotsTotal}`, hint: `${d.vpsNodes} nodes`, icon: icons.shopServer },
-        { label: "Revenue (30d)", value: baht(d.topupRevenueSatang30d), hint: "confirmed top-ups", icon: icons.shopBank },
-        { label: "Wallet credit", value: baht(d.totalWalletBalanceSatang), hint: `${d.walletCount} wallets`, icon: icons.wallet },
+        { label: "Runtime", value: `${d.vpsSlotsUsed}/${d.vpsSlotsTotal}`, hint: `${d.vpsNodes} servers`, icon: icons.shopServer },
+        { label: "Revenue 1m", value: baht(d.salesRevenueSatang30d), hint: "paid sales in 30 days", icon: icons.shopBank },
+        { label: "Total of sale", value: String(d.packagesSold), hint: "paid packages", icon: icons.package },
+        { label: "Sum of sale", value: baht(d.totalSalesSatang), hint: "all paid orders", icon: icons.shopRenew },
+        { label: "Money in system", value: baht(d.totalWalletBalanceSatang), hint: `${d.walletCount} wallets`, icon: icons.wallet },
     ] satisfies MetricCard[];
-});
-
-const summaryCards = computed(() => {
-    const d = data.value;
-    if (!d) return [];
-    return [
-        { label: "Active bots", value: `${d.runningBots}/${d.totalBots}`, icon: icons.play },
-        { label: "Capacity", value: `${d.vpsSlotsUsed}/${d.vpsSlotsTotal}`, icon: icons.performance },
-        { label: "Audit", value: String(d.recentAudit.length), icon: icons.history },
-    ];
 });
 
 const recentActivity = computed(() => {
@@ -103,24 +103,15 @@ onMounted(load);
 </script>
 
 <template>
-    <AdminLayout title="Dashboard">
+    <AdminLayout title="Admin dashboard">
         <div :class="$style.dashboard">
-            <section :class="$style.hero" aria-labelledby="admin-dashboard-overview">
-                <div :class="$style.heroCopy">
-                    <span class="type-overline-sb" :class="$style.eyebrow">Admin control</span>
-                    <h2 id="admin-dashboard-overview" class="type-h2-section-title-sb" :class="$style.heroTitle">
-                        Platform overview
-                    </h2>
-                    <p class="type-body-small-r" :class="$style.heroText">
-                        Users, bots, runtime capacity, wallet credit, and admin actions.
-                    </p>
-                </div>
-                <div v-if="data" :class="$style.summaryGrid" aria-label="Operational summary">
-                    <article v-for="item in summaryCards" :key="item.label" :class="$style.summaryItem">
-                        <span :class="$style.summaryIcon" :style="iconMaskStyle(item.icon)" aria-hidden="true"></span>
-                        <span class="type-overline-sb" :class="$style.summaryLabel">{{ item.label }}</span>
-                        <strong class="type-body-small-sb" :class="$style.summaryValue">{{ item.value }}</strong>
-                    </article>
+            <section :class="$style.menuSection" aria-labelledby="admin-menu-title">
+                <h2 id="admin-menu-title" class="type-h2-section-title-sb" :class="$style.heading">Menu</h2>
+                <div :class="$style.menuGrid">
+                    <RouterLink v-for="item in menuItems" :key="item.label" :to="item.to" :class="$style.menuCard">
+                        <span :class="$style.menuIcon" :style="iconMaskStyle(item.icon)" aria-hidden="true"></span>
+                        <span class="type-button-r">{{ item.label }}</span>
+                    </RouterLink>
                 </div>
             </section>
 
@@ -133,15 +124,17 @@ onMounted(load);
                 <p class="type-body-small-sb" :class="$style.note">Loading dashboard…</p>
             </section>
 
-            <section v-if="data" :class="$style.cards" aria-label="Platform metrics">
-                <article v-for="card in cards" :key="card.label" :class="$style.card">
-                    <div :class="$style.cardTop">
-                        <span class="type-overline-sb" :class="$style.cardLabel">{{ card.label }}</span>
-                        <span :class="$style.cardIcon" :style="iconMaskStyle(card.icon)" aria-hidden="true"></span>
-                    </div>
-                    <strong class="type-h3-card-title-sb" :class="$style.cardValue">{{ card.value }}</strong>
-                    <span class="type-caption-r" :class="$style.cardHint">{{ card.hint }}</span>
-                </article>
+            <section v-if="data" :class="$style.metricsBand" aria-label="Platform metrics">
+                <div :class="$style.cards">
+                    <article v-for="card in cards" :key="card.label" :class="$style.card">
+                        <div :class="$style.cardTop">
+                            <span class="type-overline-sb" :class="$style.cardLabel">{{ card.label }}</span>
+                            <span :class="$style.cardIcon" :style="iconMaskStyle(card.icon)" aria-hidden="true"></span>
+                        </div>
+                        <strong class="type-h3-card-title-sb" :class="$style.cardValue">{{ card.value }}</strong>
+                        <span class="type-caption-r" :class="$style.cardHint">{{ card.hint }}</span>
+                    </article>
+                </div>
             </section>
 
             <section v-if="data" :class="$style.activity" aria-label="Recent admin activity">
@@ -203,45 +196,68 @@ onMounted(load);
     color: var(--color-text-primary);
 }
 
-.hero {
-    display: flex;
-    align-items: stretch;
-    justify-content: space-between;
-    gap: var(--spacing-space-6);
-    box-sizing: border-box;
-    padding: var(--spacing-space-6);
-    border: 1px solid var(--color-main-divider);
-    border-radius: var(--radius-2xl);
-    background: var(--color-main-background);
-}
-
-.heroCopy {
+.menuSection {
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    gap: var(--spacing-space-2);
-    min-width: 0;
+    gap: var(--spacing-space-5);
 }
 
-.eyebrow,
-.heroText,
-.summaryLabel,
+.menuGrid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, var(--spacing-space-32)));
+    gap: var(--spacing-space-8);
+}
+
+.menuCard {
+    display: flex;
+    min-height: var(--spacing-space-32);
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-space-3);
+    box-sizing: border-box;
+    padding: var(--spacing-space-3);
+    border: 1px solid var(--color-main-divider);
+    border-radius: var(--radius-xl);
+    background: var(--color-main-background);
+    color: var(--color-text-primary);
+    text-align: center;
+    text-decoration: none;
+    transition: border-color 160ms ease, background-color 160ms ease, transform 160ms ease;
+}
+
+.menuCard:hover {
+    border-color: var(--color-main-primary);
+    background: var(--color-table-row-hover);
+    transform: translateY(calc(var(--spacing-space-1) * -1));
+}
+
+.menuCard:focus-visible {
+    outline: 2px solid var(--color-main-primary);
+    outline-offset: 2px;
+}
+
+.menuIcon {
+    display: inline-block;
+    width: var(--spacing-icon-md);
+    height: var(--spacing-icon-md);
+    background-color: currentColor;
+    mask: var(--admin-dashboard-icon) center / contain no-repeat;
+    -webkit-mask: var(--admin-dashboard-icon) center / contain no-repeat;
+}
+
 .cardHint,
 .td,
 .note {
     color: var(--color-text-secondary);
 }
 
-.heroTitle,
-.heroText,
 .heading,
 .note,
 .error {
     margin: 0;
 }
 
-.heroTitle,
-.summaryValue,
 .cardLabel,
 .cardValue,
 .heading,
@@ -249,32 +265,20 @@ onMounted(load);
     color: var(--color-text-primary);
 }
 
-.summaryGrid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: var(--spacing-space-3);
-    inline-size: min(100%, var(--spacing-space-114));
-}
-
-.summaryItem {
-    display: grid;
-    grid-template-columns: var(--spacing-icon-md) 1fr;
-    align-items: center;
-    gap: var(--spacing-space-1) var(--spacing-space-3);
+.metricsBand {
     box-sizing: border-box;
-    padding: var(--spacing-space-4);
-    border: 1px solid var(--color-input-border);
-    border-radius: var(--radius-xl);
-    background: var(--color-main-background);
-}
-
-.summaryIcon {
-    grid-row: span 2;
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    padding: var(--spacing-space-16) var(--spacing-space-4);
+    background-color: var(--color-main-surface);
+    color: var(--color-text-secondary);
 }
 
 .cards {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    width: min(100%, var(--container-7xl));
+    margin: 0 auto;
+    grid-template-columns: repeat(auto-fit, minmax(var(--spacing-space-64), 1fr));
     gap: var(--spacing-space-4);
 }
 
@@ -287,7 +291,18 @@ onMounted(load);
     padding: var(--spacing-space-5);
     border: 1px solid var(--color-input-border);
     border-radius: var(--radius-xl);
-    background: var(--color-main-background);
+    background: var(--color-main-surface);
+    color: var(--color-text-secondary);
+}
+
+.cards .cardLabel,
+.cards .cardValue,
+.cards .cardHint {
+    color: var(--color-text-secondary);
+}
+
+.cards .cardIcon {
+    background-color: var(--color-text-secondary);
 }
 
 .cardTop {
@@ -297,7 +312,6 @@ onMounted(load);
     gap: var(--spacing-space-3);
 }
 
-.summaryIcon,
 .cardIcon,
 .sectionIcon,
 .stateIcon {
@@ -406,14 +420,6 @@ onMounted(load);
 }
 
 @media (max-width: 1180px) {
-    .hero {
-        flex-direction: column;
-    }
-
-    .summaryGrid {
-        inline-size: 100%;
-    }
-
     .cards {
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
@@ -424,13 +430,13 @@ onMounted(load);
         gap: var(--spacing-space-5);
     }
 
-    .hero {
-        padding: var(--spacing-space-5);
+    .cards,
+    .menuGrid {
+        grid-template-columns: 1fr;
     }
 
-    .summaryGrid,
-    .cards {
-        grid-template-columns: 1fr;
+    .metricsBand {
+        padding: var(--spacing-space-8) var(--spacing-space-4);
     }
 
     .sectionHeader,

@@ -18,13 +18,7 @@ const emit = defineEmits<{
 
 <template>
     <label :class="$style.searchText">
-        <img
-            :class="$style.searchIcon"
-            src="/icons/action/search.svg"
-            alt=""
-            aria-hidden="true"
-            draggable="false"
-        >
+        <span :class="$style.searchIcon" aria-hidden="true" />
         <input
             :value="modelValue"
             :class="$style.input"
@@ -65,8 +59,9 @@ const emit = defineEmits<{
     flex-shrink: 0;
     width: 16px;
     height: 16px;
-    object-fit: contain;
-    -webkit-user-drag: none;
+    background-color: var(--color-text-input);
+    mask: url("/icons/action/search.svg") center / contain no-repeat;
+    -webkit-mask: url("/icons/action/search.svg") center / contain no-repeat;
 }
 
 .input {
@@ -83,6 +78,18 @@ const emit = defineEmits<{
 .input::placeholder {
     color: var(--color-text-disabled);
     -webkit-text-fill-color: var(--color-text-disabled);
+}
+
+.input::-webkit-search-cancel-button {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    appearance: none;
+    -webkit-appearance: none;
+    background-color: var(--color-text-input);
+    cursor: pointer;
+    mask: linear-gradient(45deg, transparent 43%, black 44% 56%, transparent 57%), linear-gradient(-45deg, transparent 43%, black 44% 56%, transparent 57%);
+    -webkit-mask: linear-gradient(45deg, transparent 43%, black 44% 56%, transparent 57%), linear-gradient(-45deg, transparent 43%, black 44% 56%, transparent 57%);
 }
 
 @media (max-width: 767px) {

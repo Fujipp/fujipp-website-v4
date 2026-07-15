@@ -148,12 +148,12 @@
   --color-button-border: #e9e9e9;
 
   /* Input */
-  --color-input-background: #ffffff;
-  --color-input-text: #000000;
-  --color-input-border: #bbbbbb;
+  --color-input-background: var(--color-main-surface);
+  --color-input-text: var(--color-text-primary);
+  --color-input-border: var(--color-main-divider);
   --color-input-title: #ffffff;
-  --color-input-border-focus: #505050;
-  --color-input-disabled: #e9e9e9;
+  --color-input-border-focus: var(--color-main-primary);
+  --color-input-disabled: #2f2f2f;
 
   /* Dialog */
   --color-dialog-text-primary: #ffffff;
