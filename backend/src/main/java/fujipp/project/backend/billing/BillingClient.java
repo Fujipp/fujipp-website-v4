@@ -55,8 +55,11 @@ public class BillingClient {
     /** Money-side dashboard metrics from billing-service. */
     public record AdminMetrics(
         long topupRevenueSatang30d,
+        long salesRevenueSatang30d,
         long totalWalletBalanceSatang,
         long walletCount,
+        long packagesSold,
+        long totalSalesSatang,
         java.util.List<AuditEntry> recentAudit
     ) {}
 
