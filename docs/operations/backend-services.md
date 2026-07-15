@@ -173,7 +173,7 @@ Current feature registry lives in `services/central-bot/src/features/index.js`.
 | `order-management` | Order logging/counters. |
 | `member-spending` | Member spending tracking. |
 | `admin-message-tools` | Admin message utilities. |
-| `runtime-monitor` | Runtime monitor/status features. |
+| `runtime-expiry-alert` | Per-bot Runtime expiry alerts with selectable milestones and Discord destinations. |
 | `bot-presence` | Bot presence/activity loop. |
 
 Feature config keys mirror `billing.feature_variable_templates`. If a new

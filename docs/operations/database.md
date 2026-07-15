@@ -181,7 +181,7 @@ Current seeded feature codes include:
 | `order-management` | Order logging/counters. |
 | `member-spending` | Manual spending/membership card feature. |
 | `admin-message-tools` | Admin DM/message utilities. |
-| `runtime-monitor` | Runtime status command. |
+| `runtime-expiry-alert` | Configurable Runtime expiry alerts through DM, a Discord channel, or both. |
 | `shop-status` | Shop open/closed/busy announcements. |
 
 If a new central-bot feature needs UI config:

@@ -7,12 +7,15 @@ import fujipp.project.billing.dto.UpdateFeaturePriceRequest;
 import fujipp.project.billing.dto.UpdateFeatureRequest;
 import fujipp.project.billing.dto.FeatureResponse;
 import fujipp.project.billing.dto.UpdateRuntimePlanRequest;
+import fujipp.project.billing.dto.TemplateFieldResponse;
 import fujipp.project.billing.model.FeatureCatalog;
 import fujipp.project.billing.model.FeaturePrice;
 import fujipp.project.billing.model.RuntimePlan;
+import fujipp.project.billing.model.FeatureVariableTemplate;
 import fujipp.project.billing.repository.FeatureCatalogRepository;
 import fujipp.project.billing.repository.FeaturePriceRepository;
 import fujipp.project.billing.repository.RuntimePlanRepository;
+import fujipp.project.billing.repository.FeatureVariableTemplateRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -35,6 +38,7 @@ public class AdminCatalogService {
     private final RuntimePlanRepository runtimePlans;
     private final FeaturePriceRepository featurePrices;
     private final FeatureCatalogRepository features;
+    private final FeatureVariableTemplateRepository featureFields;
     private final AdminAuditService audit;
 
     // ── runtime plans ────────────────────────────────────────────────────────────
@@ -114,6 +118,64 @@ public class AdminCatalogService {
         FeatureCatalog saved = features.save(feature);
         if (!changes.isEmpty()) audit.record(adminId, "CATALOG_FEATURE_UPDATE", null, "FEATURE", featureId.toString(), changes);
         return FeatureResponse.from(saved, List.of());
+    }
+
+    @Transactional(readOnly = true)
+    public List<TemplateFieldResponse> listFeatureFields(UUID featureId) {
+        if (!features.existsById(featureId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Feature not found");
+        }
+        return featureFields.findByFeatureIdOrderBySortOrder(featureId).stream()
+            .map(TemplateFieldResponse::from)
+            .toList();
+    }
+
+    @Transactional
+    public TemplateFieldResponse updateFeatureField(
+            UUID adminId, UUID featureId, UUID fieldId, UpdateFeatureRequest.FieldUpdate req) {
+        FeatureVariableTemplate field = featureFields.findById(fieldId)
+            .filter(item -> item.getFeatureId().equals(featureId))
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Feature field not found"));
+
+        Map<String, Object> changes = new LinkedHashMap<>();
+        if (req.label() != null && !req.label().isBlank() && !req.label().equals(field.getLabel())) {
+            changes.put("label", List.of(field.getLabel(), req.label().trim()));
+            field.setLabel(req.label().trim());
+        }
+        if (req.description() != null && !req.description().equals(field.getDescription())) {
+            changes.put("description", java.util.Arrays.asList(field.getDescription(), req.description()));
+            field.setDescription(req.description().trim());
+        }
+        if (req.valueType() != null && !req.valueType().isBlank() && !req.valueType().equals(field.getValueType())) {
+            changes.put("valueType", List.of(field.getValueType(), req.valueType()));
+            field.setValueType(req.valueType().trim().toUpperCase());
+        }
+        if (req.required() != null && req.required() != field.isRequired()) {
+            changes.put("required", List.of(field.isRequired(), req.required()));
+            field.setRequired(req.required());
+        }
+        if (req.sensitive() != null && req.sensitive() != field.isSensitive()) {
+            changes.put("sensitive", List.of(field.isSensitive(), req.sensitive()));
+            field.setSensitive(req.sensitive());
+        }
+        if (req.defaultValue() != null && !req.defaultValue().equals(field.getDefaultValue())) {
+            changes.put("defaultValue", java.util.Arrays.asList(field.getDefaultValue(), req.defaultValue()));
+            field.setDefaultValue(req.defaultValue());
+        }
+        if (req.options() != null && !req.options().equals(field.getOptions())) {
+            changes.put("options", java.util.Arrays.asList(field.getOptions(), req.options()));
+            field.setOptions(req.options().isBlank() ? null : req.options());
+        }
+        if (req.sortOrder() != null && req.sortOrder() != field.getSortOrder()) {
+            changes.put("sortOrder", List.of(field.getSortOrder(), req.sortOrder()));
+            field.setSortOrder(req.sortOrder());
+        }
+
+        FeatureVariableTemplate saved = featureFields.save(field);
+        if (!changes.isEmpty()) {
+            audit.record(adminId, "CATALOG_FEATURE_FIELD_UPDATE", null, "FEATURE_FIELD", fieldId.toString(), changes);
+        }
+        return TemplateFieldResponse.from(saved);
     }
 
     /** Valid price kinds — mirrors feature_prices_kind_chk. */

@@ -65,6 +65,24 @@ public class AdminCatalogController {
         return json(billing.adminUpdateFeature(adminId, id, body));
     }
 
+    @GetMapping("/features/{id}/fields")
+    public ResponseEntity<String> featureFields(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable UUID id) {
+        adminAccess.requireAdmin(UUID.fromString(jwt.getSubject()));
+        return json(billing.adminListFeatureFields(id));
+    }
+
+    @PatchMapping("/features/{featureId}/fields/{fieldId}")
+    public ResponseEntity<String> updateFeatureField(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID featureId,
+            @PathVariable UUID fieldId,
+            @RequestBody String body) {
+        UUID adminId = UUID.fromString(jwt.getSubject());
+        adminAccess.requireAdmin(adminId);
+        return json(billing.adminUpdateFeatureField(adminId, featureId, fieldId, body));
+    }
+
     @PostMapping("/feature-prices")
     public ResponseEntity<String> createFeaturePrice(
             @AuthenticationPrincipal Jwt jwt, @RequestBody String body) {

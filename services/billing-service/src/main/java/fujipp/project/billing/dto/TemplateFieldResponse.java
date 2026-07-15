@@ -2,8 +2,12 @@ package fujipp.project.billing.dto;
 
 import fujipp.project.billing.model.FeatureVariableTemplate;
 
+import java.util.UUID;
+
 /** One config field definition (mirrors the frontend FeatureConfigField). */
 public record TemplateFieldResponse(
+    UUID id,
+    UUID featureId,
     String variableKey,
     String label,
     String description,
@@ -18,6 +22,8 @@ public record TemplateFieldResponse(
 ) {
     public static TemplateFieldResponse from(FeatureVariableTemplate t) {
         return new TemplateFieldResponse(
+            t.getId(),
+            t.getFeatureId(),
             t.getVariableKey(),
             t.getLabel(),
             t.getDescription(),
