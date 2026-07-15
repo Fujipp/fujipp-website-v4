@@ -160,10 +160,10 @@ jobs:
           heal_missing() {
             verify_directory="$(mktemp -d)"
             missing_files="$(mktemp)"
-            export SITE_URL GITHUB_SHA
+            export SITE_URL ASSET_PROBE_TOKEN
             xargs -r -P 8 -I '{}' sh -c '
               name="$1"
-              content_type="$(curl -sS --retry 3 --retry-all-errors --connect-timeout 10 --max-time 30 -H "Cache-Control: no-cache" -o /dev/null -w "%{content_type}" "$SITE_URL/assets/$name?deploy=$GITHUB_SHA" || true)"
+              content_type="$(curl -sS --retry 2 --retry-all-errors --connect-timeout 10 --max-time 20 -H "Cache-Control: no-cache" -o /dev/null -w "%{content_type}" "$SITE_URL/assets/$name?deploy=$ASSET_PROBE_TOKEN" || true)"
               case "$content_type" in
                 text/html*) echo "assets/$name" ;;
               esac
@@ -265,6 +265,7 @@ jobs:
           for attempt in 1 2 3 4; do
             echo "=== Upload attempt $attempt (chunks only) ==="
             upload || echo "lftp exited non-zero on attempt $attempt"
+            ASSET_PROBE_TOKEN="$GITHUB_SHA-$attempt"
             if heal_missing; then
               echo "All current assets are serving correctly ✅ — flipping index.html"
               put_index || { echo "::error::index.html upload failed"; exit 1; }
