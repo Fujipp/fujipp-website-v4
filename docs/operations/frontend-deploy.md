@@ -25,8 +25,10 @@ VITE_API_BASE_URL=https://api.fujipp.com
   window while chunks are still uploading.
 - Old hashed chunks stay on the host intentionally so cached pages can keep loading.
 - FTP mirroring excludes `assets/`, so it does not scan the growing history of old
-  hashed chunks on every deployment. The current build's assets are uploaded
-  directly in one serial FTPS session instead.
+  hashed chunks on every deployment. A small SHA-256 manifest selects only assets
+  whose content changed since the last verified release.
+- Every current asset is checked over HTTP before `index.html` is flipped. Missing
+  or dropped files are re-uploaded even when the FTP manifest was unavailable.
 - Stable public files are mirrored with checkout timestamps ignored and file sizes
   compared, preventing unchanged files from being removed and uploaded again. For
   a stable file under `frontend/public/`, avoid replacing it with different content
