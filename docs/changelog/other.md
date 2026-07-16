@@ -1,9 +1,10 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.36.24`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.36.25`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.36.25` | 2026-07-16 | Versioned frontend release manifests now invalidate the untrusted legacy baseline and force one complete recovery upload before returning to delta deploys. |
 | `0.0.36.24` | 2026-07-16 | Every frontend asset recovery attempt now uses a fresh cache-busting token so post-upload verification cannot reuse a cached HTML fallback. |
 | `0.0.36.23` | 2026-07-16 | Frontend asset probes now retry transient HTTP failures without misclassifying an empty response as a missing SPA chunk. |
 | `0.0.36.22` | 2026-07-16 | Frontend releases now probe current browser asset URLs in parallel and repair only HTML fallbacks, without slow FTP history listings. |

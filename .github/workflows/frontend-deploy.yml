@@ -163,7 +163,7 @@ jobs:
             export SITE_URL ASSET_PROBE_TOKEN
             xargs -r -P 8 -I '{}' sh -c '
               name="$1"
-              content_type="$(curl -sS --retry 2 --retry-all-errors --connect-timeout 10 --max-time 20 -H "Cache-Control: no-cache" -o /dev/null -w "%{content_type}" "$SITE_URL/assets/$name?deploy=$ASSET_PROBE_TOKEN" || true)"
+              content_type="$(curl -sS --retry 1 --retry-all-errors --connect-timeout 5 --max-time 10 -H "Cache-Control: no-cache" -o /dev/null -w "%{content_type}" "$SITE_URL/assets/$name?deploy=$ASSET_PROBE_TOKEN" || true)"
               case "$content_type" in
                 text/html*) echo "assets/$name" ;;
               esac
@@ -228,7 +228,10 @@ jobs:
             | sort -z \
             | xargs -0 -r sha256sum \
             | sed 's#  dist/#  #' > "$current_manifest"
-          cp "$current_manifest" "$manifest_upload"
+          {
+            echo '# frontend-manifest-v2'
+            cat "$current_manifest"
+          } > "$manifest_upload"
 
           if ! lftp -c "
             set ftp:ssl-allow true;
@@ -241,6 +244,11 @@ jobs:
           "; then
             echo "No previous file manifest; uploading the complete current release."
             : > "$previous_manifest"
+          elif [ "$(head -n 1 "$previous_manifest")" != '# frontend-manifest-v2' ]; then
+            echo "Legacy or untrusted file manifest; uploading the complete current release once."
+            : > "$previous_manifest"
+          else
+            sed -i '1d' "$previous_manifest"
           fi
 
           awk 'NR == FNR { old[$2] = $1; next } old[$2] != $1 { print $2 }' \
