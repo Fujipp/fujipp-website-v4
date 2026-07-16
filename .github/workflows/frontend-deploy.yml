@@ -95,6 +95,25 @@ jobs:
           run_put_batch() {
             list_file="$1"
             upload_commands=""
+            upload_count=0
+
+            flush_upload_batch() {
+              [ -n "$upload_commands" ] || return 0
+              lftp -c "
+                set cmd:fail-exit yes;
+                set ftp:ssl-allow true;
+                set ftp:ssl-protect-data true;
+                set ssl:verify-certificate no;
+                set net:max-retries 5;
+                set net:timeout 30;
+                set xfer:clobber on;
+                open -u '$FTP_USER','$FTP_PASSWORD' -p ${FTP_PORT:-21} '$FTP_HOST';
+                $upload_commands
+              "
+              upload_commands=""
+              upload_count=0
+            }
+
             while IFS= read -r path; do
               [ -n "$path" ] || continue
               echo "  ↑ changed file: $path"
@@ -105,19 +124,13 @@ jobs:
                 remote_directory="$FTP_REMOTE_DIR/$directory"
               fi
               upload_commands="$upload_commands mkdir -pf '$remote_directory'; put -O '$remote_directory' 'dist/$path';"
+              upload_count=$((upload_count + 1))
+              if [ "$upload_count" -ge 5 ]; then
+                flush_upload_batch
+              fi
             done < "$list_file"
 
-            [ -n "$upload_commands" ] || return 0
-            lftp -c "
-              set ftp:ssl-allow true;
-              set ftp:ssl-protect-data true;
-              set ssl:verify-certificate no;
-              set net:max-retries 3;
-              set net:timeout 30;
-              set xfer:clobber on;
-              open -u '$FTP_USER','$FTP_PASSWORD' -p ${FTP_PORT:-21} '$FTP_HOST';
-              $upload_commands
-            "
+            flush_upload_batch
           }
 
           # Put the entry document LAST, after every chunk is confirmed serving. This is
@@ -229,7 +242,7 @@ jobs:
             | xargs -0 -r sha256sum \
             | sed 's#  dist/#  #' > "$current_manifest"
           {
-            echo '# frontend-manifest-v2'
+            echo '# frontend-manifest-v3'
             cat "$current_manifest"
           } > "$manifest_upload"
 
@@ -244,7 +257,7 @@ jobs:
           "; then
             echo "No previous file manifest; uploading the complete current release."
             : > "$previous_manifest"
-          elif [ "$(head -n 1 "$previous_manifest")" != '# frontend-manifest-v2' ]; then
+          elif [ "$(head -n 1 "$previous_manifest")" != '# frontend-manifest-v3' ]; then
             echo "Legacy or untrusted file manifest; uploading the complete current release once."
             : > "$previous_manifest"
           else
