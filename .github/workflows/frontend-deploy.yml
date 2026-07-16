@@ -165,6 +165,19 @@ jobs:
             "
           }
 
+          recover_asset_directory() {
+            lftp -c "
+              set cmd:fail-exit yes;
+              set ftp:ssl-allow true;
+              set ftp:ssl-protect-data true;
+              set ssl:verify-certificate no;
+              set net:max-retries 5;
+              set net:timeout 30;
+              open -u '$FTP_USER','$FTP_PASSWORD' -p ${FTP_PORT:-21} '$FTP_HOST';
+              mirror -R --verbose --parallel=1 --no-perms --only-newer 'dist/assets' '$FTP_REMOTE_DIR/assets';
+            "
+          }
+
           # Verify every current-release asset through the same HTTP path browsers use,
           # then compare bytes only for changed assets plus the entry chunk. Parallel
           # cache-busted probes avoid both the slow historical FTP listing and a timeout
@@ -242,10 +255,11 @@ jobs:
             | xargs -0 -r sha256sum \
             | sed 's#  dist/#  #' > "$current_manifest"
           {
-            echo '# frontend-manifest-v3'
+            echo '# frontend-manifest-v4'
             cat "$current_manifest"
           } > "$manifest_upload"
 
+          recovery_required=0
           if ! lftp -c "
             set ftp:ssl-allow true;
             set ftp:ssl-protect-data true;
@@ -257,9 +271,11 @@ jobs:
           "; then
             echo "No previous file manifest; uploading the complete current release."
             : > "$previous_manifest"
-          elif [ "$(head -n 1 "$previous_manifest")" != '# frontend-manifest-v3' ]; then
+            recovery_required=1
+          elif [ "$(head -n 1 "$previous_manifest")" != '# frontend-manifest-v4' ]; then
             echo "Legacy or untrusted file manifest; uploading the complete current release once."
             : > "$previous_manifest"
+            recovery_required=1
           else
             sed -i '1d' "$previous_manifest"
           fi
@@ -277,6 +293,11 @@ jobs:
           sort -u -o "$verify_assets" "$verify_assets"
           echo "Current assets requiring HTTP existence checks: $(wc -l < "$current_assets" | tr -d ' ')"
           echo "Changed assets requiring byte verification: $(wc -l < "$verify_assets" | tr -d ' ')"
+
+          if [ "${recovery_required:-0}" = 1 ]; then
+            echo "Recovering the complete asset directory without deleting historical chunks."
+            recover_asset_directory
+          fi
 
           # Upload changed files (NOT index.html), then confirm the current asset set
           # serves. Retry the upload + targeted re-put of any dropped file — a flaky

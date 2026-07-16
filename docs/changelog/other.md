@@ -1,9 +1,10 @@
 # Changelog — Other (infra · CI · docs · tooling)
 
-**Current version: `0.0.36.26`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.0.36.27`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.0.36.27` | 2026-07-16 | The one-time frontend recovery now mirrors only the current asset directory without deleting historical chunks, avoiding unreliable nested-path puts on the shared host. |
 | `0.0.36.26` | 2026-07-16 | Frontend recovery uploads now use fail-fast five-file FTP sessions so shared-host connection drops cannot silently skip random chunks. |
 | `0.0.36.25` | 2026-07-16 | Versioned frontend release manifests now invalidate the untrusted legacy baseline and force one complete recovery upload before returning to delta deploys. |
 | `0.0.36.24` | 2026-07-16 | Every frontend asset recovery attempt now uses a fresh cache-busting token so post-upload verification cannot reuse a cached HTML fallback. |
