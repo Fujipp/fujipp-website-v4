@@ -1,6 +1,7 @@
 # Changelog
 
-What changed, when, per area — each area keeps **its own version counter**.
+Public release notes for Fujipp Personal Platform. Each area keeps its own version so a frontend-only
+release does not imply that the backend or database changed.
 
 | Area | File | Current |
 | --- | --- | --- |
@@ -9,51 +10,49 @@ What changed, when, per area — each area keeps **its own version counter**.
 | Database | [database.md](./database.md) | see file |
 | Other (infra · CI · docs · tooling) | [other.md](./other.md) | see file |
 
-Newest entry is at the **top** of each file.
+Newest release is always at the top of each file.
 
-## Versioning scheme
+## Release-first workflow
 
-Format: `MAJOR.MINOR.PATCH[.BUILD]`, every area starts at `0.0.0`.
+A changelog version represents a **reviewed release that is about to be committed and pushed**, not
+every edit made while a task is in progress.
 
-- **New capability / feature** → bump **PATCH**: `0.0.1` → `0.0.2` → `0.0.3` …
-- **Small follow-up** (fix, refactor, chore, style, docs, config) → bump the 4th **BUILD** segment:
-  `0.0.1` → `0.0.1.1` → `0.0.1.2` … up to `0.0.1.9`
-- A segment **rolls over at 9** into the one to its left:
-  - `0.0.1.9` + a follow-up → `0.0.2`
-  - `0.0.9` + a feature → `0.1.0`
-  - `0.9.x` + a feature → `1.0.0`
+1. Finish the requested work.
+2. Collect every completed change that will ship in the same push.
+3. Before committing, bump each affected area's version once and add one concise release note.
+4. If more fixes are made before that push, update the same pending note instead of adding another version.
+5. Commit and push the release.
 
-`1.0.0` is reserved for the first real production release.
+One push may contain several clean commits, but it should normally create only one public release-note
+row per affected area.
 
-## How to add an entry
+## Versioning
 
-Add one row to the top of the relevant area file, bumping its version per the rules above:
+Use `MAJOR.MINOR.PATCH`.
 
-```md
-| `0.1.8` | 2026-06-06 | short description of what changed |
-```
+- **PATCH** — the normal release increment for a completed push: `0.7.16` → `0.7.17`.
+- **MINOR** — a significant product milestone or a clearly new phase: `0.7.x` → `0.8.0`.
+- **MAJOR** — a stable public product generation. `1.0.0` remains reserved for the first production release.
 
-Keep one line per change. If a single piece of work spans areas (e.g. a feature that
-touches frontend + database), add a row in **each** area's file with its own version bump.
+Do not add fourth-level build numbers going forward. Historical build-level rows were consolidated into
+milestones in July 2026 because they described iteration history rather than useful public releases.
 
-## Public wording rules
+## Adding a release
 
-These changelog rows are displayed on the public website, so write them as product release
-notes instead of internal engineering notes.
+Update the current version and add one row at the top of the relevant file:
 
-- Use clear, formal wording that a visitor or customer can understand.
-- Lead with the visible outcome, then mention technical detail only when it helps explain trust,
-  reliability, security, or admin capability.
-- Keep each entry concise: ideally 1 sentence and under 140 characters when possible.
-- Avoid raw file paths, route paths, endpoint names, database table names, migration IDs,
-  dependency names, issue numbers, and implementation jargon unless they are the actual user-facing
-  feature.
-- Avoid temporary troubleshooting language such as "fix CI", "workaround", "stub", "WIP",
-  "hardcoded", "fake", or "sample" unless honesty requires it.
-- Prefer polished verbs: "Added", "Improved", "Refined", "Stabilized", "Connected",
-  "Protected", "Documented", "Prepared".
-- Do not describe secrets, private infrastructure details, or operational escape hatches in a way
-  that exposes how to attack or bypass the platform.
+| Version | Date | Change |
+| --- | --- | --- |
+| `0.7.17` | 2026-07-19 | Redesigned release notes into concise, searchable product milestones. |
 
-> Historical rows (before 2026-06-05) were reconstructed from git history, so they map
-> roughly one commit → one version. Going forward, log changes as they happen.
+If a release affects multiple areas, add one row to each affected file using that area's own version.
+
+## Public wording
+
+- Describe the shipped outcome, not the implementation diary.
+- Combine related work into one coherent sentence.
+- Prefer language a visitor or customer can understand.
+- Mention technical details only when they explain reliability, security, or capability.
+- Do not expose secrets, private infrastructure, bypasses, raw file paths, migration IDs, or temporary debugging.
+- Avoid “WIP”, “workaround”, “hardcoded”, and similar internal language.
+- Keep enough detail to answer: **What became better in this release?**
