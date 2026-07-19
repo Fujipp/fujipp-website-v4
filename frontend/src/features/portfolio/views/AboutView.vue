@@ -13,6 +13,197 @@ const { t } = useI18n();
    is never lost without the effect. */
 const style = useCssModule();
 let revealObserver: IntersectionObserver | undefined;
+const heroGridCanvas = ref<HTMLCanvasElement | null>(null);
+let gridResizeObserver: ResizeObserver | undefined;
+let gridThemeObserver: MutationObserver | undefined;
+let gridAnimationFrame: number | undefined;
+let gridPointer = { x: 0, y: 0 };
+let gridPointerTarget = { x: 0, y: 0 };
+let gridPointerActive = false;
+let gridColumns = 0;
+let gridRows = 0;
+
+const GRID_SPACING = 32;
+const DOT_RADIUS = 1;
+const HOVER_RADIUS = 112;
+const HOVER_SCALE = 32;
+const MIN_GAP = 1;
+const LERP_SPEED_UP = 0.12;
+const LERP_SPEED_DOWN = 0.025;
+const MOUSE_LERP = 0.35;
+const SETTLE_EPS = 0.01;
+
+type GridDrop = {
+    homeX: number;
+    homeY: number;
+    scale: number;
+    offsetX: number;
+    offsetY: number;
+};
+
+let gridDrops: GridDrop[] = [];
+let gridBounds = { width: 0, height: 0 };
+
+function colorWithAlpha(color: string, alpha: number): string {
+    const value = color.trim();
+    if (!value.startsWith("#")) return value;
+    const hex = value.slice(1);
+    const normalized = hex.length === 3
+        ? hex.split("").map((character) => `${character}${character}`).join("")
+        : hex;
+    const red = Number.parseInt(normalized.slice(0, 2), 16);
+    const green = Number.parseInt(normalized.slice(2, 4), 16);
+    const blue = Number.parseInt(normalized.slice(4, 6), 16);
+    return `rgb(${red} ${green} ${blue} / ${alpha})`;
+}
+
+function syncHeroGrid(width: number, height: number): void {
+    if (gridBounds.width === width && gridBounds.height === height && gridDrops.length > 0) return;
+
+    gridDrops = [];
+    gridBounds = { width, height };
+    gridColumns = Math.ceil(width / GRID_SPACING) + 1;
+    gridRows = Math.ceil(height / GRID_SPACING) + 1;
+
+    for (let row = 0; row < gridRows; row += 1) {
+        for (let column = 0; column < gridColumns; column += 1) {
+            gridDrops.push({
+                homeX: column * GRID_SPACING,
+                homeY: row * GRID_SPACING,
+                scale: 1,
+                offsetX: 0,
+                offsetY: 0,
+            });
+        }
+    }
+}
+
+function drawHeroGrid(): boolean {
+    const canvas = heroGridCanvas.value;
+    const context = canvas?.getContext("2d");
+    if (!canvas || !context) return false;
+
+    const bounds = canvas.getBoundingClientRect();
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+    const expectedWidth = Math.max(1, Math.round(bounds.width * pixelRatio));
+    const expectedHeight = Math.max(1, Math.round(bounds.height * pixelRatio));
+    if (canvas.width !== expectedWidth || canvas.height !== expectedHeight) {
+        canvas.width = expectedWidth;
+        canvas.height = expectedHeight;
+    }
+
+    context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    context.clearRect(0, 0, bounds.width, bounds.height);
+    syncHeroGrid(bounds.width, bounds.height);
+
+    const tokens = getComputedStyle(document.documentElement);
+    const primaryText = tokens.getPropertyValue("--palette-text-primary");
+    const accent = tokens.getPropertyValue("--palette-main-brand-secondary");
+    let dropsAreMoving = false;
+
+    for (const drop of gridDrops) {
+        const pointerDistance = Math.hypot(drop.homeX - gridPointer.x, drop.homeY - gridPointer.y);
+        let targetScale = 1;
+        if (gridPointerActive && pointerDistance < HOVER_RADIUS) {
+            const proximity = 1 - (pointerDistance / HOVER_RADIUS);
+            targetScale = 1 + ((HOVER_SCALE - 1) * proximity ** 3);
+        }
+        const scaleSpeed = targetScale > drop.scale ? LERP_SPEED_UP : LERP_SPEED_DOWN;
+        drop.scale += (targetScale - drop.scale) * scaleSpeed;
+        if (Math.abs(targetScale - drop.scale) > SETTLE_EPS) dropsAreMoving = true;
+    }
+
+    for (let index = 0; index < gridDrops.length; index += 1) {
+        const drop = gridDrops[index];
+        if (!drop) continue;
+        let targetOffsetX = 0;
+        let targetOffsetY = 0;
+        const column = index % gridColumns;
+        const row = Math.floor(index / gridColumns);
+        const radius = DOT_RADIUS * drop.scale;
+
+        for (let rowOffset = -2; rowOffset <= 2; rowOffset += 1) {
+            for (let columnOffset = -2; columnOffset <= 2; columnOffset += 1) {
+                if (rowOffset === 0 && columnOffset === 0) continue;
+                const neighborRow = row + rowOffset;
+                const neighborColumn = column + columnOffset;
+                if (neighborRow < 0 || neighborRow >= gridRows
+                    || neighborColumn < 0 || neighborColumn >= gridColumns) continue;
+                const neighbor = gridDrops[neighborRow * gridColumns + neighborColumn];
+                if (!neighbor) continue;
+                const deltaX = drop.homeX - neighbor.homeX;
+                const deltaY = drop.homeY - neighbor.homeY;
+                const distance = Math.hypot(deltaX, deltaY);
+                const minimumDistance = radius + (DOT_RADIUS * neighbor.scale) + MIN_GAP;
+                if (distance >= minimumDistance || distance <= SETTLE_EPS) continue;
+                const overlap = minimumDistance - distance;
+                targetOffsetX += (deltaX / distance) * overlap * 0.5;
+                targetOffsetY += (deltaY / distance) * overlap * 0.5;
+            }
+        }
+
+        const offsetSpeed = targetOffsetX !== 0 || targetOffsetY !== 0 ? 0.15 : LERP_SPEED_DOWN;
+        drop.offsetX += (targetOffsetX - drop.offsetX) * offsetSpeed;
+        drop.offsetY += (targetOffsetY - drop.offsetY) * offsetSpeed;
+        if (Math.abs(targetOffsetX - drop.offsetX) > SETTLE_EPS
+            || Math.abs(targetOffsetY - drop.offsetY) > SETTLE_EPS) dropsAreMoving = true;
+
+        context.beginPath();
+        context.arc(
+            drop.homeX + drop.offsetX,
+            drop.homeY + drop.offsetY,
+            radius,
+            0,
+            Math.PI * 2,
+        );
+        context.fillStyle = drop.scale > 1.01
+            ? colorWithAlpha(accent, 0.92)
+            : colorWithAlpha(primaryText, 0.14);
+        context.fill();
+    }
+
+    return dropsAreMoving;
+}
+
+function animateHeroGrid(): void {
+    gridPointer.x += (gridPointerTarget.x - gridPointer.x) * MOUSE_LERP;
+    gridPointer.y += (gridPointerTarget.y - gridPointer.y) * MOUSE_LERP;
+    const pointerIsMoving = Math.abs(gridPointerTarget.x - gridPointer.x) > 0.1
+        || Math.abs(gridPointerTarget.y - gridPointer.y) > 0.1;
+    const dropsAreMoving = drawHeroGrid();
+
+    if (gridPointerActive || pointerIsMoving || dropsAreMoving) {
+        gridAnimationFrame = window.requestAnimationFrame(animateHeroGrid);
+    } else {
+        drawHeroGrid();
+        gridAnimationFrame = undefined;
+    }
+}
+
+function requestHeroGridDraw(): void {
+    if (gridAnimationFrame !== undefined) return;
+    gridAnimationFrame = window.requestAnimationFrame(animateHeroGrid);
+}
+
+function handleHeroPointerMove(event: PointerEvent): void {
+    if (event.pointerType === "touch") return;
+
+    const hero = event.currentTarget as HTMLElement;
+    const rect = hero.getBoundingClientRect();
+    const localX = event.clientX - rect.left;
+    const localY = event.clientY - rect.top;
+    gridPointerTarget = {
+        x: localX,
+        y: localY,
+    };
+    gridPointerActive = true;
+    requestHeroGridDraw();
+}
+
+function handleHeroPointerLeave(): void {
+    gridPointerActive = false;
+    requestHeroGridDraw();
+}
 
 const vReveal = {
     mounted(el: HTMLElement) {
@@ -32,6 +223,9 @@ const vReveal = {
 onUnmounted(() => {
     revealObserver?.disconnect();
     revealObserver = undefined;
+    gridResizeObserver?.disconnect();
+    gridThemeObserver?.disconnect();
+    if (gridAnimationFrame !== undefined) window.cancelAnimationFrame(gridAnimationFrame);
 });
 
 const birthTimestamp = new Date("2003-11-26T00:00:00+07:00").getTime();
@@ -72,6 +266,22 @@ onMounted(() => {
     livedTimer = window.setInterval(() => {
         livedElapsedMs.value = Math.max(Date.now() - birthTimestamp, 0);
     }, 50);
+
+    if (heroGridCanvas.value) {
+        gridPointer = {
+            x: heroGridCanvas.value.clientWidth / 2,
+            y: heroGridCanvas.value.clientHeight / 2,
+        };
+        gridPointerTarget = { ...gridPointer };
+        gridResizeObserver = new ResizeObserver(() => drawHeroGrid());
+        gridResizeObserver.observe(heroGridCanvas.value);
+        gridThemeObserver = new MutationObserver(() => drawHeroGrid());
+        gridThemeObserver.observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ["data-theme"],
+        });
+        drawHeroGrid();
+    }
 });
 
 onUnmounted(() => {
@@ -95,238 +305,244 @@ const skillGroups = [
     { key: "infra", items: devops },
 ];
 
-/* Banner ghosts (redrawn as inline SVG from the mascot PNGs) whose eyes
-   follow the pointer anywhere on the page. Offsets are in viewBox units,
-   clamped so the pupils stay inside the body. */
-const ghostARef = ref<SVGSVGElement | null>(null);
-const ghostBRef = ref<SVGSVGElement | null>(null);
-const ghostAEyes = ref({ x: 0, y: 0 });
-const ghostBEyes = ref({ x: 0, y: 0 });
+const workSteps = ["understand", "design", "build", "verify", "improve"] as const;
 
-function aimEyes(
-    el: SVGSVGElement | null,
-    state: { value: { x: number; y: number } },
-    event: PointerEvent,
-): void {
-    if (!el) return;
-
-    const rect = el.getBoundingClientRect();
-    const dx = event.clientX - (rect.left + rect.width / 2);
-    const dy = event.clientY - (rect.top + rect.height * 0.45);
-    const distance = Math.hypot(dx, dy) || 1;
-    // Eyes saturate to full deflection once the pointer is ~180px away.
-    const reach = 26 * Math.min(distance, 180) / 180;
-
-    state.value = { x: (dx / distance) * reach, y: (dy / distance) * reach };
-}
-
-function onBannerPointerMove(event: PointerEvent): void {
-    aimEyes(ghostARef.value, ghostAEyes, event);
-    aimEyes(ghostBRef.value, ghostBEyes, event);
-}
-
-onMounted(() => {
-    window.addEventListener("pointermove", onBannerPointerMove, { passive: true });
-});
-
-onUnmounted(() => {
-    window.removeEventListener("pointermove", onBannerPointerMove);
-});
-
-const bannerSparkles = [
-    { top: "22%", left: "8%", "--sparkle-delay": "0s", "--sparkle-scale": "1" },
-    { top: "58%", left: "16%", "--sparkle-delay": "-1.1s", "--sparkle-scale": "0.6" },
-    { top: "14%", left: "27%", "--sparkle-delay": "-2.3s", "--sparkle-scale": "0.8" },
-    { top: "70%", left: "34%", "--sparkle-delay": "-0.6s", "--sparkle-scale": "1.1" },
-    { top: "30%", left: "45%", "--sparkle-delay": "-1.8s", "--sparkle-scale": "0.7" },
-    { top: "62%", left: "55%", "--sparkle-delay": "-2.9s", "--sparkle-scale": "0.9" },
-    { top: "18%", left: "64%", "--sparkle-delay": "-0.9s", "--sparkle-scale": "1.2" },
-    { top: "48%", left: "72%", "--sparkle-delay": "-2.1s", "--sparkle-scale": "0.6" },
-    { top: "26%", left: "84%", "--sparkle-delay": "-1.4s", "--sparkle-scale": "1" },
-    { top: "66%", left: "91%", "--sparkle-delay": "-2.6s", "--sparkle-scale": "0.8" },
-];
-
-const designCards = [
-    { src: "/images/design/logo-gear.png", label: "FJ gear logo" },
-    { src: "/images/design/logo-draft-fj-curved.png", label: "FJ curved logo draft" },
-    { src: "/images/design/logo-draft-fj-rounded.png", label: "FJ rounded logo draft" },
-    { src: "/images/design/logo-draft-fuji-mountain.png", label: "Mount Fuji logo draft" },
-];
 </script>
 
 <template>
     <main :class="$style.aboutPage">
-            <div :class="$style.container">
-            <div :class="$style.banner" aria-hidden="true">
-                <!-- Mascot ghosts redrawn as SVG (body colors sampled from the
-                     ghost PNGs) so the eyes can track the pointer and blink. -->
-                <span :class="[$style.ghostSpot, $style.ghostSpotA]">
-                    <svg ref="ghostARef" :class="$style.ghostSvg" viewBox="0 0 360 460">
-                        <path
-                            fill="#3a4157"
-                            d="M180 0A180 180 0 0 0 0 180L0 415A45 45 0 0 0 90 415A45 45 0 0 0 180 415A45 45 0 0 0 270 415A45 45 0 0 0 360 415L360 180A180 180 0 0 0 180 0Z"
-                        />
-                        <g
-                            :class="$style.ghostEyes"
-                            :style="{ transform: `translate(${ghostAEyes.x}px, ${ghostAEyes.y}px)` }"
+        <div :class="$style.container">
+            <section
+                v-reveal
+                :class="$style.aboutHero"
+                aria-labelledby="about-profile-name"
+                @pointermove="handleHeroPointerMove"
+                @pointerleave="handleHeroPointerLeave"
+            >
+                <canvas ref="heroGridCanvas" :class="$style.heroGridCanvas" aria-hidden="true" />
+                <div
+                    :class="$style.portraitStage"
+                    :aria-label="t('about.profile.name')"
+                    role="img"
+                    tabindex="0"
+                >
+                    <span :class="$style.portraitOrbit" aria-hidden="true" />
+                    <div :class="$style.portraitFrame">
+                        <img
+                            :class="$style.heroPortrait"
+                            src="/images/users/fujipp/profile-fujipp.png"
+                            alt=""
+                            draggable="false"
                         >
-                            <g :class="$style.ghostBlink">
-                                <circle cx="118" cy="210" r="58" fill="#000" />
-                                <circle cx="242" cy="210" r="58" fill="#000" />
-                                <circle cx="98" cy="186" r="22" fill="#fff" />
-                                <circle cx="222" cy="186" r="22" fill="#fff" />
-                                <circle cx="140" cy="240" r="10" fill="#fff" />
-                                <circle cx="264" cy="240" r="10" fill="#fff" />
-                            </g>
-                        </g>
-                    </svg>
-                </span>
-                <span :class="[$style.ghostSpot, $style.ghostSpotB]">
-                    <svg ref="ghostBRef" :class="$style.ghostSvg" viewBox="0 0 360 460">
-                        <path
-                            fill="#96a5c8"
-                            d="M180 0A180 180 0 0 0 0 180L0 415A45 45 0 0 0 90 415A45 45 0 0 0 180 415A45 45 0 0 0 270 415A45 45 0 0 0 360 415L360 180A180 180 0 0 0 180 0Z"
-                        />
-                        <g
-                            :class="$style.ghostEyes"
-                            :style="{ transform: `translate(${ghostBEyes.x}px, ${ghostBEyes.y}px)` }"
-                        >
-                            <g :class="[$style.ghostBlink, $style.ghostBlinkB]">
-                                <circle cx="118" cy="210" r="58" fill="#000" />
-                                <circle cx="242" cy="210" r="58" fill="#000" />
-                                <circle cx="98" cy="186" r="22" fill="#fff" />
-                                <circle cx="222" cy="186" r="22" fill="#fff" />
-                                <circle cx="140" cy="240" r="10" fill="#fff" />
-                                <circle cx="264" cy="240" r="10" fill="#fff" />
-                            </g>
-                        </g>
-                    </svg>
-                </span>
-                <span
-                    v-for="(sparkle, index) in bannerSparkles"
-                    :key="index"
-                    :class="$style.bannerSparkle"
-                    :style="sparkle"
-                />
-                <span :class="$style.bannerShine" />
-            </div>
-
-            <section v-reveal :class="$style.profile" aria-label="Profile">
-                <div :class="$style.identity">
-                    <img
-                        :class="$style.avatar"
-                        src="/images/users/fujipp/profile-fujipp.png"
-                        :alt="t('about.profile.name')"
-                        draggable="false"
-                    >
-                    <div :class="$style.identityText">
-                        <h1 :class="$style.name">
-                            <span :class="$style.nameMain">{{ t("about.profile.name") }} </span>
-                            <span :class="$style.nameNick">{{ t("about.profile.nick") }}</span>
-                        </h1>
-                        <p :class="$style.fact">{{ t("about.profile.location") }}</p>
-                        <p :class="[$style.fact, $style.livedFact]">
-                            {{ t("about.profile.lived") }}:
-                            {{ livedClock.years }} {{ t("about.profile.years") }}
-                            {{ livedClock.days }} {{ t("about.profile.days") }}
-                            {{ livedClock.time }}<span :class="$style.livedMs">.{{ livedClock.ms }}</span>
-                        </p>
+                        <span :class="$style.portraitName" aria-hidden="true">
+                            {{ t("about.profile.nick").replace(/[()]/g, "") }}
+                        </span>
                     </div>
                 </div>
-                <div :class="$style.contacts">
-                    <PrimaryButton
-                        v-for="link in contactLinks"
-                        :key="link.href"
-                        :icon="link.icon"
-                        :href="link.href"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        :aria-label="link.label"
-                    />
+
+                <div :class="$style.heroCopy">
+                    <p :class="$style.heroEyebrow">{{ t("about.sections.about") }}</p>
+
+                    <div :class="$style.identityText">
+                        <h1 id="about-profile-name" :class="$style.name">
+                            <span :class="$style.nameMain">{{ t("about.profile.name") }}</span>
+                        </h1>
+                        <div :class="$style.profileMeta">
+                            <p :class="$style.fact">{{ t("about.profile.location") }}</p>
+                            <p :class="[$style.fact, $style.livedFact]">
+                                {{ t("about.profile.lived") }}:
+                                {{ livedClock.years }} {{ t("about.profile.years") }}
+                                {{ livedClock.days }} {{ t("about.profile.days") }}
+                                {{ livedClock.time }}<span :class="$style.livedMs">.{{ livedClock.ms }}</span>
+                            </p>
+                        </div>
+                    </div>
+
+                    <p :class="$style.heroBody">{{ t("about.intro") }}</p>
+
+                    <section :class="$style.educationSummary" aria-labelledby="about-educations-title">
+                        <h2 id="about-educations-title" :class="$style.educationTitle">
+                            {{ t("about.sections.educations") }}
+                        </h2>
+                        <p :class="$style.educationBody">{{ t("about.education.university") }}</p>
+                    </section>
+
+                    <div :class="$style.contacts">
+                        <PrimaryButton
+                            v-for="link in contactLinks"
+                            :key="link.href"
+                            :icon="link.icon"
+                            :href="link.href"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            :aria-label="link.label"
+                        />
+                    </div>
                 </div>
             </section>
 
-            <div :class="$style.storyRows">
-                <section v-reveal :class="$style.storySection" aria-labelledby="about-me-title">
-                    <h2 id="about-me-title" :class="$style.sectionTitle">{{ t("about.sections.about") }}</h2>
-                    <p :class="$style.sectionBody">{{ t("about.intro") }}</p>
-                </section>
+            <section v-reveal :class="$style.skillsSection" aria-labelledby="about-skills-title">
+                <div :class="$style.skillsInner">
+                    <header :class="$style.skillsHeading">
+                        <p :class="$style.skillsEyebrow">Capabilities</p>
+                        <h2 id="about-skills-title" :class="$style.skillsTitle">{{ t("about.sections.skills") }}</h2>
+                    </header>
 
-                <section v-reveal :class="$style.storySection" aria-labelledby="about-educations-title">
-                    <h2 id="about-educations-title" :class="$style.sectionTitle">{{ t("about.sections.educations") }}</h2>
-                    <p :class="$style.sectionBody">{{ t("about.education.university") }}</p>
-                </section>
-            </div>
-
-            <div :class="$style.showcaseRow">
-                <section v-reveal :class="$style.skills" aria-labelledby="about-skills-title">
-                    <h2 id="about-skills-title" :class="$style.sectionTitle">{{ t("about.sections.skills") }}</h2>
-                    <div
-                        v-for="(group, groupIndex) in skillGroups"
-                        v-reveal
-                        :key="group.key"
-                        :class="$style.skillGroup"
-                        :style="{ '--reveal-delay': `${groupIndex * 90}ms` }"
-                    >
-                        <div :class="$style.groupHeader">
-                            <span
-                                v-if="group.items[0]?.icon"
-                                :class="$style.groupIcon"
-                                :style="{
-                                    mask: `url(${group.items[0].icon}) center / contain no-repeat`,
-                                    '-webkit-mask': `url(${group.items[0].icon}) center / contain no-repeat`,
-                                }"
-                                aria-hidden="true"
-                            />
-                            <h3 :class="$style.groupTitle">{{ t(`about.skillGroups.${group.key}`) }}</h3>
-                        </div>
-                        <div :class="$style.chips">
-                            <span
-                                v-for="skill in group.items.slice(1)"
-                                :key="skill.label"
-                                :class="$style.chip"
-                                role="img"
-                                :aria-label="skill.label"
-                                tabindex="0"
-                            >
-                                <img
-                                    v-if="skill.icon && getIconColorMode(skill.icon) === 'original'"
-                                    :class="$style.chipIcon"
-                                    :src="skill.icon"
-                                    alt=""
-                                    draggable="false"
-                                >
+                    <div :class="$style.skillsGrid">
+                        <article
+                            v-for="(group, groupIndex) in skillGroups"
+                            v-reveal
+                            :key="group.key"
+                            :class="$style.skillGroup"
+                            :style="{ '--reveal-delay': `${groupIndex * 90}ms` }"
+                        >
+                            <div :class="$style.groupHeader">
                                 <span
-                                    v-else-if="skill.icon"
-                                    :class="[$style.chipIcon, $style.chipMaskIcon]"
+                                    v-if="group.items[0]?.icon"
+                                    :class="$style.groupIcon"
                                     :style="{
-                                        mask: `url(${skill.icon}) center / contain no-repeat`,
-                                        '-webkit-mask': `url(${skill.icon}) center / contain no-repeat`,
+                                        mask: `url(${group.items[0].icon}) center / contain no-repeat`,
+                                        '-webkit-mask': `url(${group.items[0].icon}) center / contain no-repeat`,
                                     }"
                                     aria-hidden="true"
                                 />
-                                <span :class="$style.chipLabel" aria-hidden="true">{{ skill.label }}</span>
-                            </span>
-                        </div>
+                                <h3 :class="$style.groupTitle">{{ t(`about.skillGroups.${group.key}`) }}</h3>
+                            </div>
+                            <ul :class="$style.skillList">
+                                <li
+                                    v-for="skill in group.items.slice(1)"
+                                    :key="skill.label"
+                                    :class="$style.skillItem"
+                                >
+                                    <img
+                                        v-if="skill.icon && getIconColorMode(skill.icon) === 'original'"
+                                        :class="$style.chipIcon"
+                                        :src="skill.icon"
+                                        alt=""
+                                        draggable="false"
+                                    >
+                                    <span
+                                        v-else-if="skill.icon"
+                                        :class="[$style.chipIcon, $style.chipMaskIcon]"
+                                        :style="{
+                                            mask: `url(${skill.icon}) center / contain no-repeat`,
+                                            '-webkit-mask': `url(${skill.icon}) center / contain no-repeat`,
+                                        }"
+                                        aria-hidden="true"
+                                    />
+                                    <span :class="$style.skillLabel">{{ skill.label }}</span>
+                                </li>
+                            </ul>
+                        </article>
                     </div>
-                </section>
+                </div>
+            </section>
 
-                <section v-reveal :class="$style.design" aria-labelledby="about-design-title">
-                    <h2 id="about-design-title" :class="$style.sectionTitle">{{ t("about.sections.design") }}</h2>
-                    <div :class="$style.designCards">
-                        <img
-                            v-for="(card, cardIndex) in designCards"
-                            v-reveal
-                            :key="card.src"
-                            :class="$style.designCard"
-                            :src="card.src"
-                            :alt="card.label"
-                            :style="{ '--reveal-delay': `${cardIndex * 110}ms` }"
-                            draggable="false"
+            <section v-reveal :class="$style.experienceSection" aria-labelledby="about-experience-title">
+                <div :class="$style.experienceInner">
+                    <header :class="$style.experienceHeading">
+                        <p :class="$style.experienceEyebrow">{{ t("about.experience.eyebrow") }}</p>
+                        <h2 id="about-experience-title" :class="$style.experienceTitle">
+                            {{ t("about.sections.experience") }}
+                        </h2>
+                    </header>
+
+                    <article :class="$style.experienceCard">
+                        <header :class="$style.experienceCardHeader">
+                            <div>
+                                <h3 :class="$style.experienceRole">{{ t("about.experience.role") }}</h3>
+                                <p :class="$style.experienceCompany">{{ t("about.experience.company") }}</p>
+                            </div>
+                            <span :class="$style.experiencePeriod">{{ t("about.experience.period") }}</span>
+                        </header>
+
+                        <div :class="$style.experienceGrid">
+                            <div :class="$style.experienceItem">
+                                <h4>{{ t("about.experience.workflowTitle") }}</h4>
+                                <p>{{ t("about.experience.workflowBody") }}</p>
+                            </div>
+                            <div :class="$style.experienceItem">
+                                <h4>{{ t("about.experience.documentsTitle") }}</h4>
+                                <p>{{ t("about.experience.documentsBody") }}</p>
+                            </div>
+                            <div :class="$style.experienceItem">
+                                <h4>{{ t("about.experience.stackTitle") }}</h4>
+                                <p>{{ t("about.experience.stackBody") }}</p>
+                            </div>
+                            <div :class="$style.experienceItem">
+                                <h4>{{ t("about.experience.outcomeTitle") }}</h4>
+                                <p>{{ t("about.experience.outcomeBody") }}</p>
+                            </div>
+                        </div>
+                    </article>
+                </div>
+            </section>
+
+            <section v-reveal :class="$style.workSection" aria-labelledby="about-work-title">
+                <div :class="$style.workInner">
+                    <header :class="$style.workHeading">
+                        <p :class="$style.workEyebrow">{{ t("about.howIWork.eyebrow") }}</p>
+                        <h2 id="about-work-title" :class="$style.workTitle">
+                            {{ t("about.sections.howIWork") }}
+                        </h2>
+                    </header>
+
+                    <ol :class="$style.workTimeline">
+                        <li
+                            v-for="(step, index) in workSteps"
+                            :key="step"
+                            :class="$style.workStep"
                         >
+                            <span :class="$style.workNumber">{{ String(index + 1).padStart(2, "0") }}</span>
+                            <div :class="$style.workCopy">
+                                <h3>{{ t(`about.howIWork.${step}Title`) }}</h3>
+                                <p>{{ t(`about.howIWork.${step}Body`) }}</p>
+                            </div>
+                        </li>
+                    </ol>
+                </div>
+            </section>
+
+            <section v-reveal :class="$style.contactSection" aria-labelledby="about-contact-title">
+                <div :class="$style.contactInner">
+                    <div :class="$style.contactCopy">
+                        <p :class="$style.contactEyebrow">{{ t("about.contact.eyebrow") }}</p>
+                        <h2 id="about-contact-title" :class="$style.contactTitle">
+                            {{ t("about.contact.title") }}
+                        </h2>
+                        <p :class="$style.contactBody">{{ t("about.contact.body") }}</p>
+                        <p :class="$style.availability">
+                            <span :class="$style.availabilityDot" aria-hidden="true" />
+                            {{ t("about.contact.availability") }}
+                        </p>
                     </div>
-                </section>
-            </div>
+
+                    <div :class="$style.contactActions">
+                        <a
+                            :class="[$style.contactButton, $style.contactButtonPrimary]"
+                            href="mailto:anawat.grudtoop@gmail.com"
+                        >
+                            <span
+                                :class="$style.contactButtonIcon"
+                                :style="{ '--contact-icon': `url(${icons.gmail})` }"
+                                aria-hidden="true"
+                            />
+                            {{ t("about.contact.email") }}
+                        </a>
+                        <RouterLink
+                            :class="[$style.contactButton, $style.contactButtonSecondary]"
+                            to="/projects"
+                        >
+                            {{ t("about.contact.projects") }}
+                            <span
+                                :class="$style.contactButtonIcon"
+                                :style="{ '--contact-icon': `url(${icons.directionRight})` }"
+                                aria-hidden="true"
+                            />
+                        </RouterLink>
+                    </div>
+                </div>
+            </section>
         </div>
         <AppFooter />
     </main>
@@ -354,215 +570,202 @@ const designCards = [
     flex: 1;
 }
 
-/* Flat surface-toned banner, matching the dark sections on the Home page. */
-.banner {
+.aboutHero {
     position: relative;
-    width: 100%;
-    height: 256px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    box-sizing: border-box;
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    min-height: calc(100dvh - 73px);
+    padding: var(--spacing-space-16);
+    background-color: var(--color-main-background);
     overflow: hidden;
-    isolation: isolate;
-    background-color: var(--color-main-surface);
 }
 
-.ghostSpot {
+.heroGridCanvas {
     position: absolute;
-    z-index: 2;
-    animation: banner-ghost-bob 5.5s ease-in-out infinite;
+    z-index: 0;
+    inset: 0;
+    width: 100%;
+    height: 100%;
     pointer-events: none;
 }
 
-.ghostSpotA {
-    --ghost-tilt: -6deg;
-
-    top: 16%;
-    left: 10%;
-    width: 118px;
+.portraitStage {
+    position: absolute;
+    top: 50%;
+    left: -24rem;
+    z-index: 1;
+    width: 48rem;
+    aspect-ratio: 1;
+    transform: translateY(-50%);
+    transition: left 680ms cubic-bezier(0.16, 1.34, 0.3, 1);
 }
 
-.ghostSpotB {
-    --ghost-tilt: 8deg;
+@media (min-width: 1101px) and (hover: hover) and (pointer: fine) {
+    .portraitStage:hover {
+        left: var(--spacing-space-4);
+    }
 
-    top: 34%;
-    right: 12%;
-    width: 86px;
-    animation-duration: 7s;
-    animation-delay: -2.4s;
+    .portraitStage:hover + .heroCopy {
+        transform: translateX(clamp(5rem, 10vw, 12rem)) scale(0.84);
+    }
+
+    .portraitStage:hover .portraitName {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
 }
 
-.ghostSvg {
+.portraitStage:focus-visible {
+    left: var(--spacing-space-4);
+    outline: 2px solid var(--color-main-brand-secondary);
+    outline-offset: 4px;
+}
+
+.portraitStage:focus-visible + .heroCopy {
+    transform: translateX(clamp(5rem, 10vw, 12rem)) scale(0.84);
+}
+
+.portraitStage:focus-visible .portraitName {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}
+
+.portraitOrbit {
+    position: absolute;
+    inset: 0;
+    border-radius: var(--radius-full);
+    background: conic-gradient(
+        from 0deg,
+        var(--color-main-brand-primary) 0 50%,
+        var(--color-main-brand-secondary) 50% 100%
+    );
+    animation: portrait-orbit-spin 28s linear infinite;
+}
+
+.portraitFrame {
+    position: absolute;
+    inset: 18%;
+    box-sizing: border-box;
+    border-radius: var(--radius-full);
+    background: var(--color-main-background);
+    box-shadow: 0 0 0 8px var(--color-main-background);
+    overflow: hidden;
+}
+
+.portraitFrame::after {
+    position: absolute;
+    inset: 0;
+    border: 2px solid color-mix(in srgb, var(--color-button-primary) 56%, transparent);
+    border-radius: inherit;
+    content: "";
+    pointer-events: none;
+}
+
+@keyframes portrait-orbit-spin {
+    to {
+        transform: rotate(1turn);
+    }
+}
+
+.heroPortrait {
     display: block;
     width: 100%;
-    height: auto;
-    filter: drop-shadow(0 6px 8px rgb(0 0 0 / 18%));
-}
-
-.ghostEyes {
-    transition: transform 90ms linear;
-}
-
-.ghostBlink {
-    transform-box: fill-box;
-    transform-origin: center;
-    animation: ghost-blink 5s ease-in-out infinite;
-}
-
-.ghostBlinkB {
-    animation-delay: -2.7s;
-}
-
-@keyframes banner-ghost-bob {
-    0%,
-    100% {
-        transform: translateY(0) rotate(var(--ghost-tilt));
-    }
-
-    50% {
-        transform: translateY(-10px) rotate(calc(var(--ghost-tilt) + 4deg));
-    }
-}
-
-@keyframes ghost-blink {
-    0%,
-    90%,
-    98%,
-    100% {
-        transform: scaleY(1);
-    }
-
-    94% {
-        transform: scaleY(0.08);
-    }
-}
-
-.bannerSparkle {
-    position: absolute;
-    z-index: 3;
-    width: 8px;
-    height: 8px;
-    /* Surface background pairs with the secondary text tone in both themes. */
-    background: var(--color-text-secondary);
-    clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
-    opacity: 0;
-    animation: banner-twinkle 3.4s ease-in-out infinite;
-    animation-delay: var(--sparkle-delay, 0s);
-    pointer-events: none;
-}
-
-@keyframes banner-twinkle {
-    0%,
-    100% {
-        opacity: 0;
-        transform: scale(calc(var(--sparkle-scale, 1) * 0.3)) rotate(0deg);
-    }
-
-    50% {
-        opacity: 0.75;
-        transform: scale(var(--sparkle-scale, 1)) rotate(90deg);
-    }
-}
-
-/* Light sweep gliding across the dark surface every few seconds. */
-.bannerShine {
-    position: absolute;
-    inset: -30% -35%;
-    z-index: 4;
-    background: linear-gradient(105deg, transparent 43%, rgb(255 255 255 / 14%) 50%, transparent 57%);
-    mix-blend-mode: screen;
-    animation: banner-shine 7s ease-in-out infinite;
-    pointer-events: none;
-}
-
-@keyframes banner-shine {
-    0%,
-    55% {
-        transform: translateX(-115%) skewX(-8deg);
-    }
-
-    90%,
-    100% {
-        transform: translateX(115%) skewX(-8deg);
-    }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .ghostEyes {
-        transition: none;
-    }
-
-    .ghostSpot,
-    .ghostBlink,
-    .bannerSparkle,
-    .bannerShine {
-        animation: none;
-    }
-
-    .bannerSparkle {
-        opacity: 0.4;
-        transform: scale(var(--sparkle-scale, 1));
-    }
-}
-
-.profile {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--spacing-space-4);
-    padding: var(--spacing-space-3) var(--spacing-space-16);
-}
-
-.identity {
-    display: flex;
-    align-items: center;
-    flex: 1;
-    gap: 8px;
-}
-
-.avatar {
-    width: 128px;
-    height: 128px;
-    flex-shrink: 0;
-    border-radius: var(--radius-xl);
+    height: 100%;
+    border-radius: inherit;
     object-fit: cover;
-    box-shadow: 0 0 0 0 transparent;
-    transition: transform 300ms ease, box-shadow 300ms ease;
     user-select: none;
     -webkit-user-drag: none;
 }
 
-.avatar:hover {
-    transform: scale(1.04) rotate(-2deg);
-    box-shadow:
-        0 0 0 3px color-mix(in srgb, var(--color-text-primary) 22%, transparent),
-        0 10px 22px rgb(0 0 0 / 16%);
+.portraitName {
+    position: absolute;
+    z-index: 2;
+    bottom: 8%;
+    left: 50%;
+    color: var(--color-button-primary);
+    font-size: clamp(1.5rem, 3vw, 2.5rem);
+    font-weight: 600;
+    line-height: 1;
+    text-shadow:
+        0 2px 3px rgb(0 0 0 / 78%),
+        0 5px 14px rgb(0 0 0 / 62%),
+        0 10px 28px rgb(0 0 0 / 38%);
+    opacity: 0;
+    transform: translate(-50%, 12px);
+    transition: opacity 260ms ease 180ms, transform 360ms cubic-bezier(0.16, 1, 0.3, 1) 180ms;
+    pointer-events: none;
+}
+
+.heroCopy {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    width: min(100%, 560px);
+    margin-right: max(var(--spacing-space-16), calc((100vw - 1280px) / 2 + var(--spacing-space-16)));
+    gap: var(--spacing-space-4);
+    transform-origin: right center;
+    transition: transform 680ms cubic-bezier(0.16, 1.34, 0.3, 1);
+}
+
+.heroEyebrow {
+    margin: 0;
+    color: var(--color-main-brand-secondary);
+    font-size: var(--type-size-overline);
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.heroBody {
+    max-width: 56ch;
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--type-size-body-main);
+    font-weight: 400;
+    line-height: 1.6;
 }
 
 .identityText {
     display: flex;
     flex-direction: column;
-    flex: 1;
-    gap: 8px;
+    align-self: stretch;
+    gap: var(--spacing-space-3);
 }
 
 .name {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
     margin: 0;
-    font-size: 32px;
-    line-height: normal;
+    gap: 0.22em;
+    font-size: clamp(2.25rem, 4vw, 3.5rem);
+    line-height: 1.05;
+    letter-spacing: -0.035em;
 }
 
 .nameMain {
     font-weight: 800;
 }
 
-.nameNick {
-    font-weight: 600;
+.profileMeta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--spacing-space-2) var(--spacing-space-4);
 }
 
 .fact {
     margin: 0;
-    font-size: 18px;
-    font-weight: 300;
+    color: var(--color-text-secondary);
+    font-size: var(--type-size-caption);
+    font-weight: 400;
     font-variant-numeric: tabular-nums;
-    color: var(--color-text-secondary)
 }
 
 .livedMs {
@@ -572,27 +775,32 @@ const designCards = [
 .contacts {
     display: flex;
     align-items: center;
-    gap: 8px;
-}
-
-.storyRows {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: var(--spacing-space-8);
-    padding: var(--spacing-space-16);
-}
-
-.storySection {
-    display: flex;
-    flex-direction: column;
+    flex-wrap: wrap;
     gap: var(--spacing-space-2);
+    padding-top: var(--spacing-space-2);
 }
 
-.sectionTitle {
+.educationSummary {
+    display: flex;
+    flex-direction: column;
+    align-self: stretch;
+    border-left: 3px solid var(--color-main-brand-secondary);
+    padding-left: var(--spacing-space-3);
+    gap: var(--spacing-space-1);
+}
+
+.educationTitle {
     margin: 0;
-    font-size: var(--type-size-h2-section-title);
-    font-weight: 600;
+    font-size: var(--type-size-caption);
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.educationBody {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--type-size-caption);
+    font-weight: 400;
 }
 
 /* Accent bar that draws itself in when the section scrolls into view. */
@@ -613,25 +821,72 @@ const designCards = [
     font-weight: 400;
 }
 
-.showcaseRow {
-    display: flex;
-    align-items: flex-start;
-    gap: var(--spacing-space-16);
-    padding: var(--spacing-space-16);
-    background-color: var(--color-main-background);
+.skillsSection {
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    box-sizing: border-box;
+    padding: var(--spacing-space-24) var(--spacing-space-16);
+    background: var(--color-main-surface);
+    color: var(--color-button-primary);
 }
 
-.skills {
+.skillsInner {
     display: flex;
     flex-direction: column;
-    flex: 1;
+    width: min(100%, 1152px);
+    margin: 0 auto;
+    gap: var(--spacing-space-8);
+}
+
+.skillsHeading {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-space-2);
+}
+
+.skillsEyebrow {
+    margin: 0;
+    color: var(--color-main-brand-secondary);
+    font-size: var(--type-size-overline);
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.skillsTitle {
+    margin: 0;
+    font-size: clamp(2.75rem, 6vw, 5rem);
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.04em;
+}
+
+.skillsGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--spacing-space-4);
 }
 
 .skillGroup {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-space-2);
+    min-width: 0;
+    box-sizing: border-box;
+    border: 1px solid var(--color-main-divider);
+    border-radius: var(--radius-xl);
+    padding: var(--spacing-space-4);
+    gap: var(--spacing-space-4);
+    background: var(--color-main-background);
+    color: var(--color-text-primary);
+    transition: border-color 220ms ease, transform 220ms ease;
+}
+
+.skillGroup:hover {
+    transform: translateY(-4px);
+}
+
+.skillGroup:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
 }
 
 .groupHeader {
@@ -643,20 +898,23 @@ const designCards = [
 .groupTitle {
     margin: 0;
     font-size: var(--type-size-body-main);
-    font-weight: 400;
+    font-weight: 800;
 }
 
-.chips {
+.skillList {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: var(--spacing-space-1);
+    margin: 0;
+    padding: 0;
+    gap: var(--spacing-space-2);
+    list-style: none;
 }
 
 .groupIcon,
 .chipMaskIcon {
     display: inline-block;
-    background-color: var(--color-text-primary);
+    background-color: currentColor;
     transition: background-color 300ms ease;
 }
 
@@ -670,79 +928,395 @@ const designCards = [
     -webkit-user-drag: none;
 }
 
-.chip {
+.skillItem {
     display: flex;
     align-items: center;
     box-sizing: border-box;
+    min-height: 38px;
     border: 1px solid var(--color-main-divider);
-    border-radius: var(--radius-lg);
-    padding: var(--spacing-space-1);
-    cursor: default;
-    transition: border-color 200ms ease, transform 200ms ease, box-shadow 200ms ease;
+    border-radius: var(--radius-full);
+    padding: var(--spacing-space-1) var(--spacing-space-3);
+    gap: var(--spacing-space-2);
+    background: color-mix(in srgb, var(--color-text-primary) 8%, var(--color-main-background));
+    color: var(--color-text-primary);
 }
 
-.chip:hover,
-.chip:focus-visible {
-    border-color: var(--color-text-primary);
-    box-shadow: 0 3px 8px rgb(0 0 0 / 10%);
+.skillLabel {
+    font-size: var(--type-size-caption);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.experienceSection {
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    box-sizing: border-box;
+    padding: var(--spacing-space-24) var(--spacing-space-16);
+    background: var(--color-main-background);
+}
+
+.experienceInner {
+    display: flex;
+    flex-direction: column;
+    width: min(100%, 1152px);
+    margin: 0 auto;
+    gap: var(--spacing-space-8);
+}
+
+.experienceHeading {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-space-2);
+}
+
+.experienceEyebrow {
+    margin: 0;
+    color: var(--color-main-brand-secondary);
+    font-size: var(--type-size-overline);
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.experienceTitle {
+    margin: 0;
+    font-size: clamp(2.75rem, 6vw, 5rem);
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.04em;
+}
+
+.experienceCard {
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    border: 1px solid var(--color-main-divider);
+    border-radius: var(--radius-xl);
+    padding: var(--spacing-space-8);
+    gap: var(--spacing-space-6);
+    background: color-mix(in srgb, var(--color-main-brand-primary) 5%, var(--color-main-background));
+}
+
+.experienceCardHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--spacing-space-4);
+}
+
+.experienceRole {
+    margin: 0;
+    font-size: var(--type-size-h3-card-title);
+    font-weight: 800;
+}
+
+.experienceCompany,
+.experienceItem p {
+    margin: 0;
+    color: var(--color-text-secondary);
+}
+
+.experienceCompany {
+    margin-top: var(--spacing-space-1);
+    font-size: var(--type-size-caption);
+    font-weight: 600;
+}
+
+.experiencePeriod {
+    border-radius: var(--radius-full);
+    padding: var(--spacing-space-1) var(--spacing-space-3);
+    background: var(--color-main-brand-secondary);
+    color: var(--color-main-brand-primary);
+    font-size: var(--type-size-caption);
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.experienceGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--spacing-space-6) var(--spacing-space-8);
+}
+
+.experienceItem {
+    border-top: 2px solid var(--color-main-divider);
+    padding-top: var(--spacing-space-3);
+}
+
+.experienceItem h4 {
+    margin: 0 0 var(--spacing-space-2);
+    font-size: var(--type-size-body-small);
+    font-weight: 800;
+}
+
+.experienceItem p {
+    font-size: var(--type-size-caption);
+    line-height: 1.55;
+}
+
+.workSection {
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    box-sizing: border-box;
+    padding: var(--spacing-space-24) var(--spacing-space-16);
+    background: var(--color-main-background);
+}
+
+.workInner {
+    display: flex;
+    flex-direction: column;
+    width: min(100%, 1152px);
+    margin: 0 auto;
+    gap: var(--spacing-space-12);
+}
+
+.workHeading {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-space-2);
+}
+
+.workEyebrow {
+    margin: 0;
+    color: var(--color-main-brand-secondary);
+    font-size: var(--type-size-overline);
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.workTitle {
+    margin: 0;
+    font-size: clamp(2.75rem, 6vw, 5rem);
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.04em;
+}
+
+.workTimeline {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    margin: 0;
+    padding: 0;
+    gap: var(--spacing-space-6);
+    list-style: none;
+}
+
+.workStep {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    box-sizing: border-box;
+    min-width: 0;
+    min-height: 240px;
+    border: 1px solid var(--color-main-divider);
+    border-radius: var(--radius-xl);
+    padding: var(--spacing-space-4);
+    gap: var(--spacing-space-4);
+    background: var(--color-main-background);
+    transition:
+        border-color 220ms ease,
+        opacity 220ms ease,
+        transform 220ms ease;
+}
+
+.workStep:not(:last-child)::after {
+    position: absolute;
+    top: 50%;
+    right: calc(var(--spacing-space-6) * -1);
+    z-index: 2;
+    width: var(--spacing-space-6);
+    color: var(--color-main-divider);
+    content: "→";
+    font-size: var(--type-size-body-main);
+    font-weight: 800;
+    line-height: 1;
+    text-align: center;
+    transform: translateY(-50%);
+}
+
+.workStep:hover {
+    border-color: var(--color-main-brand-secondary);
+    transform: translateY(-6px);
+}
+
+.workTimeline:has(.workStep:hover) .workStep:not(:hover) {
+    opacity: 0.52;
+}
+
+.workNumber {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-full);
+    background: var(--color-main-brand-secondary);
+    color: var(--color-main-brand-primary);
+    font-size: var(--type-size-support);
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
+.workCopy {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-space-2);
+}
+
+.workCopy h3,
+.workCopy p {
+    margin: 0;
+}
+
+.workCopy h3 {
+    font-size: var(--type-size-body-small);
+    font-weight: 800;
+}
+
+.workCopy p {
+    color: var(--color-text-secondary);
+    font-size: var(--type-size-caption);
+    line-height: 1.55;
+}
+
+.contactSection {
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    box-sizing: border-box;
+    padding: var(--spacing-space-24) var(--spacing-space-16);
+    background: var(--color-main-surface);
+    color: var(--color-button-primary);
+}
+
+.contactInner {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    width: min(100%, 1152px);
+    margin: 0 auto;
+    gap: var(--spacing-space-16);
+}
+
+.contactCopy {
+    display: flex;
+    flex-direction: column;
+    width: min(100%, 720px);
+    gap: var(--spacing-space-4);
+}
+
+.contactEyebrow {
+    margin: 0;
+    color: var(--color-main-brand-secondary);
+    font-size: var(--type-size-overline);
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.contactTitle {
+    margin: 0;
+    font-size: clamp(2.75rem, 6vw, 5rem);
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.04em;
+}
+
+.contactBody {
+    max-width: 64ch;
+    margin: 0;
+    color: color-mix(in srgb, var(--color-button-primary) 74%, transparent);
+    font-size: var(--type-size-body-main);
+    line-height: 1.6;
+}
+
+.availability {
+    display: flex;
+    align-items: center;
+    margin: 0;
+    gap: var(--spacing-space-2);
+    color: color-mix(in srgb, var(--color-button-primary) 82%, transparent);
+    font-size: var(--type-size-caption);
+    font-weight: 600;
+}
+
+.availabilityDot {
+    width: 10px;
+    height: 10px;
+    flex-shrink: 0;
+    border-radius: var(--radius-full);
+    background: var(--color-main-brand-secondary);
+}
+
+.contactActions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: var(--spacing-space-3);
+}
+
+.contactButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    min-height: 48px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-xl);
+    padding: var(--spacing-space-2) var(--spacing-space-4);
+    gap: var(--spacing-space-2);
+    font-size: var(--type-size-button);
+    font-weight: 800;
+    text-decoration: none;
+    transition:
+        background-color 180ms ease,
+        border-color 180ms ease,
+        color 180ms ease,
+        transform 180ms ease;
+}
+
+.contactButton:hover {
     transform: translateY(-2px);
 }
 
-.chip:focus-visible {
-    outline: 2px solid var(--color-main-primary);
-    outline-offset: 2px;
+.contactButton:focus-visible {
+    outline: 2px solid var(--color-main-brand-secondary);
+    outline-offset: 3px;
 }
 
-/* Skill name slides out of the chip on hover/focus. */
-.chipLabel {
-    max-width: 0;
-    overflow: hidden;
-    font-size: var(--type-size-caption);
-    font-weight: 400;
-    white-space: nowrap;
-    opacity: 0;
-    transition: max-width 260ms ease, opacity 200ms ease, margin-left 260ms ease;
+.contactButtonPrimary {
+    background: var(--color-main-brand-secondary);
+    color: var(--color-main-brand-primary);
 }
 
-.chip:hover .chipLabel,
-.chip:focus-visible .chipLabel {
-    max-width: 140px;
-    margin-left: var(--spacing-space-1);
-    opacity: 1;
+.contactButtonPrimary:hover {
+    background: color-mix(in srgb, var(--color-main-brand-secondary) 86%, var(--color-button-primary));
 }
 
-.design {
-    display: flex;
-    flex-direction: column;
-    width: min(544px, 100%);
-    gap: var(--spacing-space-2);
+.contactButtonSecondary {
+    border-color: color-mix(in srgb, var(--color-button-primary) 56%, transparent);
+    background: transparent;
+    color: var(--color-button-primary);
 }
 
-.designCards {
-    display: flex;
-    align-items: flex-start;
-    flex-wrap: wrap;
-    gap: var(--spacing-space-2);
+.contactButtonSecondary:hover {
+    border-color: var(--color-button-primary);
+    background: var(--color-button-primary);
+    color: var(--color-main-surface);
 }
 
-.designCard {
-    width: 128px;
-    height: 140px;
-    border-radius: var(--radius-xl);
-    object-fit: cover;
-    box-shadow: 0 2px 6px rgb(0 0 0 / 8%);
-    transition: transform 250ms ease, box-shadow 250ms ease;
-    user-select: none;
-    -webkit-user-drag: none;
-}
-
-.designCard:hover {
-    transform: translateY(-6px) rotate(-1.5deg) scale(1.04);
-    box-shadow: 0 12px 24px rgb(0 0 0 / 16%);
-}
-
-.designCard:nth-child(even):hover {
-    transform: translateY(-6px) rotate(1.5deg) scale(1.04);
+.contactButtonIcon {
+    display: inline-block;
+    width: var(--spacing-icon-md);
+    height: var(--spacing-icon-md);
+    flex-shrink: 0;
+    background: currentColor;
+    mask: var(--contact-icon) center / contain no-repeat;
+    -webkit-mask: var(--contact-icon) center / contain no-repeat;
 }
 
 /* Scroll-reveal: hidden state only exists when motion is allowed, so content
@@ -771,73 +1345,210 @@ const designCards = [
     }
 }
 
-@media (max-width: 767px) {
-    .banner {
-        height: 127px;
+@media (prefers-reduced-motion: reduce) {
+    .portraitStage {
+        transition: none;
     }
 
-    .ghostSpotA {
-        width: 62px;
+    .heroCopy {
+        transition: none;
     }
 
-    .ghostSpotB {
-        width: 46px;
+    .portraitOrbit {
+        animation: none;
     }
 
-    .profile {
-        align-items: flex-start;
-        justify-content: center;
-        flex-wrap: wrap;
-        padding: var(--spacing-space-3) var(--spacing-space-8);
-        text-align: center;
+    .portraitName {
+        transition: none;
     }
 
-    .identity {
-        flex-direction: column;
-        align-items: center;
-        flex: initial;
-        width: 100%;
+    .skillGroup {
+        transition: none;
+    }
+}
+
+@media (min-width: 768px) and (max-width: 1100px) {
+    .aboutHero {
+        padding: var(--spacing-space-8);
+    }
+
+    .portraitStage {
+        left: -20rem;
+        width: 40rem;
+    }
+
+    .portraitStage:focus-visible {
+        left: -20rem;
+    }
+
+    .portraitStage:focus-visible + .heroCopy {
+        transform: none;
+    }
+
+    .heroCopy {
+        width: 54%;
+        margin-right: 0;
+        gap: var(--spacing-space-3);
     }
 
     .name {
-        font-size: 26px;
+        font-size: clamp(2rem, 5vw, 3rem);
     }
 
-    .fact {
-        font-size: 16px;
+    .heroBody {
+        font-size: var(--type-size-body-small);
+        line-height: 1.5;
     }
 
-    .livedFact {
-        font-size: 14px;
+    .skillsSection,
+    .experienceSection,
+    .workSection,
+    .contactSection {
+        padding: var(--spacing-space-20) var(--spacing-space-8);
+    }
+
+    .workTimeline {
+        grid-template-columns: repeat(5, minmax(220px, 1fr));
+        padding-bottom: var(--spacing-space-2);
+        overflow-x: auto;
+    }
+}
+
+@media (max-width: 767px) {
+    .aboutPage {
+        padding-top: 55px;
+    }
+
+    .aboutHero {
+        flex-direction: column;
+        align-items: stretch;
+        justify-content: flex-start;
+        min-height: calc(100svh - 55px);
+        gap: var(--spacing-space-12);
+        padding: var(--spacing-space-12) var(--spacing-space-8) var(--spacing-space-16);
+        text-align: left;
+        overflow: visible;
+    }
+
+    .portraitStage {
+        position: relative;
+        top: auto;
+        left: auto;
+        align-self: center;
+        width: min(82vw, 20rem);
+        transform: none;
+    }
+
+    .portraitStage:focus-visible {
+        left: auto;
+    }
+
+    .portraitStage:focus-visible + .heroCopy {
+        transform: none;
+    }
+
+    .portraitFrame {
+        inset: 18%;
+        box-shadow: 0 0 0 5px var(--color-main-background);
+    }
+
+    .heroCopy {
+        align-items: flex-start;
+        width: 100%;
+        margin-top: 0;
+        margin-right: 0;
+    }
+
+    .heroBody {
+        font-size: var(--type-size-body-main);
+        text-align: left;
+    }
+
+    .name {
+        font-size: clamp(2rem, 10vw, 3rem);
+        line-height: 1.08;
+    }
+
+    .profileMeta {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: var(--spacing-space-2);
     }
 
     .contacts {
-        justify-content: center;
+        justify-content: flex-start;
         width: 100%;
     }
 
-    .storyRows {
-        gap: var(--spacing-space-4);
-        padding: var(--spacing-space-8);
+    .educationSummary {
+        padding-left: var(--spacing-space-3);
     }
 
-    .showcaseRow {
+    .skillsSection,
+    .experienceSection,
+    .workSection,
+    .contactSection {
+        padding: var(--spacing-space-16) var(--spacing-space-8);
+    }
+
+    .skillsGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .skillGroup {
+        grid-column: auto;
+        padding: var(--spacing-space-3);
+    }
+
+    .experienceCard {
+        padding: var(--spacing-space-4);
+        gap: var(--spacing-space-4);
+    }
+
+    .experienceGrid {
+        grid-template-columns: 1fr;
+        gap: var(--spacing-space-4);
+    }
+
+    .workInner {
+        gap: var(--spacing-space-8);
+    }
+
+    .workTimeline {
+        grid-template-columns: 1fr;
+        gap: var(--spacing-space-6);
+    }
+
+    .workStep {
+        min-height: auto;
+        gap: var(--spacing-space-4);
+    }
+
+    .workStep:not(:last-child)::after {
+        top: auto;
+        right: auto;
+        bottom: calc(var(--spacing-space-6) * -1);
+        left: 50%;
+        height: var(--spacing-space-6);
+        content: "↓";
+        line-height: var(--spacing-space-6);
+        transform: translateX(-50%);
+    }
+
+    .contactInner {
+        align-items: flex-start;
         flex-direction: column;
-        gap: var(--spacing-space-4);
-        padding: var(--spacing-space-8);
+        gap: var(--spacing-space-8);
     }
 
-    .design {
+    .contactActions {
+        align-items: stretch;
+        flex-direction: column;
         width: 100%;
     }
 
-    .designCards {
-        justify-content: center;
-    }
-
-    .designCard {
-        width: 74px;
-        height: 81px;
+    .contactButton {
+        width: 100%;
     }
 }
 </style>

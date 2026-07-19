@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { FeatureCard, PurchaseDialog, type PackageOption } from "@/features/shop/components";
-import { StatusToast, ReadMoreModal } from "@/shared/ui";
-import { PrimaryButton, SecondaryButton } from "@/shared/ui/buttons";
-import { TablePagination } from "@/shared/ui/paginations";
+import { PurchaseDialog, type PackageOption } from "@/features/shop/components";
+import { StatusToast, SearchField } from "@/shared/ui";
+import { PrimaryButton } from "@/shared/ui/buttons";
 import { AppFooter } from "@/shared/layout";
 import { useUserStore } from "@/stores";
 import { API_BASE_URL, icons, resolveShopFeatureIcon } from "@/config";
@@ -12,7 +11,7 @@ import { priceKindLabel, type CatalogFeature } from "@/features/shop/config/cata
 
 type ToastStatus = "info" | "success" | "warning" | "error";
 
-const PAGE_SIZE = 8;
+const SKELETON_COUNT = 6;
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -22,15 +21,14 @@ const balanceSatang = ref(0);
 const isLoading = ref(false);
 const isSubmitting = ref(false);
 const catalogError = ref("");
-const page = ref(1);
+const searchQuery = ref("");
 const toast = ref<{ status: ToastStatus; title: string; description?: string } | null>(null);
 let toastTimeout: ReturnType<typeof setTimeout> | undefined;
 
 const dialog = ref<{ open: boolean; title: string; option: PackageOption | null }>({ open: false, title: "", option: null });
-const readMore = ref<{ title: string; body: string } | null>(null);
 
 function formatPrice(satang: number): string {
-    return `฿ ${(satang / 100).toLocaleString("th-TH")}`;
+    return `${(satang / 100).toLocaleString("th-TH", { maximumFractionDigits: 2 })} THB`;
 }
 
 function clearToast(): void {
@@ -89,8 +87,11 @@ const featureCards = computed(() =>
     ),
 );
 
-const pageCount = computed(() => Math.max(1, Math.ceil(featureCards.value.length / PAGE_SIZE)));
-const pagedCards = computed(() => featureCards.value.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE));
+const filteredFeatureCards = computed(() => {
+    const query = searchQuery.value.trim().toLocaleLowerCase();
+    if (!query) return featureCards.value;
+    return featureCards.value.filter((card) => card.title.toLocaleLowerCase().includes(query));
+});
 
 async function loadCatalog(): Promise<void> {
     isLoading.value = true;
@@ -108,7 +109,6 @@ async function loadCatalog(): Promise<void> {
         if (!fRes.ok || !wRes.ok) throw new Error("catalog unavailable");
         features.value = (await fRes.json()) as CatalogFeature[];
         balanceSatang.value = wRes.ok ? ((await wRes.json()).balanceSatang ?? 0) : 0;
-        page.value = 1;
     } catch {
         features.value = [];
         balanceSatang.value = 0;
@@ -147,6 +147,7 @@ async function confirmPurchase(): Promise<void> {
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         notify("success", "สั่งซื้อสำเร็จ", "เก็บไว้ในคลังแล้ว — กด Use ที่หน้า Dashboard เพื่อผูกกับบอท");
+        window.dispatchEvent(new Event("fujipp:wallet-balance-changed"));
         await loadCatalog();
     } catch {
         notify("error", "สั่งซื้อไม่สำเร็จ", "เครดิตอาจไม่พอ หรือรายการซ้ำ — ลองใหม่อีกครั้ง");
@@ -166,7 +167,7 @@ function goBack(): void {
 onMounted(async () => {
     await userStore.initAuth();
     if (!userStore.isAuthenticated) {
-        await router.push({ name: "login", query: { redirect: "/shop/package" } });
+        await router.push({ name: "login", query: { redirect: "/store/packages" } });
         return;
     }
     await loadCatalog();
@@ -180,21 +181,33 @@ onUnmounted(clearToast);
         <main :class="$style.content">
             <section :class="$style.section" aria-labelledby="shop-package-title">
                 <div :class="$style.titleRow">
-                    <h1 id="shop-package-title" :class="$style.pageTitle">ฟีเจอร์เสริม</h1>
-                    <SecondaryButton width-mode="hug" :leading-icon="icons.arrowBack" @click="goBack">
-                        กลับ
-                    </SecondaryButton>
+                    <h1 id="shop-package-title" :class="$style.pageTitle">All Products</h1>
+                    <div :class="$style.backButton">
+                        <PrimaryButton width-mode="hug" :leading-icon="icons.directionLeft" @click="goBack">
+                            Back
+                        </PrimaryButton>
+                    </div>
                 </div>
             </section>
 
             <section :class="$style.section" aria-labelledby="shop-package-features-title">
-                <div :class="$style.sectionHeading">
-                    <h2 id="shop-package-features-title" :class="$style.sectionTitle">เลือกฟีเจอร์สำหรับบอท</h2>
-                    <div :class="$style.headingRule" aria-hidden="true" />
+                <div :class="$style.controlsRow">
+                    <h2 id="shop-package-features-title" :class="$style.sectionTitle" class="type-caption-sb">
+                        <RouterLink :class="$style.breadcrumbLink" :to="{ name: 'shop-dashboard' }">Main</RouterLink>
+                        <span :class="$style.breadcrumbTrail">
+                            <span aria-hidden="true">&gt;</span>
+                            <span>Packages</span>
+                        </span>
+                    </h2>
+                    <SearchField
+                        v-model="searchQuery"
+                        aria-label="Search packages by name"
+                        placeholder="Search"
+                    />
                 </div>
 
                 <div v-if="isLoading" :class="$style.cardGrid">
-                    <div v-for="n in PAGE_SIZE" :key="`sk-${n}`" :class="[$style.cardItem, $style.skeletonCard]" />
+                    <div v-for="n in SKELETON_COUNT" :key="`sk-${n}`" :class="[$style.packageCard, $style.skeletonCard]" />
                 </div>
 
                 <section v-else-if="catalogError" :class="$style.statePanel" aria-live="polite">
@@ -205,26 +218,36 @@ onUnmounted(clearToast);
 
                 <template v-else>
                     <div :class="$style.cardGrid">
-                        <FeatureCard
-                            v-for="card in pagedCards"
+                        <article
+                            v-for="card in filteredFeatureCards"
                             :key="card.id"
-                            :class="$style.cardItem"
-                            variant="sell"
-                            :icon="card.icon"
-                            :price="card.price"
-                            :title="card.title"
-                            :description="card.description"
-                            buy-label="ซื้อฟีเจอร์"
-                            @buy="openBuy(card.title, card.option)"
-                            @read-more="readMore = { title: card.title, body: card.description }"
-                        />
+                            :class="$style.packageCard"
+                        >
+                            <div :class="$style.packageImage">
+                                <span
+                                    :class="$style.packageIcon"
+                                    :style="{ '--package-icon': `url(${card.icon})` }"
+                                    aria-hidden="true"
+                                />
+                                <span :class="$style.imageStatus">Feature artwork coming soon</span>
+                            </div>
+                            <div :class="$style.packageBody">
+                                <div :class="$style.packageCopy">
+                                    <h3 :class="$style.packageTitle">{{ card.title }}</h3>
+                                    <p :class="$style.packageDescription">{{ card.description }}</p>
+                                </div>
+                                <div :class="$style.packageDivider" aria-hidden="true" />
+                                <PrimaryButton :leading-icon="icons.buy" @click="openBuy(card.title, card.option)">
+                                    {{ card.price }}
+                                </PrimaryButton>
+                            </div>
+                        </article>
                     </div>
 
-                    <p v-if="featureCards.length === 0" :class="$style.emptyText">
-                        ยังไม่มีฟีเจอร์ที่เปิดขาย — เมื่อ catalog เปิดฟีเจอร์ active แล้ว รายการจะแสดงที่นี่
+                    <p v-if="filteredFeatureCards.length === 0" :class="$style.emptyText">
+                        {{ searchQuery.trim() ? `No packages found for “${searchQuery.trim()}”` : "ยังไม่มีฟีเจอร์ที่เปิดขาย — เมื่อ catalog เปิดฟีเจอร์ active แล้ว รายการจะแสดงที่นี่" }}
                     </p>
 
-                    <TablePagination v-if="pageCount > 1" v-model="page" :page-count="pageCount" />
                 </template>
             </section>
 
@@ -252,12 +275,6 @@ onUnmounted(clearToast);
             @topup="goToWallet"
         />
 
-        <ReadMoreModal
-            v-if="readMore"
-            :title="readMore.title"
-            :body="readMore.body"
-            @close="readMore = null"
-        />
     </div>
 </template>
 
@@ -296,67 +313,190 @@ onUnmounted(clearToast);
     width: 100%;
     max-width: var(--container-7xl);
     margin: 0 auto;
-    padding: var(--spacing-space-3) var(--spacing-space-6);
-    gap: var(--spacing-space-4);
+    padding: var(--spacing-space-16) var(--spacing-space-8);
+    gap: var(--spacing-space-8);
 }
 
 .section {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-space-3);
+    gap: var(--spacing-space-8);
 }
 
 .titleRow {
     display: flex;
+    width: 100%;
+    height: var(--spacing-space-12);
+    flex: 0 0 var(--spacing-space-12);
     align-items: center;
     justify-content: space-between;
     gap: var(--spacing-space-4);
+}
+
+.backButton {
+    flex: 0 0 auto;
 }
 
 .pageTitle {
     margin: 0;
     color: var(--color-text-primary);
     font-size: var(--type-size-h1-page-title);
-    font-weight: 600;
+    font-weight: 800;
     line-height: normal;
 }
 
-.sectionHeading {
+.controlsRow {
     display: flex;
-    align-items: center;
-    gap: var(--spacing-space-3);
+    width: 100%;
+    height: var(--spacing-space-12);
+    flex: 0 0 var(--spacing-space-12);
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-space-5);
 }
 
 .sectionTitle {
+    display: flex;
+    align-items: center;
     margin: 0;
+    gap: var(--spacing-space-1);
     color: var(--color-text-primary);
-    font-size: var(--type-size-h3-card-title);
-    font-weight: 600;
-    line-height: normal;
 }
 
-.headingRule {
-    height: 1px;
-    flex: 1;
-    background-color: var(--color-main-divider);
+.breadcrumbLink {
+    display: inline-block;
+    box-sizing: border-box;
+    color: inherit;
+    line-height: inherit;
+    text-decoration: none;
 }
 
-/* 4 columns × 2 rows per page on desktop; 1fr keeps the cards filling the full
-   width (no leftover gutter on the right) and steps down on smaller screens. */
+.breadcrumbLink:hover {
+    box-shadow: inset 0 -1px currentColor;
+}
+
+.breadcrumbLink:focus-visible {
+    border-radius: var(--radius-sm);
+    outline: 2px solid var(--color-main-primary);
+    outline-offset: 2px;
+}
+
+.breadcrumbTrail {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-space-1);
+    opacity: 0;
+    transform: translateX(calc(var(--spacing-space-3) * -1));
+    animation: breadcrumb-trail-reveal 320ms cubic-bezier(.2, .8, .2, 1) 80ms forwards;
+}
+
+@keyframes breadcrumb-trail-reveal {
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .breadcrumbTrail {
+        opacity: 1;
+        transform: none;
+        animation: none;
+    }
+}
+
+/* The supplied Store layout uses 352px product cards: three columns on wide
+   screens, two on compact desktop, and one centered column on small screens. */
 .cardGrid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 352px));
     align-items: stretch;
+    justify-content: space-between;
+    gap: var(--spacing-space-8) var(--spacing-space-5);
+}
+
+.packageCard {
+    min-height: 427px;
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid var(--color-main-border);
+    border-radius: var(--radius-xl);
+    background-color: var(--color-main-background);
+    color: var(--color-text-primary);
+    display: flex;
+    flex-direction: column;
+}
+
+.packageImage {
+    display: flex;
+    min-height: 213px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-space-3);
+    background-color: var(--color-main-surface);
+    color: var(--color-neutral-300);
+}
+
+.packageIcon {
+    width: var(--spacing-icon-xl);
+    height: var(--spacing-icon-xl);
+    flex: 0 0 auto;
+    background-color: currentColor;
+    mask: var(--package-icon) center / contain no-repeat;
+    -webkit-mask: var(--package-icon) center / contain no-repeat;
+}
+
+.imageStatus {
+    font-size: var(--type-size-support);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.packageBody {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    justify-content: space-between;
+    box-sizing: border-box;
+    padding: var(--spacing-space-3) var(--spacing-space-4);
     gap: var(--spacing-space-3);
 }
 
-.cardItem {
-    min-width: 0;
+.packageCopy {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-space-2);
+}
+
+.packageTitle,
+.packageDescription {
+    margin: 0;
+}
+
+.packageTitle {
+    font-size: var(--type-size-h3-card-title);
+    font-weight: 400;
+}
+
+.packageDescription {
+    display: -webkit-box;
+    overflow: hidden;
+    color: var(--color-text-secondary);
+    font-size: var(--type-size-caption);
+    font-weight: 400;
+    line-height: 1.45;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+}
+
+.packageDivider {
+    height: 1px;
+    background-color: var(--color-main-border);
 }
 
 .skeletonCard {
-    height: 328px;
-    border-radius: var(--radius-xl);
     background: linear-gradient(110deg, var(--color-main-surface) 0%, var(--color-main-background) 48%, var(--color-main-surface) 100%);
     background-size: 220% 100%;
     animation: shop-package-shimmer 1800ms ease-in-out infinite;
@@ -413,17 +553,23 @@ onUnmounted(clearToast);
 
 @media (max-width: 1080px) {
     .cardGrid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 352px));
     }
 }
 
 @media (max-width: 760px) {
     .content {
-        padding: var(--spacing-space-2) var(--spacing-space-2);
+        padding: var(--spacing-space-8) var(--spacing-space-4);
+    }
+
+    .controlsRow {
+        align-items: flex-start;
+        flex-direction: column;
     }
 
     .cardGrid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: minmax(0, 352px);
+        justify-content: center;
     }
 
     .toastRegion {
@@ -435,7 +581,8 @@ onUnmounted(clearToast);
 
 @media (max-width: 480px) {
     .cardGrid {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
+        justify-content: stretch;
     }
 }
 </style>

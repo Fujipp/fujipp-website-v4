@@ -1,54 +1,135 @@
-@theme static {
+:root {
+  animation: brand-secondary-rgb 7s linear infinite;
+}
+
+@property --palette-main-brand-secondary {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #fff200;
+}
+
+@keyframes brand-secondary-rgb {
+  0%, 100% { --palette-main-brand-secondary: #ff1744; }
+  16.67% { --palette-main-brand-secondary: #ffea00; }
+  33.33% { --palette-main-brand-secondary: #00e676; }
+  50% { --palette-main-brand-secondary: #00e5ff; }
+  66.67% { --palette-main-brand-secondary: #2979ff; }
+  83.33% { --palette-main-brand-secondary: #d500f9; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    animation: none;
+  }
+}
+
+:root {
+  color-scheme: light;
+
+  /*
+   * Editable palette values live in a standard CSS rule so editor color
+   * pickers can detect them. Tailwind's @theme variables map to these below.
+   */
   /* Main */
-  --color-main-primary: #b7b7b7;
-  --color-main-secondary: #d9d9d9;
-  --color-main-background: #ffffff;
-  --color-main-surface: #171717;
-  --color-main-divider: #505050;
+  --palette-main-primary: #b7b7b7;
+  --palette-main-secondary: #d9d9d9;
+  --palette-main-background: #ffffff;
+  --palette-main-surface: #171717;
+  --palette-main-divider: #505050;
+  --palette-main-brand-primary: #000000;
+  --palette-main-brand-secondary: #fff200;
 
   /* Status */
-  --color-status-success: #34c759;
-  --color-status-warning: #fac800;
-  --color-status-error: #ff5c5f;
-  --color-status-info: #4088ff;
+  --palette-status-success: #34c759;
+  --palette-status-warning: #fac800;
+  --palette-status-error: #ff5c5f;
+  --palette-status-info: #4088ff;
 
   /* Text */
-  --color-text-primary: #000000;
-  --color-text-secondary: #959595;
-  --color-text-disabled: #d2d2d2;
+  --palette-text-primary: #000000;
+  --palette-text-secondary: #959595;
+  --palette-text-disabled: #d2d2d2;
 
   /* Button */
-  --color-button-primary: #ffffff;
-  --color-button-secondary: #000000;
-  --color-button-text: #000000;
-  --color-button-text-secondary: #ffffff;
-  --color-button-border: #bbbbbb;
+  --palette-button-primary: #ffffff;
+  --palette-button-secondary: #000000;
+  --palette-button-text: #000000;
+  --palette-button-text-secondary: #ffffff;
+  --palette-button-border: #bbbbbb;
 
   /* Input */
-  --color-input-background: #ffffff;
-  --color-input-text: #000000;
-  --color-input-border: #bbbbbb;
-  --color-input-title: #000000;
-  --color-input-border-focus: #505050;
-  --color-input-disabled: #e9e9e9;
+  --palette-input-background: #ffffff;
+  --palette-input-text: #000000;
+  --palette-input-border: #bbbbbb;
+  --palette-input-title: #000000;
+  --palette-input-border-focus: #505050;
+  --palette-input-disabled: #e9e9e9;
 
   /* Dialog */
-  --color-dialog-text-primary: #000000;
-  --color-dialog-text-secondary: #565656;
-  --color-dialog-divider: #505050;
-  --color-dialog-background: #ffffff;
-  --color-dialog-background-selected: #ffffff;
+  --palette-dialog-text-primary: #000000;
+  --palette-dialog-text-secondary: #565656;
+  --palette-dialog-divider: #505050;
+  --palette-dialog-background: #ffffff;
+  --palette-dialog-background-selected: #ffffff;
 
   /* Navigation */
-  --color-nav-text: #000000;
-  --color-nav-divider: #505050;
-  --color-nav-background: #ffffff;
-  --color-nav-background-selected: #e2e2e2;
+  --palette-nav-text: #000000;
+  --palette-nav-divider: #505050;
+  --palette-nav-background: #ffffff;
+  --palette-nav-background-selected: #e2e2e2;
 
   /* Footer */
-  --color-footer-text: #000000;
-  --color-footer-divider: #505050;
-  --color-footer-background: #ffffff;
+  --palette-footer-text: #000000;
+  --palette-footer-divider: #505050;
+  --palette-footer-background: #ffffff;
+}
+
+@theme static {
+  /* Tailwind theme bridge — keep utility names stable. */
+  --color-main-primary: var(--palette-main-primary);
+  --color-main-secondary: var(--palette-main-secondary);
+  --color-main-background: var(--palette-main-background);
+  --color-main-surface: var(--palette-main-surface);
+  --color-main-divider: var(--palette-main-divider);
+  --color-main-brand-primary: var(--palette-main-brand-primary);
+  --color-main-brand-secondary: var(--palette-main-brand-secondary);
+
+  --color-status-success: var(--palette-status-success);
+  --color-status-warning: var(--palette-status-warning);
+  --color-status-error: var(--palette-status-error);
+  --color-status-info: var(--palette-status-info);
+
+  --color-text-primary: var(--palette-text-primary);
+  --color-text-secondary: var(--palette-text-secondary);
+  --color-text-disabled: var(--palette-text-disabled);
+
+  --color-button-primary: var(--palette-button-primary);
+  --color-button-secondary: var(--palette-button-secondary);
+  --color-button-text: var(--palette-button-text);
+  --color-button-text-secondary: var(--palette-button-text-secondary);
+  --color-button-border: var(--palette-button-border);
+
+  --color-input-background: var(--palette-input-background);
+  --color-input-text: var(--palette-input-text);
+  --color-input-border: var(--palette-input-border);
+  --color-input-title: var(--palette-input-title);
+  --color-input-border-focus: var(--palette-input-border-focus);
+  --color-input-disabled: var(--palette-input-disabled);
+
+  --color-dialog-text-primary: var(--palette-dialog-text-primary);
+  --color-dialog-text-secondary: var(--palette-dialog-text-secondary);
+  --color-dialog-divider: var(--palette-dialog-divider);
+  --color-dialog-background: var(--palette-dialog-background);
+  --color-dialog-background-selected: var(--palette-dialog-background-selected);
+
+  --color-nav-text: var(--palette-nav-text);
+  --color-nav-divider: var(--palette-nav-divider);
+  --color-nav-background: var(--palette-nav-background);
+  --color-nav-background-selected: var(--palette-nav-background-selected);
+
+  --color-footer-text: var(--palette-footer-text);
+  --color-footer-divider: var(--palette-footer-divider);
+  --color-footer-background: var(--palette-footer-background);
 
   /* Compatibility aliases for existing views while UI revision migrates usage. */
   --color-main-bg: var(--color-main-background);
@@ -114,62 +195,60 @@
   );
 }
 
-:root {
-  color-scheme: light;
-}
-
 .dark,
 [data-theme="dark"] {
   color-scheme: dark;
 
   /* Main */
-  --color-main-primary: #b7b7b7;
-  --color-main-secondary: #d9d9d9;
-  --color-main-background: #1c1c1c;
-  --color-main-surface: #171717;
-  --color-main-divider: #505050;
+  --palette-main-primary: #b7b7b7;
+  --palette-main-secondary: #d9d9d9;
+  --palette-main-background: #1c1c1c;
+  --palette-main-surface: #171717;
+  --palette-main-divider: #505050;
+  --palette-main-brand-primary: #000000;
+  --palette-main-brand-secondary: rgb(255, 242, 0);
 
   /* Status */
-  --color-status-success: #2e9e73;
-  --color-status-warning: #f2b23a;
-  --color-status-error: #e14d4d;
-  --color-status-info: #3b82f6;
+  --palette-status-success: #2e9e73;
+  --palette-status-warning: #f2b23a;
+  --palette-status-error: #e14d4d;
+  --palette-status-info: #3b82f6;
 
   /* Text */
-  --color-text-primary: #ffffff;
-  --color-text-secondary: #d1d1d1;
-  --color-text-disabled: #d2d2d2;
+  --palette-text-primary: #ffffff;
+  --palette-text-secondary: #d1d1d1;
+  --palette-text-disabled: #d2d2d2;
 
   /* Button */
-  --color-button-primary: #ffffff;
-  --color-button-secondary: #ffffff;
-  --color-button-text: #ffffff;
-  --color-button-text-secondary: #000000;
-  --color-button-border: #e9e9e9;
+  --palette-button-primary: #ffffff;
+  --palette-button-secondary: #ffffff;
+  --palette-button-text: #ffffff;
+  --palette-button-text-secondary: #000000;
+  --palette-button-border: #e9e9e9;
 
   /* Input */
-  --color-input-background: #ffffff;
-  --color-input-text: #000000;
-  --color-input-border: #bbbbbb;
-  --color-input-title: #ffffff;
-  --color-input-border-focus: #505050;
-  --color-input-disabled: #e9e9e9;
+  --palette-input-background: var(--palette-main-surface);
+  --palette-input-text: var(--palette-text-primary);
+  --palette-input-border: var(--palette-main-divider);
+  --palette-input-title: #ffffff;
+  --palette-input-border-focus: var(--palette-main-primary);
+  --palette-input-disabled: #2f2f2f;
 
   /* Dialog */
-  --color-dialog-text-primary: #ffffff;
-  --color-dialog-text-secondary: #a3a3a3;
-  --color-dialog-divider: #505050;
-  --color-dialog-background: #1d1d1d;
-  --color-dialog-background-selected: #ffffff;
+  --palette-dialog-text-primary: #ffffff;
+  --palette-dialog-text-secondary: #a3a3a3;
+  --palette-dialog-divider: #505050;
+  --palette-dialog-background: #1d1d1d;
+  --palette-dialog-background-selected: #ffffff;
 
   /* Navigation */
-  --color-nav-text: #ffffff;
-  --color-nav-divider: #505050;
-  --color-nav-background: #1d1d1d;
-  --color-nav-background-selected: #2f2f2f;
+  --palette-nav-text: #ffffff;
+  --palette-nav-divider: #505050;
+  --palette-nav-background: #1d1d1d;
+  --palette-nav-background-selected: #2f2f2f;
 
   /* Footer */
-  --color-footer-text: #ffffff;
-  --color-footer-divider: #505050;
-  --color-footer-background: #1d1d1d;
+  --palette-footer-text: #ffffff;
+  --palette-footer-divider: #505050;
+  --palette-footer-background: #1d1d1d;
 }

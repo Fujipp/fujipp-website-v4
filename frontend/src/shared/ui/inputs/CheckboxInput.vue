@@ -64,7 +64,7 @@ function onChange(): void {
     margin: auto;
     width: 62.5%;
     height: 62.5%;
-    background-color: var(--color-button-secondary);
+    background-color: var(--color-button-text-secondary);
     mask: var(--checkbox-check) center / contain no-repeat;
     -webkit-mask: var(--checkbox-check) center / contain no-repeat;
     opacity: 0;
@@ -75,11 +75,12 @@ function onChange(): void {
 }
 
 .checkboxInput:hover:not(:disabled) {
-    border-color: color-mix(in srgb, var(--color-button-border) 70%, var(--color-button-text));
+    border-color: var(--color-main-brand-secondary);
 }
 
 .checkboxInput:checked {
-    background: var(--color-button-text);
+    border-color: var(--color-main-brand-secondary);
+    background: var(--color-main-brand-secondary);
 }
 
 .checkboxInput:checked::after {
@@ -88,7 +89,7 @@ function onChange(): void {
 }
 
 .checkboxInput:focus-visible {
-    outline: 2px solid var(--color-main-primary);
+    outline: 2px solid var(--color-main-brand-secondary);
     outline-offset: 2px;
 }
 

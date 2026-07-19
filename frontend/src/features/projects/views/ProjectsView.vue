@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { AppFooter } from "@/shared/layout";
 import { PrimaryButton } from "@/shared/ui/buttons";
 import { FeaturedProjectCard, FeatureModal, ProjectTable } from "@/features/projects/components";
@@ -25,14 +25,13 @@ interface GithubContributionResponse {
 const GITHUB_CONTRIBUTIONS_URL = "https://gh-calendar.rschristian.dev/user/Fujipp";
 
 const router = useRouter();
+const route = useRoute();
 const userStore = useUserStore();
 const { isAdmin } = storeToRefs(userStore);
 const projectStore = useProjectStore();
 const toastStore = useToastStore();
 const { error, isLoading, projects } = storeToRefs(projectStore);
 const isFeatureModalOpen = ref(false);
-const editingSlot = ref(0);
-const editingProjectId = ref<FeaturedProjectId | null>(null);
 const contributionTotal = ref<number | null>(null);
 const contributionWeeks = ref<GithubContributionDay[][]>([]);
 const contributionError = ref(false);
@@ -67,10 +66,6 @@ const featuredProjects = computed(() => projects.value
 
 const featuredSkeletonCards = computed(() => isLoading.value && projects.value.length === 0
     ? Array.from({ length: 3 }, (_, index) => index)
-    : []);
-
-const featuredAddCards = computed(() => isAdmin.value && featuredSkeletonCards.value.length === 0
-    ? Array.from({ length: Math.max(0, 3 - featuredProjects.value.length) }, (_, index) => index)
     : []);
 
 const shouldShowFeaturedSection = computed(() => (
@@ -154,16 +149,6 @@ const featuredDisplay = computed(() => {
     return featuredProjects.value.map((project, slot) => ({ project, slot }));
 });
 
-/* Rotating showcase: every card is the same size; side cards are scaled
-   down. Clicking a side card (anywhere except its buttons) rotates it into
-   the center where it grows to full size. */
-const centerSlide = ref(0);
-const dragOffset = ref(0);
-const dragStartX = ref<number | null>(null);
-const draggedPointerId = ref<number | null>(null);
-const didDrag = ref(false);
-const DRAG_THRESHOLD = 56;
-
 const showcaseSlides = computed(() => [
     ...featuredSkeletonCards.value.map((index) => ({
         kind: "skeleton" as const,
@@ -176,112 +161,37 @@ const showcaseSlides = computed(() => [
         project: entry.project,
         slot: entry.slot,
     })),
-    ...featuredAddCards.value.map((index) => ({
-        kind: "add" as const,
-        key: `featured-add-${index}`,
-        slot: featuredProjects.value.length + index,
-    })),
 ]);
 
 const slideCount = computed(() => showcaseSlides.value.length);
+const featuredTrackRef = ref<HTMLElement | null>(null);
 
-watch(slideCount, () => {
-    /* The first ranked project (Top 1) always starts in the center. */
-    centerSlide.value = 0;
-}, { immediate: true });
+function scrollFeatured(direction: -1 | 1): void {
+    const track = featuredTrackRef.value;
+    if (!track) return;
 
-/* Signed distance from the center position; with 3 slides it wraps so the
-   rotation always takes the short way around. */
-function slideOffset(index: number): number {
-    const count = slideCount.value;
-    let offset = index - centerSlide.value;
-
-    if (count === 3) {
-        if (offset > 1) offset -= 3;
-        if (offset < -1) offset += 3;
-    }
-
-    return offset;
-}
-
-function onSlideClick(index: number, event: MouseEvent): void {
-    if (didDrag.value) return;
-    if ((event.target as HTMLElement).closest("a, button")) return;
-
-    if (slideOffset(index) !== 0) {
-        centerSlide.value = index;
-    }
-}
-
-function onDragStart(event: PointerEvent): void {
-    if (slideCount.value < 2 || event.button !== 0) return;
-    if ((event.target as HTMLElement).closest("a, button")) return;
-
-    dragStartX.value = event.clientX;
-    draggedPointerId.value = event.pointerId;
-    dragOffset.value = 0;
-    didDrag.value = false;
-    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
-}
-
-function onDragMove(event: PointerEvent): void {
-    if (dragStartX.value === null || draggedPointerId.value !== event.pointerId) return;
-
-    dragOffset.value = event.clientX - dragStartX.value;
-    if (Math.abs(dragOffset.value) > 6) didDrag.value = true;
-}
-
-function onDragEnd(event: PointerEvent): void {
-    if (dragStartX.value === null || draggedPointerId.value !== event.pointerId) return;
-
-    const direction = dragOffset.value < 0 ? 1 : -1;
-    if (Math.abs(dragOffset.value) >= DRAG_THRESHOLD) {
-        centerSlide.value = (centerSlide.value + direction + slideCount.value) % slideCount.value;
-    }
-
-    dragStartX.value = null;
-    draggedPointerId.value = null;
-    dragOffset.value = 0;
-}
-
-function preventClickAfterDrag(event: MouseEvent): void {
-    if (!didDrag.value) return;
-
-    event.preventDefault();
-    event.stopPropagation();
-    didDrag.value = false;
+    track.scrollBy({
+        behavior: "smooth",
+        left: direction * Math.max(320, track.clientWidth * 0.72),
+    });
 }
 
 function openProject(row: ProjectTableRow): void {
     void router.push({ name: "project-detail", params: { projectId: row.id } });
 }
 
-/* Each featured card edits its own slot: change replaces it, add appends. */
-function openFeatureModal(slot: number): void {
-    editingSlot.value = slot;
-    editingProjectId.value = featuredProjects.value[slot]?.id ?? null;
-    isFeatureModalOpen.value = true;
+async function closeFeatureModal(): Promise<void> {
+    isFeatureModalOpen.value = false;
+    if (route.query.top3 === "manage") {
+        const query = { ...route.query };
+        delete query.top3;
+        await router.replace({ query });
+    }
 }
 
-const excludedFeaturedIds = computed(() => featuredProjects.value
-    .filter((_, index) => index !== editingSlot.value)
-    .map((project) => project.id));
-
-async function saveFeaturedSlot(projectId: FeaturedProjectId | null): Promise<void> {
-    const projectIds = featuredProjects.value.map((project) => project.id);
-
-    if (editingSlot.value < projectIds.length) {
-        if (projectId === null) {
-            projectIds.splice(editingSlot.value, 1);
-        } else {
-            projectIds[editingSlot.value] = projectId;
-        }
-    } else if (projectId !== null) {
-        projectIds.push(projectId);
-    }
-
+async function saveFeaturedProjects(projectIds: FeaturedProjectId[]): Promise<void> {
     /* Close right away; the outcome is reported through a toast only. */
-    isFeatureModalOpen.value = false;
+    await closeFeatureModal();
 
     try {
         await projectStore.updateFeaturedProjects(projectIds);
@@ -296,19 +206,33 @@ async function saveFeaturedSlot(projectId: FeaturedProjectId | null): Promise<vo
         toastStore.show("Unable to update featured projects", message, "error");
     }
 }
+
+watch(
+    [() => route.query.top3, isAdmin],
+    ([top3, admin]) => {
+        if (top3 === "manage" && admin) isFeatureModalOpen.value = true;
+    },
+    { immediate: true },
+);
 </script>
 
 <template>
-    <main :class="$style.projects" class="pt-16">
+    <main :class="$style.projects">
             <div :class="$style.projectsContainer">
             <section :class="$style.hero" aria-labelledby="projects-hero-title">
                 <h1 id="projects-hero-title" :class="$style.heroTitle">Featured</h1>
                 <p :class="$style.heroSubtitle">Top 3 Projects</p>
                 <PrimaryButton
                     width-mode="hug"
-                    :leading-icon="icons.directionDown"
                     @click="scrollToNextSection"
                 >
+                    <template #leading-icon>
+                        <span
+                            :class="$style.slideDownIcon"
+                            :style="{ '--slide-down-icon': `url(${icons.directionDown})` }"
+                            aria-hidden="true"
+                        />
+                    </template>
                     Slide down
                 </PrimaryButton>
             </section>
@@ -317,66 +241,47 @@ async function saveFeaturedSlot(projectId: FeaturedProjectId | null): Promise<vo
                 v-if="shouldShowFeaturedSection"
                 ref="featuredSectionRef"
                 :class="$style.featuredSection"
-                aria-label="Featured projects"
+                aria-labelledby="featured-showcase-title"
             >
-                <div
-                    :class="[$style.stage, dragStartX !== null ? $style.stageDragging : '']"
-                    :style="{ '--drag-x': `${dragOffset}px` }"
-                    @pointerdown="onDragStart"
-                    @pointermove="onDragMove"
-                    @pointerup="onDragEnd"
-                    @pointercancel="onDragEnd"
-                    @click.capture="preventClickAfterDrag"
-                >
+                <div :class="$style.featuredHeader">
+                    <h2 id="featured-showcase-title" :class="$style.featuredTitle">
+                        Selected work.<span> Built with purpose.</span>
+                    </h2>
+                    <div v-if="slideCount > 1" :class="$style.featuredControls">
+                        <button type="button" :class="$style.featuredArrow" aria-label="Previous featured project" @click="scrollFeatured(-1)">
+                            <span :style="{ '--featured-arrow': `url(${icons.directionLeft})` }" aria-hidden="true" />
+                        </button>
+                        <button type="button" :class="$style.featuredArrow" aria-label="Next featured project" @click="scrollFeatured(1)">
+                            <span :style="{ '--featured-arrow': `url(${icons.directionRight})` }" aria-hidden="true" />
+                        </button>
+                    </div>
+                </div>
+                <div ref="featuredTrackRef" :class="$style.featuredTrack">
                     <div
                         v-for="(slide, index) in showcaseSlides"
                         :key="slide.key"
-                        :class="[
-                            $style.slide,
-                            slideOffset(index) === 0 ? $style.slideCenter : $style.slideSide,
-                        ]"
-                        :style="{ '--slide-x': String(slideOffset(index)) }"
-                        @click="onSlideClick(index, $event)"
+                        :class="$style.featuredSlide"
                     >
                         <FeaturedProjectCard
                             v-if="slide.kind === 'skeleton'"
                             mode="skeleton"
                             project-name="Loading featured project"
-                            size="large"
+                            size="showcase"
                         />
                         <FeaturedProjectCard
                             v-else-if="slide.kind === 'project'"
-                            :admin="isAdmin"
                             :category="slide.project.category"
                             :description-short="slide.project.content.en.descriptionShort"
-                            :image-loading="slideOffset(index) === 0 ? 'eager' : 'lazy'"
+                            :image-loading="index === 0 ? 'eager' : 'lazy'"
                             :project-name="slide.project.content.en.projectName"
-                            size="large"
+                            size="showcase"
                             :stack-groups="slide.project.stackGroups"
                             :tech-stack="slide.project.techStack"
                             :thumbnail-src="slide.project.gallery[0] ?? ''"
                             :to="{ name: 'project-detail', params: { projectId: slide.project.id } }"
                             :view-label="`View top ${slide.slot + 1}`"
-                            @change="openFeatureModal(slide.slot)"
-                        />
-                        <FeaturedProjectCard
-                            v-else
-                            mode="add"
-                            project-name="Add featured project"
-                            size="large"
-                            @change="openFeatureModal(slide.slot)"
                         />
                     </div>
-                </div>
-                <div v-if="slideCount > 1" :class="$style.dots">
-                    <button
-                        v-for="index in slideCount"
-                        :key="`featured-dot-${index}`"
-                        type="button"
-                        :class="[$style.dot, centerSlide === index - 1 ? $style.dotActive : '']"
-                        :aria-label="`Show featured card ${index} in the center`"
-                        @click="centerSlide = index - 1"
-                    />
                 </div>
             </section>
 
@@ -473,13 +378,12 @@ async function saveFeaturedSlot(projectId: FeaturedProjectId | null): Promise<vo
         <AppFooter />
         <FeatureModal
             v-if="isFeatureModalOpen"
-            :model-value="editingProjectId"
-            :title="`Featured ${editingSlot + 1}`"
+            :model-value="featuredProjects.map((project) => project.id)"
+            title="Top 3 Projects"
             :disabled="isLoading"
-            :exclude-ids="excludedFeaturedIds"
             :rows="projectRows"
-            @cancel="isFeatureModalOpen = false"
-            @save="saveFeaturedSlot"
+            @cancel="closeFeatureModal"
+            @save="saveFeaturedProjects"
         />
     </main>
 </template>
@@ -488,8 +392,9 @@ async function saveFeaturedSlot(projectId: FeaturedProjectId | null): Promise<vo
 .projects {
     display: flex;
     flex-direction: column;
+    box-sizing: border-box;
     min-height: 100dvh;
-    /* Transparent so the fixed BackgroundEffect shows through. */
+    padding-top: 73px;
     color: var(--color-text-primary);
     font-family: var(--font-sans);
     transition: color 300ms ease;
@@ -510,7 +415,7 @@ async function saveFeaturedSlot(projectId: FeaturedProjectId | null): Promise<vo
     align-items: center;
     justify-content: center;
     box-sizing: border-box;
-    min-height: 630px;
+    min-height: calc(100dvh - 73px);
     gap: var(--spacing-space-4);
     padding: 0 var(--spacing-space-4);
     font-family: var(--font-rammetto-one);
@@ -524,82 +429,133 @@ async function saveFeaturedSlot(projectId: FeaturedProjectId | null): Promise<vo
     font-weight: 400;
 }
 
+.slideDownIcon {
+    position: relative;
+    z-index: 1;
+    display: inline-block;
+    width: var(--spacing-icon-md);
+    height: var(--spacing-icon-md);
+    flex-shrink: 0;
+    background: currentColor;
+    mask: var(--slide-down-icon) center / contain no-repeat;
+    -webkit-mask: var(--slide-down-icon) center / contain no-repeat;
+    animation: slide-down-icon 1.5s ease-in-out infinite;
+}
+
+@keyframes slide-down-icon {
+    0%,
+    100% {
+        transform: translateY(-2px);
+    }
+
+    50% {
+        transform: translateY(4px);
+    }
+}
+
 .featuredSection {
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: stretch;
     justify-content: center;
     align-self: stretch;
     box-sizing: border-box;
     width: 100vw;
     margin-left: calc(50% - 50vw);
-    min-height: 730px;
-    gap: var(--spacing-space-8);
-    padding: var(--spacing-space-4) var(--spacing-space-8);
-    padding-inline: max(
-        var(--spacing-space-8),
-        calc((100vw - var(--container-7xl)) / 2 + var(--spacing-space-8))
-    );
+    min-height: 760px;
+    gap: var(--spacing-space-6);
+    padding-block: var(--spacing-space-12);
+    padding-inline: max(var(--spacing-space-8), calc((100vw - var(--container-7xl)) / 2 + var(--spacing-space-8)));
     background-color: var(--color-main-surface);
     scroll-margin-top: 73px; /* fixed navbar height */
 }
 
-/* Rotating showcase: all cards share one full size and sit stacked in the
-   stage center; --slide-x fans them out sideways while side cards scale
-   down (294/352 = 0.835, the Figma side-card size). Clicking a side card
-   rotates it into the center. */
-.stage {
-    --carousel-shift: 387px; /* 352/2 + 64px gap + 294/2 */
-
-    position: relative;
-    align-self: stretch;
-    height: 520px;
-    overflow: hidden;
-    cursor: grab;
-    touch-action: pan-y;
-    user-select: none;
+.featuredHeader {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--spacing-space-6);
 }
 
-.stageDragging {
-    cursor: grabbing;
+.featuredTitle {
+    max-width: 900px;
+    margin: 0;
+    color: var(--color-button-primary);
+    font-size: clamp(38px, 4.2vw, 64px);
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 1.05;
 }
 
-.slide {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    z-index: 1;
-    transform:
-        translate(-50%, -50%)
-        translateX(var(--drag-x, 0px))
-        translateX(calc(var(--slide-x, 0) * var(--carousel-shift)))
-        scale(var(--slide-scale, 1));
-    transition: transform 450ms cubic-bezier(0.22, 1, 0.36, 1);
+.featuredTitle span {
+    color: color-mix(in srgb, var(--color-button-primary) 62%, transparent);
 }
 
-.stageDragging .slide {
-    transition: none;
+.featuredControls {
+    display: flex;
+    flex-shrink: 0;
+    gap: var(--spacing-space-3);
 }
 
-.slideCenter {
-    --slide-scale: 1;
-
-    z-index: 2;
-}
-
-.slideSide {
-    --slide-scale: 0.835;
-
+.featuredArrow {
+    display: grid;
+    width: 48px;
+    height: 48px;
+    place-items: center;
+    border: 0;
+    border-radius: var(--radius-full);
+    background: color-mix(in srgb, var(--color-button-primary) 10%, transparent);
+    color: var(--color-button-primary);
     cursor: pointer;
+    transition: background-color 160ms ease, transform 160ms ease;
 }
 
-.slideSide:hover {
-    --slide-scale: 0.87;
+.featuredArrow:hover {
+    background: color-mix(in srgb, var(--color-button-primary) 18%, transparent);
+    transform: scale(1.05);
+}
+
+.featuredArrow:focus-visible {
+    outline: 2px solid var(--color-main-brand-secondary);
+    outline-offset: 3px;
+}
+
+.featuredArrow span {
+    width: 22px;
+    height: 22px;
+    background: currentColor;
+    mask: var(--featured-arrow) center / contain no-repeat;
+    -webkit-mask: var(--featured-arrow) center / contain no-repeat;
+}
+
+.featuredTrack {
+    display: grid;
+    grid-auto-columns: clamp(340px, 43vw, 560px);
+    grid-auto-flow: column;
+    gap: var(--spacing-space-6);
+    margin-inline: calc(-1 * max(var(--spacing-space-8), calc((100vw - var(--container-7xl)) / 2 + var(--spacing-space-8))));
+    padding: var(--spacing-space-2) max(var(--spacing-space-8), calc((100vw - var(--container-7xl)) / 2 + var(--spacing-space-8))) var(--spacing-space-8);
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scroll-padding-inline: max(var(--spacing-space-8), calc((100vw - var(--container-7xl)) / 2 + var(--spacing-space-8)));
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+}
+
+.featuredTrack::-webkit-scrollbar {
+    display: none;
+}
+
+.featuredSlide {
+    min-width: 0;
+    scroll-snap-align: start;
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .slide {
+    .slideDownIcon,
+    .featuredArrow {
         transition: none;
+        animation: none;
     }
 }
 
@@ -654,7 +610,12 @@ async function saveFeaturedSlot(projectId: FeaturedProjectId | null): Promise<vo
 }
 
 @media (max-width: 767px) {
+    .projects {
+        padding-top: 55px;
+    }
+
     .hero {
+        min-height: calc(100svh - 55px);
         text-align: center;
     }
 
@@ -664,12 +625,28 @@ async function saveFeaturedSlot(projectId: FeaturedProjectId | null): Promise<vo
     }
 
     .featuredSection {
-        padding: var(--spacing-space-4);
+        min-height: auto;
+        padding: var(--spacing-space-10) var(--spacing-space-4);
     }
 
-    /* Side cards peek in from the edges; tapping one rotates it to center. */
-    .stage {
-        --carousel-shift: min(387px, 72vw);
+    .featuredHeader {
+        align-items: flex-start;
+    }
+
+    .featuredTitle {
+        font-size: 36px;
+    }
+
+    .featuredControls {
+        display: none;
+    }
+
+    .featuredTrack {
+        grid-auto-columns: min(82vw, 380px);
+        gap: var(--spacing-space-4);
+        margin-inline: calc(-1 * var(--spacing-space-4));
+        padding-inline: var(--spacing-space-4);
+        scroll-padding-inline: var(--spacing-space-4);
     }
 
     .allProjectSection {
@@ -928,23 +905,23 @@ async function saveFeaturedSlot(projectId: FeaturedProjectId | null): Promise<vo
 }
 
 .contributionDay[data-intensity="1"] {
-    border-color: color-mix(in srgb, var(--color-status-success) 48%, var(--color-button-border));
-    background-color: color-mix(in srgb, var(--color-status-success) 28%, transparent);
+    border-color: color-mix(in srgb, var(--color-main-brand-secondary) 48%, var(--color-button-border));
+    background-color: color-mix(in srgb, var(--color-main-brand-secondary) 28%, transparent);
 }
 
 .contributionDay[data-intensity="2"] {
-    border-color: color-mix(in srgb, var(--color-status-success) 68%, var(--color-button-border));
-    background-color: color-mix(in srgb, var(--color-status-success) 50%, transparent);
+    border-color: color-mix(in srgb, var(--color-main-brand-secondary) 68%, var(--color-button-border));
+    background-color: color-mix(in srgb, var(--color-main-brand-secondary) 50%, transparent);
 }
 
 .contributionDay[data-intensity="3"] {
-    border-color: color-mix(in srgb, var(--color-status-success) 84%, var(--color-button-border));
-    background-color: color-mix(in srgb, var(--color-status-success) 74%, transparent);
+    border-color: color-mix(in srgb, var(--color-main-brand-secondary) 84%, var(--color-button-border));
+    background-color: color-mix(in srgb, var(--color-main-brand-secondary) 74%, transparent);
 }
 
 .contributionDay[data-intensity="4"] {
-    border-color: var(--color-status-success);
-    background-color: var(--color-status-success);
+    border-color: var(--color-main-brand-secondary);
+    background-color: var(--color-main-brand-secondary);
 }
 
 @media (max-width: 767px) {

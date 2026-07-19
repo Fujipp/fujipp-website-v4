@@ -6,14 +6,14 @@ import {
     WalletTopupPanel,
 } from "@/features/shop/components";
 import { StatusToast } from "@/shared/ui";
-import { PrimaryButton, SecondaryButton } from "@/shared/ui/buttons";
+import { PrimaryButton } from "@/shared/ui/buttons";
 import { AppFooter } from "@/shared/layout";
 import { useUserStore } from "@/stores";
-import { API_BASE_URL, icons } from "@/config";
+import { API_BASE_URL } from "@/config";
 
 const MIN_TOPUP_THB = 50;
-const quickAmounts = [50, 100, 250, 500, 1000] as const;
 const supportedSlipTypes = ["image/png", "image/jpeg", "image/webp"];
+type TopupStep = 1 | 2 | 3;
 
 interface WalletResponse {
     balanceSatang: number;
@@ -51,8 +51,8 @@ const router = useRouter();
 const userStore = useUserStore();
 
 const balanceSatang = ref(0);
-const selectedAmount = ref<number | null>(MIN_TOPUP_THB);
 const customAmount = ref(String(MIN_TOPUP_THB));
+const currentStep = ref<TopupStep>(1);
 const topup = ref<TopupInitResponse | null>(null);
 const slipFile = ref<File | null>(null);
 const dragActive = ref(false);
@@ -256,23 +256,11 @@ async function loadWallet(): Promise<void> {
     }
 }
 
-function selectAmount(amount: number): void {
-    selectedAmount.value = amount;
-    customAmount.value = String(amount);
-    topup.value = null;
-    clearToast();
-}
-
-function handleCustomAmountInput(event: Event): void {
-    const target = event.target as HTMLInputElement;
-    customAmount.value = target.value.replace(/[^\d]/g, "");
-    const numericValue = Number(customAmount.value);
-
-    selectedAmount.value = quickAmounts.includes(numericValue as typeof quickAmounts[number])
-        ? numericValue
-        : null;
+function handleCustomAmountInput(value: string): void {
+    customAmount.value = value.replace(/[^\d]/g, "");
 
     topup.value = null;
+    currentStep.value = 1;
     clearToast();
 }
 
@@ -299,6 +287,7 @@ async function generateQr(): Promise<void> {
         }
 
         topup.value = await response.json() as TopupInitResponse;
+        currentStep.value = 2;
         showToast(
             "success",
             "สร้าง QR Code สำเร็จ",
@@ -315,6 +304,19 @@ async function generateQr(): Promise<void> {
     } finally {
         isGeneratingQr.value = false;
     }
+}
+
+function previousStep(): void {
+    if (currentStep.value === 1) {
+        goBack();
+        return;
+    }
+
+    currentStep.value = (currentStep.value - 1) as TopupStep;
+}
+
+function nextStep(): void {
+    if (currentStep.value === 2) currentStep.value = 3;
 }
 
 function setSlipFile(file: File | null): void {
@@ -376,7 +378,9 @@ async function verifySlip(): Promise<void> {
         showToast("success", "ยืนยันสลิปสำเร็จ", "ระบบเติมเงินเข้ากระเป๋าให้แล้ว");
         slipFile.value = null;
         topup.value = null;
+        currentStep.value = 1;
         await loadWallet();
+        window.dispatchEvent(new Event("fujipp:wallet-balance-changed"));
     } catch (error) {
         showToast(
             "error",
@@ -393,7 +397,7 @@ async function verifySlip(): Promise<void> {
 async function requireSignIn(): Promise<void> {
     if (userStore.isAuthenticated) return;
 
-    await router.push({ name: "login", query: { redirect: "/shop/wallet" } });
+    await router.push({ name: "login", query: { redirect: "/add-credit" } });
 }
 
 function goBack(): void {
@@ -416,37 +420,23 @@ onUnmounted(() => {
     <div :class="$style.shopWallet">
         <main :class="$style.content">
             <section :class="$style.section" aria-labelledby="shop-wallet-title">
-                <div :class="$style.titleRow">
-                    <h1 id="shop-wallet-title" :class="$style.pageTitle">กระเป๋าเงิน</h1>
-                    <SecondaryButton width-mode="hug" :leading-icon="icons.arrowBack" @click="goBack">
-                        กลับ
-                    </SecondaryButton>
-                </div>
+                <h1 id="shop-wallet-title" :class="$style.pageTitle">Credit</h1>
             </section>
 
             <section :class="$style.section" aria-labelledby="shop-wallet-topup-title">
-                <div :class="$style.sectionHeading">
-                    <h2 id="shop-wallet-topup-title" :class="$style.sectionTitle">เติมเครดิต</h2>
-                    <div :class="$style.headingRule" aria-hidden="true" />
-                </div>
-
                 <section v-if="walletError" :class="$style.statePanel" aria-live="polite">
                     <h2 :class="$style.stateTitle">โหลด Wallet ไม่สำเร็จ</h2>
                     <p :class="$style.stateText">{{ walletError }}</p>
                     <PrimaryButton @click="loadWallet">ลองใหม่</PrimaryButton>
                 </section>
 
-                <section :class="$style.walletGrid" aria-label="Wallet top up">
-                    <WalletCreditCard
-                        :class="$style.creditCard"
-                        :balance="walletBalance"
-                        :holder="walletUsername"
-                        :emblem="walletAvatarUrl"
-                    />
+                <section :class="$style.walletFlow" aria-label="Wallet top up">
+                    <WalletCreditCard :class="$style.creditCard" :balance="walletBalance" :holder="walletUsername" :emblem="walletAvatarUrl" />
+
+                    <h2 id="shop-wallet-topup-title" :class="$style.sectionTitle">Top up</h2>
 
                     <WalletTopupPanel
-                        :quick-amounts="quickAmounts"
-                        :selected-amount="selectedAmount"
+                        :step="currentStep"
                         :custom-amount="customAmount"
                         :amount-error="amountError"
                         :qr-image-url="qrImageUrl"
@@ -457,14 +447,21 @@ onUnmounted(() => {
                         :file-name="slipFile?.name"
                         :generating="isGeneratingQr"
                         :verifying="isVerifyingSlip"
+                        @back="previousStep"
+                        @next="nextStep"
                         @drag-active-change="dragActive = $event"
                         @drop-file="handleDrop"
                         @file-change="handleFileChange"
-                        @select-amount="selectAmount"
                         @input-amount="handleCustomAmountInput"
                         @generate="userStore.isAuthenticated ? generateQr() : requireSignIn()"
                         @verify="verifySlip"
                     />
+
+                    <aside :class="$style.instructions">
+                        <strong>Payment Instructions</strong>
+                        <span>1) Open your mobile banking app and scan the generated QR code to make a payment (Account Name: Anawat Grudtoop).</span>
+                        <span>2) Once the transfer is complete, please upload the payment slip to the website.</span>
+                    </aside>
                 </section>
             </section>
 
@@ -530,60 +527,62 @@ onUnmounted(() => {
     width: 100%;
     max-width: var(--container-7xl);
     margin: 0 auto;
-    padding: var(--spacing-space-3) var(--spacing-space-6);
-    gap: var(--spacing-space-4);
+    padding: var(--spacing-space-16) var(--spacing-space-8);
+    gap: var(--spacing-space-8);
 }
 
 .section {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-space-3);
-}
-
-.titleRow {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--spacing-space-4);
+    gap: var(--spacing-space-8);
 }
 
 .pageTitle {
     margin: 0;
     color: var(--color-text-primary);
     font-size: var(--type-size-h1-page-title);
-    font-weight: 600;
+    font-weight: 800;
     line-height: normal;
-}
-
-.sectionHeading {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-space-3);
 }
 
 .sectionTitle {
+    align-self: stretch;
     margin: 0;
     color: var(--color-text-primary);
-    font-size: var(--type-size-h3-card-title);
-    font-weight: 600;
+    font-size: var(--type-size-h2-section-title);
+    font-weight: 800;
     line-height: normal;
 }
 
-.headingRule {
-    height: 1px;
-    flex: 1;
-    background-color: var(--color-main-divider);
-}
-
-.walletGrid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    align-items: start;
-    gap: var(--spacing-space-3);
+.walletFlow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-space-8);
 }
 
 .creditCard {
-    width: min(100%, var(--spacing-space-114));
+    width: min(100%, 472px);
+}
+
+.instructions {
+    display: flex;
+    align-self: stretch;
+    flex-direction: column;
+    padding: var(--spacing-space-3);
+    gap: var(--spacing-space-1);
+    border: 1px solid var(--color-main-divider);
+    border-radius: var(--radius-xl);
+    background-color: var(--color-main-background);
+    color: var(--color-text-primary);
+    font-size: var(--type-size-caption);
+    font-weight: 300;
+    line-height: 1.5;
+}
+
+.instructions strong {
+    font-size: var(--type-size-body-main);
+    font-weight: 600;
 }
 
 .statePanel {
@@ -625,15 +624,7 @@ onUnmounted(() => {
 
 @media (max-width: 760px) {
     .content {
-        padding: var(--spacing-space-3) var(--spacing-space-3) var(--spacing-space-10);
-    }
-
-    .walletGrid {
-        grid-template-columns: minmax(0, 1fr);
-    }
-
-    .titleRow {
-        align-items: flex-start;
+        padding: var(--spacing-space-8) var(--spacing-space-4) var(--spacing-space-10);
     }
 
     .toastRegion {

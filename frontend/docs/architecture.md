@@ -57,7 +57,7 @@ Shared UI lives in `src/shared/ui/<category>/`. Import from the category barrel 
 | `buttons` | `ActionButton`, `ButtonSkeleton`, `FilterButton`, `LanguageToggleButton`, `PrimaryButton`, `SecondaryButton` | General actions, icon buttons, filter triggers, language toggles, loading button placeholders. |
 | `fields` | `DateField`, `SearchField`, `SelectField`, `TextField`, `TextareaField` | Form fields that appear across portfolio, projects, shop, and admin flows. |
 | `inputs` | `CheckboxInput`, `RadioInput`, `StarRating` | Lower-level input controls. |
-| `modals` | `ConfirmModal`, `ReadMoreModal` | Reusable confirmation and read-only long text dialogs. |
+| `modals` | `BaseDialog`, `ConfirmModal`, `PaymentResultDialog`, `ReadMoreModal` | Shared accessible dialog foundation plus reusable confirmation, payment-result, and read-only dialogs. |
 | `paginations` | `TablePagination` | Shared table/card pagination controls. |
 | `sections` | `HeaderSection` | Shared section heading treatment. |
 | `tags` | `CategoryTag`, `StackTag`, `StatusTag` | Project/category/stack/status labels. |
@@ -80,7 +80,7 @@ Shared layout lives in `src/shared/layout/`.
 | --- | --- | --- |
 | `portfolio` | `HomeView`, `AboutView`, `ContactView`, `ChangelogView`, `PerformanceView`, `PrivacyView`, `ComponentView`, `NotFoundView` | `Gallery`, `SkillCard`, `gallery.ts`, `monitoringStore.ts`. |
 | `projects` | `ProjectsView`, `ProjectDetailView`, `NewProjectView` | Project cards, image/gallery modals, project table, editor cards, `projectStore.ts`, `ai.ts`. |
-| `shop` | `ShopDashboardView`, `ShopWalletView`, `ShopPackageView`, `ShopRuntimeView`, `BotConfigView`, `EmbedDesignerView` | Bot cards, runtime cards, wallet/top-up cards, purchase/create dialogs, feature config forms, catalog/config files. |
+| `shop` | `ShopDashboardView`, `MyBotView`, `ShopWalletView`, `ShopPackageView`, `ShopRuntimeView`, `BotConfigView`, `EmbedDesignerView` | Bot management, purchase assignment tables, runtime cards, wallet/top-up cards, dialogs, feature config forms, catalog/config files. |
 | `admin` | `AdminDashboardView`, `AdminUsersView`, `AdminUserDetailView`, `AdminPricingView`, `AdminBotsView`, `AdminBotConfigView`, `AdminVpsView` | `AdminLayout`, user wallet/subscription panels, `adminStore.ts`. |
 | `auth` | `AuthView` | `AuthCard`; user session state is cross-cutting in `src/stores/userStore.ts`. |
 

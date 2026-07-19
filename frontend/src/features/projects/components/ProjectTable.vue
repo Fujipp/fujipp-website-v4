@@ -223,7 +223,7 @@ onUnmounted(() => {
                 </span>
                 <span :class="[$style.textCell, $style.desktopCell]">{{ row.category }}</span>
                 <span :class="$style.statusCell">
-                    <StatusTag :status="row.status" />
+                    <StatusTag table :status="row.status" />
                 </span>
             </button>
 

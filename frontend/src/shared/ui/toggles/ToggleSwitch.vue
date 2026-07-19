@@ -54,11 +54,12 @@ function toggle(): void {
 }
 
 .toggleSwitch:hover:not(:disabled):not(.on) {
-    background: color-mix(in srgb, var(--color-button-secondary) 24%, transparent);
+    border-color: var(--color-main-brand-secondary);
+    background: color-mix(in srgb, var(--color-main-brand-secondary) 18%, transparent);
 }
 
 .toggleSwitch:focus-visible {
-    outline: 2px solid var(--color-main-primary);
+    outline: 2px solid var(--color-main-brand-secondary);
     outline-offset: 2px;
 }
 
@@ -68,7 +69,8 @@ function toggle(): void {
 }
 
 .toggleSwitch.on {
-    background: var(--color-button-text);
+    border-color: var(--color-main-brand-secondary);
+    background: var(--color-main-brand-secondary);
 }
 
 .knob {
@@ -89,5 +91,7 @@ function toggle(): void {
 
 .on .knob {
     left: calc(100% - 24px);
+    border-color: var(--color-button-text-secondary);
+    background: var(--color-button-text-secondary);
 }
 </style>

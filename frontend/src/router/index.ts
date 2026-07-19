@@ -11,13 +11,14 @@ declare module 'vue-router' {
 }
 
 // Views are lazy-loaded so each route ships as its own chunk (smaller initial bundle).
-const HomeView = () => import('@/features/portfolio/views/HomeView.vue')
+const RootView = () => import('@/RootView.vue')
 const ComponentView = () => import('@/features/portfolio/views/ComponentView.vue')
 const AboutView = () => import('@/features/portfolio/views/AboutView.vue')
 const ContactView = () => import('@/features/portfolio/views/ContactView.vue')
 const ChangelogView = () => import('@/features/portfolio/views/ChangelogView.vue')
 const PerformanceView = () => import('@/features/portfolio/views/PerformanceView.vue')
 const PrivacyView = () => import('@/features/portfolio/views/PrivacyView.vue')
+const TermsView = () => import('@/features/portfolio/views/TermsView.vue')
 const NotFoundView = () => import('@/features/portfolio/views/NotFoundView.vue')
 const ProjectsView = () => import('@/features/projects/views/ProjectsView.vue')
 const ProjectDetailView = () => import('@/features/projects/views/ProjectDetailView.vue')
@@ -26,6 +27,7 @@ const ShopDashboardView = () => import('@/features/shop/views/ShopDashboardView.
 const ShopWalletView = () => import('@/features/shop/views/ShopWalletView.vue')
 const ShopPackageView = () => import('@/features/shop/views/ShopPackageView.vue')
 const ShopRuntimeView = () => import('@/features/shop/views/ShopRuntimeView.vue')
+const MyBotView = () => import('@/features/shop/views/MyBotView.vue')
 const ShopMaintenanceView = () => import('@/features/shop/views/ShopGuideView.vue')
 const BotConfigView = () => import('@/features/shop/views/BotConfigView.vue')
 const EmbedDesignerView = () => import('@/features/shop/views/EmbedDesignerView.vue')
@@ -67,7 +69,7 @@ const router = createRouter({
     return savedPosition ?? { top: 0, left: 0 }
   },
   routes: [
-    { path: '/',            name: 'home',        component: HomeView },
+    { path: '/',            name: 'home',        component: RootView },
     { path: '/components',  name: 'components',  component: ComponentView },
     { path: '/projects',    name: 'projects',    component: ProjectsView },
     { path: '/projects/inline/new', name: 'project-inline-new', component: ProjectDetailView, meta: { requiresAuth: true, requiresAdmin: true } },
@@ -79,20 +81,42 @@ const router = createRouter({
     { path: '/changelog',   name: 'changelog',   component: ChangelogView },
     { path: '/performance', name: 'performance', component: PerformanceView },
     { path: '/privacy',     name: 'privacy',     component: PrivacyView },
+    { path: '/terms',       name: 'terms',       component: TermsView },
 
-    // Shop routes
-    { path: '/shop', name: 'shop-dashboard', component: ShopDashboardView, meta: { requiresAuth: true } },
-    { path: '/shop/wallet', name: 'shop-wallet', component: ShopWalletView, meta: { requiresAuth: true } },
-    { path: '/shop/package', name: 'shop-package', component: ShopPackageView, meta: { requiresAuth: true } },
-    { path: '/shop/runtime', name: 'shop-runtime', component: ShopRuntimeView, meta: { requiresAuth: true } },
+    // Store routes
+    { path: '/store', name: 'shop-dashboard', component: ShopDashboardView, meta: { requiresAuth: true } },
+    { path: '/store/packages', name: 'shop-package', component: ShopPackageView, meta: { requiresAuth: true } },
+    { path: '/store/runtime', name: 'shop-runtime', component: ShopRuntimeView, meta: { requiresAuth: true } },
+
+    // Shop account and bot-management routes
+    { path: '/add-credit', name: 'shop-wallet', component: ShopWalletView, meta: { requiresAuth: true } },
+    { path: '/my-bot', name: 'my-bot', component: MyBotView, meta: { requiresAuth: true } },
     { path: '/shop/maintenance', name: 'shop-maintenance', component: ShopMaintenanceView, meta: { requiresAuth: true } },
     { path: '/shop/guide', redirect: { name: 'shop-maintenance' } },
     { path: '/shop/bots/:botId/config', name: 'shop-bot-config', component: BotConfigView, meta: { requiresAuth: true } },
+    { path: '/shop/bots/:botId/config/bot-config', name: 'shop-bot-config-detail', component: BotConfigView, meta: { requiresAuth: true } },
+    { path: '/shop/bots/:botId/config/runtime-setting', name: 'shop-bot-runtime-setting', component: BotConfigView, meta: { requiresAuth: true } },
+    { path: '/shop/bots/:botId/config/package-setting', name: 'shop-bot-package-setting', component: BotConfigView, meta: { requiresAuth: true } },
+    { path: '/shop/bots/:botId/config/core-features', name: 'shop-bot-core-features', component: BotConfigView, meta: { requiresAuth: true } },
+    { path: '/shop/bots/:botId/config/core-features/:featureCode', name: 'shop-bot-core-feature', component: BotConfigView, meta: { requiresAuth: true } },
+    { path: '/shop/bots/:botId/config/package-setting/:featureCode/embed-setting', name: 'shop-bot-embed-setting', component: BotConfigView, meta: { requiresAuth: true } },
+    { path: '/shop/bots/:botId/config/package-setting/:featureCode', name: 'shop-bot-package-feature', component: BotConfigView, meta: { requiresAuth: true } },
     { path: '/shop/bots/:botId/embeds', name: 'shop-bot-embeds', component: EmbedDesignerView, meta: { requiresAuth: true } },
+
+    // Legacy Store URLs keep existing bookmarks working.
+    { path: '/shop', redirect: { name: 'shop-dashboard' } },
+    { path: '/shop/add-credit', redirect: { name: 'shop-wallet' } },
+    { path: '/shop/wallet', redirect: { name: 'shop-wallet' } },
+    { path: '/shop/package', redirect: { name: 'shop-package' } },
+    { path: '/shop/runtime', redirect: { name: 'shop-runtime' } },
 
     // Admin routes live inside the shop section because they operate the shop.
     { path: '/shop/admin', name: 'admin-dashboard', component: AdminDashboardView, meta: { requiresAuth: true, requiresAdmin: true } },
     { path: '/shop/admin/users', name: 'admin-users', component: AdminUsersView, meta: { requiresAuth: true, requiresAdmin: true } },
+    { path: '/shop/admin/users/:userId/user-setting', name: 'admin-user-setting', component: AdminUserDetailView, meta: { requiresAuth: true, requiresAdmin: true } },
+    { path: '/shop/admin/users/:userId/wallet-setting', name: 'admin-user-wallet-setting', component: AdminUserDetailView, meta: { requiresAuth: true, requiresAdmin: true } },
+    { path: '/shop/admin/users/:userId/runtime-setting', name: 'admin-user-runtime-setting', component: AdminUserDetailView, meta: { requiresAuth: true, requiresAdmin: true } },
+    { path: '/shop/admin/users/:userId/package-setting', name: 'admin-user-package-setting', component: AdminUserDetailView, meta: { requiresAuth: true, requiresAdmin: true } },
     { path: '/shop/admin/users/:userId', name: 'admin-user-detail', component: AdminUserDetailView, meta: { requiresAuth: true, requiresAdmin: true } },
     { path: '/shop/admin/pricing', name: 'admin-pricing', component: AdminPricingView, meta: { requiresAuth: true, requiresAdmin: true } },
     { path: '/shop/admin/bots', name: 'admin-bots', component: AdminBotsView, meta: { requiresAuth: true, requiresAdmin: true } },
@@ -103,6 +127,10 @@ const router = createRouter({
     { path: '/admin', redirect: { name: 'admin-dashboard' } },
     { path: '/admin/users', redirect: { name: 'admin-users' } },
     { path: '/admin/users/:userId', redirect: to => ({ name: 'admin-user-detail', params: to.params }) },
+    { path: '/admin/users/:userId/user-setting', redirect: to => ({ name: 'admin-user-setting', params: to.params }) },
+    { path: '/admin/users/:userId/wallet-setting', redirect: to => ({ name: 'admin-user-wallet-setting', params: to.params }) },
+    { path: '/admin/users/:userId/runtime-setting', redirect: to => ({ name: 'admin-user-runtime-setting', params: to.params }) },
+    { path: '/admin/users/:userId/package-setting', redirect: to => ({ name: 'admin-user-package-setting', params: to.params }) },
     { path: '/admin/pricing', redirect: { name: 'admin-pricing' } },
     { path: '/admin/bots', redirect: { name: 'admin-bots' } },
     { path: '/admin/bots/:botId/config', redirect: to => ({ name: 'admin-bot-config', params: to.params }) },
@@ -131,15 +159,6 @@ router.beforeEach(async (to) => {
 
   if (to.meta.requiresAdmin && !store.isAdmin) {
     return { name: 'projects' }
-  }
-
-  const isUnavailableShopRoute = to.path.startsWith('/shop')
-    && to.name !== 'shop-wallet'
-    && to.name !== 'shop-maintenance'
-    && !to.meta.requiresAdmin
-
-  if (store.isAuthenticated && (to.name === 'home' || isUnavailableShopRoute)) {
-    return { name: 'shop-maintenance' }
   }
 
   if (to.meta.guestOnly && store.isAuthenticated) {

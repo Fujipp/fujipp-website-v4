@@ -10,7 +10,7 @@ interface Props {
     name?: string;
     placeholder?: string;
     supportText?: string;
-    type?: "month" | "number" | "password" | "text" | "url";
+    type?: "month" | "number" | "password" | "text" | "time" | "url";
     unit?: string;
     icon?: string;
     ariaLabel?: string;
@@ -171,9 +171,7 @@ function openPickerOnClick(event: MouseEvent): void {
     background: none;
     padding: 0;
     color: var(--color-text-input);
-    /* Fields keep a light surface in dark theme; without this Chrome draws
-       native pickers (e.g. the month calendar icon) white-on-white. */
-    color-scheme: light;
+    color-scheme: inherit;
 }
 
 .input[type="month"] {

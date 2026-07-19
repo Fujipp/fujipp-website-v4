@@ -16,7 +16,7 @@ interface Props {
     imageLoading?: "eager" | "lazy";
     mode?: "loaded" | "skeleton" | "add";
     projectName: string;
-    size?: "large" | "small";
+    size?: "large" | "showcase" | "small";
     stackGroups?: readonly StackGroup[];
     techStack?: ProjectTechStack;
     thumbnailAlt?: string;
@@ -81,7 +81,7 @@ watch(
     <article
         :class="[
             $style.projectFeatured,
-            size === 'large' ? $style.large : $style.small,
+            size === 'showcase' ? $style.showcase : size === 'large' ? $style.large : $style.small,
             mode === 'add' ? $style.addCard : '',
         ]"
     >
@@ -178,6 +178,25 @@ watch(
 .large {
     width: min(352px, 92vw);
     height: 496px;
+}
+
+.showcase {
+    width: 100%;
+    height: 580px;
+    padding: var(--spacing-space-4);
+    gap: var(--spacing-space-3);
+    border: 0;
+    box-shadow: 0 14px 36px rgb(0 0 0 / 10%);
+}
+
+.showcase .title {
+    font-size: clamp(26px, 2.3vw, 38px);
+}
+
+@media (max-width: 767px) {
+    .showcase {
+        height: 500px;
+    }
 }
 
 .thumbnail {

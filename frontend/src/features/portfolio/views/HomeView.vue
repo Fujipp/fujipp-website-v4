@@ -7,17 +7,20 @@ import { PrimaryButton } from "@/shared/ui/buttons";
 <template>
     <main :class="$style.home">
         <section :class="$style.hero" aria-labelledby="home-hero-title">
-            <div :class="$style.leftside">
-                <p :class="$style.kicker">Hello welcome to my platform</p>
-                <h1 id="home-hero-title" :class="$style.headline">FUJIPP</h1>
+            <div :class="$style.heroContent">
+                <p :class="$style.kicker">Hello, welcome to my platform</p>
+                <h1 id="home-hero-title" :class="$style.headline">
+                    Building ideas into
+                    <span :class="$style.headlineAccent">real experiences.</span>
+                </h1>
+                <p :class="$style.heroBody">
+                    A personal platform for thoughtful software, practical projects,
+                    and Discord bot services built to run reliably.
+                </p>
             </div>
-            <img
-                :class="$style.heroImage"
-                src="/images/users/fujipp/mascot-home-nobg.png"
-                alt=""
-                aria-hidden="true"
-                draggable="false"
-            >
+            <div :class="$style.heroOrbit" aria-hidden="true">
+                <span :class="$style.heroOrbitCore" />
+            </div>
         </section>
 
         <section :class="$style.problemSolution" aria-labelledby="home-problem-title">
@@ -163,45 +166,94 @@ import { PrimaryButton } from "@/shared/ui/buttons";
 }
 
 .hero {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
-    flex: 1;
     box-sizing: border-box;
     width: 100%;
-    gap: var(--spacing-space-4);
-    padding: 0 var(--spacing-space-4);
-    font-family: var(--font-rammetto-one);
+    min-height: calc(100dvh - 73px);
+    padding: var(--spacing-space-16) var(--spacing-space-4);
+    isolation: isolate;
+    background: var(--color-main-background);
     text-align: left;
+    overflow: hidden;
 }
 
-.leftside {
+.heroContent {
+    position: relative;
+    z-index: 1;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     justify-content: center;
+    width: min(100%, 1024px);
+    gap: var(--spacing-space-4);
 }
 
 .kicker {
     margin: 0;
-    font-size: 32px;
-    font-weight: 400;
+    color: var(--color-main-brand-secondary);
+    font-family: var(--font-sans);
+    font-size: var(--type-size-overline);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
 }
 
 .headline {
-    align-self: stretch;
+    max-width: 760px;
     margin: 0;
-    font-size: 128px;
+    font-family: var(--font-sans);
+    font-size: clamp(3rem, 7vw, 6.5rem);
+    font-weight: 800;
+    line-height: 0.95;
+    letter-spacing: -0.05em;
+}
+
+.headlineAccent {
+    display: block;
+    color: var(--color-main-brand-secondary);
+}
+
+.heroBody {
+    max-width: 580px;
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-family: var(--font-sans);
+    font-size: var(--type-size-body-main);
     font-weight: 400;
 }
 
-.heroImage {
-    width: 480px;
-    height: 632px;
-    object-fit: cover;
-    user-select: none;
-    -webkit-user-drag: none;
+.heroOrbit {
+    position: absolute;
+    z-index: -1;
+    top: 50%;
+    right: -24rem;
+    width: 48rem;
+    height: 48rem;
+    border-radius: var(--radius-full);
+    background: conic-gradient(
+        from 0deg,
+        var(--color-main-brand-primary) 0 50%,
+        var(--color-main-brand-secondary) 50% 100%
+    );
+    transform: translateY(-50%);
+    animation: hero-orbit-spin 28s linear infinite;
     pointer-events: none;
+}
+
+.heroOrbitCore {
+    position: absolute;
+    inset: 18%;
+    border-radius: inherit;
+    background: var(--color-main-background);
+}
+
+@keyframes hero-orbit-spin {
+    to {
+        transform: translateY(-50%) rotate(1turn);
+    }
 }
 
 .problemSolution {
@@ -327,6 +379,7 @@ import { PrimaryButton } from "@/shared/ui/buttons";
 }
 
 @media (prefers-reduced-motion: reduce) {
+    .heroOrbit,
     .ghostTop,
     .ghostBottom,
     .ghostTopLeft,
@@ -484,20 +537,29 @@ import { PrimaryButton } from "@/shared/ui/buttons";
 
 @media (max-width: 767px) {
     .hero {
-        padding: 0 var(--spacing-space-8);
-        text-align: center;
+        min-height: calc(100svh - 55px);
+        padding: var(--spacing-space-16) var(--spacing-space-8);
+        text-align: left;
     }
 
-    .kicker {
-        font-size: 16px;
+    .heroContent {
+        gap: var(--spacing-space-3);
     }
 
     .headline {
-        font-size: 64px;
+        max-width: 20rem;
+        font-size: clamp(2.75rem, 15vw, 4.5rem);
     }
 
-    .heroImage {
-        display: none;
+    .heroBody {
+        max-width: 22rem;
+    }
+
+    .heroOrbit {
+        right: -21rem;
+        width: 34rem;
+        height: 34rem;
+        opacity: 0.72;
     }
 
     .problemSolution {

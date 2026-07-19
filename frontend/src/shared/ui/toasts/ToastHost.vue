@@ -32,14 +32,14 @@ const { toasts } = storeToRefs(toastStore);
 <style module>
 .toastHost {
     position: fixed;
-    right: 16px;
-    bottom: 16px;
+    right: var(--spacing-space-4);
+    bottom: var(--spacing-space-4);
     z-index: 90;
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
-    width: min(calc(100vw - 32px), 380px);
-    gap: 8px;
+    width: min(calc(100vw - var(--spacing-space-8)), 400px);
+    gap: var(--spacing-space-3);
     pointer-events: none;
 }
 
@@ -48,7 +48,8 @@ const { toasts } = storeToRefs(toastStore);
 }
 
 .slideActive {
-    transition: opacity 300ms ease-in-out, transform 300ms ease-in-out;
+    transform-origin: bottom right;
+    transition: opacity 240ms ease, transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 /* Leaving toasts drop out of the flow (keeping their spot) so the rest settle smoothly. */
@@ -60,10 +61,25 @@ const { toasts } = storeToRefs(toastStore);
 
 .slideHidden {
     opacity: 0;
-    transform: translateX(calc(100% + 16px));
+    transform: translateY(var(--spacing-space-3)) scale(0.97);
 }
 
 .slideMove {
-    transition: transform 300ms ease-in-out;
+    transition: transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@media (max-width: 520px) {
+    .toastHost {
+        right: var(--spacing-space-3);
+        bottom: var(--spacing-space-3);
+        width: calc(100vw - var(--spacing-space-6));
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .slideActive,
+    .slideMove {
+        transition: none;
+    }
 }
 </style>

@@ -66,7 +66,7 @@ function onChange(): void {
     width: 37.5%;
     height: 37.5%;
     border-radius: var(--radius-full);
-    background: var(--color-button-secondary);
+    background: var(--color-button-text-secondary);
     opacity: 0;
     transform: scale(0.6);
     transition:
@@ -75,11 +75,12 @@ function onChange(): void {
 }
 
 .radioInput:hover:not(:disabled) {
-    border-color: color-mix(in srgb, var(--color-button-border) 70%, var(--color-button-text));
+    border-color: var(--color-main-brand-secondary);
 }
 
 .radioInput:checked {
-    background: var(--color-button-text);
+    border-color: var(--color-main-brand-secondary);
+    background: var(--color-main-brand-secondary);
 }
 
 .radioInput:checked::after {
@@ -88,7 +89,7 @@ function onChange(): void {
 }
 
 .radioInput:focus-visible {
-    outline: 2px solid var(--color-main-primary);
+    outline: 2px solid var(--color-main-brand-secondary);
     outline-offset: 2px;
 }
 

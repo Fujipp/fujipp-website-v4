@@ -17,7 +17,7 @@ interface Props {
     options: readonly SelectFieldOption[];
     placeholder?: string;
     supportText?: string;
-    /** @deprecated Fields keep the light input tokens in every theme now; the prop is ignored. */
+    /** @deprecated Field colors now follow the active semantic theme; the prop is ignored. */
     tone?: "light" | "dark";
 }
 

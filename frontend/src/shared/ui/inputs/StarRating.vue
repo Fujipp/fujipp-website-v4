@@ -101,7 +101,7 @@ function selectRating(star: number): void {
 }
 
 .star.filled {
-    color: var(--color-status-warning);
+    color: var(--color-main-brand-secondary);
 }
 
 .star.filled svg {
@@ -124,7 +124,7 @@ function selectRating(star: number): void {
 }
 
 .starButton:focus-visible {
-    outline: 2px solid var(--color-main-primary);
+    outline: 2px solid var(--color-main-brand-secondary);
     outline-offset: 2px;
     border-radius: var(--radius-base);
 }

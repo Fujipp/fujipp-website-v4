@@ -32,29 +32,54 @@ html {
   background-color: var(--color-main-primary);
 }
 
-/* Smooth light↔dark switching. themeStore adds `theme-anim` to <html> only for the
-   duration of a deliberate toggle (then removes it), so the initial paint never
-   cross-fades and normal hover transitions are untouched the rest of the time.
-   Unlayered + !important so it overrides each component's own `transition` (many omit
-   `color`, which is what made some text snap/flicker instead of fading). */
-/* The <html> element itself is deliberately excluded: it owns the document scrollbar,
-   and animating its colors makes Chrome repaint the custom scrollbar every frame (flicker). */
-.theme-anim body,
-.theme-anim body *,
-.theme-anim body *::before,
-.theme-anim body *::after {
-  transition:
-    background-color 220ms ease,
-    border-color 220ms ease,
-    color 220ms ease,
-    fill 220ms ease !important;
+/* Theme tokens switch in one frame. This temporary class overrides component-level
+   color transitions only while themeStore applies the new mode, so hover and other
+   interaction transitions remain available immediately afterwards. */
+.theme-switching,
+.theme-switching body,
+.theme-switching body *,
+.theme-switching body *::before,
+.theme-switching body *::after {
+  transition: none !important;
+}
+
+/* The quick Theme control reveals the new mode from the control itself. Named
+   page transitions are temporarily folded into the root snapshot so the reveal
+   behaves as one continuous drop across the complete viewport. */
+.theme-reveal * {
+  view-transition-name: none !important;
+}
+
+html.theme-reveal::view-transition-old(root),
+html.theme-reveal::view-transition-new(root) {
+  animation-duration: 520ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  mix-blend-mode: normal;
+}
+
+html.theme-reveal::view-transition-old(root) {
+  z-index: 1;
+  animation: none;
+}
+
+html.theme-reveal::view-transition-new(root) {
+  z-index: 2;
+  animation-name: theme-drop-reveal;
+}
+
+@keyframes theme-drop-reveal {
+  from {
+    clip-path: circle(0 at var(--theme-reveal-x) var(--theme-reveal-y));
+  }
+
+  to {
+    clip-path: circle(var(--theme-reveal-radius) at var(--theme-reveal-x) var(--theme-reveal-y));
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .theme-anim body,
-  .theme-anim body *,
-  .theme-anim body *::before,
-  .theme-anim body *::after {
-    transition: none !important;
+  html.theme-reveal::view-transition-old(root),
+  html.theme-reveal::view-transition-new(root) {
+    animation: none;
   }
 }

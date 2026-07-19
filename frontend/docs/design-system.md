@@ -37,6 +37,7 @@ Colors are semantic tokens imported from Figma's `Colors` variable collection. U
 | Purpose | Utility Examples |
 | --- | --- |
 | Primary/background surfaces | `bg-main-primary`, `bg-main-background`, `bg-main-surface` |
+| Brand colors | `bg-main-brand-primary`, `bg-main-brand-secondary` |
 | Borders/dividers | `border-main-border`, `border-main-divider` |
 | Primary and secondary text | `text-text-primary-text`, `text-text-secondary-text` |
 | Muted/disabled/input text | `text-text-muted`, `text-text-disabled`, `text-text-input` |

@@ -1,6 +1,6 @@
 export { ButtonSkeleton, PrimaryButton, SecondaryButton } from "./buttons";
 export { HeaderSection } from "./sections";
-export { ConfirmModal, ReadMoreModal } from "./modals";
+export { ConfirmModal, PaymentResultDialog, ReadMoreModal } from "./modals";
 export { CategoryTag, StackTag, StatusTag } from "./tags";
 export type { StatusTagValue } from "./tags";
 export { StatusToast } from "./toasts";

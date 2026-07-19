@@ -129,7 +129,7 @@ function openPicker(): void {
     background: none;
     padding: 0;
     color: var(--color-text-input);
-    color-scheme: light;
+    color-scheme: inherit;
 }
 
 /* Empty value shows the format hint in placeholder gray, like the Figma "--------- ----". */

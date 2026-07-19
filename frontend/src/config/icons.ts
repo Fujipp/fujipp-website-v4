@@ -10,6 +10,7 @@ export const icons = {
   filter: "/icons/action/filter.svg",
   link: "/icons/action/link.svg",
   mailSend: "/icons/action/mail-send.svg",
+  not: "/icons/action/not.svg",
   pause: "/icons/action/pause.svg",
   play: "/icons/action/play.svg",
   restart: "/icons/action/restart.svg",

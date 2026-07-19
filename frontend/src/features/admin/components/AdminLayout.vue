@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { RouterLink, useRoute } from "vue-router";
-import { adminNavItems } from "@/features/admin/config";
 import { AppFooter } from "@/shared/layout";
 
 interface Props {
@@ -9,39 +7,15 @@ interface Props {
 }
 
 defineProps<Props>();
-
-const route = useRoute();
-
-function isActive(name: unknown): boolean {
-    return typeof name === "object" && name !== null && "name" in name
-        ? route.name === (name as { name: string }).name
-        : false;
-}
 </script>
 
 <template>
     <div :class="$style.shell" class="fp-admin">
         <main :class="$style.content">
             <header :class="$style.pageHeader">
-                <div :class="$style.titleGroup">
-                    <span class="type-overline-sb" :class="$style.kicker">Shop Admin</span>
-                    <h1 :class="$style.pageTitle" class="type-h2-section-title-sb">{{ title }}</h1>
-                </div>
+                <h1 :class="$style.pageTitle" class="type-h2-section-title-sb">{{ title }}</h1>
                 <slot name="actions" />
             </header>
-
-            <nav :class="$style.adminTabs" aria-label="Shop admin navigation">
-                <RouterLink
-                    v-for="item in adminNavItems"
-                    :key="item.label"
-                    :to="item.to"
-                    :class="[$style.adminTab, isActive(item.to) ? $style.adminTabActive : '']"
-                    :aria-current="isActive(item.to) ? 'page' : undefined"
-                >
-                    <span :class="$style.tabIcon" :style="{ '--admin-tab-icon': `url(${item.icon})` }" aria-hidden="true"></span>
-                    <span class="type-button-sb">{{ item.label }}</span>
-                </RouterLink>
-            </nav>
 
             <slot />
         </main>
@@ -116,73 +90,9 @@ function isActive(name: unknown): boolean {
     border-bottom: 1px solid var(--color-main-divider);
 }
 
-.titleGroup {
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
-    gap: var(--spacing-space-1);
-}
-
-.kicker {
-    color: var(--color-text-secondary);
-    text-transform: uppercase;
-}
-
 .pageTitle {
     margin: 0;
     color: var(--color-text-primary);
-}
-
-.adminTabs {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: var(--spacing-space-3);
-    padding: var(--spacing-space-2);
-    border: 1px solid var(--color-main-divider);
-    border-radius: var(--radius-2xl);
-    background-color: var(--color-main-background);
-    color: var(--color-text-secondary);
-    transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease;
-}
-
-.adminTab {
-    display: inline-flex;
-    align-items: center;
-    min-height: var(--spacing-space-10);
-    gap: var(--spacing-space-2);
-    padding: 0 var(--spacing-space-4);
-    border: 1px solid transparent;
-    border-radius: var(--radius-lg);
-    color: var(--color-text-secondary);
-    text-decoration: none;
-    transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
-}
-
-.adminTab:hover {
-    background-color: var(--color-button-secondary);
-    color: var(--color-text-primary);
-}
-
-.adminTabActive {
-    border-color: var(--color-button-border);
-    background-color: var(--color-button-secondary);
-    color: var(--color-text-primary);
-}
-
-.adminTab:focus-visible {
-    outline: 2px solid var(--color-main-primary);
-    outline-offset: 2px;
-}
-
-.tabIcon {
-    display: inline-block;
-    width: var(--spacing-icon-sm);
-    height: var(--spacing-icon-sm);
-    flex-shrink: 0;
-    background-color: currentColor;
-    mask: var(--admin-tab-icon) center / contain no-repeat;
-    -webkit-mask: var(--admin-tab-icon) center / contain no-repeat;
 }
 
 .footer {
@@ -194,14 +104,6 @@ function isActive(name: unknown): boolean {
         padding: var(--spacing-space-20) var(--spacing-space-3) var(--spacing-space-8);
     }
 
-    .adminTabs {
-        align-items: stretch;
-    }
-
-    .adminTab {
-        flex: 1 1 calc(50% - var(--spacing-space-3));
-        justify-content: center;
-    }
 }
 </style>
 

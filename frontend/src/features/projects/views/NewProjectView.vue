@@ -616,7 +616,7 @@ onUnmounted(() => {
                     <PrimaryButton
                         v-if="isMobile"
                         width-mode="hug"
-                        :leading-icon="icons.arrowBack"
+                        :leading-icon="icons.directionLeft"
                         to="/projects"
                         aria-label="Back to projects"
                     />
@@ -624,7 +624,7 @@ onUnmounted(() => {
                         v-else
                         :class="$style.backButton"
                         width-mode="hug"
-                        :leading-icon="icons.arrowBack"
+                        :leading-icon="icons.directionLeft"
                         to="/projects"
                     >
                         Back to projects

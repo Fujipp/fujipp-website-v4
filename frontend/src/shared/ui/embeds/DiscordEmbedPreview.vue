@@ -47,26 +47,26 @@ export interface PreviewRole {
  */
 export const SLOT_ROLES: Record<string, PreviewRole[]> = {
     shop_panel: [
-        { key: "group_select", label: "เมนูเลือกกลุ่ม", type: "select", fallback: "เลือกกลุ่มที่ต้องการซื้อ" },
-        { key: "btn_topup", label: "ปุ่ม เติมเงิน", type: "button", fallback: "เติมเงิน", style: "primary" },
-        { key: "btn_balance", label: "ปุ่ม เช็คยอด", type: "button", fallback: "เช็คยอดคงเหลือ", style: "secondary" },
-        { key: "btn_link", label: "ปุ่ม ลิงก์กลุ่ม", type: "link", fallback: "ลิงก์กลุ่ม" },
+        { key: "group_select", label: "Group selector", type: "select", fallback: "เลือกกลุ่มที่ต้องการซื้อ" },
+        { key: "btn_topup", label: "Top-up button", type: "button", fallback: "เติมเงิน", style: "primary" },
+        { key: "btn_balance", label: "Balance button", type: "button", fallback: "เช็คยอดคงเหลือ", style: "secondary" },
+        { key: "btn_link", label: "Group link button", type: "link", fallback: "ลิงก์กลุ่ม" },
     ],
     topup_method: [
-        { key: "btn_promptpay", label: "ปุ่ม พร้อมเพย์", type: "button", fallback: "พร้อมเพย์ธนาคาร", emoji: "🏧", style: "primary" },
-        { key: "btn_truemoney", label: "ปุ่ม ทรูมันนี่", type: "button", fallback: "ซองอั่งเปาทรูมันนี่", emoji: "🧧", style: "success" },
+        { key: "btn_promptpay", label: "PromptPay button", type: "button", fallback: "พร้อมเพย์ธนาคาร", emoji: "🏧", style: "primary" },
+        { key: "btn_truemoney", label: "TrueMoney button", type: "button", fallback: "ซองอั่งเปาทรูมันนี่", emoji: "🧧", style: "success" },
     ],
     topup_panel: [
-        { key: "btn_topup", label: "ปุ่ม เติมเงิน", type: "button", fallback: "เติมเงิน", emoji: "💰", style: "primary" },
+        { key: "btn_topup", label: "Top-up button", type: "button", fallback: "เติมเงิน", emoji: "💰", style: "primary" },
     ],
     buy_eligible: [
-        { key: "pkg_select", label: "เมนูเลือกแพ็กเกจ", type: "select", fallback: "🎮 เลือก Robux Package" },
+        { key: "pkg_select", label: "Package selector", type: "select", fallback: "🎮 เลือก Robux Package" },
     ],
     // Price Board: the parent board exposes one editable button per category
     // (btn_cat1..8); a category stays hidden until its button has a label.
     price_board: Array.from({ length: 8 }, (_, i) => ({
         key: `btn_cat${i + 1}`,
-        label: `ปุ่ม หมวด ${i + 1}`,
+        label: `Category ${i + 1} button`,
         type: "button",
         fallback: `หมวด ${i + 1}`,
         style: "primary",
@@ -76,7 +76,7 @@ export const SLOT_ROLES: Record<string, PreviewRole[]> = {
     ...Object.fromEntries(
         Array.from({ length: 8 }, (_, i) => [
             `price_cat${i + 1}`,
-            [{ key: "btn_buy", label: "ปุ่ม ห้องสั่งซื้อ", type: "link", fallback: "ห้องสั่งซื้อสินค้า" }] as PreviewRole[],
+            [{ key: "btn_buy", label: "Order channel button", type: "link", fallback: "ห้องสั่งซื้อสินค้า" }] as PreviewRole[],
         ]),
     ),
 };

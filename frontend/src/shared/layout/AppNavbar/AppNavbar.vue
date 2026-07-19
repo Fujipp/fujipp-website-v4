@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useI18n } from "vue-i18n";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import {
     API_BASE_URL,
     authenticatedNavbarLinks,
@@ -15,11 +15,25 @@ import { saveLocale, type SupportedLocale } from "@/i18n";
 import { useThemeStore, useUserStore } from "@/stores";
 import { AuthCard } from "@/features/auth/components";
 import { SecondaryButton } from "@/shared/ui/buttons";
+import { ToggleSwitch } from "@/shared/ui/toggles";
+
+interface Props {
+    adminToolsEnabled?: boolean;
+}
+
+withDefaults(defineProps<Props>(), {
+    adminToolsEnabled: true,
+});
+
+const emit = defineEmits<{
+    "update:adminToolsEnabled": [value: boolean];
+}>();
 
 type AuthMode = "login" | "register";
 type OAuthProvider = "google" | "discord" | "github";
 
 const route = useRoute();
+const router = useRouter();
 const userStore = useUserStore();
 const themeStore = useThemeStore();
 const { selectedTheme } = storeToRefs(themeStore);
@@ -27,6 +41,7 @@ const { locale } = useI18n();
 
 const isMenuOpen = ref(false);
 const isProfileOpen = ref(false);
+const isScrolled = ref(false);
 const authMode = ref<AuthMode | null>(null);
 const profileMenu = ref<HTMLElement | null>(null);
 const walletBalanceSatang = ref(0);
@@ -35,7 +50,13 @@ const password = ref("");
 const confirmPassword = ref("");
 const agreementAccepted = ref(false);
 const passwordMismatch = ref(false);
+const sheetDragY = ref(0);
+const isDraggingSheet = ref(false);
+let sheetPointerId: number | null = null;
+let sheetDragStartY = 0;
+let sheetDragStartedAt = 0;
 const CREDENTIALS_ENABLED = false as const;
+const WALLET_BALANCE_CHANGED_EVENT = "fujipp:wallet-balance-changed";
 
 const isAuthenticated = computed(() => userStore.isAuthenticated);
 const navigationLinks = computed(() => (
@@ -54,16 +75,55 @@ const formattedCredit = computed(() => (
     `${(walletBalanceSatang.value / 100).toLocaleString("en-US", {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
-    })} credit`
+    })} THB`
 ));
-const accountPath = computed(() => userStore.isAdmin ? "/shop/admin" : "/shop");
+const accountPath = computed(() => userStore.isAdmin ? "/shop/admin" : "/store");
 const currentLocale = computed<SupportedLocale>(() => locale.value === "th" ? "th" : "en");
 const authError = computed(() => passwordMismatch.value ? "Passwords do not match" : userStore.error ?? "");
+const quickThemeIcon = computed(() => (
+    ThemeApp.find((theme) => theme.mode === selectedTheme.value)?.src ?? icons.modeSystem
+));
 
 function closeOverlays(): void {
     isMenuOpen.value = false;
     isProfileOpen.value = false;
     authMode.value = null;
+}
+
+function startSheetDrag(event: PointerEvent): void {
+    if (window.innerWidth > 767 || !event.isPrimary) return;
+    if (!(event.target as HTMLElement).closest("[data-sheet-handle]")) return;
+
+    sheetPointerId = event.pointerId;
+    sheetDragStartY = event.clientY;
+    sheetDragStartedAt = performance.now();
+    sheetDragY.value = 0;
+    isDraggingSheet.value = true;
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+}
+
+function moveSheetDrag(event: PointerEvent): void {
+    if (sheetPointerId !== event.pointerId) return;
+    sheetDragY.value = Math.max(0, event.clientY - sheetDragStartY);
+}
+
+function endSheetDrag(event: PointerEvent): void {
+    if (sheetPointerId !== event.pointerId) return;
+
+    const elapsed = Math.max(performance.now() - sheetDragStartedAt, 1);
+    const velocity = sheetDragY.value / elapsed;
+    const shouldClose = sheetDragY.value >= Math.min(120, window.innerHeight * 0.12)
+        || (sheetDragY.value > 24 && velocity > 0.65);
+
+    sheetPointerId = null;
+    isDraggingSheet.value = false;
+
+    if (shouldClose) {
+        closeOverlays();
+        window.setTimeout(() => { sheetDragY.value = 0; }, 280);
+    } else {
+        sheetDragY.value = 0;
+    }
 }
 
 function openAuth(mode: AuthMode): void {
@@ -118,6 +178,17 @@ function selectTheme(theme: ThemeMode): void {
     themeStore.setTheme(theme);
 }
 
+function toggleQuickTheme(event: MouseEvent): void {
+    const target = event.currentTarget as HTMLButtonElement;
+    const rect = target.getBoundingClientRect();
+    const nextTheme: ThemeMode = document.documentElement.dataset.theme === "dark" ? "LIGHT" : "DARK";
+
+    themeStore.setTheme(nextTheme, {
+        x: rect.left + (rect.width / 2),
+        y: rect.top + (rect.height / 2),
+    });
+}
+
 function selectLanguage(language: SupportedLocale): void {
     locale.value = language;
     saveLocale(language);
@@ -129,6 +200,10 @@ function formatMobileLabel(label: string): string {
 
 async function handleLogout(): Promise<void> {
     closeOverlays();
+    // Leave the protected Shop route before clearing auth. Otherwise App.vue
+    // correctly treats the session loss as an expired session and preserves
+    // the current path in /login?redirect=... instead of completing logout.
+    await router.replace({ name: "home" });
     await userStore.signOut();
 }
 
@@ -161,6 +236,14 @@ function closeOnEscape(event: KeyboardEvent): void {
     if (event.key === "Escape") closeOverlays();
 }
 
+function handleWalletBalanceChanged(): void {
+    void loadWalletBalance();
+}
+
+function updateNavbarScrollState(): void {
+    isScrolled.value = window.scrollY > 12;
+}
+
 watch(() => route.fullPath, closeOverlays);
 watch(
     [() => userStore.isAuthenticated, () => userStore.accessToken],
@@ -178,19 +261,24 @@ watch(
 );
 
 onMounted(() => {
+    updateNavbarScrollState();
     document.addEventListener("click", closeOnOutsideClick);
     document.addEventListener("keydown", closeOnEscape);
+    window.addEventListener("scroll", updateNavbarScrollState, { passive: true });
+    window.addEventListener(WALLET_BALANCE_CHANGED_EVENT, handleWalletBalanceChanged);
 });
 
 onUnmounted(() => {
     document.removeEventListener("click", closeOnOutsideClick);
     document.removeEventListener("keydown", closeOnEscape);
+    window.removeEventListener("scroll", updateNavbarScrollState);
+    window.removeEventListener(WALLET_BALANCE_CHANGED_EVENT, handleWalletBalanceChanged);
     document.body.style.overflow = "";
 });
 </script>
 
 <template>
-    <header :class="$style.navbar">
+    <header :class="[$style.navbar, isScrolled ? $style.navbarScrolled : '']">
         <div :class="$style.navbarContainer">
             <div :class="$style.leftSide">
                 <button
@@ -208,7 +296,16 @@ onUnmounted(() => {
                 </button>
 
                 <RouterLink to="/" :class="$style.logo" aria-label="Fujipp home">
-                    <span :class="$style.logoMark" aria-hidden="true" />
+                    <svg :class="$style.logoMark" viewBox="0 0 344 300" aria-hidden="true">
+                        <path
+                            :class="$style.logoPrimary"
+                            d="M0 75.0001V300C49.8638 300 90.3073 259.617 90.3822 209.753L90.4156 187.5H231.875V112.5H90.5745V91.0001H231.875V87.2419C231.875 60.5309 242.561 34.93 261.552 16.1459L277.875 0.00012207H74.5033C33.3563 0.00012207 0 33.5788 0 75.0001Z"
+                        />
+                        <path
+                            :class="$style.logoSecondary"
+                            d="M343.75 225V3.05176e-05C293.768 3.05176e-05 253.25 40.5182 253.25 90.5V209H111.875V212.758C111.875 239.469 101.189 265.07 82.1982 283.854L65.875 300H269.247C310.394 300 343.75 266.421 343.75 225Z"
+                        />
+                    </svg>
                 </RouterLink>
 
                 <nav :class="$style.desktopNavigation" aria-label="Main navigation">
@@ -234,6 +331,18 @@ onUnmounted(() => {
             <div v-if="!isAuthenticated" :class="$style.guestActions">
                 <button
                     type="button"
+                    :class="$style.quickThemeButton"
+                    aria-label="Toggle light and dark theme"
+                    @click="toggleQuickTheme"
+                >
+                    <span
+                        :class="$style.maskIcon"
+                        :style="{ '--navbar-icon': `url(${quickThemeIcon})` }"
+                        aria-hidden="true"
+                    />
+                </button>
+                <button
+                    type="button"
                     :class="$style.signInLink"
                     @click="openAuth('login')"
                 >
@@ -249,6 +358,18 @@ onUnmounted(() => {
             </div>
 
             <div v-else ref="profileMenu" :class="$style.profileArea">
+                <button
+                    type="button"
+                    :class="$style.quickThemeButton"
+                    aria-label="Toggle light and dark theme"
+                    @click="toggleQuickTheme"
+                >
+                    <span
+                        :class="$style.maskIcon"
+                        :style="{ '--navbar-icon': `url(${quickThemeIcon})` }"
+                        aria-hidden="true"
+                    />
+                </button>
                 <button
                     type="button"
                     :class="$style.creditProfileButton"
@@ -330,6 +451,15 @@ onUnmounted(() => {
                             </button>
                         </div>
                     </div>
+                    <div v-if="userStore.isAdmin" :class="$style.divider" />
+                    <div v-if="userStore.isAdmin" :class="$style.settingRow">
+                        <span>Tools</span>
+                        <ToggleSwitch
+                            :model-value="adminToolsEnabled"
+                            aria-label="Show admin tools"
+                            @update:model-value="emit('update:adminToolsEnabled', $event)"
+                        />
+                    </div>
                     <RouterLink :to="accountPath" :class="$style.manageAccount" @click="closeOverlays">
                         <span>Manage Account</span>
                         <span
@@ -369,7 +499,16 @@ onUnmounted(() => {
             <div :class="$style.drawerHeader">
                 <div :class="$style.portalBrand">
                     <RouterLink to="/" :class="$style.logo" aria-label="Fujipp home" @click="closeOverlays">
-                        <span :class="$style.logoMark" aria-hidden="true" />
+                        <svg :class="$style.logoMark" viewBox="0 0 344 300" aria-hidden="true">
+                            <path
+                                :class="$style.logoPrimary"
+                                d="M0 75.0001V300C49.8638 300 90.3073 259.617 90.3822 209.753L90.4156 187.5H231.875V112.5H90.5745V91.0001H231.875V87.2419C231.875 60.5309 242.561 34.93 261.552 16.1459L277.875 0.00012207H74.5033C33.3563 0.00012207 0 33.5788 0 75.0001Z"
+                            />
+                            <path
+                                :class="$style.logoSecondary"
+                                d="M343.75 225V3.05176e-05C293.768 3.05176e-05 253.25 40.5182 253.25 90.5V209H111.875V212.758C111.875 239.469 101.189 265.07 82.1982 283.854L65.875 300H269.247C310.394 300 343.75 266.421 343.75 225Z"
+                            />
+                        </svg>
                     </RouterLink>
                     <span :class="$style.portalText">PORTAL</span>
                 </div>
@@ -423,8 +562,21 @@ onUnmounted(() => {
         :enter-from-class="$style.sheetHidden"
         :leave-to-class="$style.sheetHidden"
     >
-        <section v-if="isAuthenticated && isProfileOpen" :class="$style.mobileProfileSheet" role="dialog" aria-modal="true" aria-label="Profile settings">
-            <span :class="$style.sheetIndicator" aria-hidden="true" />
+        <section
+            v-if="isAuthenticated && isProfileOpen"
+            :class="[$style.mobileProfileSheet, isDraggingSheet ? $style.sheetDragging : '']"
+            :style="{ '--sheet-drag-y': `${sheetDragY}px` }"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Profile settings"
+            @pointerdown="startSheetDrag"
+            @pointermove="moveSheetDrag"
+            @pointerup="endSheetDrag"
+            @pointercancel="endSheetDrag"
+        >
+            <button :class="$style.sheetHandle" type="button" data-sheet-handle aria-label="ลากลงเพื่อปิด">
+                <span :class="$style.sheetIndicator" aria-hidden="true" />
+            </button>
             <div :class="$style.sheetHeader">
                 <span>Setting</span>
                 <button type="button" :class="$style.sheetClose" aria-label="Close profile settings" @click="closeOverlays">
@@ -480,6 +632,15 @@ onUnmounted(() => {
                     </button>
                 </div>
             </div>
+            <div v-if="userStore.isAdmin" :class="$style.divider" />
+            <div v-if="userStore.isAdmin" :class="$style.settingRow">
+                <span>Tools</span>
+                <ToggleSwitch
+                    :model-value="adminToolsEnabled"
+                    aria-label="Show admin tools"
+                    @update:model-value="emit('update:adminToolsEnabled', $event)"
+                />
+            </div>
             <RouterLink :to="accountPath" :class="$style.manageAccount" @click="closeOverlays">
                 <span>Manage Account</span>
                 <span :class="$style.maskIcon" :style="{ '--navbar-icon': `url(${icons.directionRight})` }" aria-hidden="true" />
@@ -502,7 +663,8 @@ onUnmounted(() => {
                 @click.self="closeOverlays"
             >
                 <AuthCard
-                    :class="$style.authDialog"
+                    :class="[$style.authDialog, isDraggingSheet ? $style.sheetDragging : '']"
+                    :style="{ '--sheet-drag-y': `${sheetDragY}px` }"
                     :mode="authMode"
                     modal
                     v-model:username="username"
@@ -514,6 +676,10 @@ onUnmounted(() => {
                     :credentials-enabled="CREDENTIALS_ENABLED"
                     role="dialog"
                     aria-modal="true"
+                    @pointerdown="startSheetDrag"
+                    @pointermove="moveSheetDrag"
+                    @pointerup="endSheetDrag"
+                    @pointercancel="endSheetDrag"
                     @oauth="handleOAuth"
                     @submit="handleAuthSubmit"
                     @switch-mode="switchAuthMode"
@@ -532,8 +698,20 @@ onUnmounted(() => {
     left: 0;
     width: 100%;
     box-sizing: border-box;
-    background: var(--color-nav-background);
+    background: transparent;
     color: var(--color-nav-text);
+    transition:
+        background-color 220ms ease,
+        box-shadow 220ms ease,
+        backdrop-filter 220ms ease;
+    view-transition-name: app-navbar;
+}
+
+.navbarScrolled {
+    background: color-mix(in srgb, var(--color-nav-background) 92%, transparent);
+    box-shadow: 0 4px 16px color-mix(in srgb, var(--color-main-brand-primary) 12%, transparent);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
 }
 
 .navbarContainer {
@@ -564,7 +742,7 @@ onUnmounted(() => {
 
 .leftSide { gap: 16px; }
 .guestActions { justify-content: center; gap: 16px; }
-.profileArea { position: relative; }
+.profileArea { position: relative; gap: var(--spacing-space-2); }
 
 .logo {
     display: inline-flex;
@@ -579,9 +757,12 @@ onUnmounted(() => {
 .logoMark {
     width: 32px;
     height: 28px;
-    background: currentColor;
-    mask: url("/brand/fujipp-logo.svg") center / contain no-repeat;
-    -webkit-mask: url("/brand/fujipp-logo.svg") center / contain no-repeat;
+    overflow: visible;
+}
+
+.logoPrimary,
+.logoSecondary {
+    fill: var(--color-text-primary);
 }
 
 .desktopNavigation {
@@ -682,6 +863,27 @@ onUnmounted(() => {
     background: transparent;
     color: var(--color-nav-text);
     cursor: pointer;
+}
+
+.quickThemeButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: 39px;
+    height: 39px;
+    flex-shrink: 0;
+    border: 1px solid var(--color-nav-divider);
+    border-radius: var(--radius-full);
+    background: transparent;
+    color: var(--color-nav-text);
+    cursor: pointer;
+    transition: background-color 160ms ease, transform 160ms ease;
+}
+
+.quickThemeButton:hover {
+    background: color-mix(in srgb, var(--color-nav-text) 8%, transparent);
+    transform: scale(1.05);
 }
 
 .creditText { font-size: var(--type-size-button); font-weight: 600; }
@@ -803,6 +1005,7 @@ onUnmounted(() => {
 .signInLink:focus-visible,
 .signUpLink:focus-visible,
 .creditProfileButton:focus-visible,
+.quickThemeButton:focus-visible,
 .iconOption:focus-visible,
 .manageAccount:focus-visible,
 .burgerButton:focus-visible,
@@ -824,6 +1027,7 @@ onUnmounted(() => {
 .drawerHidden { transform: translateX(-100%); }
 .sheetTransition { transition: transform 280ms ease; }
 .sheetHidden { transform: translateY(100%); }
+.sheetDragging { transition: none !important; }
 
 .authOverlay {
     position: fixed;
@@ -857,11 +1061,11 @@ onUnmounted(() => {
     .desktopNavigation,
     .signUpLink,
     .desktopProfileDialog { display: none; }
-    .guestActions { gap: 0; }
+    .guestActions { gap: var(--spacing-space-2); }
     .signInLink { padding: 10px; border: 1px solid var(--color-nav-text); }
 
     .authOverlay { align-items: flex-end; padding: 0; }
-    .authDialog { width: 100%; max-width: none; box-shadow: 0 -12px 36px rgb(0 0 0 / 18%); }
+    .authDialog { width: 100%; max-width: none; box-shadow: 0 -12px 36px rgb(0 0 0 / 18%); transform: translateY(var(--sheet-drag-y, 0)); }
     .authHidden .authDialog { transform: translateY(100%); }
 
     .mobileBackdrop {
@@ -954,8 +1158,14 @@ onUnmounted(() => {
         background: var(--color-dialog-background);
         color: var(--color-dialog-text-primary);
         box-shadow: 0 -8px 24px rgb(0 0 0 / 14%);
+        transform: translateY(var(--sheet-drag-y, 0));
     }
 
+    .mobileProfileSheet.sheetHidden { transform: translateY(100%); }
+
+    .sheetHandle { display: flex; align-items: center; justify-content: center; align-self: stretch; min-height: var(--spacing-space-4); padding: 0; border: 0; background: transparent; cursor: grab; touch-action: none; }
+    .sheetHandle:active { cursor: grabbing; }
+    .sheetHandle:focus-visible { outline: 2px solid var(--color-main-primary); outline-offset: 2px; }
     .sheetIndicator { align-self: center; width: 24px; height: 4px; border-radius: var(--radius-sm); background: var(--color-dialog-text-primary); }
     .sheetHeader { display: flex; align-items: center; justify-content: space-between; min-height: 32px; font-size: var(--type-size-button); font-weight: 600; }
     .sheetClose { width: 32px; height: 32px; padding: 4px; }

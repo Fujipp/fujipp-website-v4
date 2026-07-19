@@ -7,69 +7,59 @@ import databaseMarkdown from "../../../../../docs/changelog/database.md?raw";
 import frontendMarkdown from "../../../../../docs/changelog/frontend.md?raw";
 import otherMarkdown from "../../../../../docs/changelog/other.md?raw";
 
-type ChangelogAreaId = "all" | "frontend" | "backend" | "database" | "other";
+type AreaId = "all" | "frontend" | "backend" | "database" | "other";
+type ReleaseAreaId = Exclude<AreaId, "all">;
 type SortMode = "newest" | "oldest";
 
-interface ChangelogArea {
-    id: Exclude<ChangelogAreaId, "all">;
+interface ReleaseArea {
+    id: ReleaseAreaId;
     label: string;
-    title: string;
-    summary: string;
+    description: string;
     markdown: string;
 }
 
-interface ChangelogEntry {
-    areaId: ChangelogArea["id"];
+interface Release {
+    areaId: ReleaseAreaId;
     areaLabel: string;
     version: string;
     date: string;
     change: string;
 }
 
-interface VisibleChangelogEntry extends ChangelogEntry {
-    title: string;
-    detail: string;
-}
-
-const changelogAreas = [
+const releaseAreas = [
     {
         id: "frontend",
         label: "Frontend",
-        title: "User interface",
-        summary: "Portfolio, shop, admin, and customer-facing screens.",
+        description: "Portfolio, shop, admin, and customer-facing experiences.",
         markdown: frontendMarkdown,
     },
     {
         id: "backend",
         label: "Backend",
-        title: "Platform API",
-        summary: "Gateway APIs, bot controls, billing integration, and admin operations.",
+        description: "Platform APIs, billing integration, and bot operations.",
         markdown: backendMarkdown,
     },
     {
         id: "database",
         label: "Database",
-        title: "Data layer",
-        summary: "Supabase schemas, migrations, seeds, and database policies.",
+        description: "Schemas, policies, migrations, and durable platform data.",
         markdown: databaseMarkdown,
     },
     {
         id: "other",
         label: "Other",
-        title: "Infra and tooling",
-        summary: "Deployment, docs, bot runtime, automation, and agent workflows.",
+        description: "Infrastructure, delivery, documentation, and tooling.",
         markdown: otherMarkdown,
     },
-] as const satisfies readonly ChangelogArea[];
+] as const satisfies readonly ReleaseArea[];
 
-const areaTabs = [
-    { id: "all", label: "All" },
-    ...changelogAreas.map((area) => ({ id: area.id, label: area.label })),
-] as const satisfies readonly { id: ChangelogAreaId; label: string }[];
+const areaOptions = [
+    { id: "all", label: "All releases" },
+    ...releaseAreas.map((area) => ({ id: area.id, label: area.label })),
+] as const satisfies readonly { id: AreaId; label: string }[];
 
-const PAGE_SIZE = 8;
-
-const selectedArea = ref<ChangelogAreaId>("all");
+const PAGE_SIZE = 10;
+const selectedArea = ref<AreaId>("all");
 const searchQuery = ref("");
 const sortMode = ref<SortMode>("newest");
 const visibleLimit = ref(PAGE_SIZE);
@@ -79,11 +69,10 @@ function cleanMarkdown(value: string): string {
         .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
         .replace(/`([^`]+)`/g, "$1")
         .replace(/\*\*([^*]+)\*\*/g, "$1")
-        .replace(/&nbsp;/g, " ")
         .trim();
 }
 
-function parseChangelog(area: ChangelogArea): ChangelogEntry[] {
+function parseReleases(area: ReleaseArea): Release[] {
     return area.markdown
         .split("\n")
         .filter((line) => line.startsWith("| `"))
@@ -98,115 +87,54 @@ function parseChangelog(area: ChangelogArea): ChangelogEntry[] {
         }));
 }
 
-function sentenceCase(value: string): string {
-    const trimmed = value.trim();
+const areaOrder = new Map(releaseAreas.map((area, index) => [area.id, index]));
 
-    if (!trimmed) {
-        return "";
-    }
-
-    return `${trimmed.charAt(0).toUpperCase()}${trimmed.slice(1)}`;
-}
-
-function splitChange(change: string): { title: string; detail: string } {
-    const normalized = sentenceCase(change);
-    const splitters = [": ", " — ", "; ", ", and ", ", with ", " with ", " so ", " while ", " by "];
-    const splitIndex = splitters
-        .map((splitter) => normalized.indexOf(splitter))
-        .filter((index) => index >= 54 && index <= 130)
-        .sort((left, right) => left - right)[0];
-
-    if (splitIndex === undefined) {
-        return { title: normalized, detail: "" };
-    }
-
-    return {
-        title: normalized.slice(0, splitIndex).trim(),
-        detail: normalized,
-    };
-}
-
-const areaOrder = new Map(changelogAreas.map((area, index) => [area.id, index]));
-
-function compareEntries(left: ChangelogEntry, right: ChangelogEntry): number {
-    const dateCompare = right.date.localeCompare(left.date);
-
-    if (dateCompare !== 0) {
-        return dateCompare;
-    }
-
+function compareReleases(left: Release, right: Release): number {
+    const dateComparison = right.date.localeCompare(left.date);
+    if (dateComparison !== 0) return dateComparison;
     return (areaOrder.get(left.areaId) ?? 0) - (areaOrder.get(right.areaId) ?? 0);
 }
 
-const allEntries = changelogAreas
-    .flatMap((area) => parseChangelog(area))
-    .sort(compareEntries);
+const allReleases = releaseAreas
+    .flatMap((area) => parseReleases(area))
+    .sort(compareReleases);
 
-const totalEntries = allEntries.length;
-const latestDate = allEntries[0]?.date ?? "";
-const areaCounts = computed(() => {
-    const counts = new Map<ChangelogAreaId, number>([["all", allEntries.length]]);
+const latestRelease = allReleases[0];
+const firstRelease = allReleases.at(-1);
+const areaCounts = new Map<AreaId, number>([
+    ["all", allReleases.length],
+    ...releaseAreas.map((area) => [
+        area.id,
+        allReleases.filter((release) => release.areaId === area.id).length,
+    ] as const),
+]);
 
-    changelogAreas.forEach((area) => {
-        counts.set(area.id, allEntries.filter((entry) => entry.areaId === area.id).length);
-    });
+const filteredReleases = computed(() => {
+    const query = searchQuery.value.trim().toLowerCase();
+    const areaMatches = selectedArea.value === "all"
+        ? allReleases
+        : allReleases.filter((release) => release.areaId === selectedArea.value);
+    const queryMatches = query
+        ? areaMatches.filter((release) => [
+            release.areaLabel,
+            release.version,
+            release.date,
+            release.change,
+        ].some((value) => value.toLowerCase().includes(query)))
+        : areaMatches;
 
-    return counts;
-});
-const areaCards = computed(() => changelogAreas.map((area) => {
-    const entries = allEntries.filter((entry) => entry.areaId === area.id);
-
-    return {
-        ...area,
-        count: entries.length,
-        latest: entries[0]?.date ?? "-",
-    };
-}));
-
-const filteredEntries = computed(() => {
-    const normalizedQuery = searchQuery.value.trim().toLowerCase();
-    const entries = selectedArea.value === "all"
-        ? allEntries
-        : allEntries.filter((entry) => entry.areaId === selectedArea.value);
-
-    const matchedEntries = normalizedQuery
-        ? entries.filter((entry) => [
-            entry.areaLabel,
-            entry.version,
-            entry.date,
-            entry.change,
-        ].some((value) => value.toLowerCase().includes(normalizedQuery)))
-        : entries;
-
-    return [...matchedEntries].sort((left, right) => (
+    return [...queryMatches].sort((left, right) => (
         sortMode.value === "newest"
-            ? compareEntries(left, right)
-            : compareEntries(right, left)
+            ? compareReleases(left, right)
+            : compareReleases(right, left)
     ));
 });
 
-const visibleEntries = computed<VisibleChangelogEntry[]>(() => filteredEntries.value
-    .slice(0, visibleLimit.value)
-    .map((entry) => ({
-        ...entry,
-        ...splitChange(entry.change),
-    })));
-const hasMoreEntries = computed(() => visibleEntries.value.length < filteredEntries.value.length);
-const resultSummary = computed(() => {
-    if (filteredEntries.value.length === 0) {
-        return "No updates match the current view.";
-    }
-
-    return `Showing ${visibleEntries.value.length} of ${filteredEntries.value.length} updates`;
-});
-
-const selectedAreaLabel = computed(() => (
-    areaTabs.find((area) => area.id === selectedArea.value)?.label ?? "All"
+const visibleReleases = computed(() => filteredReleases.value.slice(0, visibleLimit.value));
+const hasMoreReleases = computed(() => visibleReleases.value.length < filteredReleases.value.length);
+const activeArea = computed(() => (
+    areaOptions.find((option) => option.id === selectedArea.value)?.label ?? "All releases"
 ));
-
-function showMore(): void {
-    visibleLimit.value += PAGE_SIZE;
-}
 
 function resetFilters(): void {
     selectedArea.value = "all";
@@ -223,588 +151,667 @@ watch([selectedArea, searchQuery, sortMode], () => {
     <main :class="$style.page">
         <section :class="$style.hero">
             <div :class="$style.heroInner">
-                <p class="type-overline-sb text-main-primary">Product updates</p>
-                <h1 class="type-h1-page-title-eb">
-                    Platform release notes.
-                </h1>
-                <p :class="$style.heroCopy" class="type-body-small-r">
-                    A curated record of portfolio, shop, admin, infrastructure, and data-layer improvements
-                    across the platform.
-                </p>
-                <div :class="$style.statsGrid" aria-label="Changelog summary">
-                    <article :class="$style.statCard">
-                        <span class="type-overline-r">Updates</span>
-                        <strong class="type-h2-section-title-sb">{{ totalEntries }}</strong>
-                    </article>
-                    <article :class="$style.statCard">
-                        <span class="type-overline-r">Workstreams</span>
-                        <strong class="type-h2-section-title-sb">{{ changelogAreas.length }}</strong>
-                    </article>
-                    <article :class="$style.statCard">
-                        <span class="type-overline-r">Latest update</span>
-                        <strong class="type-h3-card-title-sb">{{ latestDate }}</strong>
-                    </article>
+                <div :class="$style.heroHeading">
+                    <p :class="$style.eyebrow">Release history</p>
+                    <h1>Built in public.</h1>
                 </div>
+
+                <div :class="$style.heroSummary">
+                    <p>
+                        A concise record of meaningful platform releases—not every edit made along the way.
+                    </p>
+                    <dl>
+                        <div>
+                            <dt>Releases</dt>
+                            <dd>{{ allReleases.length }}</dd>
+                        </div>
+                        <div>
+                            <dt>Since</dt>
+                            <dd>{{ firstRelease?.date ?? "—" }}</dd>
+                        </div>
+                        <div>
+                            <dt>Workstreams</dt>
+                            <dd>{{ releaseAreas.length }}</dd>
+                        </div>
+                    </dl>
+                </div>
+
+                <article v-if="latestRelease" :class="$style.latestRelease">
+                    <div>
+                        <span :class="[$style.areaMark, $style[latestRelease.areaId]]" aria-hidden="true" />
+                        <span>{{ latestRelease.areaLabel }}</span>
+                        <time :datetime="latestRelease.date">{{ latestRelease.date }}</time>
+                    </div>
+                    <strong>v{{ latestRelease.version }}</strong>
+                    <p>{{ latestRelease.change }}</p>
+                </article>
             </div>
         </section>
 
-        <section :class="$style.content" aria-labelledby="changelog-heading">
-            <div :class="$style.areaGrid">
-                <article v-for="area in areaCards" :key="area.id" :class="$style.areaCard">
-                    <span :class="[$style.areaDot, $style[area.id]]" aria-hidden="true" />
-                    <div :class="$style.areaCardHeader">
-                        <p class="type-overline-sb">{{ area.label }}</p>
-                        <strong class="type-caption-sb">{{ area.count }}</strong>
-                    </div>
-                    <h2 class="type-body-main-sb">{{ area.title }}</h2>
-                    <p class="type-caption-r">{{ area.summary }}</p>
-                    <span :class="$style.areaLatest" class="type-overline-r">Latest {{ area.latest }}</span>
-                </article>
-            </div>
-
-            <header :class="$style.listHeader" aria-labelledby="changelog-heading">
+        <section :class="$style.archive" aria-labelledby="release-archive-title">
+            <header :class="$style.archiveHeader">
                 <div>
-                    <p class="type-overline-sb text-main-primary">{{ selectedAreaLabel }}</p>
-                    <h2 id="changelog-heading" class="type-h2-section-title-sb">
-                        Updates
-                    </h2>
-                    <p :class="$style.resultText" class="type-caption-r">{{ resultSummary }}</p>
+                    <p :class="$style.eyebrow">Product milestones</p>
+                    <h2 id="release-archive-title">Release archive</h2>
                 </div>
+                <p>
+                    {{ filteredReleases.length }} {{ filteredReleases.length === 1 ? "release" : "releases" }}
+                    · {{ activeArea }}
+                </p>
             </header>
 
-            <div :class="$style.controlBar" aria-label="Changelog filters">
-                <label :class="$style.searchWrap">
-                    <span class="type-overline-sb">Find updates</span>
-                    <input
-                        v-model="searchQuery"
-                        :class="$style.searchInput"
-                        type="search"
-                        placeholder="Search by version, date, or topic..."
+            <div :class="$style.controls">
+                <div :class="$style.tabs" role="tablist" aria-label="Filter release workstream">
+                    <button
+                        v-for="option in areaOptions"
+                        :key="option.id"
+                        type="button"
+                        role="tab"
+                        :aria-selected="selectedArea === option.id"
+                        :class="[$style.tab, selectedArea === option.id ? $style.activeTab : '']"
+                        @click="selectedArea = option.id"
                     >
-                </label>
+                        <span>{{ option.label }}</span>
+                        <strong>{{ areaCounts.get(option.id) ?? 0 }}</strong>
+                    </button>
+                </div>
 
-                <label :class="$style.sortWrap">
-                    <span class="type-overline-sb">Timeline</span>
-                    <select v-model="sortMode" :class="$style.sortSelect">
-                        <option value="newest">Recent first</option>
-                        <option value="oldest">Oldest first</option>
-                    </select>
-                </label>
-            </div>
-
-            <div :class="$style.tabs" role="tablist" aria-label="Filter changelog area">
-                <button
-                    v-for="tab in areaTabs"
-                    :key="tab.id"
-                    type="button"
-                    :class="[$style.tab, selectedArea === tab.id ? $style.activeTab : '']"
-                    :aria-selected="selectedArea === tab.id"
-                    role="tab"
-                    @click="selectedArea = tab.id"
-                >
-                    <span>{{ tab.label }}</span>
-                    <strong>{{ areaCounts.get(tab.id) ?? 0 }}</strong>
-                </button>
-            </div>
-
-            <ol v-if="visibleEntries.length > 0" :class="$style.timeline">
-                <li v-for="entry in visibleEntries" :key="`${entry.areaId}-${entry.version}`" :class="$style.entry">
-                    <article :class="$style.entryCard">
-                        <header :class="$style.entryHeader">
-                            <div :class="$style.entryMeta">
-                                <span :class="[$style.markerDot, $style[entry.areaId]]" aria-hidden="true" />
-                                <span :class="[$style.areaBadge, $style[entry.areaId]]" class="type-overline-sb">
-                                    {{ entry.areaLabel }}
-                                </span>
-                                <span class="type-caption-r">{{ entry.date }}</span>
-                            </div>
-                            <strong class="type-caption-sb">v{{ entry.version }}</strong>
-                        </header>
-                        <div :class="$style.entryBody">
-                            <h3 class="type-body-main-sb">{{ entry.title }}</h3>
-                            <p v-if="entry.detail" class="type-caption-r">{{ entry.detail }}</p>
+                <div :class="$style.filterRow">
+                    <label :class="$style.searchField">
+                        <span>Search releases</span>
+                        <span :class="$style.searchControl">
+                            <input
+                                v-model="searchQuery"
+                                type="search"
+                                placeholder="Version, date, or feature"
+                            >
+                            <button
+                                v-if="searchQuery"
+                                type="button"
+                                aria-label="Clear release search"
+                                @click="searchQuery = ''"
+                            >
+                                <span aria-hidden="true" />
+                            </button>
+                        </span>
+                    </label>
+                    <fieldset :class="$style.sortField">
+                        <legend>Order</legend>
+                        <div :class="$style.sortOptions">
+                            <button
+                                type="button"
+                                :aria-pressed="sortMode === 'newest'"
+                                :class="sortMode === 'newest' ? $style.activeSort : ''"
+                                @click="sortMode = 'newest'"
+                            >
+                                <span>Newest first</span>
+                            </button>
+                            <button
+                                type="button"
+                                :aria-pressed="sortMode === 'oldest'"
+                                :class="sortMode === 'oldest' ? $style.activeSort : ''"
+                                @click="sortMode = 'oldest'"
+                            >
+                                <span>Oldest first</span>
+                            </button>
                         </div>
+                    </fieldset>
+                </div>
+            </div>
+
+            <ol v-if="visibleReleases.length" :class="$style.releaseList">
+                <li
+                    v-for="release in visibleReleases"
+                    :key="`${release.areaId}-${release.version}`"
+                    :class="$style.releaseItem"
+                >
+                    <div :class="$style.versionColumn">
+                        <strong>v{{ release.version }}</strong>
+                        <time :datetime="release.date">{{ release.date }}</time>
+                    </div>
+                    <article :class="$style.releaseBody">
+                        <div :class="$style.releaseMeta">
+                            <span :class="[$style.areaMark, $style[release.areaId]]" aria-hidden="true" />
+                            <span>{{ release.areaLabel }}</span>
+                        </div>
+                        <p>{{ release.change }}</p>
                     </article>
                 </li>
             </ol>
 
             <div v-else :class="$style.emptyState">
-                <h3 class="type-h3-card-title-sb">No updates found</h3>
-                <p class="type-caption-r">Adjust the selected workstream or search term.</p>
-                <button :class="$style.resetButton" type="button" @click="resetFilters">
-                    Clear filters
-                </button>
+                <h3>No matching release</h3>
+                <p>Try another workstream or a broader search.</p>
+                <button type="button" @click="resetFilters">Clear filters</button>
             </div>
 
-            <footer v-if="visibleEntries.length > 0" :class="$style.listFooter">
+            <footer v-if="visibleReleases.length" :class="$style.archiveFooter">
                 <button
-                    v-if="hasMoreEntries"
-                    :class="$style.loadMoreButton"
+                    v-if="hasMoreReleases"
                     type="button"
-                    @click="showMore"
+                    @click="visibleLimit += PAGE_SIZE"
                 >
-                    Show more updates
+                    Show more releases
                 </button>
-                <span v-else class="type-caption-r">All matching updates are shown.</span>
+                <span v-else>You have reached the beginning.</span>
             </footer>
         </section>
     </main>
+
     <AppFooter />
 </template>
 
 <style module>
 .page {
-    --change-page: var(--color-neutral-50);
-    --change-panel: #ffffff;
-    --change-inset: var(--color-neutral-100);
-    --change-border: var(--color-input-border);
-    --change-divider: var(--color-neutral-200);
-    --change-text: var(--color-neutral-800);
-    --change-heading: var(--color-text-primary);
-    --change-muted: var(--color-neutral-600);
-    --change-accent: var(--color-main-primary);
-
-    min-height: 100vh;
-    padding-top: var(--spacing-space-16);
-    background-color: var(--change-page);
-    color: var(--change-text);
-    transition: background-color 300ms ease, color 300ms ease;
-}
-
-:global(.dark) .page,
-:global([data-theme="dark"]) .page {
-    --change-page: var(--color-main-section-background);
-    --change-panel: var(--color-main-background);
-    --change-inset: #1f1f1f;
-    --change-border: var(--color-main-divider);
-    --change-divider: var(--color-main-divider);
-    --change-text: var(--color-text-secondary);
-    --change-heading: var(--color-text-secondary);
-    --change-muted: #9aa6b4;
-    --change-accent: var(--color-main-primary);
-}
-
-.page :where(section, article, header, li, div, p, span, strong, h1, h2, h3, input, select, button) {
-    transition: background-color 300ms ease, color 300ms ease, border-color 300ms ease, box-shadow 300ms ease;
+    min-height: 100dvh;
+    padding-top: 73px;
+    background: var(--color-main-background);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    text-align: left;
 }
 
 .hero {
-    border-bottom: 1px solid var(--change-divider);
-    background-color: var(--change-panel);
+    background: var(--color-main-surface);
+    color: var(--color-button-primary);
 }
 
 .heroInner {
+    display: grid;
     box-sizing: border-box;
-    width: min(100%, var(--container-7xl));
+    width: min(100%, 1280px);
+    min-height: min(78dvh, 820px);
     margin: 0 auto;
-    padding: var(--spacing-space-20) var(--spacing-space-6) var(--spacing-space-16);
+    padding: var(--spacing-space-16);
+    align-content: center;
+    grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.6fr);
+    gap: var(--spacing-space-12);
 }
 
-.heroCopy {
-    max-width: 48rem;
-    margin-top: var(--spacing-space-4);
-    color: var(--change-muted);
+.heroHeading h1 {
+    max-width: 850px;
+    margin: 0;
+    font-size: clamp(4rem, 10vw, 9rem);
+    font-weight: 800;
+    letter-spacing: -0.075em;
+    line-height: 0.82;
 }
 
-.heroCopy span {
-    color: var(--change-heading);
+.eyebrow {
+    margin: 0 0 var(--spacing-space-5);
+    color: var(--color-main-brand-secondary);
+    font-size: var(--type-size-overline);
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.heroSummary {
+    align-self: end;
+}
+
+.heroSummary > p {
+    max-width: 420px;
+    margin: 0 0 var(--spacing-space-8);
+    color: color-mix(in srgb, var(--color-button-primary) 70%, transparent);
+    font-size: var(--type-size-body-small);
+    line-height: 1.65;
+}
+
+.heroSummary dl {
+    display: grid;
+    margin: 0;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--spacing-space-4);
+}
+
+.heroSummary dl div {
+    padding-top: var(--spacing-space-3);
+    border-top: 1px solid color-mix(in srgb, var(--color-button-primary) 32%, transparent);
+}
+
+.heroSummary dt {
+    color: color-mix(in srgb, var(--color-button-primary) 54%, transparent);
+    font-size: var(--type-size-overline);
+    text-transform: uppercase;
+}
+
+.heroSummary dd {
+    margin: var(--spacing-space-2) 0 0;
+    font-size: var(--type-size-body-main);
     font-weight: 600;
 }
 
-.hero h1,
-.listHeader h2,
-.areaCard h2,
-.emptyState h3 {
-    color: var(--change-heading);
-}
-
-.statsGrid {
+.latestRelease {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: var(--spacing-space-4);
-    max-width: 48rem;
-    margin-top: var(--spacing-space-8);
+    padding-top: var(--spacing-space-8);
+    border-top: 1px solid color-mix(in srgb, var(--color-button-primary) 32%, transparent);
+    grid-column: 1 / -1;
+    grid-template-columns: minmax(180px, 0.35fr) minmax(120px, 0.25fr) minmax(0, 1.4fr);
+    gap: var(--spacing-space-8);
 }
 
-.statCard,
-.areaCard,
-.entryCard {
-    border: 1px solid var(--change-border);
-    border-radius: var(--radius-lg);
-    background: var(--change-panel);
-    box-shadow: 0 1px 2px color-mix(in srgb, var(--change-text) 5%, transparent);
-    transition: background-color 300ms ease, border-color 300ms ease, box-shadow 300ms ease;
-}
-
-.statCard {
-    display: grid;
+.latestRelease > div,
+.releaseMeta {
+    display: flex;
+    align-items: center;
     gap: var(--spacing-space-2);
-    min-height: var(--spacing-space-24);
-    padding: var(--spacing-space-5);
 }
 
-.statCard span {
-    color: var(--change-muted);
+.latestRelease > div {
+    flex-wrap: wrap;
+    color: color-mix(in srgb, var(--color-button-primary) 64%, transparent);
+    font-size: var(--type-size-caption);
 }
 
-.statCard strong {
-    color: var(--change-heading);
+.latestRelease time {
+    width: 100%;
 }
 
-.content {
+.latestRelease strong {
+    font-size: var(--type-size-subtitle);
+}
+
+.latestRelease p {
+    margin: 0;
+    color: color-mix(in srgb, var(--color-button-primary) 82%, transparent);
+    font-size: var(--type-size-body-small);
+    line-height: 1.55;
+}
+
+.archive {
     box-sizing: border-box;
-    width: min(100%, var(--container-7xl));
+    width: min(100%, 1280px);
     margin: 0 auto;
-    padding: var(--spacing-space-10) var(--spacing-space-6) var(--spacing-space-20);
+    padding: var(--spacing-space-20) var(--spacing-space-16) var(--spacing-space-32);
 }
 
-.areaGrid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: var(--spacing-space-4);
-}
-
-.areaCard {
-    display: flex;
-    min-height: auto;
-    flex-direction: column;
-    gap: var(--spacing-space-3);
-    padding: var(--spacing-space-4);
-    transition: background-color 300ms ease, border-color 300ms ease, box-shadow 300ms ease, transform 180ms ease;
-}
-
-.areaCard:hover {
-    border-color: color-mix(in srgb, var(--change-accent) 40%, var(--change-border));
-    box-shadow: 0 10px 28px color-mix(in srgb, var(--change-accent) 14%, transparent);
-    transform: translateY(-2px);
-}
-
-.areaCardHeader {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--spacing-space-3);
-}
-
-.areaCardHeader strong {
-    display: inline-flex;
-    min-width: var(--spacing-space-8);
-    min-height: var(--spacing-space-8);
-    align-items: center;
-    justify-content: center;
-    border-radius: var(--radius-full);
-    background-color: color-mix(in srgb, var(--change-accent) 18%, transparent);
-    color: var(--change-heading);
-    padding: 0 var(--spacing-space-2);
-}
-
-.areaLatest {
-    margin-top: auto;
-    color: var(--change-muted);
-}
-
-.areaCard p {
-    color: var(--change-muted);
-}
-
-.areaDot,
-.markerDot {
-    display: inline-block;
-    border-radius: var(--radius-full);
-}
-
-.areaDot {
-    width: var(--spacing-space-4);
-    height: var(--spacing-space-4);
-}
-
-.frontend {
-    background-color: var(--color-status-info);
-}
-
-.backend {
-    background-color: var(--color-status-success);
-}
-
-.database {
-    background-color: var(--color-status-warning);
-}
-
-.other {
-    background-color: var(--color-main-primary);
-}
-
-.listHeader {
+.archiveHeader {
     display: flex;
     align-items: end;
     justify-content: space-between;
+    gap: var(--spacing-space-8);
+}
+
+.archiveHeader h2 {
+    margin: 0;
+    font-size: clamp(2.75rem, 7vw, 6rem);
+    font-weight: 800;
+    letter-spacing: -0.065em;
+    line-height: 0.9;
+}
+
+.archiveHeader > p {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--type-size-caption);
+}
+
+.controls {
+    display: grid;
+    margin-top: var(--spacing-space-12);
     gap: var(--spacing-space-6);
-    margin-top: var(--spacing-space-10);
-}
-
-.resultText {
-    margin-top: var(--spacing-space-2);
-    color: var(--change-muted);
-}
-
-.controlBar {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(180px, 240px);
-    gap: var(--spacing-space-4);
-    margin-top: var(--spacing-space-5);
-    padding: var(--spacing-space-4);
-    border: 1px solid var(--change-border);
-    border-radius: var(--radius-lg);
-    background-color: var(--change-panel);
-}
-
-.searchWrap,
-.sortWrap {
-    display: grid;
-    gap: var(--spacing-space-2);
-}
-
-.searchWrap span,
-.sortWrap span {
-    color: var(--change-muted);
-}
-
-.searchInput,
-.sortSelect {
-    width: 100%;
-    min-height: var(--spacing-space-12);
-    box-sizing: border-box;
-    border: 1px solid var(--change-border);
-    border-radius: var(--radius-md);
-    background-color: var(--change-inset);
-    color: var(--change-text);
-    padding: var(--spacing-space-3) var(--spacing-space-4);
-    font: inherit;
-    transition: background-color 300ms ease, color 300ms ease, border-color 300ms ease, box-shadow 300ms ease;
-}
-
-.searchInput:hover,
-.sortSelect:hover {
-    border-color: color-mix(in srgb, var(--change-accent) 45%, var(--change-border));
-}
-
-.searchInput:focus,
-.sortSelect:focus {
-    border-color: var(--change-accent);
-    outline: none;
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--change-accent) 18%, transparent);
 }
 
 .tabs {
     display: flex;
     flex-wrap: wrap;
-    justify-content: flex-start;
     gap: var(--spacing-space-2);
-    margin-top: var(--spacing-space-4);
 }
 
 .tab {
     display: inline-flex;
-    align-items: center;
-    gap: var(--spacing-space-2);
     min-height: var(--spacing-space-10);
-    border: 1px solid var(--change-border);
-    border-radius: var(--radius-full);
-    background: var(--change-panel);
-    color: var(--change-text);
     padding: var(--spacing-space-2) var(--spacing-space-4);
-    cursor: pointer;
-    transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease;
-}
-
-.tab strong {
-    display: inline-flex;
-    min-width: var(--spacing-space-6);
-    justify-content: center;
-    border-radius: var(--radius-full);
-    background-color: color-mix(in srgb, var(--change-accent) 16%, transparent);
-    color: currentColor;
-    padding: 0 var(--spacing-space-2);
-}
-
-.tab:hover {
-    border-color: var(--change-accent);
-    background-color: color-mix(in srgb, var(--change-accent) 12%, var(--change-panel));
-}
-
-.tab:focus-visible {
-    outline: 2px solid var(--change-accent);
-    outline-offset: 2px;
-}
-
-.activeTab {
-    border-color: var(--change-accent);
-    background: var(--change-accent);
-    color: var(--color-button-primary-btn-text-active);
-}
-
-.timeline {
-    display: grid;
-    gap: var(--spacing-space-4);
-    margin: var(--spacing-space-6) 0 0;
-    padding: 0;
-    list-style: none;
-}
-
-.entry {
-    min-width: 0;
-}
-
-.markerDot {
-    width: var(--spacing-space-3);
-    height: var(--spacing-space-3);
-    flex: 0 0 auto;
-}
-
-.entryCard {
-    height: 100%;
-    box-sizing: border-box;
-    padding: var(--spacing-space-5) var(--spacing-space-6);
-}
-
-.entryHeader,
-.entryMeta {
-    display: flex;
     align-items: center;
+    border: 1px solid var(--color-main-divider);
+    border-radius: var(--radius-full);
+    background: transparent;
+    color: var(--color-text-secondary);
+    cursor: pointer;
     gap: var(--spacing-space-3);
 }
 
-.entryHeader {
-    justify-content: space-between;
-    margin-bottom: var(--spacing-space-3);
+.tab strong {
+    color: inherit;
+    font-size: var(--type-size-overline);
 }
 
-.entryHeader strong {
-    color: var(--change-heading);
+.tab:hover {
+    color: var(--color-text-primary);
 }
 
-.areaBadge {
-    display: inline-flex;
-    align-items: center;
-    min-height: var(--spacing-space-7);
-    border-radius: var(--radius-full);
-    color: var(--color-button-primary-btn-text-active);
-    padding: var(--spacing-space-1) var(--spacing-space-3);
+.tab:focus-visible,
+.filterRow input:focus-visible,
+.searchControl button:focus-visible,
+.sortOptions button:focus-visible,
+.emptyState button:focus-visible,
+.archiveFooter button:focus-visible {
+    outline: 2px solid var(--color-text-primary);
+    outline-offset: 3px;
 }
 
-.entryBody {
+.activeTab {
+    border-color: var(--color-main-surface);
+    background: var(--color-main-surface);
+    color: var(--color-button-primary);
+}
+
+.activeTab span,
+.activeTab strong {
+    color: var(--color-button-primary);
+    -webkit-text-fill-color: var(--color-button-primary);
+}
+
+.filterRow {
     display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+    gap: var(--spacing-space-4);
+}
+
+.searchField,
+.sortField {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--type-size-overline);
+    font-weight: 600;
+    gap: var(--spacing-space-2);
+    text-transform: uppercase;
+}
+
+.filterRow input {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: var(--spacing-space-12);
+    padding: var(--spacing-space-3) var(--spacing-space-12) var(--spacing-space-3) var(--spacing-space-4);
+    border: 1px solid var(--color-main-divider);
+    border-radius: var(--radius-md);
+    background: var(--color-main-background);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-transform: none;
+}
+
+.filterRow input::-webkit-search-cancel-button {
+    display: none;
+    appearance: none;
+}
+
+.searchControl {
+    position: relative;
+    display: block;
+}
+
+.searchControl button {
+    position: absolute;
+    top: 50%;
+    right: var(--spacing-space-3);
+    display: grid;
+    width: var(--spacing-space-8);
+    height: var(--spacing-space-8);
+    padding: 0;
+    place-items: center;
+    border: 0;
+    border-radius: var(--radius-full);
+    background: transparent;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transform: translateY(-50%);
+}
+
+.searchControl button:hover {
+    background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+    color: var(--color-text-primary);
+}
+
+.searchControl button > span,
+.searchControl button > span::after {
+    display: block;
+    width: 14px;
+    height: 2px;
+    border-radius: var(--radius-full);
+    background: currentColor;
+    content: "";
+}
+
+.searchControl button > span {
+    transform: rotate(45deg);
+}
+
+.searchControl button > span::after {
+    transform: rotate(90deg);
+}
+
+.sortField legend {
+    margin-bottom: var(--spacing-space-2);
+    padding: 0;
+}
+
+.sortOptions {
+    display: grid;
+    min-height: var(--spacing-space-12);
+    padding: 3px;
+    border: 1px solid var(--color-main-divider);
+    border-radius: var(--radius-md);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 3px;
+}
+
+.sortOptions button {
+    padding: var(--spacing-space-2) var(--spacing-space-3);
+    border: 0;
+    border-radius: calc(var(--radius-md) - 3px);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    cursor: pointer;
+    text-transform: none;
+    white-space: nowrap;
+}
+
+.sortOptions button:hover {
+    color: var(--color-text-primary);
+}
+
+.sortOptions .activeSort {
+    background: var(--color-main-surface);
+    color: var(--color-button-primary);
+}
+
+.sortOptions .activeSort span {
+    color: var(--color-button-primary);
+    -webkit-text-fill-color: var(--color-button-primary);
+}
+
+.releaseList {
+    margin: var(--spacing-space-12) 0 0;
+    padding: 0;
+    border-top: 1px solid var(--color-main-divider);
+    list-style: none;
+}
+
+.releaseItem {
+    display: grid;
+    padding: var(--spacing-space-10) 0;
+    border-bottom: 1px solid var(--color-main-divider);
+    grid-template-columns: minmax(190px, 0.45fr) minmax(0, 1.55fr);
+    gap: var(--spacing-space-12);
+}
+
+.versionColumn {
+    display: flex;
+    flex-direction: column;
     gap: var(--spacing-space-2);
 }
 
-.entryBody h3 {
-    color: var(--change-heading);
+.versionColumn strong {
+    font-size: clamp(1.65rem, 3vw, 2.75rem);
+    letter-spacing: -0.04em;
 }
 
-.entryBody p {
-    color: var(--change-text);
+.versionColumn time {
+    color: var(--color-text-secondary);
+    font-size: var(--type-size-caption);
+}
+
+.releaseBody {
+    display: grid;
+    gap: var(--spacing-space-4);
+}
+
+.releaseMeta {
+    color: var(--color-text-secondary);
+    font-size: var(--type-size-overline);
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.areaMark {
+    display: inline-block;
+    width: var(--spacing-space-2);
+    height: var(--spacing-space-2);
+    border-radius: var(--radius-full);
+}
+
+.frontend {
+    background: var(--color-status-info);
+}
+
+.backend {
+    background: var(--color-status-success);
+}
+
+.database {
+    background: var(--color-status-warning);
+}
+
+.other {
+    background: var(--color-main-brand-secondary);
+}
+
+.releaseBody p {
+    max-width: 820px;
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: clamp(1.15rem, 2.4vw, 1.8rem);
     line-height: 1.45;
 }
 
 .emptyState {
     display: grid;
+    margin-top: var(--spacing-space-12);
+    padding: var(--spacing-space-16) 0;
     justify-items: start;
+    border-top: 1px solid var(--color-main-divider);
+    border-bottom: 1px solid var(--color-main-divider);
     gap: var(--spacing-space-3);
-    margin-top: var(--spacing-space-6);
-    padding: var(--spacing-space-8);
-    border: 1px solid var(--change-border);
-    border-radius: var(--radius-lg);
-    background-color: var(--change-panel);
+}
+
+.emptyState h3,
+.emptyState p {
+    margin: 0;
 }
 
 .emptyState p,
-.listFooter span {
-    color: var(--change-muted);
+.archiveFooter span {
+    color: var(--color-text-secondary);
 }
 
-.listFooter {
-    display: flex;
-    justify-content: center;
-    margin-top: var(--spacing-space-8);
-}
-
-.loadMoreButton,
-.resetButton {
+.emptyState button,
+.archiveFooter button {
     min-height: var(--spacing-space-12);
-    border: 1px solid var(--change-accent);
-    border-radius: var(--radius-full);
-    background-color: var(--change-accent);
-    color: var(--color-button-primary-btn-text-active);
     padding: var(--spacing-space-3) var(--spacing-space-6);
+    border: 1px solid var(--color-text-primary);
+    border-radius: var(--radius-full);
+    background: var(--color-text-primary);
+    color: var(--color-main-background);
     cursor: pointer;
-    transition: background-color 300ms ease, border-color 300ms ease, transform 160ms ease;
 }
 
-.loadMoreButton:hover,
-.resetButton:hover {
-    border-color: var(--color-button-primary-btn-hover);
-    background-color: var(--color-button-primary-btn-hover);
-    transform: translateY(-1px);
+.archiveFooter {
+    display: flex;
+    margin-top: var(--spacing-space-10);
+    justify-content: center;
 }
 
-.loadMoreButton:focus-visible,
-.resetButton:focus-visible {
-    outline: 2px solid var(--change-accent);
-    outline-offset: 2px;
-}
-
-@media (max-width: 960px) {
-    .statsGrid,
-    .areaGrid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .listHeader {
-        align-items: start;
-        flex-direction: column;
-    }
-
-    .controlBar {
+@media (max-width: 900px) {
+    .heroInner {
+        min-height: 700px;
         grid-template-columns: 1fr;
+        gap: var(--spacing-space-8);
     }
 
-    .tabs {
-        justify-content: flex-start;
+    .heroSummary {
+        align-self: start;
+    }
+
+    .latestRelease {
+        grid-template-columns: minmax(140px, 0.4fr) minmax(100px, 0.25fr) minmax(0, 1fr);
+        gap: var(--spacing-space-5);
+    }
+
+    .releaseItem {
+        gap: var(--spacing-space-8);
     }
 }
 
 @media (max-width: 640px) {
+    .page {
+        padding-top: 65px;
+    }
+
     .heroInner {
-        padding: var(--spacing-space-16) var(--spacing-space-4) var(--spacing-space-12);
+        min-height: 650px;
+        padding: var(--spacing-space-12) var(--spacing-space-6);
     }
 
-    .content {
-        padding: var(--spacing-space-10) var(--spacing-space-4) var(--spacing-space-16);
+    .heroHeading h1 {
+        font-size: clamp(4rem, 21vw, 6rem);
     }
 
-    .statsGrid,
-    .areaGrid {
+    .heroSummary dl {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .latestRelease,
+    .filterRow,
+    .releaseItem {
         grid-template-columns: 1fr;
     }
 
-    .areaCard {
-        min-height: auto;
+    .latestRelease {
+        gap: var(--spacing-space-4);
     }
 
-    .entryCard {
-        padding: var(--spacing-space-4);
+    .archive {
+        padding: var(--spacing-space-14) var(--spacing-space-6) var(--spacing-space-20);
     }
 
-    .entryHeader,
-    .entryMeta {
+    .archiveHeader {
         align-items: flex-start;
         flex-direction: column;
-        gap: var(--spacing-space-2);
     }
 
-    .controlBar,
-    .emptyState {
-        padding: var(--spacing-space-4);
+    .tabs {
+        flex-wrap: nowrap;
+        padding-bottom: var(--spacing-space-2);
+        overflow-x: auto;
+    }
+
+    .tab {
+        flex: 0 0 auto;
+    }
+
+    .releaseItem {
+        padding: var(--spacing-space-8) 0;
+        gap: var(--spacing-space-5);
+    }
+
+    .releaseBody p {
+        font-size: var(--type-size-body-main);
     }
 }
 </style>
