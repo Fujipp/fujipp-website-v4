@@ -119,6 +119,8 @@ const runtimeBusy = ref(false);
 const renewPrice = computed(() =>
     ((runtimeSub.value?.renewPriceSatang ?? 0) / 100).toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
 );
+const runtimePeriodEnd = computed(() => runtimeSub.value?.currentPeriodEnd ?? "");
+const runtimeAutoRenew = computed(() => runtimeSub.value?.autoRenew ?? false);
 const runtimeSlotLabel = computed(() => {
     const slotId = runtimeSub.value?.vpsSlotId;
     if (!slotId) return "Runtime slot";
@@ -183,6 +185,15 @@ const activeFeature = computed<FeatureDefinition | null>(
 const embedFeatureCodes = ref<Set<string>>(new Set());
 const activeFeatureHasEmbed = computed(() => embedFeatureCodes.value.has(activeFeatureCode.value));
 const activeFeatureIndex = computed(() => features.value.findIndex((f) => f.code === activeFeatureCode.value));
+const activeFeatureProgress = computed(() => activeFeature.value
+    ? `${featureFieldProgress(activeFeature.value)} fields configured`
+    : "เลือกฟีเจอร์เพื่อเริ่มตั้งค่า");
+
+function currentFeature(): FeatureDefinition {
+    const feature = activeFeature.value;
+    if (!feature) throw new Error("No active Feature selected");
+    return feature;
+}
 
 function iconMaskStyle(icon: string): Record<string, string> {
     return { "--icon-src": `url(${icon})` };
@@ -843,13 +854,13 @@ onMounted(async () => {
 
                         <template v-if="runtimeSub">
                             <p :class="$style.runtimeRemaining">
-                                <CountdownTimer :until="runtimeSub.currentPeriodEnd" />
+                                <CountdownTimer :until="runtimePeriodEnd" />
                             </p>
                             <span :class="$style.metricHint">ต่ออายุ {{ renewPrice }} บาท</span>
                             <label :class="$style.autoRenew">
                                 <input
                                     type="checkbox"
-                                    :checked="runtimeSub.autoRenew"
+                                    :checked="runtimeAutoRenew"
                                     :disabled="runtimeBusy"
                                     @change="setAutoRenew(($event.target as HTMLInputElement).checked)"
                                 >
@@ -879,7 +890,7 @@ onMounted(async () => {
                             </span>
                             <h2 class="type-h2-section-title-sb">{{ activeFeature?.name || "Feature Setting" }}</h2>
                             <p class="type-body-small-r">
-                                {{ activeFeature ? `${featureFieldProgress(activeFeature)} fields configured` : "เลือกฟีเจอร์เพื่อเริ่มตั้งค่า" }}
+                                {{ activeFeatureProgress }}
                             </p>
                         </div>
 
@@ -910,9 +921,9 @@ onMounted(async () => {
 
                     <template v-else>
                         <RobloxRobuxConfigForm
-                            v-if="activeFeature && activeFeature.code === ROBLOX_ROBUX_PAYOUT"
-                            :key="activeFeature.code"
-                            :feature="activeFeature"
+                            v-if="activeFeature?.code === ROBLOX_ROBUX_PAYOUT"
+                            :key="activeFeatureCode"
+                            :feature="currentFeature()"
                             :model-value="values"
                             :channel-options="channelOptions"
                             :saving="isSaving"
@@ -920,8 +931,8 @@ onMounted(async () => {
                         />
                         <FeatureConfigForm
                             v-else-if="activeFeature"
-                            :key="activeFeature.code"
-                            :feature="activeFeature"
+                            :key="activeFeatureCode"
+                            :feature="currentFeature()"
                             :model-value="values"
                             :channel-options="channelOptions"
                             :role-options="roleOptions"

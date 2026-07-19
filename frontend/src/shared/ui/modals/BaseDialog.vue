@@ -53,6 +53,7 @@ function handleKeydown(event: KeyboardEvent): void {
 
     const first = elements[0];
     const last = elements[elements.length - 1];
+    if (!first || !last) return;
 
     if (event.shiftKey && document.activeElement === first) {
         event.preventDefault();
