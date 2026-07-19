@@ -1,9 +1,10 @@
 # Changelog — Frontend
 
-**Current version: `0.7.17`**  ·  see [release workflow](./README.md)
+**Current version: `0.7.18`**  ·  see [release workflow](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.7.18` | 2026-07-20 | Added responsive bot access controls for allowing or denying specific Discord Roles and Users globally or per Feature. |
 | `0.7.17` | 2026-07-19 | Redesigned release notes into a concise, searchable milestone timeline with theme-safe filters, stabilized strict template typing, and established one version per reviewed push. |
 | `0.7.16` | 2026-07-19 | Completed the public portfolio experience with responsive Home, Projects, About, Privacy, and Terms pages, accessible themes, and polished brand motion. |
 | `0.6.9` | 2026-06-24 | Expanded project publishing with richer detail pages, media galleries, technology metadata, admin editing, and reliable responsive layouts. |
