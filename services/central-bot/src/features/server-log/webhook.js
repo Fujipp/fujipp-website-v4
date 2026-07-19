@@ -12,10 +12,11 @@ const { ChannelType, PermissionFlagsBits } = require('discord.js');
 const WEBHOOK_NAME = 'Server Log';
 const TEXT_TYPES = new Set([ChannelType.GuildText, ChannelType.GuildAnnouncement]);
 
-// channelId -> { hook, at } | { hook: null, at }  (null caches a failed resolve so
-// we don't hammer fetchWebhooks on every event when perms/channel are wrong).
+// channelId -> { hook, at } | { hook: null, at } | { resolving, at }.
+// A shared resolving promise prevents bursts from creating duplicate webhooks.
 const cache = new Map();
 const FAIL_TTL_MS = 60_000;
+const SUCCESS_TTL_MS = 15 * 60_000;
 
 async function resolve(client, channelId, log) {
   const channel = client.channels.cache.get(channelId)
@@ -25,14 +26,20 @@ async function resolve(client, channelId, log) {
     return null;
   }
 
-  const me = await channel.guild.members.fetchMe().catch(() => null);
+  const me = channel.guild.members.me || (await channel.guild.members.fetchMe().catch(() => null));
   if (!me || !channel.permissionsFor(me)?.has(PermissionFlagsBits.ManageWebhooks)) {
     log?.(`server-log: missing Manage Webhooks permission in ${channelId}`);
     return null;
   }
 
   // Reuse a token-bearing webhook this bot already created here; else make one.
-  const existing = await channel.fetchWebhooks().catch(() => null);
+  let existing;
+  try {
+    existing = await channel.fetchWebhooks();
+  } catch (err) {
+    log?.(`server-log: fetchWebhooks failed in ${channelId}: ${err.message}`);
+    return null;
+  }
   const mine = existing?.find(
     (w) => w.owner?.id === client.user?.id && w.name === WEBHOOK_NAME && w.token,
   );
@@ -50,12 +57,42 @@ async function resolve(client, channelId, log) {
 // (callable via .send) or null when it can't be created/reused.
 async function getLogWebhook(client, channelId, log) {
   if (!channelId) return null;
-  const hit = cache.get(channelId);
-  if (hit && (hit.hook || Date.now() - hit.at < FAIL_TTL_MS)) return hit.hook;
+  const key = String(channelId);
+  const hit = cache.get(key);
+  if (hit?.resolving) return hit.resolving;
+  if (hit) {
+    const ttl = hit.hook ? SUCCESS_TTL_MS : FAIL_TTL_MS;
+    if (Date.now() - hit.at < ttl) return hit.hook;
+  }
 
-  const hook = await resolve(client, channelId, log);
-  cache.set(channelId, { hook, at: Date.now() });
-  return hook;
+  const resolving = resolve(client, key, log)
+    .then((hook) => {
+      cache.set(key, { hook, at: Date.now() });
+      return hook;
+    })
+    .catch((err) => {
+      log?.(`server-log: webhook resolve failed in ${key}: ${err.message}`);
+      cache.set(key, { hook: null, at: Date.now() });
+      return null;
+    });
+  cache.set(key, { resolving, at: Date.now() });
+  return resolving;
 }
 
-module.exports = { getLogWebhook, WEBHOOK_NAME };
+function invalidateLogWebhook(channelId, hookId = null) {
+  const key = String(channelId);
+  const hit = cache.get(key);
+  if (!hit || (hookId && hit.hook?.id !== hookId)) return;
+  cache.delete(key);
+}
+
+function clearLogWebhookCache() {
+  cache.clear();
+}
+
+module.exports = {
+  getLogWebhook,
+  invalidateLogWebhook,
+  clearLogWebhookCache,
+  WEBHOOK_NAME,
+};

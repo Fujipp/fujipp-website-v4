@@ -24,9 +24,17 @@ const MSG_CHANNEL_TYPES = [
 // id, bridged from the slash command to its modal submit. Cleared on submit; entries
 // self-expire so an abandoned modal can't leak memory.
 const pendingSends = new Map();
-function rememberSend(token, data) {
-  pendingSends.set(token, data);
-  setTimeout(() => pendingSends.delete(token), 10 * 60 * 1000);
+function forgetSend(token, ctx) {
+  const pending = pendingSends.get(token);
+  if (!pending) return null;
+  pendingSends.delete(token);
+  ctx.lifecycle.clearTimer(pending.expiryTimer);
+  return pending.data;
+}
+
+function rememberSend(token, data, ctx) {
+  const expiryTimer = ctx.lifecycle.setTimeout(() => pendingSends.delete(token), 10 * 60 * 1000);
+  pendingSends.set(token, { data, expiryTimer });
 }
 
 function isTextSendable(ch) {
@@ -68,7 +76,7 @@ async function onDmSubmit(interaction) {
 }
 
 // ─── /message ────────────────────────────────────────────────────────────────
-async function handleMessage(interaction) {
+async function handleMessage(interaction, ctx) {
   if (!interaction.guild) { await interaction.reply({ ephemeral: true, content: '❌ ใช้คำสั่งนี้ได้เฉพาะในกิลด์ครับ' }); return; }
   const sub = interaction.options.getSubcommand(true);
 
@@ -76,7 +84,7 @@ async function handleMessage(interaction) {
     const channel = interaction.options.getChannel('channel', true);
     const file = interaction.options.getAttachment('file', false);
     const token = interaction.id;
-    rememberSend(token, { channelId: channel.id, files: file ? [{ url: file.url, name: file.name }] : [] });
+    rememberSend(token, { channelId: channel.id, files: file ? [{ url: file.url, name: file.name }] : [] }, ctx);
     await interaction.showModal(new ModalBuilder()
       .setCustomId(`message_send:${token}`).setTitle('พิมพ์ข้อความที่จะส่ง')
       .addComponents(new ActionRowBuilder().addComponents(
@@ -119,11 +127,10 @@ async function handleMessage(interaction) {
   }
 }
 
-async function onMessageSendSubmit(interaction) {
+async function onMessageSendSubmit(interaction, ctx) {
   const token = interaction.customId.slice('message_send:'.length);
   await interaction.deferReply({ ephemeral: true });
-  const pending = pendingSends.get(token);
-  pendingSends.delete(token);
+  const pending = forgetSend(token, ctx);
   if (!pending) { await interaction.editReply('❌ คำขอหมดอายุ กรุณาเริ่มใหม่'); return; }
   const content = (interaction.fields.getTextInputValue('message_content') || '').slice(0, 2000);
   const channel = await interaction.client.channels.fetch(pending.channelId).catch(() => null);

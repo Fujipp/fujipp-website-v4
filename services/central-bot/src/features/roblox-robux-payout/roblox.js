@@ -9,6 +9,10 @@ const ECONOMY_API_BASE = 'https://economy.roblox.com';
 const THUMBNAILS_API_BASE = 'https://thumbnails.roblox.com';
 const TWO_STEP_API_BASE = 'https://twostepverification.roblox.com';
 const TRANSACTION_API_BASE = 'https://apis.roblox.com/transaction-records';
+const ROBLOX_READ_TIMEOUT_MS = 12_000;
+const CSRF_CACHE_TTL_MS = 30 * 60_000;
+const FUNDS_CACHE_TTL_MS = 15 * 60_000;
+const CACHE_MAX_ENTRIES = 20;
 
 // Cache CSRF token per cookie
 const csrfTokens = new Map();
@@ -160,23 +164,44 @@ function groupFundsCacheKey(configOverride = null) {
 
 function getCachedGroupFunds(groupIdOrOptions = null) {
     const cacheKey = groupFundsCacheKey(groupIdOrOptions);
-    return groupFundsCache.has(cacheKey) ? groupFundsCache.get(cacheKey) : null;
+    const hit = groupFundsCache.get(cacheKey);
+    if (!hit) return null;
+    if (Date.now() - hit.at >= FUNDS_CACHE_TTL_MS) {
+        groupFundsCache.delete(cacheKey);
+        return null;
+    }
+    return hit.value;
 }
 
 function rememberGroupFunds(groupIdOrOptions = null, robux = null) {
     if (typeof robux !== 'number' || !Number.isFinite(robux)) return;
     const cacheKey = groupFundsCacheKey(groupIdOrOptions);
-    groupFundsCache.set(cacheKey, robux);
+    groupFundsCache.delete(cacheKey);
+    groupFundsCache.set(cacheKey, { value: robux, at: Date.now() });
+    while (groupFundsCache.size > CACHE_MAX_ENTRIES) groupFundsCache.delete(groupFundsCache.keys().next().value);
 }
 
 function getCsrfToken(cookie) {
     if (!cookie) return null;
-    return csrfTokens.get(cookie) || null;
+    const hit = csrfTokens.get(cookie);
+    if (!hit) return null;
+    if (Date.now() - hit.at >= CSRF_CACHE_TTL_MS) {
+        csrfTokens.delete(cookie);
+        return null;
+    }
+    return hit.value;
 }
 
 function setCsrfToken(cookie, token) {
     if (!cookie || !token) return;
-    csrfTokens.set(cookie, token);
+    csrfTokens.delete(cookie);
+    csrfTokens.set(cookie, { value: token, at: Date.now() });
+    while (csrfTokens.size > CACHE_MAX_ENTRIES) csrfTokens.delete(csrfTokens.keys().next().value);
+}
+
+function clearCaches() {
+    csrfTokens.clear();
+    groupFundsCache.clear();
 }
 
 /**
@@ -274,6 +299,7 @@ async function getGroupFunds(groupIdOrOptions = null) {
     try {
         const res = await axios.get(`${ECONOMY_API_BASE}/v1/groups/${gid}/currency`, {
             headers: getHeaders(false, cfg),
+            timeout: ROBLOX_READ_TIMEOUT_MS,
         });
 
         const robux = res.data?.robux ?? 0;
@@ -927,5 +953,6 @@ module.exports = {
     checkRobloxEligibility,
     getUserAvatarUrl,
     getGroupRevenueSummary,
+    clearCaches,
     ROBLOX_ERROR_CODES,
 };

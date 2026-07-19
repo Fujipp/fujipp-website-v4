@@ -2,15 +2,17 @@
 // Premium-app buy flow: category select → confirm/cancel → DM pre-check → debit
 // wallet → gafiwshop api_buy → DM the purchased account to the buyer + post a
 // public "delivered" embed (no credentials) to APP_PREMIUM_NOTIFY_CHANNEL + a full
-// order record (with credentials) to APP_PREMIUM_LOG_CHANNEL. The log channel IS
-// the order store by design — no order rows are written to the database; only the
-// wallet debit/refund goes through shop.wallet_ledger.
+// order record (with credentials) to APP_PREMIUM_LOG_CHANNEL. A private database
+// job also records state so a restart cannot silently lose a debit or refund twice.
 
 const {
   ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags,
 } = require('discord.js');
 const gafiw = require('./gafiw');
 const { salePriceBaht, costBaht } = require('./pricing');
+const {
+  createJob, setJobStatus, claimDebitedJob, listRecoverableJobs,
+} = require('../../lib/financial-jobs');
 
 const ID = {
   confirm: 'app:buy:ok', // + ":<purchaseId>"
@@ -32,11 +34,13 @@ async function errorEmbed(ctx, reason, avatarUrl) {
 const PENDING_TTL_MS = 5 * 60 * 1000;
 const pendingPurchases = new Map(); // purchaseId -> purchase
 
-function prunePending() {
-  const now = Date.now();
-  for (const [key, val] of pendingPurchases.entries()) {
-    if (now - val.timestamp > PENDING_TTL_MS) pendingPurchases.delete(key);
-  }
+function forgetPending(purchaseId, ctx) {
+  const purchase = pendingPurchases.get(purchaseId);
+  if (!purchase) return null;
+  pendingPurchases.delete(purchaseId);
+  ctx.lifecycle.clearTimer(purchase.expiryTimer);
+  delete purchase.expiryTimer;
+  return purchase;
 }
 
 async function ensureReady(interaction, ctx) {
@@ -85,15 +89,15 @@ async function onCategorySelect(interaction, ctx) {
     return;
   }
 
-  prunePending();
   const purchaseId = `${interaction.user.id}_${Date.now()}`;
+  const expiryTimer = ctx.lifecycle.setTimeout(() => pendingPurchases.delete(purchaseId), PENDING_TTL_MS);
   pendingPurchases.set(purchaseId, {
     discordUserId: interaction.user.id,
     typeId: product.typeId,
     name: product.name,
     typeMenu: product.typeMenu,
     priceSatang,
-    timestamp: Date.now(),
+    expiryTimer,
   });
 
   const embed = await ctx.services.embeds.renderEmbed('app_confirm', {
@@ -110,7 +114,7 @@ async function onCategorySelect(interaction, ctx) {
     embeds: [embed],
     components: [new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(`${ID.confirm}:${purchaseId}`).setLabel('ยืนยันการสั่งซื้อ').setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId(ID.cancel).setLabel('ยกเลิก').setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId(`${ID.cancel}:${purchaseId}`).setLabel('ยกเลิก').setStyle(ButtonStyle.Danger),
     )],
   });
 }
@@ -131,7 +135,7 @@ async function onConfirm(interaction, ctx) {
     return;
   }
   // Claim before any await — a rapid double-click must never buy twice.
-  pendingPurchases.delete(purchaseId);
+  forgetPending(purchaseId, ctx);
   await interaction.update({ content: '⏳ กำลังทำรายการ...', embeds: [], components: [] });
 
   // DM pre-check.
@@ -166,26 +170,42 @@ async function onConfirm(interaction, ctx) {
     return;
   }
 
-  // Debit first; any failure after this point refunds.
+  const jobId = await createJob(
+    ctx.config.subjectId, 'APP_PREMIUM', interaction.user.id, purchase.priceSatang, purchase,
+  );
+
+  // Debit first; any known failure after this point refunds exactly once.
   let balanceAfter;
   try {
     balanceAfter = await ctx.services.wallet.debit(interaction.user.id, purchase.priceSatang, {
       type: 'APP_PREMIUM',
+      reference: `financial-job:${jobId}`,
       note: purchase.name,
     });
   } catch (err) {
+    await setJobStatus(ctx.config.subjectId, jobId, 'FAILED', { error: err.message }).catch(() => {});
     const reason = err.code === 'INSUFFICIENT_FUNDS' ? 'ยอดเงินไม่พอ กรุณาเติมเงินก่อน' : 'ไม่สามารถหักเงินได้ กรุณาลองใหม่';
     await interaction.editReply({ content: '', embeds: [await errorEmbed(ctx, reason, avatarUrl)] });
     return;
   }
 
+  await setJobStatus(ctx.config.subjectId, jobId, 'DEBITED');
+  // PROCESSING means an external purchase may have happened. On restart these
+  // jobs require review instead of risking a duplicate purchase or false refund.
+  if (!(await claimDebitedJob(ctx.config.subjectId, jobId))) {
+    await interaction.editReply({ content: '', embeds: [await errorEmbed(ctx, 'รายการนี้กำลังถูกประมวลผลอยู่แล้ว กรุณาติดต่อแอดมิน', avatarUrl)] });
+    return;
+  }
   const result = await gafiw.buyProduct(ctx, purchase.typeId);
   if (!result.ok) {
     let refundedBalance = null;
     try {
-      refundedBalance = await ctx.services.wallet.credit(interaction.user.id, purchase.priceSatang, {
-        type: 'REFUND', note: `app premium buy failed: ${purchase.name}`,
-      });
+      const refund = await ctx.services.wallet.creditOnce(
+        interaction.user.id, purchase.priceSatang, `financial-job:${jobId}`,
+        { note: `app premium buy failed: ${purchase.name}` },
+      );
+      refundedBalance = refund.balance;
+      await setJobStatus(ctx.config.subjectId, jobId, 'REFUNDED', { error: result.message });
     } catch (err) {
       console.error('[central-bot] app-premium refund failed:', err.message);
     }
@@ -203,6 +223,8 @@ async function onConfirm(interaction, ctx) {
   const orderId = gafiw.pickOrderId(result.order);
   const accountBlock = formatAccountBlock(result.order);
   const datetime = tsReadable();
+  await setJobStatus(ctx.config.subjectId, jobId, 'SUCCEEDED', { result: result.order })
+    .catch((err) => ctx.log(`Could not persist successful app-premium order: ${err.message}`));
 
   // 1) DM the purchased account to the buyer.
   let dmOk = true;
@@ -242,7 +264,35 @@ async function onConfirm(interaction, ctx) {
   });
 }
 
+async function onReady(client, ctx) {
+  const jobs = await listRecoverableJobs(ctx.config.subjectId, 'APP_PREMIUM');
+  for (const row of jobs) {
+    if (row.status === 'PROCESSING') {
+      await setJobStatus(ctx.config.subjectId, row.id, 'REVIEW_REQUIRED', {
+        error: 'Bot restarted while upstream purchase outcome was unknown',
+      });
+      continue;
+    }
+    try {
+      const refund = await ctx.services.wallet.creditOnce(
+        row.member_discord_id, Number(row.amount_satang), `financial-job:${row.id}`,
+        { note: 'app premium recovery before upstream purchase' },
+      );
+      await setJobStatus(ctx.config.subjectId, row.id, 'REFUNDED', {
+        error: 'Bot restarted before upstream purchase began',
+      });
+      const user = await client.users.fetch(String(row.member_discord_id)).catch(() => null);
+      await user?.send(`ระบบคืนเงินรายการแอพพรีเมียมที่ค้างอยู่ ${baht(row.amount_satang)} บาทแล้ว (คงเหลือ ${baht(refund.balance)} บาท)`).catch(() => {});
+    } catch (err) {
+      console.error('[central-bot] app-premium recovery refund failed:', err.message);
+    }
+  }
+}
+
 async function onCancel(interaction, ctx) {
+  const purchaseId = interaction.customId.split(':')[3] || '';
+  const purchase = pendingPurchases.get(purchaseId);
+  if (purchase?.discordUserId === interaction.user.id) forgetPending(purchaseId, ctx);
   await interaction.update({
     embeds: [await errorEmbed(ctx, 'ยกเลิกการสั่งซื้อแล้ว', interaction.user.displayAvatarURL())],
     components: [],
@@ -337,6 +387,7 @@ async function sendLog(client, ctx, data) {
 }
 
 module.exports = {
+  onReady,
   onCategorySelect,
   components: {
     [ID.confirm]: onConfirm,

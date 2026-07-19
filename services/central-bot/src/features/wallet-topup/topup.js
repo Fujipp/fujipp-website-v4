@@ -13,9 +13,11 @@ const {
 } = require('discord.js');
 const { grantTopupRole } = require('./topup-role');
 const { parseEmoji, buttonStyle } = require('../../lib/components');
+const { query } = require('../../lib/db');
 
 const thb = (satang) => `฿${(satang / 100).toLocaleString('th-TH')}`;
 const GIFT_RE = /^https:\/\/gift\.truemoney\.com\/campaign\/\?v=/;
+const VOUCHER_REQUEST_TIMEOUT_MS = 15_000;
 
 // QR countdown: edit the message once a second so "X นาที YY วินาที" ticks down.
 const COUNTDOWN_TICK_MS = 1000;
@@ -32,11 +34,68 @@ async function grantTempSlipRole(interaction, ctx, minutes) {
     const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
     const role = await interaction.guild.roles.fetch(String(roleId)).catch(() => null);
     if (!member || !role) return;
+    const expiresAt = new Date(Date.now() + Math.max(1, minutes) * 60 * 1000);
+    await query(
+      `INSERT INTO shop.temporary_role_grants
+        (external_subject_id, guild_discord_id, member_discord_id, role_discord_id, expires_at)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (external_subject_id, guild_discord_id, member_discord_id, role_discord_id)
+       DO UPDATE SET expires_at = EXCLUDED.expires_at`,
+      [ctx.config.subjectId, interaction.guild.id, member.id, role.id, expiresAt],
+    );
     if (!member.roles.cache.has(role.id)) await member.roles.add(role);
-    setTimeout(() => { member.roles.remove(role).catch(() => {}); }, Math.max(1, minutes) * 60 * 1000);
+    scheduleRoleRemoval(ctx, interaction.client, {
+      guild_discord_id: interaction.guild.id,
+      member_discord_id: member.id,
+      role_discord_id: role.id,
+      expires_at: expiresAt,
+    });
   } catch (err) {
     console.error('[central-bot] slip access role grant failed:', err.message);
   }
+}
+
+function scheduleRoleRemoval(ctx, client, grant) {
+  const delay = Math.max(0, new Date(grant.expires_at).getTime() - Date.now());
+  ctx.lifecycle.setTimeout(async () => {
+    try {
+      const { rows } = await query(
+        `SELECT 1 FROM shop.temporary_role_grants
+          WHERE external_subject_id = $1 AND guild_discord_id = $2
+            AND member_discord_id = $3 AND role_discord_id = $4
+            AND expires_at <= now()`,
+        [ctx.config.subjectId, grant.guild_discord_id, grant.member_discord_id, grant.role_discord_id],
+      );
+      // A newer grant extended the expiry, so this older timer must do nothing.
+      if (rows.length === 0) return;
+      const guild = client.guilds.cache.get(String(grant.guild_discord_id))
+        || (await client.guilds.fetch(String(grant.guild_discord_id)).catch(() => null));
+      const member = await guild?.members.fetch(String(grant.member_discord_id)).catch(() => null);
+      if (member?.roles.cache.has(String(grant.role_discord_id))) {
+        await member.roles.remove(String(grant.role_discord_id));
+      }
+      await query(
+        `DELETE FROM shop.temporary_role_grants
+          WHERE external_subject_id = $1 AND guild_discord_id = $2
+            AND member_discord_id = $3 AND role_discord_id = $4
+            AND expires_at <= now()`,
+        [ctx.config.subjectId, grant.guild_discord_id, grant.member_discord_id, grant.role_discord_id],
+      );
+    } catch (err) {
+      ctx.log(`Temporary slip role removal failed: ${err.message}`);
+    }
+  }, Math.min(delay, 2_147_000_000));
+}
+
+async function onReady(client, ctx) {
+  const { rows } = await query(
+    `SELECT guild_discord_id, member_discord_id, role_discord_id, expires_at
+       FROM shop.temporary_role_grants
+      WHERE external_subject_id = $1
+      ORDER BY expires_at ASC`,
+    [ctx.config.subjectId],
+  );
+  rows.forEach((grant) => scheduleRoleRemoval(ctx, client, grant));
 }
 
 
@@ -63,8 +122,12 @@ async function redeemVoucher(ctx, giftUrl) {
         gift_url: giftUrl,
         idempotencyKey: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
       }),
+      signal: AbortSignal.timeout(VOUCHER_REQUEST_TIMEOUT_MS),
     });
-  } catch (_e) {
+  } catch (err) {
+    if (err?.name === 'TimeoutError' || err?.name === 'AbortError') {
+      return { ok: false, message: 'บริการ TrueMoney ใช้เวลาตอบกลับนานเกินไป กรุณาตรวจสอบรายการก่อนลองอีกครั้ง' };
+    }
     return { ok: false, message: 'เชื่อมต่อบริการ TrueMoney ไม่สำเร็จ' };
   }
 
@@ -157,20 +220,22 @@ async function onPpModal(interaction, ctx) {
   // Temp role so the member can see the slip channel; auto-removed after the QR window.
   await grantTempSlipRole(interaction, ctx, minutes);
 
-  const tick = setInterval(async () => {
-    const left = Math.max(0, targetTs - Math.floor(Date.now() / 1000));
-    try {
-      if (left <= 0) {
-        clearInterval(tick);
-        const timeout = await ctx.services.embeds.renderEmbed('topup_timeout');
-        await interaction.editReply({ embeds: [timeout], components: [] }).catch(() => {});
-        return;
+  const tick = ctx.lifecycle.setInterval(() => {
+    ctx.lifecycle.runExclusive(`promptpay-countdown:${interaction.id}`, async () => {
+      const left = Math.max(0, targetTs - Math.floor(Date.now() / 1000));
+      try {
+        if (left <= 0) {
+          ctx.lifecycle.clearTimer(tick);
+          const timeout = await ctx.services.embeds.renderEmbed('topup_timeout');
+          await interaction.editReply({ embeds: [timeout], components: [] }).catch(() => {});
+          return;
+        }
+        await interaction.editReply({ embeds: [await renderQr(left)] });
+      } catch (err) {
+        ctx.lifecycle.clearTimer(tick);
+        ctx.log(`PromptPay countdown stopped: ${err.message}`);
       }
-      await interaction.editReply({ embeds: [await renderQr(left)] }).catch(() => {});
-    } catch (err) {
-      clearInterval(tick);
-      console.error('[central-bot] promptpay countdown error:', err.message);
-    }
+    }).catch((err) => ctx.log(`PromptPay countdown crashed: ${err.message}`));
   }, COUNTDOWN_TICK_MS);
 }
 
@@ -280,6 +345,7 @@ async function onOpenTopup(interaction, ctx) {
 }
 
 module.exports = {
+  onReady,
   buildTopupMethod,
   buildTopupPanel,
   components: {

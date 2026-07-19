@@ -7,11 +7,14 @@
 //   {
 //     code:     string,                      // matches billing.feature_catalog.code
 //     name:     string,
+//     requiredConfig: string[]              // optional — missing keys => DEGRADED
+//     validate(config): string[]             // optional — safe issue labels only
 //     commands(): SlashCommandBuilder[]      // optional — slash commands to register
 //     handlers: { [commandName]: (interaction, ctx) => Promise<void> }  // optional
 //     onReady(client, ctx): Promise<void>    // optional — listeners / scheduled work
+//     accessControlledEvents: string[]        // optional — member-authored events to gate
 //   }
-// ctx = { config, log }
+// ctx = { config, log, services, lifecycle, setHealth }
 
 const robloxRobuxPayout = require('./roblox-robux-payout');
 const walletTopup = require('./wallet-topup');

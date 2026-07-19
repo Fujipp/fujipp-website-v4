@@ -72,7 +72,8 @@ async function canManageRole(member, roleId) {
   if (!roleId) return null;
   const role = member.guild.roles.cache.get(String(roleId));
   if (!role) return null;
-  const me = await member.guild.members.fetchMe();
+  const me = member.guild.members.me || (await member.guild.members.fetchMe().catch(() => null));
+  if (!me) return null;
   const ok = me.permissions.has(PermissionFlagsBits.ManageRoles)
     && me.roles.highest.comparePositionTo(role) > 0;
   return ok ? role : null;
@@ -114,18 +115,26 @@ async function applyTierRoles(member, amountBaht, txCount, c) {
 // Refresh Top1 / Top5 reward roles from the leaderboard. Top1 → rank 1, Top5 → ranks 2–5.
 // Serialized per guild so concurrent /topup add calls never overlap strip/re-grant.
 const sweepChains = new Map();
+const hydratedGuilds = new Set();
+
+async function ensureMemberCache(guild) {
+  if (hydratedGuilds.has(guild.id)) return true;
+  try {
+    await guild.members.fetch();
+    hydratedGuilds.add(guild.id);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function runRankSweep(guild, ctx) {
   const c = cfg(ctx);
   if (!c.top1RoleId && !c.top5RoleId) return;
 
-  try {
-    await guild.members.fetch();
-  } catch {
-    return; // missing Server Members intent — skip rather than throw
-  }
-
   const store = getSpendingStore(ctx.config.subjectId);
   const board = await store.leaderboard(50);
+  if (!(await ensureMemberCache(guild))) return; // missing Server Members intent
   const top1Id = board[0]?.memberId;
   const top5Ids = new Set(board.slice(0, 5).map((e) => e.memberId));
   if (top1Id) top5Ids.delete(top1Id); // Top5 role covers ranks 2–5
@@ -156,7 +165,11 @@ function refreshRanks(guild, ctx) {
   if (!guild) return Promise.resolve();
   const prev = sweepChains.get(guild.id) ?? Promise.resolve();
   const next = prev.then(() => runRankSweep(guild, ctx));
-  sweepChains.set(guild.id, next.catch(() => {}));
+  const tracked = next.catch(() => {});
+  sweepChains.set(guild.id, tracked);
+  next.finally(() => {
+    if (sweepChains.get(guild.id) === tracked) sweepChains.delete(guild.id);
+  }).catch(() => {});
   return next;
 }
 

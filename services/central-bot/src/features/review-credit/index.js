@@ -74,7 +74,8 @@ async function maybeAssignRole(message, ctx) {
   try {
     const member = message.member || (await message.guild.members.fetch(message.author.id));
     if (member && !member.roles.cache.has(roleId)) {
-      const role = await message.guild.roles.fetch(roleId).catch(() => null);
+      const role = message.guild.roles.cache.get(String(roleId))
+        || (await message.guild.roles.fetch(roleId).catch(() => null));
       if (role) await member.roles.add(role);
     }
   } catch (err) {
@@ -101,7 +102,8 @@ async function deleteOldAndReply(channel, target, ctx) {
     const { lastBotMessageId } = await st.getState(channel.id);
     if (lastBotMessageId) {
       try {
-        const old = await channel.messages.fetch(lastBotMessageId);
+        const old = channel.messages.cache.get(lastBotMessageId)
+          || (await channel.messages.fetch(lastBotMessageId));
         if (old?.author?.id === channel.client.user.id) await old.delete();
       } catch {
         // already gone
@@ -130,6 +132,8 @@ async function deleteOldAndReply(channel, target, ctx) {
 }
 
 async function latestUserMessage(channel) {
+  const cached = channel.messages.cache.filter((m) => !m.author?.bot).last();
+  if (cached) return cached;
   const messages = await channel.messages.fetch({ limit: 100 });
   return messages.find((m) => !m.author?.bot) || null;
 }
@@ -140,11 +144,13 @@ async function onMessage(message, ctx) {
   const cfgChannel = channelId(ctx);
   if (!cfgChannel || message.channelId !== cfgChannel) return;
 
-  const count = await getStore(ctx).increment(cfgChannel);
-  await applyReactions(message, ctx);
-  await maybeAssignRole(message, ctx);
-  await renameToCount(message.channel, count, ctx);
-  await deleteOldAndReply(message.channel, message, ctx);
+  await ctx.lifecycle.runSerial(`channel:${cfgChannel}`, async () => {
+    const count = await getStore(ctx).increment(cfgChannel);
+    await applyReactions(message, ctx);
+    await maybeAssignRole(message, ctx);
+    await renameToCount(message.channel, count, ctx);
+    await deleteOldAndReply(message.channel, message, ctx);
+  });
 }
 
 // ─── /checkcredit ────────────────────────────────────────────────────────────
@@ -172,7 +178,8 @@ async function resolveChannel(interaction, ctx) {
     await interaction.reply({ content: '❌ ยังไม่ได้ตั้งค่าห้องรีวิว (REVIEW_CHANNEL_ID)', ephemeral: true });
     return null;
   }
-  const channel = await interaction.client.channels.fetch(cfgChannel).catch(() => null);
+  const channel = interaction.client.channels.cache.get(String(cfgChannel))
+    || (await interaction.client.channels.fetch(cfgChannel).catch(() => null));
   if (!channel || !channel.isTextBased()) {
     await interaction.reply({ content: '❌ ห้องรีวิวที่ตั้งค่าไว้ไม่ถูกต้อง', ephemeral: true });
     return null;
@@ -190,12 +197,15 @@ async function handleCheckCredit(interaction, ctx) {
 
   await interaction.reply({ content: '⏳ กำลังตรวจนับข้อความในห้องรีวิว...', ephemeral: true });
 
-  const total = await countUserMessages(channel, async (count) => {
-    await interaction.editReply({ content: `⏳ กำลังตรวจนับ... (${count} ข้อความ)` }).catch(() => {});
+  const result = await ctx.lifecycle.runSerial(`channel:${channel.id}`, async () => {
+    const total = await countUserMessages(channel, async (count) => {
+      await interaction.editReply({ content: `⏳ กำลังตรวจนับ... (${count} ข้อความ)` }).catch(() => {});
+    });
+    await getStore(ctx).setCount(channel.id, total);
+    const rename = await renameToCount(channel, total, ctx);
+    return { total, rename };
   });
-
-  await getStore(ctx).setCount(channel.id, total);
-  const rename = await renameToCount(channel, total, ctx);
+  const { total, rename } = result;
 
   const lines = [`✅ ซิงค์ตัวนับรีวิวเป็น \`${total}\` ตามจำนวนข้อความสมาชิก`];
   lines.push(rename.ok ? `🔄 ชื่อห้อง: ${rename.target}` : '⚠️ เปลี่ยนชื่อห้องโดน rate limit จะอัปเดตในข้อความถัดไป');
@@ -213,16 +223,20 @@ async function handleReCredit(interaction, ctx) {
 
   await interaction.reply({ content: '⏳ กำลังรีเฟรชรีแอคชันและรีพายล่าสุด...', ephemeral: true });
 
-  const target = await latestUserMessage(channel);
-  const { messageCount } = await getStore(ctx).getState(channel.id);
-  const rename = await renameToCount(channel, messageCount, ctx);
+  const result = await ctx.lifecycle.runSerial(`channel:${channel.id}`, async () => {
+    const target = await latestUserMessage(channel);
+    const { messageCount } = await getStore(ctx).getState(channel.id);
+    const rename = await renameToCount(channel, messageCount, ctx);
 
-  let reacted = false;
-  let replied = false;
-  if (target) {
-    reacted = await applyReactions(target, ctx);
-    replied = await deleteOldAndReply(channel, target, ctx);
-  }
+    let reacted = false;
+    let replied = false;
+    if (target) {
+      reacted = await applyReactions(target, ctx);
+      replied = await deleteOldAndReply(channel, target, ctx);
+    }
+    return { target, messageCount, rename, reacted, replied };
+  });
+  const { target, messageCount, rename, reacted, replied } = result;
 
   const lines = [
     `📊 ตัวนับปัจจุบัน: \`${messageCount}\``,
@@ -244,13 +258,15 @@ async function onReady(client, ctx) {
   if (!cfgChannel) return;
   const store = getStore(ctx);
   try {
-    if (await store.exists(cfgChannel)) return;
-    const channel = await client.channels.fetch(cfgChannel).catch(() => null);
-    if (!channel || !channel.isTextBased()) return;
-    const total = await countUserMessages(channel);
-    await store.setCount(cfgChannel, total);
-    await renameToCount(channel, total, ctx);
-    ctx.log(`review-credit: initialized counter for ${cfgChannel} = ${total}`);
+    await ctx.lifecycle.runSerial(`channel:${cfgChannel}`, async () => {
+      if (await store.exists(cfgChannel)) return;
+      const channel = await client.channels.fetch(cfgChannel).catch(() => null);
+      if (!channel || !channel.isTextBased()) return;
+      const total = await countUserMessages(channel);
+      await store.setCount(cfgChannel, total);
+      await renameToCount(channel, total, ctx);
+      ctx.log(`initialized counter for ${cfgChannel} = ${total}`);
+    });
   } catch (err) {
     ctx.log(`review-credit initial count failed: ${err.message}`);
   }
@@ -268,6 +284,7 @@ function intents(config) {
 module.exports = {
   code: 'review-credit',
   name: 'Review Credit',
+  requiredConfig: ['REVIEW_CHANNEL_ID'],
   intents,
 
   commands() {
@@ -289,6 +306,8 @@ module.exports = {
   },
 
   onReady,
+
+  accessControlledEvents: ['messageCreate'],
 
   events: {
     messageCreate: onMessage,

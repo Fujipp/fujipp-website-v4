@@ -26,7 +26,9 @@
 // configurable via the `log_base` embed slot; per-event accents are built in code.
 
 const { GatewayIntentBits } = require('discord.js');
-const { getLogWebhook, WEBHOOK_NAME } = require('./webhook');
+const {
+  getLogWebhook, invalidateLogWebhook, clearLogWebhookCache, WEBHOOK_NAME,
+} = require('./webhook');
 const fmt = require('./format');
 
 const SLOT = 'log_base';
@@ -97,10 +99,29 @@ async function emit(client, ctx, channelId, part) {
     embed.footer = { text: fillVars(frame.footer.text, v), icon_url: frame.footer.icon_url || undefined };
   }
 
-  const hook = await getLogWebhook(client, channelId, ctx.log);
-  if (!hook) return;
-  await hook.send({ username: WEBHOOK_NAME, embeds: [embed] }).catch((err) => {
-    ctx.log?.(`server-log: webhook send failed: ${err.message}`);
+  await ctx.lifecycle.runSerial(`webhook:${channelId}`, async () => {
+    const payload = { username: WEBHOOK_NAME, embeds: [embed] };
+    const hook = await getLogWebhook(client, channelId, ctx.log);
+    if (!hook) return;
+    try {
+      await hook.send(payload);
+    } catch (err) {
+      const invalid = err?.code === 10015 || err?.status === 404 || /unknown webhook/i.test(err?.message || '');
+      if (!invalid) {
+        ctx.log?.(`webhook send failed: ${err.message}`);
+        return;
+      }
+
+      invalidateLogWebhook(channelId, hook.id);
+      const replacement = await getLogWebhook(client, channelId, ctx.log);
+      if (!replacement) return;
+      await replacement.send(payload).catch((retryErr) => {
+        const replacementInvalid = retryErr?.code === 10015 || retryErr?.status === 404
+          || /unknown webhook/i.test(retryErr?.message || '');
+        if (replacementInvalid) invalidateLogWebhook(channelId, replacement.id);
+        ctx.log?.(`replacement webhook send failed: ${retryErr.message}`);
+      });
+    }
   });
 }
 
@@ -221,6 +242,15 @@ const events = {
 module.exports = {
   code: 'server-log',
   name: 'Server Log',
+  validate(config) {
+    if (!config.bool('LOG_ENABLED', false)) return [];
+    const hasChannel = Object.values(channelKeys).some((key) => config.get(key))
+      || config.get('LOG_CHANNEL_ID');
+    return hasChannel ? [] : ['missing log channel configuration'];
+  },
   intents,
   events,
+  provides(ctx) {
+    ctx.lifecycle.register(clearLogWebhookCache);
+  },
 };

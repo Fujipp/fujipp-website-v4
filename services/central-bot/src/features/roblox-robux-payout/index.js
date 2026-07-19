@@ -15,17 +15,35 @@
 // the original kanom-roblox bot; it reads the ROBLOX_* env keys directly.
 
 const panel = require('./panel');
+const roblox = require('./roblox');
+const buy = require('./buy');
 
 module.exports = {
   code: 'roblox-robux-payout',
   name: 'Roblox Robux Payout',
+  validate() {
+    const groups = roblox.getGroupConfigs().list;
+    if (groups.length === 0) return ['missing config: ROBLOX_GROUP_ID or ROBLOX_GROUPS'];
+    const issues = [];
+    groups.forEach((group, index) => {
+      if (!group.groupId) issues.push(`group ${index + 1}: missing groupId`);
+      if (!group.cookie) issues.push(`group ${index + 1}: missing Roblox cookie`);
+    });
+    return issues;
+  },
   commands() {
     return [panel.panelCommand()];
   },
   handlers: {
     panel: panel.handlePanel,
   },
-  // Re-attach the panel auto-refresher to the message posted before a restart.
-  onReady: panel.onReady,
+  provides(ctx) {
+    ctx.lifecycle.register(roblox.clearCaches);
+  },
+  // Re-attach the panel and recover debited payouts that had not reached Roblox.
+  async onReady(client, ctx) {
+    await panel.onReady(client, ctx);
+    await buy.onReady(client, ctx);
+  },
   components: panel.components,
 };

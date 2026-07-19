@@ -14,7 +14,8 @@ class ChannelRenameLimiter {
   canExecute(key) {
     const now = Date.now();
     const valid = (this.timestamps.get(key) || []).filter((t) => now - t < this.windowMs);
-    this.timestamps.set(key, valid);
+    if (valid.length > 0) this.timestamps.set(key, valid);
+    else this.timestamps.delete(key);
     return valid.length < this.limit;
   }
 

@@ -121,11 +121,22 @@ async function handleTopupPanel(interaction, ctx) {
 module.exports = {
   code: 'wallet-topup',
   name: 'Shop Wallet & Top-up',
+  validate(config) {
+    const promptPayReady = Boolean(config.get('PROMPTPAY_NUMBER'));
+    const trueMoneyReady = Boolean(
+      config.get('TRUEMONEY_BASE')
+      && config.get('API_TRUEMONEY_KEY_ID')
+      && config.get('TRUEMONEY_PHONE'),
+    );
+    return promptPayReady || trueMoneyReady ? [] : ['no top-up payment method is fully configured'];
+  },
 
   // Register the wallet store so other features (Roblox redeem) can use it.
   provides(ctx) {
-    ctx.services.wallet = makeWallet(ctx.config.subjectId);
+    ctx.services.wallet = makeWallet(ctx.config.subjectId, ctx.lifecycle);
   },
+
+  onReady: topup.onReady,
 
   commands() {
     return [
@@ -164,5 +175,6 @@ module.exports = {
   // Slip verification listens to messageCreate in SLIP_CHECK_CHANNEL; the extra
   // (privileged) intents are only requested when the slip config is present.
   intents: slip.intents,
+  accessControlledEvents: ['messageCreate'],
   events: slip.events,
 };
