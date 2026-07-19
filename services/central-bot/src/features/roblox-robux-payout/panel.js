@@ -29,19 +29,23 @@ const thb = (satang) => `฿${(satang / 100).toLocaleString('th-TH')}`;
 // Roblox intermittently rate-limits the currency endpoint, so remember the last
 // good reading per group — a failed poll shows the previous number instead of
 // flipping the panel to "—" every few refreshes.
-const lastStock = new Map(); // groupKey -> robux
+const LAST_STOCK_TTL_MS = 15 * 60_000;
+const lastStock = new Map(); // groupKey -> { value, at }
 async function fetchStock(groups) {
   return Promise.all(groups.map(async (g) => {
     try {
       const f = await roblox.getGroupFunds({ groupKey: g.key });
       if (f && f.ok && typeof f.robux === 'number') {
-        lastStock.set(g.key, f.robux);
+        lastStock.set(g.key, { value: f.robux, at: Date.now() });
         return f.robux;
       }
     } catch (_e) { /* fall through to the cached value */ }
     const sharedStock = roblox.getCachedGroupFunds({ groupKey: g.key });
     if (sharedStock != null) return sharedStock;
-    return lastStock.has(g.key) ? lastStock.get(g.key) : null;
+    const last = lastStock.get(g.key);
+    if (last && Date.now() - last.at < LAST_STOCK_TTL_MS) return last.value;
+    lastStock.delete(g.key);
+    return null;
   }));
 }
 
@@ -100,24 +104,26 @@ function startPanelRefresh(message, ctx) {
   const channelId = message.channelId;
 
   const existing = refreshTimers.get(channelId);
-  if (existing) clearInterval(existing);
+  if (existing) ctx.lifecycle.clearTimer(existing);
 
   const stop = (intervalId) => {
-    clearInterval(intervalId);
+    ctx.lifecycle.clearTimer(intervalId);
     if (refreshTimers.get(channelId) === intervalId) refreshTimers.delete(channelId);
   };
 
-  const intervalId = setInterval(async () => {
-    try {
-      const groups = roblox.getGroupConfigs().list;
-      const stock = groups.length ? await fetchStock(groups) : [];
-      const cfg = await ctx.services.embeds.getConfig('shop_panel');
-      const embed = await buildPanelEmbed(ctx, groups, stock, postedAt);
-      await message.edit({ embeds: [embed], components: buildComponents(ctx, groups, stock, cfg.components || {}) });
-    } catch (err) {
-      console.error('[central-bot] panel refresh error:', err.message);
-      if (/unknown message|missing access/i.test(err.message)) stop(intervalId);
-    }
+  const intervalId = ctx.lifecycle.setInterval(() => {
+    ctx.lifecycle.runExclusive(`panel-refresh:${channelId}`, async () => {
+      try {
+        const groups = roblox.getGroupConfigs().list;
+        const stock = groups.length ? await fetchStock(groups) : [];
+        const cfg = await ctx.services.embeds.getConfig('shop_panel');
+        const embed = await buildPanelEmbed(ctx, groups, stock, postedAt);
+        await message.edit({ embeds: [embed], components: buildComponents(ctx, groups, stock, cfg.components || {}) });
+      } catch (err) {
+        ctx.log(`panel refresh failed: ${err.message}`);
+        if (/unknown message|missing access/i.test(err.message)) stop(intervalId);
+      }
+    }).catch((err) => ctx.log(`panel refresh crashed: ${err.message}`));
   }, intervalMs);
 
   refreshTimers.set(channelId, intervalId);
@@ -208,12 +214,12 @@ async function onReady(client, ctx) {
     const message = await channel.messages.fetch(ref.message_id);
     if (message) {
       startPanelRefresh(message, ctx);
-      console.log('[central-bot] panel: resumed auto-refresh on restart');
+      ctx.log('resumed panel auto-refresh on restart');
     }
   } catch (_e) {
     // Channel/message deleted while the bot was down — drop the stale pointer.
     await clearPanelRef(ctx);
-    console.log('[central-bot] panel: stored message gone; cleared ref');
+    ctx.log('stored panel message is gone; cleared ref');
   }
 }
 

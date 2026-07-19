@@ -13,6 +13,9 @@ const {
 } = require('discord.js');
 const roblox = require('./roblox');
 const { parseEmoji } = require('../../lib/components');
+const {
+  createJob, setJobStatus, claimDebitedJob, listRecoverableJobs,
+} = require('../../lib/financial-jobs');
 
 const ID = {
   userModal: 'kanom:buy:user',   // + ":<groupKey>"
@@ -113,11 +116,13 @@ function formatPayoutError(error) {
 const PENDING_TTL_MS = 5 * 60 * 1000;
 const pendingPurchases = new Map(); // purchaseId -> purchase
 
-function prunePending() {
-  const now = Date.now();
-  for (const [key, val] of pendingPurchases.entries()) {
-    if (now - val.timestamp > PENDING_TTL_MS) pendingPurchases.delete(key);
-  }
+function forgetPending(purchaseId, ctx) {
+  const purchase = pendingPurchases.get(purchaseId);
+  if (!purchase) return null;
+  pendingPurchases.delete(purchaseId);
+  ctx.lifecycle.clearTimer(purchase.expiryTimer);
+  delete purchase.expiryTimer;
+  return purchase;
 }
 
 const payoutQueue = [];
@@ -152,16 +157,21 @@ const INTERACTION_TOKEN_TTL_MS = 14 * 60 * 1000;
 
 // editReply while the token is alive, otherwise fall back to a DM so a buyer
 // stuck deep in the queue still learns the outcome (notify channel gets it too).
-function replyOrDm(interaction, payload) {
-  if (Date.now() - interaction.createdTimestamp < INTERACTION_TOKEN_TTL_MS) {
+async function replyOrDm(interaction, payload, client, memberId) {
+  if (interaction && Date.now() - interaction.createdTimestamp < INTERACTION_TOKEN_TTL_MS) {
     return interaction.editReply(payload).catch(() => {});
   }
-  return interaction.user?.send({ embeds: payload.embeds }).catch(() => {});
+  const user = interaction?.user || await client?.users.fetch(String(memberId)).catch(() => null);
+  return user?.send({ embeds: payload.embeds }).catch(() => {});
 }
 
 async function processPayout(job, ctx) {
-  const { interaction, purchase } = job;
-  const avatarUrl = interaction.user?.displayAvatarURL?.() || '';
+  const { interaction, purchase, jobId } = job;
+  const client = interaction?.client || job.client;
+  const buyer = interaction?.user || await client?.users.fetch(String(purchase.discordUserId)).catch(() => null);
+  const avatarUrl = buyer?.displayAvatarURL?.() || '';
+
+  if (!(await claimDebitedJob(ctx.config.subjectId, jobId))) return;
 
   const payout = await roblox.makeOneTimePayout(
     purchase.robloxUserId, purchase.pkg.robux,
@@ -172,9 +182,12 @@ async function processPayout(job, ctx) {
     // Refund — the wallet was debited at confirm time.
     let refundedBalance = null;
     try {
-      refundedBalance = await ctx.services.wallet.credit(purchase.discordUserId, purchase.priceSatang, {
-        type: 'REFUND', note: 'robux payout failed',
-      });
+      const refund = await ctx.services.wallet.creditOnce(
+        purchase.discordUserId, purchase.priceSatang, `financial-job:${jobId}`,
+        { note: 'robux payout failed' },
+      );
+      refundedBalance = refund.balance;
+      await setJobStatus(ctx.config.subjectId, jobId, 'REFUNDED', { error: payout.error?.message });
     } catch (err) {
       console.error('[central-bot] refund failed:', err.message);
     }
@@ -189,10 +202,10 @@ async function processPayout(job, ctx) {
         avatarUrl,
       })],
       components: [],
-    });
-    await sendNotification(interaction.client, ctx, {
+    }, client, purchase.discordUserId);
+    await sendNotification(client, ctx, {
       success: false,
-      username: interaction.user?.username || 'Unknown',
+      username: buyer?.username || 'Unknown',
       robloxUserId: purchase.robloxUserId,
       error: payout.error?.message || 'Unknown error',
     });
@@ -200,6 +213,8 @@ async function processPayout(job, ctx) {
   }
 
   const balance = await ctx.services.wallet.getBalance(purchase.discordUserId);
+  await setJobStatus(ctx.config.subjectId, jobId, 'SUCCEEDED', { result: payout })
+    .catch((err) => ctx.log(`Could not persist successful Roblox payout: ${err.message}`));
   await replyOrDm(interaction, {
     embeds: [await ctx.services.embeds.renderEmbed('buy_success', {
       roblox_id: purchase.robloxUserId,
@@ -209,15 +224,28 @@ async function processPayout(job, ctx) {
       avatar: avatarUrl || '',
     })],
     components: [],
-  });
+  }, client, purchase.discordUserId);
 
-  await sendNotification(interaction.client, ctx, {
+  await sendNotification(client, ctx, {
     success: true,
-    username: interaction.user?.username || 'Unknown',
+    username: buyer?.username || 'Unknown',
     robloxUserId: purchase.robloxUserId,
     robux: purchase.pkg.robux,
     price: purchase.pkg.price,
   });
+}
+
+async function onReady(client, ctx) {
+  const jobs = await listRecoverableJobs(ctx.config.subjectId, 'ROBUX_PAYOUT');
+  for (const row of jobs) {
+    if (row.status === 'PROCESSING') {
+      await setJobStatus(ctx.config.subjectId, row.id, 'REVIEW_REQUIRED', {
+        error: 'Bot restarted while Roblox payout outcome was unknown',
+      });
+      continue;
+    }
+    addToQueue({ jobId: row.id, client, purchase: row.payload }, ctx);
+  }
 }
 
 // Notification to ROBUX_NOTIFY_CHANNEL with the buyer's Roblox avatar.
@@ -455,8 +483,8 @@ async function onPackageSelect(interaction, ctx) {
     return;
   }
 
-  prunePending();
   const purchaseId = `${interaction.user.id}_${Date.now()}`;
+  const expiryTimer = ctx.lifecycle.setTimeout(() => pendingPurchases.delete(purchaseId), PENDING_TTL_MS);
   pendingPurchases.set(purchaseId, {
     discordUserId: interaction.user.id,
     robloxUserId,
@@ -464,7 +492,7 @@ async function onPackageSelect(interaction, ctx) {
     pkg,
     priceSatang,
     groupKey,
-    timestamp: Date.now(),
+    expiryTimer,
   });
 
   const confirmEmbed = await ctx.services.embeds.renderEmbed('buy_confirm', {
@@ -479,7 +507,7 @@ async function onPackageSelect(interaction, ctx) {
     embeds: [confirmEmbed],
     components: [new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(`${ID.confirm}:${purchaseId}`).setLabel('ยืนยัน').setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId(ID.cancel).setLabel('ยกเลิก').setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId(`${ID.cancel}:${purchaseId}`).setLabel('ยกเลิก').setStyle(ButtonStyle.Danger),
     )],
   });
 }
@@ -500,7 +528,7 @@ async function onConfirm(interaction, ctx) {
 
   // Claim the purchase before any await — a rapid double-click on the confirm
   // button must hit "not found" on the second click, never a second debit.
-  pendingPurchases.delete(purchaseId);
+  forgetPending(purchaseId, ctx);
 
   // Ack immediately — funds/restriction checks and the queue can be slow.
   await interaction.update({
@@ -539,14 +567,20 @@ async function onConfirm(interaction, ctx) {
     return;
   }
 
-  // Debit first; the queue refunds on payout failure.
+  const jobId = await createJob(
+    ctx.config.subjectId, 'ROBUX_PAYOUT', interaction.user.id, purchase.priceSatang, purchase,
+  );
+
+  // Debit first; the persistent queue refunds on payout failure.
   let balanceAfter;
   try {
     balanceAfter = await ctx.services.wallet.debit(interaction.user.id, purchase.priceSatang, {
       type: 'ROBUX_REDEEM',
+      reference: `financial-job:${jobId}`,
       note: `${purchase.pkg.robux} Robux → ${purchase.robloxUsername || purchase.robloxUserId}`,
     });
   } catch (err) {
+    await setJobStatus(ctx.config.subjectId, jobId, 'FAILED', { error: err.message }).catch(() => {});
     const reason = err.code === 'INSUFFICIENT_FUNDS' ? 'ยอดเงินไม่พอ กรุณาเติมเงินก่อน' : 'ไม่สามารถหักเงินได้';
     await interaction.editReply({
       embeds: [await errorEmbed(ctx, { reason, robloxUsername: purchase.robloxUsername, avatarUrl })],
@@ -555,7 +589,8 @@ async function onConfirm(interaction, ctx) {
     return;
   }
 
-  addToQueue({ interaction, purchase }, ctx);
+  await setJobStatus(ctx.config.subjectId, jobId, 'DEBITED');
+  addToQueue({ interaction, purchase, jobId }, ctx);
 
   await interaction.editReply({
     embeds: [await ctx.services.embeds.renderEmbed('buy_queued', {
@@ -570,6 +605,9 @@ async function onConfirm(interaction, ctx) {
 }
 
 async function onCancel(interaction, ctx) {
+  const purchaseId = interaction.customId.split(':')[3] || '';
+  const purchase = pendingPurchases.get(purchaseId);
+  if (purchase?.discordUserId === interaction.user.id) forgetPending(purchaseId, ctx);
   await interaction.update({
     embeds: [await errorEmbed(ctx, { reason: 'ยกเลิกการซื้อ Robux แล้ว', avatarUrl: interaction.user.displayAvatarURL() })],
     components: [],
@@ -577,6 +615,7 @@ async function onCancel(interaction, ctx) {
 }
 
 module.exports = {
+  onReady,
   components: {
     [ID.userModal]: onUserModal,
     [ID.pkgSelect]: onPackageSelect,

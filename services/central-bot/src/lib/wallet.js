@@ -11,8 +11,9 @@ class InsufficientFundsError extends Error {
   }
 }
 
-function makeWallet(subjectId) {
+function makeWallet(subjectId, lifecycle = null) {
   const balanceListeners = new Map();
+  lifecycle?.register(() => balanceListeners.clear());
 
   function emitBalance(memberId, balanceSatang) {
     const listeners = balanceListeners.get(String(memberId));
@@ -30,11 +31,15 @@ function makeWallet(subjectId) {
 
     let timer = null;
     const unsubscribe = () => {
-      if (timer) clearTimeout(timer);
+      if (timer) {
+        if (lifecycle) lifecycle.clearTimer(timer);
+        else clearTimeout(timer);
+        timer = null;
+      }
       listeners.delete(listener);
       if (listeners.size === 0) balanceListeners.delete(key);
     };
-    timer = setTimeout(unsubscribe, ttlMs);
+    timer = lifecycle ? lifecycle.setTimeout(unsubscribe, ttlMs) : setTimeout(unsubscribe, ttlMs);
     timer.unref?.();
     return unsubscribe;
   }
@@ -74,6 +79,19 @@ function makeWallet(subjectId) {
       throw err;
     } finally {
       client.release();
+    }
+  }
+
+  // Refund exactly once for a stable reference. A concurrent retry that loses the
+  // unique-index race rolls its entire wallet update back before returning.
+  async function creditOnce(memberId, amountSatang, reference, { note = null } = {}) {
+    if (!reference) throw new Error('reference is required');
+    try {
+      const balance = await credit(memberId, amountSatang, { type: 'REFUND', reference, note });
+      return { balance, credited: true };
+    } catch (err) {
+      if (err.code !== '23505') throw err;
+      return { balance: await getBalance(memberId), credited: false };
     }
   }
 
@@ -204,6 +222,7 @@ function makeWallet(subjectId) {
   return {
     getBalance,
     credit,
+    creditOnce,
     debit,
     setBalance,
     subscribeBalance,

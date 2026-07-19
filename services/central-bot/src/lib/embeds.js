@@ -9,7 +9,14 @@ const { EmbedBuilder } = require('discord.js');
 const { pool } = require('./db');
 
 const CACHE_TTL_MS = 30_000;
-const cache = new Map(); // key `${subjectId}:${slotKey}` -> { json, at }
+const CACHE_MAX_ENTRIES = 200;
+const cache = new Map(); // key -> { json, at } | { loading }
+
+function storeCache(key, value) {
+  cache.delete(key);
+  cache.set(key, value);
+  while (cache.size > CACHE_MAX_ENTRIES) cache.delete(cache.keys().next().value);
+}
 
 // Discord hard limits — truncate so a long config value never throws.
 const LIMIT = { title: 256, description: 4096, fieldName: 256, fieldValue: 1024, footer: 2048, author: 256 };
@@ -64,26 +71,30 @@ async function loadTemplate(subjectId, slotKey) {
   const key = `${subjectId}:${slotKey}`;
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.json;
+  if (hit?.loading) return hit.loading;
 
-  let json = {};
-  try {
-    const result = await pool.query(
-      `SELECT s.default_json, b.embed_json
-         FROM bots.embed_slots s
-         LEFT JOIN bots.bot_embeds b
-                ON b.slot_key = s.slot_key AND b.subject_id = $1
-        WHERE s.slot_key = $2
-        LIMIT 1`,
-      [subjectId, slotKey],
-    );
-    const row = result.rows[0];
-    json = row ? mergeTemplate(row.default_json, row.embed_json) : {};
-  } catch (err) {
-    console.error(`[central-bot] embed load failed for ${slotKey}:`, err.message);
-    json = {};
-  }
-  cache.set(key, { json, at: Date.now() });
-  return json;
+  const loading = (async () => {
+    let json = {};
+    try {
+      const result = await pool.query(
+        `SELECT s.default_json, b.embed_json
+           FROM bots.embed_slots s
+           LEFT JOIN bots.bot_embeds b
+                  ON b.slot_key = s.slot_key AND b.subject_id = $1
+          WHERE s.slot_key = $2
+          LIMIT 1`,
+        [subjectId, slotKey],
+      );
+      const row = result.rows[0];
+      json = row ? mergeTemplate(row.default_json, row.embed_json) : {};
+    } catch (err) {
+      console.error(`[central-bot] embed load failed for ${slotKey}:`, err.message);
+    }
+    storeCache(key, { json, at: Date.now() });
+    return json;
+  })();
+  storeCache(key, { loading });
+  return loading;
 }
 
 function buildEmbed(json, slotKey) {
@@ -147,7 +158,11 @@ function makeEmbedRenderer(subjectId) {
   function invalidate(slotKey) {
     if (slotKey) cache.delete(`${subjectId}:${slotKey}`);
   }
-  return { renderEmbed, getConfig, invalidate };
+  function clear() {
+    const prefix = `${subjectId}:`;
+    for (const key of cache.keys()) if (key.startsWith(prefix)) cache.delete(key);
+  }
+  return { renderEmbed, getConfig, invalidate, clear };
 }
 
 module.exports = { makeEmbedRenderer };

@@ -53,7 +53,7 @@ async function safeJoin(client, channelId, log) {
   if (!channel) return;
 
   const guild = channel.guild;
-  const me = await guild.members.fetchMe().catch(() => null);
+  const me = guild.members.me || (await guild.members.fetchMe().catch(() => null));
   if (!me) return;
   if (!channel.permissionsFor(me)?.has(PermissionFlagsBits.Connect)) {
     log?.(`voice-keeper: missing Connect permission for ${channel.id}`);
@@ -79,11 +79,14 @@ async function safeJoin(client, channelId, log) {
 
 // Rejoin the kept channel, throttled per guild so a burst of voice-state events
 // (kick → move → disconnect) doesn't spawn overlapping joins.
-function scheduleRejoin(client, channelId, guildId, log) {
+function scheduleRejoin(client, channelId, guildId, ctx) {
   const now = Date.now();
   if (now - (rejoinCooldownAt.get(guildId) ?? 0) < REJOIN_COOLDOWN_MS) return;
   rejoinCooldownAt.set(guildId, now);
-  safeJoin(client, channelId, log).catch(() => {});
+  ctx.lifecycle.setTimeout(() => {
+    if (rejoinCooldownAt.get(guildId) === now) rejoinCooldownAt.delete(guildId);
+  }, REJOIN_COOLDOWN_MS);
+  safeJoin(client, channelId, ctx.log).catch(() => {});
 }
 
 // Voice connections + receiving VoiceStateUpdate need the voice-states intent.
@@ -99,23 +102,23 @@ async function onReady(client, ctx) {
       keep.enabled = true;
       keep.channelId = String(channelId);
       const channel = await resolveVoiceChannel(client, keep.channelId);
-      if (channel) scheduleRejoin(client, keep.channelId, channel.guild.id, ctx.log);
+      if (channel) scheduleRejoin(client, keep.channelId, channel.guild.id, ctx);
     }
   }
 
   // Heartbeat: if the keep is on but we're not connected to the right channel, rejoin.
-  setInterval(async () => {
+  ctx.lifecycle.setInterval(() => ctx.lifecycle.runExclusive('heartbeat', async () => {
     if (!keep.enabled || !keep.channelId) return;
     const channel = await resolveVoiceChannel(client, keep.channelId);
     if (!channel) return;
     const conn = getVoiceConnection(channel.guild.id);
     if (!conn || conn.joinConfig.channelId !== keep.channelId) {
-      scheduleRejoin(client, keep.channelId, channel.guild.id, ctx.log);
+      scheduleRejoin(client, keep.channelId, channel.guild.id, ctx);
     }
-  }, HEARTBEAT_MS).unref?.();
+  }), HEARTBEAT_MS);
 
   // If the bot gets kicked / moved / disconnected, drag it back to the kept channel.
-  client.on(Events.VoiceStateUpdate, (oldState, newState) => {
+  const onVoiceStateUpdate = (oldState, newState) => {
     if (!keep.enabled || !keep.channelId) return;
     const changedUserId = newState.id ?? oldState.id;
     if (changedUserId !== client.user?.id) return;
@@ -123,9 +126,11 @@ async function onReady(client, ctx) {
     const disconnected = !newState.channelId && !!oldState.channelId;
     const movedAway = !!newState.channelId && newState.channelId !== keep.channelId;
     if (disconnected || movedAway) {
-      scheduleRejoin(client, keep.channelId, newState.guild.id, ctx.log);
+      scheduleRejoin(client, keep.channelId, newState.guild.id, ctx);
     }
-  });
+  };
+  client.on(Events.VoiceStateUpdate, onVoiceStateUpdate);
+  ctx.lifecycle.register(() => client.off(Events.VoiceStateUpdate, onVoiceStateUpdate));
 }
 
 async function handleJoin(interaction, ctx) {
@@ -178,6 +183,11 @@ async function handleLeave(interaction, ctx) {
 module.exports = {
   code: 'voice-keeper',
   name: 'Voice Keeper',
+  validate(config) {
+    return config.bool('VOICE_KEEP_ENABLED', false) && !config.get('VOICE_CHANNEL_ID')
+      ? ['missing config: VOICE_CHANNEL_ID']
+      : [];
+  },
   intents,
   onReady,
 

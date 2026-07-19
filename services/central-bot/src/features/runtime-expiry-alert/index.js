@@ -18,9 +18,6 @@ const MILESTONES = [
   { key: '1H', env: 'RUNTIME_ALERT_1H', milliseconds: 60 * 60 * 1000, label: '1 ชั่วโมง' },
 ];
 
-let timer = null;
-let checking = false;
-
 function enabled(value, fallback = true) {
   if (value == null || value === '') return fallback;
   return String(value).toLowerCase() === 'true';
@@ -146,40 +143,36 @@ async function sendChannel(client, ctx, runtime, milestone) {
 }
 
 async function check(client, ctx) {
-  if (checking) return;
-  checking = true;
-  try {
-    const modeValue = String(ctx.config.get('RUNTIME_ALERT_DELIVERY') || 'BOTH').toUpperCase();
-    const mode = DELIVERY.has(modeValue) ? modeValue : 'BOTH';
-    if (mode === 'DISABLED') return;
+  await ctx.lifecycle.runExclusive('check', async () => {
+    try {
+      const modeValue = String(ctx.config.get('RUNTIME_ALERT_DELIVERY') || 'BOTH').toUpperCase();
+      const mode = DELIVERY.has(modeValue) ? modeValue : 'BOTH';
+      if (mode === 'DISABLED') return;
 
-    const runtime = await loadRuntime(ctx.config.subjectId);
-    if (!runtime) return;
-    const milestone = dueMilestone(runtime, configuredMilestones(ctx));
-    if (!milestone) return;
+      const runtime = await loadRuntime(ctx.config.subjectId);
+      if (!runtime) return;
+      const milestone = dueMilestone(runtime, configuredMilestones(ctx));
+      if (!milestone) return;
 
-    if (mode === 'DM' || mode === 'BOTH') {
-      await sendDm(client, ctx, runtime, milestone).catch((err) => {
-        ctx.log(`runtime-expiry-alert: DM delivery failed: ${err.message}`);
-      });
+      if (mode === 'DM' || mode === 'BOTH') {
+        await sendDm(client, ctx, runtime, milestone).catch((err) => {
+          ctx.log(`DM delivery failed: ${err.message}`);
+        });
+      }
+      if (mode === 'CHANNEL' || mode === 'BOTH') {
+        await sendChannel(client, ctx, runtime, milestone).catch((err) => {
+          ctx.log(`channel delivery failed: ${err.message}`);
+        });
+      }
+    } catch (err) {
+      ctx.log(`check failed: ${err.message}`);
     }
-    if (mode === 'CHANNEL' || mode === 'BOTH') {
-      await sendChannel(client, ctx, runtime, milestone).catch((err) => {
-        ctx.log(`runtime-expiry-alert: channel delivery failed: ${err.message}`);
-      });
-    }
-  } catch (err) {
-    ctx.log(`runtime-expiry-alert: check failed: ${err.message}`);
-  } finally {
-    checking = false;
-  }
+  });
 }
 
 async function onReady(client, ctx) {
-  if (timer) clearInterval(timer);
   await check(client, ctx);
-  timer = setInterval(() => check(client, ctx), CHECK_MS);
-  timer.unref?.();
+  ctx.lifecycle.setInterval(() => check(client, ctx), CHECK_MS);
 }
 
 module.exports = {

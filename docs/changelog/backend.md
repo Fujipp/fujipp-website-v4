@@ -1,9 +1,10 @@
 # Changelog — Backend
 
-**Current version: `0.5.8`**  ·  see [release workflow](./README.md)
+**Current version: `0.5.9`**  ·  see [release workflow](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.5.9` | 2026-07-20 | Added per-bot Role and User access rules while hardening Discord feature lifecycle, recovery, external-call handling, and operational health checks. |
 | `0.5.8` | 2026-07-16 | Expanded audited administration for wallets, Runtime, and Features while keeping Discord balance updates and expiry alerts synchronized. |
 | `0.4.9` | 2026-07-09 | Connected billing, vouchers, feature configuration, bot messaging, monitoring, and operational controls into the platform API. |
 | `0.3.0` | 2026-06-18 | Added reliable Discord bot lifecycle management with encrypted credentials, deployment coordination, and customer-facing status. |

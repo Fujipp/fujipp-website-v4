@@ -70,10 +70,10 @@ async function onReady(client, ctx) {
   // One text is static — nothing to rotate.
   if (texts.length === 1) return;
 
-  setInterval(() => {
+  ctx.lifecycle.setInterval(() => {
     index = (index + 1) % texts.length;
     apply(texts[index]);
-  }, rotateSeconds * 1000).unref?.();
+  }, rotateSeconds * 1000);
 }
 
 module.exports = {

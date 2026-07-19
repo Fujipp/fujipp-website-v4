@@ -14,16 +14,27 @@ let botStatus = 'starting';
 let botError = null;
 app.get('/', (_req, res) => res.status(200).send('OK'));
 app.get('/healthz', (_req, res) => res.status(200).json({ status: 'healthy' }));
-app.get('/readyz', (_req, res) =>
+app.get('/readyz', (_req, res) => {
+  const features = botClient?.featureHealth
+    ? Object.fromEntries(botClient.featureHealth.entries())
+    : {};
+  const featureStates = Object.values(features).map((feature) => feature.status);
+  const status = botStatus === 'running' && featureStates.includes('INITIALIZING')
+    ? 'initializing'
+    : botStatus === 'running' && featureStates.some((state) => state === 'DEGRADED' || state === 'FAILED')
+      ? 'degraded'
+      : botStatus;
   res.status(200).json({
-    status: botStatus,
+    status,
     subjectId: process.env.BOT_SUBJECT_ID || null,
     uptime: process.uptime(),
     pid: process.pid,
     time: new Date().toISOString(),
     error: botError,
-  }),
-);
+    features,
+    commandSync: botClient?.commandSync || null,
+  });
+});
 
 let botClient = null;
 

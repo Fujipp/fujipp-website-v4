@@ -21,6 +21,18 @@ const baht = (satang) => (Number(satang) / 100).toFixed(2);
 // strip-then-regrant sweep must not overlap with itself. Each guild keeps a promise
 // chain so sweeps run one after another.
 const sweepChains = new Map();
+const hydratedGuilds = new Set();
+
+async function ensureMemberCache(guild) {
+  if (hydratedGuilds.has(guild.id)) return null;
+  try {
+    await guild.members.fetch();
+    hydratedGuilds.add(guild.id);
+    return null;
+  } catch (err) {
+    return err.message;
+  }
+}
 
 function milestoneRoles(ctx) {
   const raw = String(ctx.config.get('TOP_SPENDER_MILESTONE_ROLES', '')).trim();
@@ -78,7 +90,6 @@ async function runSweep(guild, ctx) {
   if (managed.length === 0) return { updated: 0, errors: [] };
 
   const leaderboard = await ctx.services.wallet.getLeaderboard(50);
-  if (leaderboard.length === 0) return { updated: 0, errors: [] };
 
   const cfg = {
     top1RoleId: ctx.config.get('TOP_SPENDER_TOP1_ROLE_ID'),
@@ -86,12 +97,10 @@ async function runSweep(guild, ctx) {
     milestones: milestoneRoles(ctx),
   };
 
-  // Role sweep needs every member cached (Server Members Intent).
-  try {
-    await guild.members.fetch();
-  } catch (err) {
-    return { updated: 0, errors: [], fetchError: err.message };
-  }
+  // Hydrate once per guild/process so role.members includes stale holders. Later
+  // top-ups reconcile from cache instead of downloading the full member list again.
+  const fetchError = await ensureMemberCache(guild);
+  if (fetchError) return { updated: 0, errors: [], fetchError };
 
   const managedSet = new Set(managed);
 
@@ -117,7 +126,8 @@ async function runSweep(guild, ctx) {
   let updated = 0;
   const errors = [];
   for (const memberId of new Set([...desired.keys(), ...holders])) {
-    const member = guild.members.cache.get(memberId);
+    const member = guild.members.cache.get(memberId)
+      || (await guild.members.fetch(memberId).catch(() => null));
     if (!member) continue;
     const want = desired.get(memberId) ?? new Set();
 
@@ -150,7 +160,11 @@ function syncRoles(guild, ctx) {
   if (!guild) return Promise.resolve({ updated: 0, errors: [] });
   const prev = sweepChains.get(guild.id) ?? Promise.resolve();
   const next = prev.then(() => runSweep(guild, ctx));
-  sweepChains.set(guild.id, next.catch(() => {}));
+  const tracked = next.catch(() => {});
+  sweepChains.set(guild.id, tracked);
+  next.finally(() => {
+    if (sweepChains.get(guild.id) === tracked) sweepChains.delete(guild.id);
+  }).catch(() => {});
   return next;
 }
 

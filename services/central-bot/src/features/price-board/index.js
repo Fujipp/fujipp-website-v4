@@ -112,11 +112,9 @@ async function handlePostBoard(interaction, ctx) {
   await interaction.editReply({ content: 'โพสต์บอร์ดราคาแล้ว ✅' });
 }
 
-// Auto-repost timer is in-memory: one process serves one subject, so a single timer
-// is enough. A restart re-arms it from onReady. (Running the runtime on multiple
-// nodes would double-post — same single-node assumption as the panel refresher.)
-let repostTimer = null;
-
+// Auto-repost scheduling is process-local and owned by the shared feature lifecycle.
+// A restart re-arms it from onReady. Running the runtime on multiple nodes would still
+// double-post, under the same single-node assumption as the panel refresher.
 // Asia/Bangkok has a fixed +7h offset (no DST), so we can align to wall-clock hours
 // without a tz library: shift epoch by +7h and align to multiples of the period. This
 // reproduces the legacy cron's "post at 00:00, 02:00, 04:00…" behaviour (aligned to
@@ -139,19 +137,17 @@ async function onReady(client, ctx) {
   if (ctx.config.bool('PRICE_BOARD_AUTO_REPOST', false)) {
     const hours = Math.max(0.25, ctx.config.number('PRICE_BOARD_REPOST_HOURS', 2));
     const periodMs = hours * 3600_000;
-    if (repostTimer) clearTimeout(repostTimer); // clearTimeout clears both kinds in Node
-
-    const post = () => postBoard(client, ctx).catch((err) => {
-      console.error('[central-bot] price-board: auto-repost failed:', err.message);
-    });
+    const post = () => ctx.lifecycle.runExclusive('auto-repost', async () => {
+      await postBoard(client, ctx);
+    }).catch((err) => ctx.log(`auto-repost failed: ${err.message}`));
 
     // Wait until the next aligned Bangkok slot, post, then repeat every period exactly.
-    repostTimer = setTimeout(() => {
+    ctx.lifecycle.setTimeout(() => {
       post();
-      repostTimer = setInterval(post, periodMs);
+      ctx.lifecycle.setInterval(post, periodMs);
     }, msUntilNextAligned(Date.now(), periodMs));
 
-    console.log(`[central-bot] price-board: auto-repost every ${hours}h (aligned to Bangkok clock)`);
+    ctx.log(`auto-repost every ${hours}h (aligned to Bangkok clock)`);
   }
 }
 

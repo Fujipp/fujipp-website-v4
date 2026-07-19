@@ -12,15 +12,24 @@
 //   APP_PREMIUM_CATEGORY_1..3, APP_PREMIUM_NOTIFY_CHANNEL, APP_PREMIUM_LOG_CHANNEL
 
 const panel = require('./panel');
+const buy = require('./buy');
 
 module.exports = {
   code: 'app-premium-shop',
   name: 'App Premium Shop',
+  validate(config) {
+    if (!config.bool('APP_PREMIUM_ENABLED', true)) return [];
+    const issues = [];
+    if (!config.get('APP_PREMIUM_API_KEY')) issues.push('missing config: APP_PREMIUM_API_KEY');
+    if (!config.isFeatureEnabled('wallet-topup')) issues.push('required feature unavailable: wallet-topup');
+    return issues;
+  },
   commands() {
     return [panel.panelCommand()];
   },
   handlers: {
     'app-panel': panel.handlePanel,
   },
+  onReady: buy.onReady,
   components: panel.components,
 };
