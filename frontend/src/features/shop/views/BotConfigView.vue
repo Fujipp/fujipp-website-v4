@@ -7,7 +7,7 @@ import {
     type CreateBotPayload,
 } from "@/features/shop/components";
 import { AppFooter } from "@/shared/layout";
-import { PrimaryButton, SecondaryButton, StatusToast, TextField, type SelectFieldOption } from "@/shared/ui";
+import { PrimaryButton, SecondaryButton, SelectField, StatusToast, TextField, type SelectFieldOption } from "@/shared/ui";
 import { ToggleSwitch } from "@/shared/ui/toggles";
 import { EmbedEditor } from "@/shared/ui/embeds";
 import { ConfirmModal } from "@/shared/ui/modals";
@@ -213,6 +213,171 @@ watch(features, (list) => {
 
 const channelOptions = computed<SelectFieldOption[]>(() => channels.value.map((c) => ({ label: `#${c.name}`, value: c.id })));
 const roleOptions = computed<SelectFieldOption[]>(() => roles.value.map((r) => ({ label: `@${r.name}`, value: r.id })));
+
+interface BotAccessRule {
+    id: string;
+    botId: string;
+    featureCode: string;
+    targetType: "ROLE" | "USER";
+    targetDiscordId: string;
+    effect: "ALLOW" | "DENY";
+    enabled: boolean;
+}
+
+const accessRules = ref<BotAccessRule[]>([]);
+const accessRulesLoading = ref(false);
+const accessRulesBusy = ref(false);
+const accessRulesError = ref("");
+const editingAccessRuleId = ref("");
+const accessRuleForm = reactive({
+    featureCode: "*",
+    targetType: "ROLE",
+    targetDiscordId: "",
+    effect: "ALLOW",
+});
+const accessFeatureOptions = computed<SelectFieldOption[]>(() => [
+    { label: "ทุก Feature", value: "*" },
+    ...features.value.map((feature) => ({ label: feature.name, value: feature.code })),
+]);
+const accessTargetOptions: SelectFieldOption[] = [
+    { label: "Role", value: "ROLE" },
+    { label: "User", value: "USER" },
+];
+const accessEffectOptions: SelectFieldOption[] = [
+    { label: "Allow — อนุญาต", value: "ALLOW" },
+    { label: "Deny — ปฏิเสธ", value: "DENY" },
+];
+
+function resetAccessRuleForm(): void {
+    editingAccessRuleId.value = "";
+    accessRuleForm.featureCode = "*";
+    accessRuleForm.targetType = "ROLE";
+    accessRuleForm.targetDiscordId = "";
+    accessRuleForm.effect = "ALLOW";
+}
+
+function accessFeatureLabel(code: string): string {
+    if (code === "*") return "ทุก Feature";
+    return features.value.find((feature) => feature.code === code)?.name ?? code;
+}
+
+function accessTargetLabel(rule: BotAccessRule): string {
+    if (rule.targetType === "ROLE") {
+        const role = roles.value.find((item) => item.id === rule.targetDiscordId);
+        return role ? `@${role.name}` : `Role ${rule.targetDiscordId}`;
+    }
+    return `User ${rule.targetDiscordId}`;
+}
+
+async function loadAccessRules(): Promise<void> {
+    accessRulesLoading.value = true;
+    accessRulesError.value = "";
+    try {
+        const headers = await authHeaders();
+        if (!headers) return;
+        const response = await fetch(`${API_BASE_URL}/api/bots/${botId.value}/access-rules`, { headers });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        accessRules.value = await response.json() as BotAccessRule[];
+    } catch {
+        accessRulesError.value = "โหลดกฎสิทธิ์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+    } finally {
+        accessRulesLoading.value = false;
+    }
+}
+
+async function saveAccessRule(): Promise<void> {
+    if (!/^[0-9]{15,22}$/.test(accessRuleForm.targetDiscordId.trim())) {
+        notify("error", "Discord ID ไม่ถูกต้อง", "กรุณาใส่ Role ID หรือ User ID เป็นตัวเลข 15–22 หลัก");
+        return;
+    }
+    accessRulesBusy.value = true;
+    try {
+        const headers = await authHeaders();
+        if (!headers) return;
+        const editing = editingAccessRuleId.value;
+        const existing = accessRules.value.find((rule) => rule.id === editing);
+        const path = editing ? `/access-rules/${editing}` : "/access-rules";
+        const response = await fetch(`${API_BASE_URL}/api/bots/${botId.value}${path}`, {
+            method: editing ? "PUT" : "POST",
+            headers: { ...headers, "Content-Type": "application/json" },
+            body: JSON.stringify({
+                ...accessRuleForm,
+                targetDiscordId: accessRuleForm.targetDiscordId.trim(),
+                enabled: existing?.enabled ?? true,
+            }),
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        resetAccessRuleForm();
+        await loadAccessRules();
+        notify("success", editing ? "แก้ไขกฎสิทธิ์แล้ว" : "เพิ่มกฎสิทธิ์แล้ว", "บอทที่กำลังทำงานจะ restart เพื่อใช้กฎใหม่");
+    } catch {
+        notify("error", "บันทึกกฎไม่สำเร็จ", "กฎอาจซ้ำหรือข้อมูลไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง");
+    } finally {
+        accessRulesBusy.value = false;
+    }
+}
+
+function editAccessRule(rule: BotAccessRule): void {
+    editingAccessRuleId.value = rule.id;
+    accessRuleForm.featureCode = rule.featureCode;
+    accessRuleForm.targetType = rule.targetType;
+    accessRuleForm.targetDiscordId = rule.targetDiscordId;
+    accessRuleForm.effect = rule.effect;
+}
+
+async function toggleAccessRule(rule: BotAccessRule, enabled: boolean): Promise<void> {
+    accessRulesBusy.value = true;
+    try {
+        const headers = await authHeaders();
+        if (!headers) return;
+        const response = await fetch(`${API_BASE_URL}/api/bots/${botId.value}/access-rules/${rule.id}`, {
+            method: "PUT",
+            headers: { ...headers, "Content-Type": "application/json" },
+            body: JSON.stringify({
+                featureCode: rule.featureCode,
+                targetType: rule.targetType,
+                targetDiscordId: rule.targetDiscordId,
+                effect: rule.effect,
+                enabled,
+            }),
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        rule.enabled = enabled;
+        notify("success", enabled ? "เปิดใช้กฎแล้ว" : "ปิดใช้กฎแล้ว");
+    } catch {
+        notify("error", "เปลี่ยนสถานะกฎไม่สำเร็จ", "กรุณาลองใหม่อีกครั้ง");
+    } finally {
+        accessRulesBusy.value = false;
+    }
+}
+
+function confirmDeleteAccessRule(rule: BotAccessRule): void {
+    requestConfirmation(
+        "ลบกฎสิทธิ์นี้?",
+        `${accessFeatureLabel(rule.featureCode)} • ${accessTargetLabel(rule)} • ${rule.effect}`,
+        "ลบกฎ",
+        "danger",
+        async () => {
+            accessRulesBusy.value = true;
+            try {
+                const headers = await authHeaders();
+                if (!headers) return;
+                const response = await fetch(`${API_BASE_URL}/api/bots/${botId.value}/access-rules/${rule.id}`, {
+                    method: "DELETE",
+                    headers,
+                });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                accessRules.value = accessRules.value.filter((item) => item.id !== rule.id);
+                if (editingAccessRuleId.value === rule.id) resetAccessRuleForm();
+                notify("success", "ลบกฎสิทธิ์แล้ว");
+            } catch {
+                notify("error", "ลบกฎไม่สำเร็จ", "กรุณาลองใหม่อีกครั้ง");
+            } finally {
+                accessRulesBusy.value = false;
+            }
+        },
+    );
+}
 
 function notify(status: ToastStatus, title: string, description?: string): void {
     toast.value = { status, title, description };
@@ -702,7 +867,7 @@ onMounted(async () => {
         await router.push({ name: "login", query: { redirect: route.fullPath } });
         return;
     }
-    await Promise.all([loadConfig(), loadBot(), loadRuntime(), loadEmbedFeatures(), loadPackageAssignments()]);
+    await Promise.all([loadConfig(), loadBot(), loadRuntime(), loadEmbedFeatures(), loadPackageAssignments(), loadAccessRules()]);
     if (hasReviewCredit.value) await loadReviewCount();
 });
 </script>
@@ -999,6 +1164,66 @@ onMounted(async () => {
                             </PrimaryButton>
                         </div>
                     </form>
+                </section>
+
+                <section :class="$style.accessControlCard" aria-labelledby="access-control-title">
+                    <div :class="$style.accessControlHeader">
+                        <div>
+                            <h2 id="access-control-title" class="type-h2-section-title-sb">Access control</h2>
+                            <p class="type-body-small-r">กำหนด Role หรือ User ที่อนุญาตและปฏิเสธการใช้บอททั้งระบบหรือราย Feature</p>
+                        </div>
+                        <SecondaryButton width-mode="hug" :leading-icon="icons.restart" :disabled="accessRulesLoading" @click="loadAccessRules">
+                            Refresh
+                        </SecondaryButton>
+                    </div>
+
+                    <form :class="$style.accessRuleForm" @submit.prevent="saveAccessRule">
+                        <SelectField v-model="accessRuleForm.featureCode" label="ขอบเขต" :options="accessFeatureOptions" :disabled="accessRulesBusy" />
+                        <SelectField v-model="accessRuleForm.targetType" label="ประเภทผู้ใช้" :options="accessTargetOptions" :disabled="accessRulesBusy" />
+                        <TextField
+                            v-model="accessRuleForm.targetDiscordId"
+                            :label="accessRuleForm.targetType === 'ROLE' ? 'Role ID' : 'User ID'"
+                            :placeholder="accessRuleForm.targetType === 'ROLE' ? 'Discord Role ID' : 'Discord User ID'"
+                            support-text="เปิด Developer Mode ใน Discord แล้ว Copy ID"
+                            required
+                            :disabled="accessRulesBusy"
+                        />
+                        <SelectField v-model="accessRuleForm.effect" label="สิทธิ์" :options="accessEffectOptions" :disabled="accessRulesBusy" />
+                        <div :class="$style.accessRuleFormActions">
+                            <SecondaryButton v-if="editingAccessRuleId" type="button" width-mode="hug" :disabled="accessRulesBusy" @click="resetAccessRuleForm">
+                                Cancel edit
+                            </SecondaryButton>
+                            <PrimaryButton type="submit" width-mode="hug" :leading-icon="editingAccessRuleId ? icons.edit : icons.add" :disabled="accessRulesBusy || !accessRuleForm.targetDiscordId.trim()">
+                                {{ accessRulesBusy ? "Saving…" : editingAccessRuleId ? "Save rule" : "Add rule" }}
+                            </PrimaryButton>
+                        </div>
+                    </form>
+
+                    <p v-if="accessRulesLoading" :class="$style.state" class="type-body-small-r">กำลังโหลดกฎสิทธิ์…</p>
+                    <div v-else-if="accessRulesError" :class="$style.statePanel" aria-live="polite">
+                        <strong>โหลดกฎสิทธิ์ไม่สำเร็จ</strong>
+                        <span>{{ accessRulesError }}</span>
+                    </div>
+                    <p v-else-if="accessRules.length === 0" :class="$style.accessEmpty" class="type-body-small-r">
+                        ยังไม่มีกฎ — สมาชิกทุกคนสามารถใช้งาน Feature ได้ตามปกติ
+                    </p>
+                    <div v-else :class="$style.accessRuleList">
+                        <article v-for="rule in accessRules" :key="rule.id" :class="[$style.accessRuleItem, !rule.enabled ? $style.accessRuleDisabled : '']">
+                            <div :class="$style.accessRuleCopy">
+                                <div :class="$style.accessRuleBadges">
+                                    <span :class="[$style.accessBadge, rule.effect === 'DENY' ? $style.accessDeny : $style.accessAllow]">{{ rule.effect }}</span>
+                                    <span :class="$style.accessBadge">{{ rule.targetType }}</span>
+                                    <span :class="$style.accessBadge">{{ accessFeatureLabel(rule.featureCode) }}</span>
+                                </div>
+                                <strong class="type-body-main-sb">{{ accessTargetLabel(rule) }}</strong>
+                            </div>
+                            <div :class="$style.accessRuleActions">
+                                <ToggleSwitch :model-value="rule.enabled" :disabled="accessRulesBusy" :aria-label="`${rule.enabled ? 'ปิด' : 'เปิด'}กฎ ${accessTargetLabel(rule)}`" @update:model-value="toggleAccessRule(rule, $event)" />
+                                <SecondaryButton width-mode="hug" :leading-icon="icons.edit" :disabled="accessRulesBusy" @click="editAccessRule(rule)">Edit</SecondaryButton>
+                                <SecondaryButton width-mode="hug" :leading-icon="icons.delete" :disabled="accessRulesBusy" @click="confirmDeleteAccessRule(rule)">Delete</SecondaryButton>
+                            </div>
+                        </article>
+                    </div>
                 </section>
             </template>
 
@@ -2680,6 +2905,131 @@ onMounted(async () => {
 
     .botConfigFormActions > * {
         width: 100%;
+    }
+}
+
+.accessControlCard {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-space-5);
+    box-sizing: border-box;
+    width: 100%;
+    padding: var(--spacing-space-6);
+    border: 1px solid var(--color-main-border);
+    border-radius: var(--radius-xl);
+    background: var(--color-main-background);
+    color: var(--color-text-primary);
+}
+
+.accessControlHeader,
+.accessRuleFormActions,
+.accessRuleItem,
+.accessRuleActions,
+.accessRuleBadges {
+    display: flex;
+    align-items: center;
+}
+
+.accessControlHeader,
+.accessRuleItem {
+    justify-content: space-between;
+}
+
+.accessControlHeader {
+    gap: var(--spacing-space-4);
+}
+
+.accessControlHeader h2,
+.accessControlHeader p {
+    margin: 0;
+}
+
+.accessControlHeader p,
+.accessEmpty {
+    color: var(--color-text-secondary);
+}
+
+.accessRuleForm {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--spacing-space-4);
+    padding: var(--spacing-space-5);
+    border: 1px solid var(--color-main-divider);
+    border-radius: var(--radius-xl);
+    background: var(--color-main-surface);
+}
+
+.accessRuleFormActions {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+    gap: var(--spacing-space-2);
+}
+
+.accessRuleList {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-space-3);
+}
+
+.accessRuleItem {
+    gap: var(--spacing-space-4);
+    padding: var(--spacing-space-4);
+    border: 1px solid var(--color-main-divider);
+    border-radius: var(--radius-xl);
+}
+
+.accessRuleDisabled {
+    opacity: 0.55;
+}
+
+.accessRuleCopy {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: var(--spacing-space-2);
+}
+
+.accessRuleBadges,
+.accessRuleActions {
+    flex-wrap: wrap;
+    gap: var(--spacing-space-2);
+}
+
+.accessBadge {
+    padding: var(--spacing-space-1) var(--spacing-space-2);
+    border: 1px solid var(--color-main-divider);
+    border-radius: var(--radius-full);
+    color: var(--color-text-secondary);
+    font-size: var(--type-size-overline);
+    font-weight: 600;
+}
+
+.accessAllow {
+    color: var(--color-status-success);
+}
+
+.accessDeny {
+    color: var(--color-status-error);
+}
+
+@media (max-width: 760px) {
+    .accessControlCard,
+    .accessRuleForm {
+        padding: var(--spacing-space-4);
+    }
+
+    .accessControlHeader,
+    .accessRuleItem {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .accessRuleForm {
+        grid-template-columns: 1fr;
+    }
+
+    .accessRuleActions > * {
+        flex: 1;
     }
 }
 
