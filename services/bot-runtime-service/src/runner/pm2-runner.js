@@ -110,7 +110,10 @@ async function waitUntilReady(subjectId, env) {
       const ready = await readReady(port);
       if (ready.subjectId && String(ready.subjectId) !== String(subjectId)) {
         lastError = new Error(`readyz subject mismatch: ${ready.subjectId}`);
-      } else if (ready.status === 'running') {
+      // A degraded bot is connected to Discord and can serve the healthy
+      // features. Keep it online; feature-level warnings must not make the
+      // orchestrator delete the whole PM2 process after the readiness timeout.
+      } else if (ready.status === 'running' || ready.status === 'degraded') {
         return;
       } else if (ready.status === 'crashed') {
         throw new Error(ready.error || 'central-bot failed to log in; check bot token, public app settings, and runtime logs');
