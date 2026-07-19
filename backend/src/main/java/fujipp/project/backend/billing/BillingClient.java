@@ -372,6 +372,30 @@ public class BillingClient {
             .body(String.class);
     }
 
+    public String getBotAccessRules(String subjectId) {
+        return http.get().uri("/api/billing/bots/{id}/access-rules", subjectId)
+            .header("X-Service-Token", serviceToken).retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raiseWithReason(res)).body(String.class);
+    }
+
+    public String createBotAccessRule(String subjectId, String body) {
+        return http.post().uri("/api/billing/bots/{id}/access-rules", subjectId)
+            .header("X-Service-Token", serviceToken).contentType(MediaType.APPLICATION_JSON).body(body)
+            .retrieve().onStatus(HttpStatusCode::isError, (req, res) -> raiseWithReason(res)).body(String.class);
+    }
+
+    public String updateBotAccessRule(String subjectId, UUID ruleId, String body) {
+        return http.put().uri("/api/billing/bots/{id}/access-rules/{ruleId}", subjectId, ruleId)
+            .header("X-Service-Token", serviceToken).contentType(MediaType.APPLICATION_JSON).body(body)
+            .retrieve().onStatus(HttpStatusCode::isError, (req, res) -> raiseWithReason(res)).body(String.class);
+    }
+
+    public void deleteBotAccessRule(String subjectId, UUID ruleId) {
+        http.delete().uri("/api/billing/bots/{id}/access-rules/{ruleId}", subjectId, ruleId)
+            .header("X-Service-Token", serviceToken).retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raiseWithReason(res)).toBodilessEntity();
+    }
+
     // ── admin catalog pricing (service token + acting admin id) ─────────────────
 
     /** Raw JSON list of all runtime plans (incl. inactive) for the admin editor. */

@@ -17,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -115,6 +116,41 @@ public class BotController {
         String saved = billing.updateBotConfig(botId.toString(), body);
         runtimeOps.restartIfRunning(botId);
         return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(saved);
+    }
+
+    @GetMapping("/{botId}/access-rules")
+    public ResponseEntity<String> getAccessRules(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID botId) {
+        assertOwner(jwt, botId);
+        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON)
+            .body(billing.getBotAccessRules(botId.toString()));
+    }
+
+    @PostMapping("/{botId}/access-rules")
+    public ResponseEntity<String> createAccessRule(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable UUID botId, @RequestBody String body) {
+        assertOwner(jwt, botId);
+        String result = billing.createBotAccessRule(botId.toString(), body);
+        runtimeOps.restartIfRunning(botId);
+        return ResponseEntity.status(201).contentType(MediaType.APPLICATION_JSON).body(result);
+    }
+
+    @PutMapping("/{botId}/access-rules/{ruleId}")
+    public ResponseEntity<String> updateAccessRule(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable UUID botId,
+            @PathVariable UUID ruleId, @RequestBody String body) {
+        assertOwner(jwt, botId);
+        String result = billing.updateBotAccessRule(botId.toString(), ruleId, body);
+        runtimeOps.restartIfRunning(botId);
+        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(result);
+    }
+
+    @DeleteMapping("/{botId}/access-rules/{ruleId}")
+    public ResponseEntity<Void> deleteAccessRule(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable UUID botId, @PathVariable UUID ruleId) {
+        assertOwner(jwt, botId);
+        billing.deleteBotAccessRule(botId.toString(), ruleId);
+        runtimeOps.restartIfRunning(botId);
+        return ResponseEntity.noContent().build();
     }
 
     // ── runtime control (proxied to the orchestrator) ───────────────────────────
