@@ -459,12 +459,14 @@ public class BillingClient {
             .body(String.class);
     }
 
-    /** Grant runtime to a bot (subject) for free, on behalf of its owner. */
-    public String adminGrantRuntime(UUID adminId, UUID userId, String subjectId, UUID runtimePlanId) {
+    /** Grant a new runtime seat, optionally assigned to one of the user's bots. */
+    public String adminGrantRuntime(UUID adminId, UUID userId, String subjectId,
+                                    UUID runtimePlanId, UUID vpsSlotId) {
         Map<String, Object> body = new java.util.HashMap<>();
         body.put("userId", userId == null ? null : userId.toString());
         body.put("subjectId", subjectId);
         body.put("runtimePlanId", runtimePlanId == null ? null : runtimePlanId.toString());
+        body.put("vpsSlotId", vpsSlotId == null ? null : vpsSlotId.toString());
         return http.post().uri("/api/billing/admin/subscriptions/runtime")
             .header("X-Service-Token", serviceToken)
             .header("X-Admin-Id", adminId.toString())
@@ -475,7 +477,12 @@ public class BillingClient {
             .body(String.class);
     }
 
-    /** Grant a feature to a bot (subject) for free, on behalf of its owner. */
+    /** Compatibility path for the per-bot admin screen; billing selects a free seat. */
+    public String adminGrantRuntime(UUID adminId, UUID userId, String subjectId, UUID runtimePlanId) {
+        return adminGrantRuntime(adminId, userId, subjectId, runtimePlanId, null);
+    }
+
+    /** Grant a feature, optionally assigned to one of the user's bots. */
     public String adminGrantFeature(UUID adminId, UUID userId, String subjectId,
                                     UUID featureId, UUID priceId, String billingType) {
         Map<String, Object> body = new java.util.HashMap<>();
@@ -513,6 +520,24 @@ public class BillingClient {
             .header("X-Admin-Id", adminId.toString())
             .contentType(MediaType.APPLICATION_JSON)
             .body(body)
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raiseWithReason(res))
+            .body(String.class);
+    }
+
+    public String adminDetachFeatureSubscription(UUID adminId, UUID subId) {
+        return http.post().uri("/api/billing/admin/subscriptions/features/{id}/detach", subId)
+            .header("X-Service-Token", serviceToken)
+            .header("X-Admin-Id", adminId.toString())
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (req, res) -> raiseWithReason(res))
+            .body(String.class);
+    }
+
+    public String adminRemoveFeatureSubscription(UUID adminId, UUID subId) {
+        return http.delete().uri("/api/billing/admin/subscriptions/features/{id}", subId)
+            .header("X-Service-Token", serviceToken)
+            .header("X-Admin-Id", adminId.toString())
             .retrieve()
             .onStatus(HttpStatusCode::isError, (req, res) -> raiseWithReason(res))
             .body(String.class);

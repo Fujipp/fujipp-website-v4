@@ -3,12 +3,12 @@ package fujipp.project.billing.dto;
 import java.util.UUID;
 
 /**
- * Admin grant of runtime to a bot (subject), free of charge — no wallet debit, no order.
- * Mirrors a runtime purchase: an existing subscription for the subject is extended by the
- * plan's term, otherwise a new one is created.
+ * Admin grant of a new runtime seat, free of charge — no wallet debit and no order.
+ * The seat is mandatory; the bot subject is optional so the runtime may be assigned later.
  */
 public record AdminGrantRuntimeRequest(
     UUID userId,
     String subjectId,
-    UUID runtimePlanId
+    UUID runtimePlanId,
+    UUID vpsSlotId
 ) {}

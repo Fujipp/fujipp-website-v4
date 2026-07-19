@@ -11,6 +11,7 @@ import fujipp.project.billing.service.AdminSubscriptionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -66,5 +67,17 @@ public class AdminSubscriptionController {
             @PathVariable UUID id,
             @RequestBody AdminUpdateFeatureSubscriptionRequest request) {
         return ResponseEntity.ok(subscriptions.updateFeature(adminId, id, request));
+    }
+
+    @PostMapping("/features/{id}/detach")
+    public ResponseEntity<FeatureSubscriptionResponse> detachFeature(
+            @RequestHeader("X-Admin-Id") UUID adminId, @PathVariable UUID id) {
+        return ResponseEntity.ok(subscriptions.detachFeature(adminId, id));
+    }
+
+    @DeleteMapping("/features/{id}")
+    public ResponseEntity<FeatureSubscriptionResponse> removeFeature(
+            @RequestHeader("X-Admin-Id") UUID adminId, @PathVariable UUID id) {
+        return ResponseEntity.ok(subscriptions.removeFeature(adminId, id));
     }
 }

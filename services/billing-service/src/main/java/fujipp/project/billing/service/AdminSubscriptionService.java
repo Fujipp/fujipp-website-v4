@@ -8,15 +8,19 @@ import fujipp.project.billing.dto.AdminUserSubscriptionsResponse;
 import fujipp.project.billing.dto.FeatureSubscriptionResponse;
 import fujipp.project.billing.dto.RuntimeSubscriptionResponse;
 import fujipp.project.billing.model.FeatureCatalog;
+import fujipp.project.billing.model.BotRef;
 import fujipp.project.billing.model.FeaturePrice;
 import fujipp.project.billing.model.FeatureSubscription;
 import fujipp.project.billing.model.RuntimePlan;
 import fujipp.project.billing.model.RuntimeSubscription;
+import fujipp.project.billing.model.VpsSlot;
+import fujipp.project.billing.repository.BotRefRepository;
 import fujipp.project.billing.repository.FeatureCatalogRepository;
 import fujipp.project.billing.repository.FeaturePriceRepository;
 import fujipp.project.billing.repository.FeatureSubscriptionRepository;
 import fujipp.project.billing.repository.RuntimePlanRepository;
 import fujipp.project.billing.repository.RuntimeSubscriptionRepository;
+import fujipp.project.billing.repository.VpsSlotRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -44,6 +48,8 @@ public class AdminSubscriptionService {
     private static final Set<String> BILLING_TYPES = Set.of("RENT_MONTHLY", "RENT_PERMANENT");
 
     private final RuntimeSubscriptionRepository runtimeSubs;
+    private final VpsSlotRepository vpsSlots;
+    private final BotRefRepository bots;
     private final FeatureSubscriptionRepository featureSubs;
     private final RuntimePlanRepository runtimePlans;
     private final FeaturePriceRepository featurePrices;
@@ -62,32 +68,40 @@ public class AdminSubscriptionService {
     // ── grants (create new entitlements, free of charge) ────────────────────────
 
     /**
-     * Grant runtime to a bot for free. Mirrors {@code OrderService.stackRuntime} minus the
-     * wallet debit / order: an existing subscription for the subject is extended by the plan's
-     * term, otherwise a fresh one is created.
+     * Grant a fresh runtime seat for free. The optional bot must belong to the target user;
+     * an unassigned runtime remains available for the user to attach later.
      */
     @Transactional
     public RuntimeSubscriptionResponse grantRuntime(UUID adminId, AdminGrantRuntimeRequest req) {
         UUID userId = requireUserId(req.userId());
-        String subject = requireSubject(req.subjectId());
+        String subject = blankToNull(req.subjectId());
+        if (subject != null) requireOwnedBot(userId, subject);
         RuntimePlan plan = runtimePlans.findById(requireId(req.runtimePlanId(), "runtimePlanId"))
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Runtime plan not found"));
+        if (!plan.isActive()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Runtime plan is inactive");
+        }
+        UUID slotId = req.vpsSlotId() == null ? firstFreeSlotId() : req.vpsSlotId();
+        VpsSlot slot = vpsSlots.findByIdForUpdate(slotId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "VPS slot not found"));
+        if (!"FREE".equals(slot.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "VPS slot is not available");
+        }
+        runtimeSubs.findByVpsSlotIdAndStatus(slotId, "ACTIVE").ifPresent(existing -> {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "VPS slot is already occupied");
+        });
+        if (subject != null) runtimeSubs.findByExternalSubjectIdAndStatus(subject, "ACTIVE").ifPresent(existing -> {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Bot already has an active runtime");
+        });
 
         LocalDate today = LocalDate.now();
         int months = plan.getDurationMonths();
-        RuntimeSubscription sub = runtimeSubs.findByExternalSubjectId(subject)
-            .orElseGet(RuntimeSubscription::new);
-        boolean isNew = sub.getId() == null;
-        if (isNew) {
-            sub.setUserId(userId);
-            sub.setExternalSubjectId(subject);
-            sub.setCurrentPeriodStart(today);
-            sub.setCurrentPeriodEnd(today.plusMonths(months));
-        } else {
-            LocalDate base = sub.getCurrentPeriodEnd() != null && sub.getCurrentPeriodEnd().isAfter(today)
-                ? sub.getCurrentPeriodEnd() : today;
-            sub.setCurrentPeriodEnd(base.plusMonths(months));
-        }
+        RuntimeSubscription sub = new RuntimeSubscription();
+        sub.setUserId(userId);
+        sub.setExternalSubjectId(subject);
+        sub.setVpsSlotId(slotId);
+        sub.setCurrentPeriodStart(today);
+        sub.setCurrentPeriodEnd(today.plusMonths(months));
         sub.setRuntimePlanId(plan.getId());
         sub.setRenewPlanId(plan.getId());
         sub.setRenewPriceSatang(plan.getPriceSatang());
@@ -95,10 +109,13 @@ public class AdminSubscriptionService {
         sub.setAutoRenew(true);
         RuntimeSubscription saved = runtimeSubs.saveAndFlush(sub);
 
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("subjectId", subject);
+        details.put("runtimePlanId", plan.getId().toString());
+        details.put("vpsSlotId", slotId.toString());
+        details.put("months", months);
         audit.record(adminId, "SUBSCRIPTION_GRANT", userId, "RUNTIME_SUBSCRIPTION",
-            saved.getId().toString(), Map.of(
-                "subjectId", subject, "runtimePlanId", plan.getId().toString(),
-                "months", months, "created", isNew));
+            saved.getId().toString(), details);
         return RuntimeSubscriptionResponse.from(saved);
     }
 
@@ -110,21 +127,32 @@ public class AdminSubscriptionService {
     @Transactional
     public FeatureSubscriptionResponse grantFeature(UUID adminId, AdminGrantFeatureRequest req) {
         UUID userId = requireUserId(req.userId());
-        String subject = requireSubject(req.subjectId());
+        String subject = blankToNull(req.subjectId());
+        if (subject != null) requireOwnedBot(userId, subject);
         UUID featureId = requireId(req.featureId(), "featureId");
         String billingType = normalizeBillingType(req.billingType());
 
         FeatureCatalog feature = features.findById(featureId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Feature not found"));
+        if (!feature.isActive()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Feature is inactive");
+        }
 
-        featureSubs.findByFeatureIdAndExternalSubjectId(feature.getId(), subject)
-            .filter(s -> isLive(s.getStatus()))
-            .ifPresent(s -> { throw new ResponseStatusException(HttpStatus.CONFLICT,
-                "Feature already granted for this bot"); });
+        if (subject != null) {
+            featureSubs.findByFeatureIdAndExternalSubjectId(feature.getId(), subject)
+                .filter(s -> isLive(s.getStatus()))
+                .ifPresent(s -> { throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Feature already granted for this bot"); });
+        }
 
         FeaturePrice price = req.priceId() == null ? null
             : featurePrices.findById(req.priceId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Price not found"));
+        if (price != null && (!price.getFeatureId().equals(featureId)
+                || !billingType.equals(price.getKind()) || !price.isActive())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "Price must be an active SKU for the selected feature and billing type");
+        }
 
         LocalDate today = LocalDate.now();
         FeatureSubscription sub = new FeatureSubscription();
@@ -148,10 +176,12 @@ public class AdminSubscriptionService {
         }
         FeatureSubscription saved = featureSubs.save(sub);
 
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("subjectId", subject);
+        details.put("featureId", feature.getId().toString());
+        details.put("billingType", billingType);
         audit.record(adminId, "SUBSCRIPTION_GRANT", userId, "FEATURE_SUBSCRIPTION",
-            saved.getId().toString(), Map.of(
-                "subjectId", subject, "featureId", feature.getId().toString(),
-                "billingType", billingType));
+            saved.getId().toString(), details);
         return FeatureSubscriptionResponse.from(saved);
     }
 
@@ -231,6 +261,39 @@ public class AdminSubscriptionService {
         return FeatureSubscriptionResponse.from(saved);
     }
 
+    @Transactional
+    public FeatureSubscriptionResponse detachFeature(UUID adminId, UUID subId) {
+        FeatureSubscription sub = featureSubs.findById(subId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Subscription not found"));
+        String previousSubject = sub.getExternalSubjectId();
+        sub.setExternalSubjectId(null);
+        FeatureSubscription saved = featureSubs.save(sub);
+
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("previousSubjectId", previousSubject);
+        audit.record(adminId, "SUBSCRIPTION_DETACH", saved.getUserId(),
+            "FEATURE_SUBSCRIPTION", saved.getId().toString(), details);
+        return FeatureSubscriptionResponse.from(saved);
+    }
+
+    @Transactional
+    public FeatureSubscriptionResponse removeFeature(UUID adminId, UUID subId) {
+        FeatureSubscription sub = featureSubs.findById(subId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Subscription not found"));
+        String previousSubject = sub.getExternalSubjectId();
+        sub.setExternalSubjectId(null);
+        sub.setStatus("CANCELED");
+        sub.setAutoRenew(false);
+        FeatureSubscription saved = featureSubs.save(sub);
+
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("previousSubjectId", previousSubject);
+        details.put("status", "CANCELED");
+        audit.record(adminId, "SUBSCRIPTION_REMOVE", saved.getUserId(),
+            "FEATURE_SUBSCRIPTION", saved.getId().toString(), details);
+        return FeatureSubscriptionResponse.from(saved);
+    }
+
     // ── helpers ─────────────────────────────────────────────────────────────────
 
     private void applyRenewPrice(Boolean clear, Long renewPriceSatang, Long current,
@@ -274,7 +337,7 @@ public class AdminSubscriptionService {
     }
 
     private static boolean isLive(String status) {
-        return "ACTIVE".equals(status) || "PAST_DUE".equals(status);
+        return !"CANCELED".equals(status);
     }
 
     private static UUID requireUserId(UUID userId) {
@@ -284,11 +347,22 @@ public class AdminSubscriptionService {
         return userId;
     }
 
-    private static String requireSubject(String subject) {
-        if (subject == null || subject.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "subjectId is required");
+    private void requireOwnedBot(UUID userId, String botId) {
+        UUID id;
+        try {
+            id = UUID.fromString(botId);
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid bot id");
         }
-        return subject;
+        BotRef bot = bots.findById(id)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Bot not found"));
+        if (!bot.getUserId().equals(userId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Bot not found");
+        }
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value;
     }
 
     private static UUID requireId(UUID id, String field) {
@@ -296,5 +370,15 @@ public class AdminSubscriptionService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, field + " is required");
         }
         return id;
+    }
+
+    private UUID firstFreeSlotId() {
+        return vpsSlots.findAll().stream()
+            .filter(slot -> "FREE".equals(slot.getStatus()))
+            .filter(slot -> runtimeSubs.findByVpsSlotIdAndStatus(slot.getId(), "ACTIVE").isEmpty())
+            .map(VpsSlot::getId)
+            .findFirst()
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT,
+                "No free VPS slot is available"));
     }
 }
