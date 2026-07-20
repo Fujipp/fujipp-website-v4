@@ -3,13 +3,20 @@
 // a configured server channel, or both. Delivery receipts live in Postgres so a bot
 // restart cannot repeat an alert that Discord already accepted.
 
-const { EmbedBuilder, AttachmentBuilder } = require('discord.js');
+const {
+  ActionRowBuilder,
+  AttachmentBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  EmbedBuilder,
+} = require('discord.js');
 const path = require('path');
 const db = require('../../lib/db');
 
 const CHECK_MS = 60_000;
 const LOGO_PATH = path.join(__dirname, 'fujipp-logo.png');
 const LOGO_NAME = 'fujipp-logo.png';
+const RUNTIME_SETTINGS_URL = 'https://fujipp.com/shop/bots/{subjectId}/config/runtime-setting';
 const DELIVERY = new Set(['DM', 'CHANNEL', 'BOTH', 'DISABLED']);
 const MILESTONES = [
   { key: '7D', env: 'RUNTIME_ALERT_7D', milliseconds: 7 * 24 * 60 * 60 * 1000, label: '7 วัน' },
@@ -86,23 +93,33 @@ function formatThaiDate(value) {
 
 function buildEmbed(client, runtime, milestone) {
   return new EmbedBuilder()
-    .setColor(0xD99A2B)
-    .setAuthor({ name: 'FUJIPP • Runtime Service', iconURL: `attachment://${LOGO_NAME}` })
+    .setColor(0x000000)
     .setTitle('แจ้งเตือน Runtime ใกล้หมดอายุ')
     .setDescription('Runtime สำหรับบอทของคุณกำลังจะหมดอายุ กรุณาตรวจสอบและต่ออายุก่อนถึงกำหนดเพื่อให้บริการทำงานต่อเนื่อง')
     .addFields(
-      { name: 'บอท', value: client.user?.username || 'Discord Bot', inline: true },
-      { name: 'เหลือเวลา', value: milestone.label, inline: true },
-      { name: 'หมดอายุ', value: formatThaiDate(runtime.expires_at), inline: false },
+      { name: 'บอท', value: `-# ${client.user?.username || 'Discord Bot'}`, inline: true },
+      { name: 'เหลือเวลา', value: `-# ${milestone.label}`, inline: true },
+      { name: 'หมดอายุ', value: `-# ${formatThaiDate(runtime.expires_at)}`, inline: true },
     )
     .setThumbnail(`attachment://${LOGO_NAME}`)
     .setFooter({ text: 'Fujipp Runtime Service • การแจ้งเตือนอัตโนมัติ' })
     .setTimestamp();
 }
 
-function payload(client, runtime, milestone) {
+function renewButton(subjectId) {
+  const url = RUNTIME_SETTINGS_URL.replace('{subjectId}', encodeURIComponent(subjectId));
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setStyle(ButtonStyle.Link)
+      .setLabel('ต่ออายุ')
+      .setURL(url),
+  );
+}
+
+function payload(client, ctx, runtime, milestone) {
   return {
     embeds: [buildEmbed(client, runtime, milestone)],
+    components: [renewButton(ctx.config.subjectId)],
     files: [new AttachmentBuilder(LOGO_PATH, { name: LOGO_NAME })],
     allowedMentions: { parse: [] },
   };
@@ -121,7 +138,7 @@ async function sendDm(client, ctx, runtime, milestone) {
     ctx.log(`runtime-expiry-alert: DM recipient ${userId} could not be resolved`);
     return;
   }
-  await user.send(payload(client, runtime, milestone));
+  await user.send(payload(client, ctx, runtime, milestone));
   await rememberDelivery(ctx.config.subjectId, runtime.id, milestone.key, 'DM');
 }
 
@@ -138,7 +155,7 @@ async function sendChannel(client, ctx, runtime, milestone) {
     ctx.log(`runtime-expiry-alert: channel ${channelId} is unavailable or not sendable`);
     return;
   }
-  await channel.send(payload(client, runtime, milestone));
+  await channel.send(payload(client, ctx, runtime, milestone));
   await rememberDelivery(ctx.config.subjectId, runtime.id, milestone.key, 'CHANNEL');
 }
 
