@@ -11,6 +11,7 @@
 
 const { GatewayIntentBits } = require('discord.js');
 const { grantTopupRole } = require('./topup-role');
+const { renderTopupStatus } = require('./topup');
 
 const SLIPOK_BASE = 'https://api.slipok.com/api/line/apikey';
 
@@ -82,12 +83,12 @@ function isImage(att) {
   return /^image\//.test(att.contentType || '') || /\.(png|jpe?g)$/i.test(att.name || '');
 }
 
-async function notifyChannel(message, ctx, embed) {
+async function notifyChannel(message, ctx, payload) {
   const channelId = ctx.config.get('TOPUP_NOTIFY_CHANNEL');
   if (!channelId) return;
   const channel = message.guild.channels.cache.get(channelId)
     || (await message.guild.channels.fetch(channelId).catch(() => null));
-  if (channel?.isTextBased()) await channel.send({ embeds: [embed] }).catch(() => {});
+  if (channel?.isTextBased()) await channel.send(payload).catch(() => {});
 }
 
 // messageCreate — verify every slip image posted in the configured check channel.
@@ -98,18 +99,16 @@ async function onMessage(message, ctx) {
   const branchId = branchIdOf(ctx.config);
   const apiKey = String(ctx.config.get('API_SLIPOK_KEY', '')).trim();
   if (!branchId || !apiKey) {
-    const embed = await ctx.services.embeds.renderEmbed('error', {
+    const payload = await renderTopupStatus(ctx, 'error', {
       reason: 'ร้านยังตั้งค่า SlipOK ไม่ครบ (SLIPOK_BRANCH_ID / API_SLIPOK_KEY)',
     });
-    await message.reply({ embeds: [embed] }).catch(() => {});
+    await message.reply(payload).catch(() => {});
     return;
   }
 
   const images = [...message.attachments.values()].filter(isImage).slice(0, 3);
   for (const att of images) {
-    const loading = await message.reply({
-      embeds: [await ctx.services.embeds.renderEmbed('processing')],
-    }).catch(() => null);
+    const loading = await message.reply(await renderTopupStatus(ctx, 'processing')).catch(() => null);
     if (!loading) continue;
 
     try {
@@ -121,10 +120,10 @@ async function onMessage(message, ctx) {
       if (result.ok && result.body?.success) {
         const amountBaht = Number(result.body?.data?.amount || 0);
         if (!Number.isFinite(amountBaht) || amountBaht <= 0) {
-          const embed = await ctx.services.embeds.renderEmbed('topup_failed', {
+          const failed = await renderTopupStatus(ctx, 'topup_failed', {
             reason: 'ตรวจสลิปผ่าน แต่ไม่พบยอดเงินในข้อมูลสลิป',
           });
-          await loading.edit({ embeds: [embed] }).catch(() => {});
+          await loading.edit(failed).catch(() => {});
           continue;
         }
 
@@ -134,15 +133,15 @@ async function onMessage(message, ctx) {
           reference: result.body?.data?.transRef || null,
           note: 'slipok',
         });
-        const embed = await ctx.services.embeds.renderEmbed('topup_success', {
+        const success = await renderTopupStatus(ctx, 'topup_success', {
           member: message.author.id,
           amount: thb(amountSatang),
           total_balance: thb(balance),
           method: 'QR (SlipOK)',
           datetime: new Date().toLocaleString('th-TH'),
         });
-        await loading.edit({ embeds: [embed] }).catch(() => {});
-        await notifyChannel(message, ctx, embed);
+        await loading.edit(success).catch(() => {});
+        await notifyChannel(message, ctx, success);
         // Grant the configured top-up role (no-op if unset).
         await grantTopupRole(ctx, message.guild, message.author.id);
         // Refresh rank roles off the new lifetime total (no-op if top-spender-rank is off).
@@ -152,15 +151,15 @@ async function onMessage(message, ctx) {
         const reason = SLIP_ERRORS[code]
           || String(result.body?.message || '').trim()
           || 'ไม่สามารถตรวจสอบสลิปได้ในขณะนี้';
-        const embed = await ctx.services.embeds.renderEmbed('topup_failed', { reason });
-        await loading.edit({ embeds: [embed] }).catch(() => {});
+        const failed = await renderTopupStatus(ctx, 'topup_failed', { reason });
+        await loading.edit(failed).catch(() => {});
       }
     } catch (err) {
       console.error('[central-bot] slip verify failed:', err.message);
-      const embed = await ctx.services.embeds.renderEmbed('error', {
+      const failed = await renderTopupStatus(ctx, 'error', {
         reason: 'เชื่อมต่อบริการตรวจสลิปล้มเหลว กรุณาลองใหม่อีกครั้ง',
       });
-      await loading.edit({ embeds: [embed] }).catch(() => {});
+      await loading.edit(failed).catch(() => {});
     }
   }
 }
