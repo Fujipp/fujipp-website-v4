@@ -13,6 +13,10 @@ export interface ComponentConfig {
     style?: string;
     placeholder?: string;
     url?: string;
+    option_label?: string;
+    option_description?: string;
+    option_ok?: string;
+    option_insufficient?: string;
 }
 export interface EmbedObject {
     content?: string; // message text shown ABOVE the embed (e.g. a tag line)
@@ -27,6 +31,7 @@ export interface EmbedObject {
     timestamp?: string;
     fields?: EmbedField[];
     components?: Record<string, ComponentConfig>;
+    componentsV2?: { texts?: Record<string, string> };
 }
 
 export interface PreviewRole {
@@ -55,6 +60,19 @@ export const SLOT_ROLES: Record<string, PreviewRole[]> = {
     topup_method: [
         { key: "btn_promptpay", label: "PromptPay button", type: "button", fallback: "พร้อมเพย์ธนาคาร", emoji: "🏧", style: "primary" },
         { key: "btn_truemoney", label: "TrueMoney button", type: "button", fallback: "ซองอั่งเปาทรูมันนี่", emoji: "🧧", style: "success" },
+    ],
+    topup_invalid: [
+        { key: "btn_close", label: "Close button", type: "button", fallback: "ปิด", style: "secondary" },
+    ],
+    topup_qr: [
+        { key: "btn_slip", label: "Slip channel link", type: "link", fallback: "โอนแล้วแนบสลิปที่นี่" },
+    ],
+    topup_timeout: [
+        { key: "btn_retry", label: "Retry button", type: "button", fallback: "ทำรายการใหม่อีกครั้ง", emoji: "🔄", style: "primary" },
+        { key: "btn_close", label: "Close button", type: "button", fallback: "ปิด", style: "secondary" },
+    ],
+    error: [
+        { key: "btn_close", label: "Close button", type: "button", fallback: "ปิด", style: "secondary" },
     ],
     topup_panel: [
         { key: "btn_topup", label: "Top-up button", type: "button", fallback: "เติมเงิน", emoji: "💰", style: "primary" },
@@ -272,9 +290,17 @@ function componentEmoji(role: PreviewRole): string {
 // The collapsed select only shows a placeholder in Discord, so list the resolved
 // options below it as muted chips — that's how the user verifies group/package count.
 function selectOptions(role: PreviewRole): string[] {
-    if (role.key === "group_select") return configuredGroups().map((g) => g.name);
+    const cfg = component(role);
+    const fill = (template: string, vars: Record<string, string>) => template.replace(/\{\{(\w+)\}\}/g, (_m, key: string) => vars[key] ?? "");
+    if (role.key === "group_select") return configuredGroups().map((g, index) => fill(
+        cfg.option_label || "{{name}}",
+        { name: g.name, stock: ["120,000", "85,000", "64,000"][index] ?? "40,000" },
+    ));
     if (role.key === "pkg_select") {
-        return configuredPackages().map((p) => `${p.robux.toLocaleString()} Robux — ฿${p.price.toLocaleString()}`);
+        return configuredPackages().map((p) => fill(
+            cfg.option_label || "{{robux}} Robux ({{price}} บาท)",
+            { robux: p.robux.toLocaleString(), price: p.price.toLocaleString() },
+        ));
     }
     return [];
 }

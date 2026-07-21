@@ -49,6 +49,18 @@ function mergeTemplate(defaultJson, overrideJson) {
       ...(plainObject(override.components) ? override.components : {}),
     };
   }
+  if (plainObject(base.componentsV2) || plainObject(override.componentsV2)) {
+    const baseV2 = plainObject(base.componentsV2) ? base.componentsV2 : {};
+    const overrideV2 = plainObject(override.componentsV2) ? override.componentsV2 : {};
+    merged.componentsV2 = {
+      ...baseV2,
+      ...overrideV2,
+      texts: {
+        ...(plainObject(baseV2.texts) ? baseV2.texts : {}),
+        ...(plainObject(overrideV2.texts) ? overrideV2.texts : {}),
+      },
+    };
+  }
   return merged;
 }
 
@@ -154,6 +166,11 @@ function makeEmbedRenderer(subjectId) {
   async function getConfig(slotKey) {
     return loadTemplate(subjectId, slotKey);
   }
+  // Resolved JSON config for Components V2 and other non-Embed message surfaces.
+  // It shares the exact same variable substitution rules as embeds.
+  async function renderConfig(slotKey, vars = {}) {
+    return substitute(await loadTemplate(subjectId, slotKey), vars);
+  }
   // Drop cached templates (call after a config edit to pick it up immediately).
   function invalidate(slotKey) {
     if (slotKey) cache.delete(`${subjectId}:${slotKey}`);
@@ -162,7 +179,7 @@ function makeEmbedRenderer(subjectId) {
     const prefix = `${subjectId}:`;
     for (const key of cache.keys()) if (key.startsWith(prefix)) cache.delete(key);
   }
-  return { renderEmbed, getConfig, invalidate, clear };
+  return { renderEmbed, getConfig, renderConfig, invalidate, clear };
 }
 
 module.exports = { makeEmbedRenderer };

@@ -63,6 +63,21 @@ public class EmbedConfigService {
                           )
                           ELSE '{}'::jsonb
                         END
+                     || CASE
+                          WHEN jsonb_typeof(s.default_json->'componentsV2') = 'object'
+                            OR jsonb_typeof(COALESCE(b.embed_json, '{}'::jsonb)->'componentsV2') = 'object'
+                          THEN jsonb_build_object(
+                            'componentsV2',
+                            COALESCE(s.default_json->'componentsV2', '{}'::jsonb)
+                            || COALESCE(b.embed_json->'componentsV2', '{}'::jsonb)
+                            || jsonb_build_object(
+                              'texts',
+                              COALESCE(s.default_json->'componentsV2'->'texts', '{}'::jsonb)
+                              || COALESCE(b.embed_json->'componentsV2'->'texts', '{}'::jsonb)
+                            )
+                          )
+                          ELSE '{}'::jsonb
+                        END
                    )::text AS embed_text,
                    (b.id IS NOT NULL) AS overridden
               FROM bots.embed_slots s
@@ -146,6 +161,21 @@ public class EmbedConfigService {
                             'components',
                             COALESCE(s.default_json->'components', '{}'::jsonb)
                             || COALESCE(b.embed_json->'components', '{}'::jsonb)
+                          )
+                          ELSE '{}'::jsonb
+                        END
+                     || CASE
+                          WHEN jsonb_typeof(s.default_json->'componentsV2') = 'object'
+                            OR jsonb_typeof(COALESCE(b.embed_json, '{}'::jsonb)->'componentsV2') = 'object'
+                          THEN jsonb_build_object(
+                            'componentsV2',
+                            COALESCE(s.default_json->'componentsV2', '{}'::jsonb)
+                            || COALESCE(b.embed_json->'componentsV2', '{}'::jsonb)
+                            || jsonb_build_object(
+                              'texts',
+                              COALESCE(s.default_json->'componentsV2'->'texts', '{}'::jsonb)
+                              || COALESCE(b.embed_json->'componentsV2'->'texts', '{}'::jsonb)
+                            )
                           )
                           ELSE '{}'::jsonb
                         END

@@ -2,7 +2,9 @@
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import DiscordEmbedPreview, { SLOT_ROLES } from "./DiscordEmbedPreview.vue";
+import DiscordComponentsV2Preview from "./DiscordComponentsV2Preview.vue";
 import type { EmbedObject, ComponentConfig, PreviewRole } from "./DiscordEmbedPreview.vue";
+import { VARIABLE_SUGGESTIONS, WALLET_COMPONENT_V2_FIELDS } from "./discordMessage";
 import { DateField, SelectField, TextareaField, TextField } from "@/shared/ui/fields";
 import { ActionButton, PrimaryButton, SecondaryButton } from "@/shared/ui/buttons";
 import { CheckboxInput } from "@/shared/ui/inputs";
@@ -79,6 +81,9 @@ const BUTTON_STYLES = [
     { value: "danger", label: "Red (Danger)" },
 ];
 const roles = computed<Role[]>(() => COMPONENT_ROLES[selectedKey.value] ?? []);
+const v2Fields = computed(() => WALLET_COMPONENT_V2_FIELDS[selectedKey.value] ?? []);
+const isWalletSlot = computed(() => selected.value?.featureCode === "wallet-topup");
+const previewMode = ref<"embed" | "components">("embed");
 
 // Slots whose bot reply also sends message text above the embed (the Price Board
 // per-category embeds use it for the tag line). Other slots' senders ignore content,
@@ -138,11 +143,11 @@ async function authedFetch(url: string, init: RequestInit = {}): Promise<Respons
     const send = (t: string) => fetch(url, { ...init, headers: { ...base, Authorization: `Bearer ${t}` } });
 
     let res = await send(token);
-    if (res.status === 401) {
+    if (res.status === 401 || res.status === 403) {
         const { data } = await supabase.auth.refreshSession();
         token = data.session?.access_token ?? null;
         if (token) res = await send(token);
-        if (!token || res.status === 401) {
+        if (!token || res.status === 401 || res.status === 403) {
             await router.push({ name: "login", query: { redirect: route.fullPath } });
             return null;
         }
@@ -165,18 +170,50 @@ function normalize(embed: EmbedObject): EmbedObject {
 
 function ensureComponentRoles(embed: EmbedObject, slotKey: string): EmbedObject {
     const editableRoles = COMPONENT_ROLES[slotKey] ?? [];
-    if (!editableRoles.length) return embed;
-    embed.components = embed.components ?? {};
-    for (const role of editableRoles) {
-        embed.components[role.key] = embed.components[role.key] ?? {};
+    if (editableRoles.length) {
+        embed.components = embed.components ?? {};
+        for (const role of editableRoles) {
+            embed.components[role.key] = embed.components[role.key] ?? {};
+        }
+    }
+    if (WALLET_COMPONENT_V2_FIELDS[slotKey]?.length) {
+        embed.componentsV2 = embed.componentsV2 ?? {};
+        embed.componentsV2.texts = embed.componentsV2.texts ?? {};
+        for (const field of WALLET_COMPONENT_V2_FIELDS[slotKey]) {
+            embed.componentsV2.texts[field.key] = embed.componentsV2.texts[field.key] || field.fallback;
+        }
     }
     return embed;
+}
+
+function v2Text(key: string): string {
+    if (!draft.value) return "";
+    draft.value.componentsV2 = draft.value.componentsV2 ?? {};
+    draft.value.componentsV2.texts = draft.value.componentsV2.texts ?? {};
+    return draft.value.componentsV2.texts[key] ?? "";
+}
+
+function setV2Text(key: string, value: string): void {
+    if (!draft.value) return;
+    draft.value.componentsV2 = draft.value.componentsV2 ?? {};
+    draft.value.componentsV2.texts = draft.value.componentsV2.texts ?? {};
+    draft.value.componentsV2.texts[key] = value;
+}
+
+function variablesFor(fieldDescription: string): string[] {
+    return Object.keys(VARIABLE_SUGGESTIONS).filter((key) => fieldDescription.includes(`{{${key}}}`));
+}
+
+function insertV2Var(fieldKey: string, variable: string): void {
+    setV2Text(fieldKey, `${v2Text(fieldKey)}{{${variable}}}`);
 }
 
 function selectSlot(key: string): void {
     selectedKey.value = key;
     const slot = slots.value.find((s) => s.slotKey === key);
     draft.value = slot ? ensureComponentRoles(normalize(slot.embed), key) : null;
+    previewMode.value = slot?.featureCode === "wallet-topup"
+        && effectiveConfigValues.value.TOPUP_DISPLAY_MODE === "COMPONENTS_V2" ? "components" : "embed";
 }
 
 const colorHex = computed<string>({
@@ -293,12 +330,20 @@ function cleanComponent(role: Role, cfg: ComponentConfig): ComponentConfig | nul
     const style = cfg.style?.trim();
     const placeholder = cfg.placeholder?.trim();
     const url = cfg.url?.trim();
+    const optionLabel = cfg.option_label?.trim();
+    const optionDescription = cfg.option_description?.trim();
+    const optionOk = cfg.option_ok?.trim();
+    const optionInsufficient = cfg.option_insufficient?.trim();
 
     if (role.type !== "select" && label) out.label = label;
     if (emoji) out.emoji = emoji;
     if (role.type === "button" && style) out.style = style;
     if (role.type === "select" && placeholder) out.placeholder = placeholder;
     if (role.type === "link" && url) out.url = url;
+    if (role.type === "select" && optionLabel) out.option_label = optionLabel;
+    if (role.type === "select" && optionDescription) out.option_description = optionDescription;
+    if (role.type === "select" && optionOk) out.option_ok = optionOk;
+    if (role.type === "select" && optionInsufficient) out.option_insufficient = optionInsufficient;
     return Object.keys(out).length ? out : null;
 }
 
@@ -381,7 +426,7 @@ async function save(): Promise<void> {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const slot = slots.value.find((s) => s.slotKey === selectedKey.value);
         if (slot) { slot.embed = clean(draft.value); slot.overridden = true; }
-        notify("success", "บันทึก Embed แล้ว");
+        notify("success", "บันทึกรูปแบบข้อความแล้ว");
     } catch {
         notify("error", "บันทึกไม่สำเร็จ", "กรุณาลองใหม่อีกครั้ง");
     } finally {
@@ -391,9 +436,9 @@ async function save(): Promise<void> {
 
 function confirmSave(): void {
     requestConfirmation(
-        "Save Embed?",
-        `Save your changes to ${selected.value?.label || "this Embed"}?`,
-        "Save Embed",
+        "บันทึกรูปแบบข้อความ?",
+        `บันทึกทั้ง Embed และ Components ของ ${selected.value?.label || "รายการนี้"}?`,
+        "บันทึก",
         "default",
         save,
     );
@@ -570,6 +615,37 @@ watch(() => props.botId, loadConfigValues);
                     </section>
 
                     <!-- ── Components ── -->
+                    <section v-if="v2Fields.length" :class="$style.section">
+                        <button type="button" :class="$style.sectionHead" @click="toggleSection('components')">
+                            <span :class="[$style.chevron, openSections.components ? $style.chevronOpen : '']">›</span>
+                            <span>Components V2 Content</span>
+                            <span :class="$style.helperText">ข้อความและตัวแปรที่ใช้จริง</span>
+                        </button>
+                        <div v-show="openSections.components" :class="$style.sectionBody">
+                            <div v-for="field in v2Fields" :key="field.key" :class="$style.componentRow">
+                                <TextareaField
+                                    :model-value="v2Text(field.key)"
+                                    :label="field.label"
+                                    :support-text="field.description"
+                                    :rows="field.rows ?? 2"
+                                    :placeholder="field.fallback"
+                                    @update:model-value="setV2Text(field.key, $event)"
+                                />
+                                <div v-if="variablesFor(field.description).length" :class="$style.vars">
+                                    <span :class="$style.varsLabel">Suggestions:</span>
+                                    <button
+                                        v-for="variable in variablesFor(field.description)"
+                                        :key="variable"
+                                        type="button"
+                                        :class="$style.varChip"
+                                        :title="VARIABLE_SUGGESTIONS[variable]"
+                                        @click="insertV2Var(field.key, variable)"
+                                    >{{ varToken(variable) }}</button>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
                     <section v-if="roles.length" :class="$style.section">
                         <button type="button" :class="$style.sectionHead" @click="toggleSection('components')">
                             <span :class="[$style.chevron, openSections.components ? $style.chevronOpen : '']">›</span>
@@ -618,6 +694,27 @@ watch(() => props.botId, loadConfigValues);
                                     placeholder="Dropdown placeholder"
                                 />
 
+                                <template v-if="role.type === 'select'">
+                                    <TextField
+                                        v-model="componentConfig(role.key).option_label"
+                                        label="Option label template"
+                                        placeholder="เช่น {{name}} หรือ {{robux}} Robux"
+                                        support-text="ค่าของ option และ custom_id ยังคงล็อกไว้"
+                                    />
+                                    <TextField
+                                        v-model="componentConfig(role.key).option_description"
+                                        label="Option description template"
+                                        placeholder="เช่น คงเหลือ {{stock}}"
+                                    />
+                                    <div :class="$style.vars">
+                                        <span :class="$style.varsLabel">Suggestions:</span>
+                                        <span :class="$style.varChip">&#123;&#123;name&#125;&#125;</span>
+                                        <span :class="$style.varChip">&#123;&#123;stock&#125;&#125;</span>
+                                        <span :class="$style.varChip">&#123;&#123;robux&#125;&#125;</span>
+                                        <span :class="$style.varChip">&#123;&#123;price&#125;&#125;</span>
+                                    </div>
+                                </template>
+
                                 <TextField
                                     v-if="role.type === 'link'"
                                     v-model="componentConfig(role.key).url"
@@ -629,13 +726,23 @@ watch(() => props.botId, loadConfigValues);
                     </section>
 
                     <PrimaryButton width-mode="fill" :leading-icon="icons.save" :disabled="isSaving" @click="confirmSave">
-                        {{ isSaving ? "Saving…" : "Save Embed" }}
+                        {{ isSaving ? "Saving…" : "Save message design" }}
                     </PrimaryButton>
                 </div>
 
                 <div :class="$style.previewCol">
                     <span :class="$style.previewLabel" class="type-body-small-r">พรีวิว</span>
-                    <DiscordEmbedPreview :embed="draft" :slot-key="selectedKey" :config-values="effectiveConfigValues" />
+                    <div :class="$style.previewTabs" role="tablist" aria-label="Preview mode">
+                        <button type="button" :class="previewMode === 'embed' ? $style.previewTabActive : $style.previewTab" @click="previewMode = 'embed'">Embed</button>
+                        <button type="button" :disabled="!isWalletSlot" :class="previewMode === 'components' ? $style.previewTabActive : $style.previewTab" @click="previewMode = 'components'">Components V2</button>
+                    </div>
+                    <DiscordComponentsV2Preview
+                        v-if="previewMode === 'components'"
+                        :slot-key="selectedKey"
+                        :config="draft.componentsV2"
+                        :components="draft.components"
+                    />
+                    <DiscordEmbedPreview v-else :embed="draft" :slot-key="selectedKey" :config-values="effectiveConfigValues" />
                     <p :class="$style.previewHint" class="type-body-small-r">
                         custom emoji วาง <code>&lt;:name:id&gt;</code> จากเซิร์ฟเวอร์ Discord ได้
                     </p>
@@ -724,6 +831,9 @@ watch(() => props.botId, loadConfigValues);
 .previewLabel { color: var(--color-text-primary); }
 .previewHint { margin: 0; color: var(--color-text-primary); }
 .previewHint code { background: color-mix(in srgb, var(--color-text-primary) 12%, transparent); padding: 0 4px; border-radius: 4px; }
+.previewTabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--spacing-space-2); }
+.previewTab, .previewTabActive { min-height: 36px; border: 1px solid var(--color-input-border); border-radius: var(--radius-md); background: var(--color-main-background); color: var(--color-text-primary); font-weight: 600; }
+.previewTabActive { border-color: var(--color-text-primary); box-shadow: inset 0 -2px 0 var(--color-text-primary); }
 
 .toastRegion { position: fixed; right: var(--spacing-space-5); bottom: var(--spacing-space-5); z-index: 1000; }
 

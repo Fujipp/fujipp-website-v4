@@ -5,11 +5,13 @@ import fujipp.project.billing.dto.RuntimeSubscriptionResponse;
 import fujipp.project.billing.model.BotRef;
 import fujipp.project.billing.model.FeatureSubscription;
 import fujipp.project.billing.model.RuntimeSubscription;
+import fujipp.project.billing.model.CustomerNotification;
 import fujipp.project.billing.repository.BotRefRepository;
 import fujipp.project.billing.repository.FeaturePriceRepository;
 import fujipp.project.billing.repository.FeatureSubscriptionRepository;
 import fujipp.project.billing.repository.RuntimePlanRepository;
 import fujipp.project.billing.repository.RuntimeSubscriptionRepository;
+import fujipp.project.billing.repository.CustomerNotificationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -34,6 +36,7 @@ public class SubscriptionService {
     private final RuntimeSubscriptionRepository runtimeSubscriptionRepository;
     private final FeaturePriceRepository priceRepository;
     private final RuntimePlanRepository runtimePlanRepository;
+    private final CustomerNotificationRepository notificationRepository;
 
     // ── reads ─────────────────────────────────────────────────────────────────
 
@@ -47,6 +50,19 @@ public class SubscriptionService {
     public List<RuntimeSubscriptionResponse> listRuntimeSubscriptions(UUID userId) {
         return runtimeSubscriptionRepository.findByUserId(userId).stream()
             .map(RuntimeSubscriptionResponse::from).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<CustomerNotification> listNotifications(UUID userId) {
+        return notificationRepository.findTop20ByUserIdOrderByCreatedAtDesc(userId);
+    }
+
+    @Transactional
+    public CustomerNotification markNotificationRead(UUID userId, UUID id) {
+        CustomerNotification notification = notificationRepository.findByIdAndUserId(id, userId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Notification not found"));
+        notification.setRead(true);
+        return notificationRepository.save(notification);
     }
 
     // ── auto-renew toggles ──────────────────────────────────────────────────────

@@ -19,6 +19,7 @@ import {
 } from "@/features/shop/config/featureConfig";
 import type { CatalogFeature } from "@/features/shop/config/catalog";
 import CountdownTimer from "@/features/shop/components/CountdownTimer.vue";
+import { supabase } from "@/shared/lib/supabase";
 
 type ToastStatus = "info" | "success" | "warning" | "error";
 
@@ -715,6 +716,16 @@ async function renewRuntime(): Promise<void> {
     }
 }
 
+function confirmRenewRuntime(): void {
+    requestConfirmation(
+        "ยืนยันต่ออายุ Runtime",
+        `ระบบจะหักเครดิต ${renewPrice.value} บาท และต่ออายุจากวันหมดอายุปัจจุบัน`,
+        "ยืนยันต่ออายุ",
+        "default",
+        renewRuntime,
+    );
+}
+
 async function loadConfig(): Promise<void> {
     isLoading.value = true;
     configError.value = "";
@@ -751,16 +762,28 @@ async function saveFeature(payload: Record<string, string>): Promise<void> {
             notify("error", "กรุณาเข้าสู่ระบบก่อน");
             return;
         }
-        const res = await fetch(`${API_BASE_URL}/api/bots/${botId.value}/config`, {
+        const url = `${API_BASE_URL}/api/bots/${botId.value}/config`;
+        const request = (authorization: string) => fetch(url, {
             method: "PUT",
-            headers: { ...headers, "Content-Type": "application/json" },
+            headers: { Authorization: authorization, "Content-Type": "application/json" },
             body: JSON.stringify({ values: payload }),
         });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        let res = await request(headers.Authorization);
+        // A long-open configuration page can hold an expired access token. Spring may
+        // answer 401 or 403 depending on where JWT validation failed, so refresh once.
+        if (res.status === 401 || res.status === 403) {
+            const { data } = await supabase.auth.refreshSession();
+            const refreshed = data.session?.access_token;
+            if (refreshed) res = await request(`Bearer ${refreshed}`);
+        }
+        if (!res.ok) {
+            const reason = await res.text().catch(() => "");
+            throw new Error(`HTTP ${res.status}${reason ? ` — ${reason.slice(0, 240)}` : ""}`);
+        }
         values.value = { ...values.value, ...payload };
         notify("success", "บันทึกการตั้งค่าแล้ว");
-    } catch {
-        notify("error", "บันทึกไม่สำเร็จ", "กรุณาลองใหม่อีกครั้ง");
+    } catch (error) {
+        notify("error", "บันทึกไม่สำเร็จ", (error as Error).message || "กรุณาลองใหม่อีกครั้ง");
     } finally {
         isSaving.value = false;
     }
@@ -1035,7 +1058,7 @@ onMounted(async () => {
                                 width-mode="fill"
                                 :disabled="runtimeBusy"
                                 :leading-icon="icons.shopRenew"
-                                @click="renewRuntime"
+                                @click="confirmRenewRuntime"
                             >
                                 {{ runtimeBusy ? "Renewing…" : "Renew now" }}
                             </SecondaryButton>
@@ -1260,7 +1283,7 @@ onMounted(async () => {
                             <PrimaryButton width-mode="fixed" fixed-width="var(--spacing-space-64)" :leading-icon="icons.delete" :disabled="runtimeBusy" @click="confirmRemoveRuntime">
                                 Remove Runtime
                             </PrimaryButton>
-                            <PrimaryButton width-mode="fixed" fixed-width="var(--spacing-space-64)" :leading-icon="icons.shopRenew" :disabled="runtimeBusy" @click="renewRuntime">
+                            <PrimaryButton width-mode="fixed" fixed-width="var(--spacing-space-64)" :leading-icon="icons.shopRenew" :disabled="runtimeBusy" @click="confirmRenewRuntime">
                                 {{ runtimeBusy ? "Processing…" : `Renew ${renewPrice} THB` }}
                             </PrimaryButton>
                         </div>
