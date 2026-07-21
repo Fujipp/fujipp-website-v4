@@ -1,9 +1,10 @@
 # Changelog — Frontend
 
-**Current version: `0.7.18`**  ·  see [release workflow](./README.md)
+**Current version: `0.7.19`**  ·  see [release workflow](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.7.19` | 2026-07-21 | Redesigned Discord message configuration into a wider Embed and Components V2 workspace with live previews, editable controls, variable suggestions, and resilient authenticated saving. |
 | `0.7.18` | 2026-07-20 | Added responsive bot access controls for allowing or denying specific Discord Roles and Users globally or per Feature. |
 | `0.7.17` | 2026-07-19 | Redesigned release notes into a concise, searchable milestone timeline with theme-safe filters, stabilized strict template typing, and established one version per reviewed push. |
 | `0.7.16` | 2026-07-19 | Completed the public portfolio experience with responsive Home, Projects, About, Privacy, and Terms pages, accessible themes, and polished brand motion. |

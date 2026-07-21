@@ -12,11 +12,6 @@ const botId = computed(() => String(route.params.botId ?? ""));
 const featureCode = computed(() => String(route.query.feature ?? ""));
 const configRoute = computed(() => ({ name: "shop-bot-config", params: { botId: botId.value } }));
 const dashboardRoute = computed(() => ({ name: "shop-dashboard" }));
-const featureLabel = computed(() => featureCode.value || "All embeds");
-
-function iconMaskStyle(icon: string): Record<string, string> {
-    return { "--icon-src": `url(${icon})` };
-}
 </script>
 
 <template>
@@ -39,33 +34,6 @@ function iconMaskStyle(icon: string): Record<string, string> {
                         Bot Config
                     </PrimaryButton>
                 </div>
-            </section>
-
-            <section :class="$style.summaryGrid" aria-label="Embed setting summary">
-                <article :class="$style.summaryCard">
-                    <span :class="$style.summaryIcon" :style="iconMaskStyle(icons.comment)" aria-hidden="true" />
-                    <div>
-                        <p :class="$style.summaryLabel" class="type-overline-sb">Scope</p>
-                        <strong class="type-body-main-sb">{{ featureLabel }}</strong>
-                        <span :class="$style.summaryHint">แก้ข้อความ embed เฉพาะขอบเขตนี้</span>
-                    </div>
-                </article>
-                <article :class="$style.summaryCard">
-                    <span :class="$style.summaryIcon" :style="iconMaskStyle(icons.image)" aria-hidden="true" />
-                    <div>
-                        <p :class="$style.summaryLabel" class="type-overline-sb">Preview</p>
-                        <strong class="type-body-main-sb">Live Discord Preview</strong>
-                        <span :class="$style.summaryHint">ดูผลลัพธ์ขณะปรับ title, image, field และปุ่ม</span>
-                    </div>
-                </article>
-                <article :class="$style.summaryCard">
-                    <span :class="$style.summaryIcon" :style="iconMaskStyle(icons.setting)" aria-hidden="true" />
-                    <div>
-                        <p :class="$style.summaryLabel" class="type-overline-sb">Components</p>
-                        <strong class="type-body-main-sb">Buttons / Dropdown</strong>
-                        <span :class="$style.summaryHint">แก้เฉพาะหน้าตา ไม่เปลี่ยน custom_id ของบอท</span>
-                    </div>
-                </article>
             </section>
 
             <section :class="$style.workspace" aria-label="Embed setting workspace">
@@ -113,7 +81,7 @@ function iconMaskStyle(icon: string): Record<string, string> {
 .content {
     display: flex;
     width: 100%;
-    max-width: var(--container-7xl);
+    max-width: none;
     flex: 1;
     flex-direction: column;
     box-sizing: border-box;
