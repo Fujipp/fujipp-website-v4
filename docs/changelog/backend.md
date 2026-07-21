@@ -1,9 +1,10 @@
 # Changelog — Backend
 
-**Current version: `0.5.12`**  ·  see [release workflow](./README.md)
+**Current version: `0.5.13`**  ·  see [release workflow](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.5.13` | 2026-07-21 | Made Wallet and Top-up Components V2 fully configurable per bot, including message text, variables, buttons, links, and generated dropdown option labels. |
 | `0.5.12` | 2026-07-21 | Added selectable Discord Components V2 Wallet and Top-up messages, and refined Runtime expiry alerts with direct renewal actions. |
 | `0.5.11` | 2026-07-20 | Removed duplicate Discord slash commands by keeping server-bound shop bots Guild-scoped and clearing their stale Global registrations. |
 | `0.5.10` | 2026-07-20 | Kept Discord bots online when optional Features are degraded while preserving readiness failures for bots that cannot connect. |
