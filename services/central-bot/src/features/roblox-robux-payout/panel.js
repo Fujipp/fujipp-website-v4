@@ -136,15 +136,20 @@ function buildComponents(ctx, groups, stock, comp = {}) {
   if (groups.length) {
     const sel = comp.group_select || {};
     const selectEmoji = parseEmoji(sel.emoji);
+    const labelTpl = String(sel.option_label || '{{name}}');
+    const descriptionTpl = String(sel.option_description || 'ยอดคงเหลือ {{stock}}');
     const select = new StringSelectMenuBuilder()
       .setCustomId(ID.group)
       .setPlaceholder(String(sel.placeholder || 'เลือกกลุ่มที่ต้องการซื้อ').slice(0, 150))
       .addOptions(
         groups.slice(0, 25).map((g, i) => {
           const opt = new StringSelectMenuOptionBuilder()
-            .setLabel(String(g.name || `กลุ่ม ${i + 1}`).slice(0, 100))
+            .setLabel(labelTpl.replace(/\{\{name\}\}/g, String(g.name || `กลุ่ม ${i + 1}`)).replace(/\{\{stock\}\}/g, String(stock?.[i] ?? 0)).slice(0, 100))
             .setValue(String(g.key));
-          if (stock && stock[i] != null) opt.setDescription(`ยอดคงเหลือ ${stock[i].toLocaleString()}`.slice(0, 100));
+          if (stock && stock[i] != null) opt.setDescription(descriptionTpl
+            .replace(/\{\{name\}\}/g, String(g.name || `กลุ่ม ${i + 1}`))
+            .replace(/\{\{stock\}\}/g, stock[i].toLocaleString())
+            .slice(0, 100));
           if (selectEmoji) { try { opt.setEmoji(selectEmoji); } catch (_e) { /* skip */ } }
           return opt;
         }),

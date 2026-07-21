@@ -85,53 +85,83 @@ function trueMoneyFeeText(ctx) {
   return 'ไม่มีค่าธรรมเนียม';
 }
 
-function closeButton() {
-  return new ButtonBuilder()
-    .setCustomId('kanom:topup:close')
-    .setLabel('ปิด')
-    .setStyle(ButtonStyle.Secondary);
+function appearance(config, key) {
+  return (config?.components || {})[key] || {};
 }
 
-function retryPromptPayButton() {
-  return new ButtonBuilder()
-    .setCustomId('kanom:topup:retry:promptpay')
-    .setLabel('ทำรายการใหม่อีกครั้ง')
-    .setEmoji('🔄')
-    .setStyle(ButtonStyle.Primary);
+function configurableButton(config, key, customId, fallbackLabel, fallbackStyle, fallbackEmoji) {
+  const role = appearance(config, key);
+  const button = new ButtonBuilder()
+    .setCustomId(customId)
+    .setLabel(String(role.label || fallbackLabel).slice(0, 80))
+    .setStyle(buttonStyle(role.style, fallbackStyle));
+  const emoji = parseEmoji(role.emoji) || fallbackEmoji;
+  if (emoji) { try { button.setEmoji(emoji); } catch (_e) { /* skip invalid emoji */ } }
+  return button;
 }
 
-function invalidAmountV2(message) {
+function closeButton(config) {
+  return configurableButton(config, 'btn_close', 'kanom:topup:close', 'ปิด', ButtonStyle.Secondary);
+}
+
+function retryPromptPayButton(config) {
+  return configurableButton(
+    config, 'btn_retry', 'kanom:topup:retry:promptpay',
+    'ทำรายการใหม่อีกครั้ง', ButtonStyle.Primary, '🔄',
+  );
+}
+
+function componentText(config, key, fallback) {
+  return String(config?.componentsV2?.texts?.[key] || fallback);
+}
+
+function slipLinkButton(config, url) {
+  const role = appearance(config, 'btn_slip');
+  const button = new ButtonBuilder()
+    .setStyle(ButtonStyle.Link)
+    .setLabel(String(role.label || 'โอนแล้วแนบสลิปที่นี่').slice(0, 80))
+    .setURL(url);
+  const emoji = parseEmoji(role.emoji);
+  if (emoji) { try { button.setEmoji(emoji); } catch (_e) { /* skip invalid emoji */ } }
+  return button;
+}
+
+async function invalidAmountV2(ctx, message) {
+  const config = await ctx.services.embeds.renderConfig('topup_invalid', { reason: message });
   return v2Payload([
     container([
-      text('# ⚠️ แจ้งเตือน'),
+      text(componentText(config, 'heading', '# ⚠️ แจ้งเตือน')),
       separator(),
-      text(message),
+      text(componentText(config, 'detail', message)),
       separator(),
-      actionRow(closeButton()),
+      actionRow(closeButton(config)),
     ]),
   ], { ephemeral: true });
 }
 
-function topupStatusV2(slot, data = {}) {
+async function invalidAmountPayload(ctx, message) {
+  if (usesComponentsV2(ctx)) return invalidAmountV2(ctx, message);
+  return { embeds: [await ctx.services.embeds.renderEmbed('topup_invalid', { reason: message })], ephemeral: true };
+}
+
+async function topupStatusV2(ctx, slot, data = {}) {
+  const config = await ctx.services.embeds.renderConfig(slot, data);
   switch (slot) {
     case 'topup_qr': {
       const children = [
-        text('# 🏦 เติมเงินผ่านพร้อมเพย์'),
+        text(componentText(config, 'heading', '# 🏦 เติมเงินผ่านพร้อมเพย์')),
         separator(),
-        text(`จำนวนเงินที่ต้องชำระ ${currencyLabel(data.amount)}`),
+        text(componentText(config, 'amount', `จำนวนเงินที่ต้องชำระ ${currencyLabel(data.amount)}`)),
         separator(false, 1),
-        text(`-# **👤 ชื่อบัญชี** ${data.account_name || '-'}`),
-        text(`-# **⏰ เหลือเวลาอีก** ${data.countdown || '-'}`),
+        text(componentText(config, 'account', `-# **👤 ชื่อบัญชี** ${data.account_name || '-'}`)),
+        text(componentText(config, 'countdown', `-# **⏰ เหลือเวลาอีก** ${data.countdown || '-'}`)),
         separator(),
         mediaGallery(data.qr_image),
         separator(),
       ];
       if (data.slip_url) {
         children.push(actionRow(
-          new ButtonBuilder()
-            .setStyle(ButtonStyle.Link)
-            .setLabel('โอนแล้วแนบสลิปที่นี่')
-            .setURL(data.slip_url),
+          slipLinkButton(config, data.slip_url),
         ));
       }
       return v2Payload([container(children)]);
@@ -139,57 +169,57 @@ function topupStatusV2(slot, data = {}) {
     case 'topup_timeout':
       return v2Payload([
         container([
-          text('# 🔴 เกินเวลาที่กำหนด'),
+          text(componentText(config, 'heading', '# 🔴 เกินเวลาที่กำหนด')),
           separator(),
-          text('**📋 รายละเอียด**'),
+          text(componentText(config, 'detail_heading', '**📋 รายละเอียด**')),
           separator(false, 1),
-          text('หากทำรายการไม่ทันให้กดทำรายการใหม่อีกครั้ง แล้วแนบสลิปได้เลยหากส่งสลิปไม่ทัน ขออภัยหากคุณได้ทำรายการไปแล้ว'),
+          text(componentText(config, 'detail', 'หากทำรายการไม่ทันให้กดทำรายการใหม่อีกครั้ง แล้วแนบสลิปได้เลยหากส่งสลิปไม่ทัน ขออภัยหากคุณได้ทำรายการไปแล้ว')),
           separator(),
-          actionRow(retryPromptPayButton(), closeButton()),
+          actionRow(retryPromptPayButton(config), closeButton(config)),
         ]),
       ]);
     case 'processing':
       return v2Payload([
         container([
-          text('# ⌛️ กำลังประมวลผล'),
+          text(componentText(config, 'heading', '# ⌛️ กำลังประมวลผล')),
           separator(),
-          text('**📋 รายละเอียด**'),
+          text(componentText(config, 'detail_heading', '**📋 รายละเอียด**')),
           separator(false, 1),
-          text('กำลังตรวจสอบสลิป กรุณารอสักครู่'),
+          text(componentText(config, 'detail', 'กำลังตรวจสอบสลิป กรุณารอสักครู่')),
         ]),
       ]);
     case 'error':
       return v2Payload([
         container([
-          text('# 🔴 เกิดข้อผิดพลาด'),
+          text(componentText(config, 'heading', '# 🔴 เกิดข้อผิดพลาด')),
           separator(),
-          text('**📋 รายละเอียด**'),
+          text(componentText(config, 'detail_heading', '**📋 รายละเอียด**')),
           separator(false, 1),
-          text(data.reason || 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง'),
+          text(componentText(config, 'detail', data.reason || 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง')),
         ]),
       ]);
     case 'topup_failed':
       return v2Payload([
         container([
-          text('# 🔴 เติมเงินไม่สำเร็จ'),
+          text(componentText(config, 'heading', '# 🔴 เติมเงินไม่สำเร็จ')),
           separator(),
-          text('**📋 รายละเอียด**'),
+          text(componentText(config, 'detail_heading', '**📋 รายละเอียด**')),
           separator(false, 1),
-          text(data.reason || 'ไม่สามารถเติมเงินได้ในขณะนี้'),
+          text(componentText(config, 'detail', data.reason || 'ไม่สามารถเติมเงินได้ในขณะนี้')),
         ]),
       ]);
     case 'topup_success':
       return v2Payload([
         container([
-          text('# 🟢 เติมเงินสำเร็จ'),
+          text(componentText(config, 'heading', '# 🟢 เติมเงินสำเร็จ')),
           separator(),
-          text([
+          text(componentText(config, 'detail', [
             `**👤 คนทำรายการ**\n<@${data.member}>`,
             `**💰 จำนวนเงินที่เติม**\n${currencyLabel(data.amount)}`,
             `**🏧 ยอดทั้งหมดที่มี**\n${currencyLabel(data.total_balance)}`,
             `**🏦 ช่องทางการเติม**\n${data.method || '-'}`,
             `**🕑 วันที่และเวลาทำรายการ**\n${data.datetime || '-'}`,
-          ].join('\n\n')),
+          ].join('\n\n'))),
         ]),
       ]);
     default:
@@ -198,7 +228,7 @@ function topupStatusV2(slot, data = {}) {
 }
 
 async function renderTopupStatus(ctx, slot, data = {}, legacyComponents = []) {
-  if (usesComponentsV2(ctx)) return topupStatusV2(slot, data);
+  if (usesComponentsV2(ctx)) return topupStatusV2(ctx, slot, data);
   return {
     embeds: [await ctx.services.embeds.renderEmbed(slot, data)],
     components: legacyComponents,
@@ -342,11 +372,7 @@ async function onTopupMethod(interaction, ctx) {
   // promptpay — QR scan + slip verification
   const phone = String(ctx.config.get('PROMPTPAY_NUMBER', '')).replace(/\D/g, '');
   if (phone.length !== 10 && phone.length !== 13) {
-    if (usesComponentsV2(ctx)) {
-      await interaction.reply(invalidAmountV2('ร้านยังไม่ได้ตั้งค่าพร้อมเพย์ กรุณาติดต่อผู้ดูแลร้าน'));
-    } else {
-      await interaction.reply({ content: 'ร้านยังไม่ได้ตั้งค่าพร้อมเพย์ (PROMPTPAY_NUMBER)', ephemeral: true });
-    }
+    await interaction.reply(await invalidAmountPayload(ctx, 'ร้านยังไม่ได้ตั้งค่าพร้อมเพย์ กรุณาติดต่อผู้ดูแลร้าน'));
     return;
   }
   const modal = promptPayAmountModal(ctx);
@@ -369,19 +395,11 @@ async function onPpModal(interaction, ctx) {
   const min = ctx.config.number('MIN_TOPUP', 20);
   const amount = Number(interaction.fields.getTextInputValue('amount').trim());
   if (!Number.isFinite(amount) || amount <= 0) {
-    if (usesComponentsV2(ctx)) {
-      await interaction.reply(invalidAmountV2('กรุณาระบุจำนวนเงินมากกว่า 0 บาท'));
-    } else {
-      await interaction.reply({ content: 'กรุณาระบุจำนวนเงินมากกว่า 0', ephemeral: true });
-    }
+    await interaction.reply(await invalidAmountPayload(ctx, 'กรุณาระบุจำนวนเงินมากกว่า 0 บาท'));
     return;
   }
   if (amount < min) {
-    if (usesComponentsV2(ctx)) {
-      await interaction.reply(invalidAmountV2(`ต้องเติมขั้นต่ำ ${min} บาท`));
-    } else {
-      await interaction.reply({ content: `ยอดเติมขั้นต่ำ ${min} บาท`, ephemeral: true });
-    }
+    await interaction.reply(await invalidAmountPayload(ctx, `ต้องเติมขั้นต่ำ ${min} บาท`));
     return;
   }
 
@@ -510,7 +528,7 @@ async function onTmnModal(interaction, ctx) {
 // embed. Buttons keep fixed styles (only label/emoji are configurable, like the
 // Roblox panel's เติมเงิน flow) and reuse the existing kanom:topup:btn: handlers.
 async function buildTopupMethod(ctx) {
-  const cfg = await ctx.services.embeds.getConfig('topup_method');
+  const cfg = await ctx.services.embeds.renderConfig('topup_method', { fee_text: trueMoneyFeeText(ctx) });
   const roles = (cfg && cfg.components) || {};
   const mkButton = (id, label, style, fallbackEmoji, roleKey) => {
     const role = roles[roleKey] || {};
@@ -530,11 +548,11 @@ async function buildTopupMethod(ctx) {
   if (usesComponentsV2(ctx)) {
     return v2Payload([
       container([
-        text('# เลือกช่องทางเติมเงิน'),
+        text(componentText(cfg, 'heading', '# เลือกช่องทางเติมเงิน')),
         separator(),
-        text('**🔻 อ่านก่อนเติม**'),
+        text(componentText(cfg, 'notice_heading', '**🔻 อ่านก่อนเติม**')),
         separator(false, 1),
-        text(`เติมเงินผ่านซองอั่งเปาทรูมันนี่ ${trueMoneyFeeText(ctx)}`),
+        text(componentText(cfg, 'notice', `เติมเงินผ่านซองอั่งเปาทรูมันนี่ ${trueMoneyFeeText(ctx)}`)),
         separator(),
         actionRow(...row.components),
       ]),
@@ -547,7 +565,7 @@ async function buildTopupMethod(ctx) {
 // Build the standalone top-up panel (topup_panel embed + a "เติมเงิน" button). Posted
 // by /topup-panel so members can top up WITHOUT the Roblox Robux Payout feature.
 async function buildTopupPanel(ctx) {
-  const cfg = await ctx.services.embeds.getConfig('topup_panel');
+  const cfg = await ctx.services.embeds.renderConfig('topup_panel');
   const role = ((cfg && cfg.components) || {}).btn_topup || {};
   const btn = new ButtonBuilder()
     .setCustomId('kanom:topup:open')
@@ -558,9 +576,9 @@ async function buildTopupPanel(ctx) {
   if (usesComponentsV2(ctx)) {
     return v2Payload([
       container([
-        text(`# ${cfg.title || '💰 เติมเงินเข้ากระเป๋า'}`),
+        text(componentText(cfg, 'heading', `# ${cfg.title || '💰 เติมเงินเข้ากระเป๋า'}`)),
         separator(),
-        text(cfg.description || 'กดปุ่ม **เติมเงิน** ด้านล่างเพื่อเลือกช่องทางและเติมเงินเข้ากระเป๋าเงินของคุณ'),
+        text(componentText(cfg, 'description', cfg.description || 'กดปุ่ม **เติมเงิน** ด้านล่างเพื่อเลือกช่องทางและเติมเงินเข้ากระเป๋าเงินของคุณ')),
         separator(),
         actionRow(btn),
       ]),
