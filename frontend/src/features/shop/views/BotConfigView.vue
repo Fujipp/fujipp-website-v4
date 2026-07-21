@@ -768,7 +768,7 @@ async function saveFeature(payload: Record<string, string>): Promise<void> {
             headers: { Authorization: authorization, "Content-Type": "application/json" },
             body: JSON.stringify({ values: payload }),
         });
-        let res = await request(headers.Authorization);
+        let res = await request(headers.Authorization ?? "");
         // A long-open configuration page can hold an expired access token. Spring may
         // answer 401 or 403 depending on where JWT validation failed, so refresh once.
         if (res.status === 401 || res.status === 403) {
