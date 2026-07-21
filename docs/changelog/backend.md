@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | `0.5.10` | 2026-07-21 | Made Wallet and Top-up Components V2 fully configurable per bot, including message text, variables, buttons, links, and generated dropdown option labels. |
 | `0.5.9` | 2026-07-20 | Added per-bot Role and User access rules while hardening Discord feature lifecycle, recovery, external-call handling, and operational health checks. |
-| `0.5.8` | 2026-07-16 | Expanded audited administration for wallets, Runtime, and Features while keeping Discord balance updates and expiry alerts synchronized. |
+| `0.5.8` | 2026-07-16 | Expanded audited billing administration, exposed customer Runtime notifications through the authenticated API, and shortened failed-renewal grace to one day. |
 | `0.4.9` | 2026-07-09 | Connected billing, vouchers, feature configuration, bot messaging, monitoring, and operational controls into the platform API. |
 | `0.3.0` | 2026-06-18 | Added reliable Discord bot lifecycle management with encrypted credentials, deployment coordination, and customer-facing status. |
 | `0.2.9` | 2026-06-18 | Established wallet top-ups, SlipOK verification, purchases, Runtime allocation, refunds, and protected billing workflows. |

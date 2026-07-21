@@ -44,7 +44,7 @@ public class AutomationService {
     private final CustomerNotificationRepository notifications;
     private final AutomationRunRepository runs;
 
-    @Value("${automation.runtime-grace-days:3}")
+    @Value("${automation.runtime-grace-days:1}")
     private int graceDays;
 
     public SweepResult runDailySweep() {

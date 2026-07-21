@@ -306,6 +306,20 @@ public class BillingClient {
             .body(String.class);
     }
 
+    public String listNotifications(UUID userId) {
+        return http.get().uri("/api/billing/subscriptions/notifications")
+            .header("X-Service-Token", serviceToken).header("X-User-Id", userId.toString())
+            .retrieve().onStatus(HttpStatusCode::isError, (req, res) -> raise(res.getStatusCode()))
+            .body(String.class);
+    }
+
+    public String markNotificationRead(UUID userId, UUID id) {
+        return http.patch().uri("/api/billing/subscriptions/notifications/{id}/read", id)
+            .header("X-Service-Token", serviceToken).header("X-User-Id", userId.toString())
+            .retrieve().onStatus(HttpStatusCode::isError, (req, res) -> raise(res.getStatusCode()))
+            .body(String.class);
+    }
+
     /** Toggle auto-renew on a runtime subscription. Returns the updated subscription JSON. */
     public String setRuntimeAutoRenew(UUID userId, UUID id, boolean autoRenew) {
         return http.patch().uri("/api/billing/subscriptions/runtime/{id}/auto-renew", id)
