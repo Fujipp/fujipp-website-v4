@@ -40,6 +40,18 @@ public class SubscriptionController {
     private final RuntimeClient runtime;
     private final RuntimeRouter runtimeRouter;
 
+    @GetMapping("/notifications")
+    public ResponseEntity<String> notifications(@AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON)
+            .body(billing.listNotifications(UUID.fromString(jwt.getSubject())));
+    }
+
+    @PatchMapping("/notifications/{id}/read")
+    public ResponseEntity<String> readNotification(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id) {
+        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON)
+            .body(billing.markNotificationRead(UUID.fromString(jwt.getSubject()), id));
+    }
+
     @GetMapping("/features")
     public ResponseEntity<String> features(@AuthenticationPrincipal Jwt jwt) {
         UUID userId = UUID.fromString(jwt.getSubject());
