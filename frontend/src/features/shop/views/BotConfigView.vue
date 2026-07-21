@@ -716,6 +716,16 @@ async function renewRuntime(): Promise<void> {
     }
 }
 
+function confirmRenewRuntime(): void {
+    requestConfirmation(
+        "ยืนยันต่ออายุ Runtime",
+        `ระบบจะหักเครดิต ${renewPrice.value} บาท และต่ออายุจากวันหมดอายุปัจจุบัน`,
+        "ยืนยันต่ออายุ",
+        "default",
+        renewRuntime,
+    );
+}
+
 async function loadConfig(): Promise<void> {
     isLoading.value = true;
     configError.value = "";
@@ -1048,7 +1058,7 @@ onMounted(async () => {
                                 width-mode="fill"
                                 :disabled="runtimeBusy"
                                 :leading-icon="icons.shopRenew"
-                                @click="renewRuntime"
+                                @click="confirmRenewRuntime"
                             >
                                 {{ runtimeBusy ? "Renewing…" : "Renew now" }}
                             </SecondaryButton>
@@ -1273,7 +1283,7 @@ onMounted(async () => {
                             <PrimaryButton width-mode="fixed" fixed-width="var(--spacing-space-64)" :leading-icon="icons.delete" :disabled="runtimeBusy" @click="confirmRemoveRuntime">
                                 Remove Runtime
                             </PrimaryButton>
-                            <PrimaryButton width-mode="fixed" fixed-width="var(--spacing-space-64)" :leading-icon="icons.shopRenew" :disabled="runtimeBusy" @click="renewRuntime">
+                            <PrimaryButton width-mode="fixed" fixed-width="var(--spacing-space-64)" :leading-icon="icons.shopRenew" :disabled="runtimeBusy" @click="confirmRenewRuntime">
                                 {{ runtimeBusy ? "Processing…" : `Renew ${renewPrice} THB` }}
                             </PrimaryButton>
                         </div>

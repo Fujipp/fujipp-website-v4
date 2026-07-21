@@ -7,7 +7,7 @@ import type { CatalogFeature, RuntimePlan } from "@/features/shop/config/catalog
 import { AppFooter } from "@/shared/layout";
 import { PrimaryButton, SecondaryButton } from "@/shared/ui/buttons";
 import { SearchField, SelectField } from "@/shared/ui/fields";
-import { BaseDialog } from "@/shared/ui/modals";
+import { BaseDialog, ConfirmModal } from "@/shared/ui/modals";
 import { TablePagination } from "@/shared/ui/paginations";
 import { StatusToast } from "@/shared/ui/toasts";
 import { useUserStore } from "@/stores";
@@ -36,6 +36,7 @@ interface RuntimeSubscription {
     externalSubjectId: string | null;
     status: string;
     currentPeriodEnd: string | null;
+    renewPriceSatang: number | null;
 }
 
 type AssignmentKind = "feature" | "runtime";
@@ -53,6 +54,7 @@ const loading = ref(true);
 const busyBotId = ref("");
 const assigning = ref(false);
 const renewingRuntimeId = ref("");
+const renewTarget = ref<RuntimeSubscription | null>(null);
 const creating = ref(false);
 const createDialogOpen = ref(false);
 const packageSearch = ref("");
@@ -291,6 +293,17 @@ async function renewRuntime(subscription: RuntimeSubscription): Promise<void> {
     }
 }
 
+function requestRuntimeRenewal(subscription: RuntimeSubscription): void {
+    renewTarget.value = subscription;
+}
+
+async function confirmRuntimeRenewal(): Promise<void> {
+    if (!renewTarget.value) return;
+    const subscription = renewTarget.value;
+    await renewRuntime(subscription);
+    renewTarget.value = null;
+}
+
 function formatDate(value: string | null): string {
     if (!value) return "Permanent";
     return new Intl.DateTimeFormat("th-TH", { dateStyle: "medium" }).format(new Date(`${value}T00:00:00`));
@@ -360,7 +373,7 @@ onUnmounted(() => {
                                     <td>
                                         <div :class="$style.runtimeActions">
                                             <PrimaryButton width-mode="hug" :leading-icon="row.externalSubjectId ? icons.edit : undefined" :disabled="bots.length === 0 && !row.externalSubjectId" @click="openAssignment('runtime', row.id, row.name, row.externalSubjectId)">{{ row.externalSubjectId ? 'Edit' : 'Use' }}</PrimaryButton>
-                                            <PrimaryButton width-mode="hug" :leading-icon="icons.shopRenew" :disabled="renewingRuntimeId === row.id" @click="renewRuntime(row)">{{ renewingRuntimeId === row.id ? 'Renewing…' : 'Renew Runtime' }}</PrimaryButton>
+                                            <PrimaryButton width-mode="hug" :leading-icon="icons.shopRenew" :disabled="renewingRuntimeId === row.id" @click="requestRuntimeRenewal(row)">{{ renewingRuntimeId === row.id ? 'Renewing…' : 'Renew Runtime' }}</PrimaryButton>
                                         </div>
                                     </td>
                                 </tr>
@@ -388,6 +401,11 @@ onUnmounted(() => {
                 </div>
             </div>
         </BaseDialog>
+
+        <ConfirmModal v-if="renewTarget" title="ยืนยันต่ออายุ Runtime"
+            :reason="`ระบบจะหักเครดิต ${((renewTarget.renewPriceSatang ?? planMap.get(renewTarget.runtimePlanId || '')?.priceSatang ?? 0) / 100).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} บาท และต่ออายุจากวันหมดอายุปัจจุบัน`"
+            confirm-label="ยืนยันต่ออายุ" :disabled="renewingRuntimeId === renewTarget.id"
+            @cancel="renewTarget = null" @confirm="confirmRuntimeRenewal" />
 
         <div v-if="toast" :class="$style.toastRegion" aria-live="polite">
             <StatusToast :status="toast.status" :title="toast.title" :description="toast.description" @close="toast = null" />
