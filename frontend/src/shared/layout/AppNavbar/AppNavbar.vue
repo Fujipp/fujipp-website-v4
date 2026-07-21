@@ -31,6 +31,7 @@ const emit = defineEmits<{
 
 type AuthMode = "login" | "register";
 type OAuthProvider = "google" | "discord" | "github";
+interface CustomerNotification { id: string; type: string; title: string; message: string; isRead: boolean; createdAt: string; }
 
 const route = useRoute();
 const router = useRouter();
@@ -41,6 +42,9 @@ const { locale } = useI18n();
 
 const isMenuOpen = ref(false);
 const isProfileOpen = ref(false);
+const isNotificationOpen = ref(false);
+const notifications = ref<CustomerNotification[]>([]);
+const notificationsLoading = ref(false);
 const isScrolled = ref(false);
 const authMode = ref<AuthMode | null>(null);
 const profileMenu = ref<HTMLElement | null>(null);
@@ -83,10 +87,12 @@ const authError = computed(() => passwordMismatch.value ? "Passwords do not matc
 const quickThemeIcon = computed(() => (
     ThemeApp.find((theme) => theme.mode === selectedTheme.value)?.src ?? icons.modeSystem
 ));
+const unreadNotifications = computed(() => notifications.value.filter((item) => !item.isRead).length);
 
 function closeOverlays(): void {
     isMenuOpen.value = false;
     isProfileOpen.value = false;
+    isNotificationOpen.value = false;
     authMode.value = null;
 }
 
@@ -171,7 +177,41 @@ function toggleMenu(): void {
 
 function toggleProfile(): void {
     isMenuOpen.value = false;
+    isNotificationOpen.value = false;
     isProfileOpen.value = !isProfileOpen.value;
+}
+
+async function loadNotifications(): Promise<void> {
+    if (!userStore.accessToken) return;
+    notificationsLoading.value = true;
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/subscriptions/notifications`, {
+            headers: { Authorization: `Bearer ${userStore.accessToken}` },
+        });
+        if (response.ok) notifications.value = await response.json() as CustomerNotification[];
+    } finally { notificationsLoading.value = false; }
+}
+
+function toggleNotifications(): void {
+    isMenuOpen.value = false;
+    isProfileOpen.value = false;
+    isNotificationOpen.value = !isNotificationOpen.value;
+    if (isNotificationOpen.value) void loadNotifications();
+}
+
+async function openNotification(notification: CustomerNotification): Promise<void> {
+    if (!notification.isRead && userStore.accessToken) {
+        notification.isRead = true;
+        void fetch(`${API_BASE_URL}/api/subscriptions/notifications/${notification.id}/read`, {
+            method: "PATCH", headers: { Authorization: `Bearer ${userStore.accessToken}` },
+        });
+    }
+    isNotificationOpen.value = false;
+    await router.push({ name: "shop-runtime" });
+}
+
+function formatNotificationDate(value: string): string {
+    return new Intl.DateTimeFormat(currentLocale.value, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 }
 
 function selectTheme(theme: ThemeMode): void {
@@ -229,6 +269,7 @@ async function loadWalletBalance(): Promise<void> {
 function closeOnOutsideClick(event: MouseEvent): void {
     if (window.matchMedia("(min-width: 768px)").matches && !profileMenu.value?.contains(event.target as Node)) {
         isProfileOpen.value = false;
+        isNotificationOpen.value = false;
     }
 }
 
@@ -247,11 +288,15 @@ function updateNavbarScrollState(): void {
 watch(() => route.fullPath, closeOverlays);
 watch(
     [() => userStore.isAuthenticated, () => userStore.accessToken],
-    () => { void loadWalletBalance(); },
+    () => {
+        void loadWalletBalance();
+        if (userStore.isAuthenticated) void loadNotifications();
+        else notifications.value = [];
+    },
     { immediate: true },
 );
 watch(
-    () => isMenuOpen.value || isProfileOpen.value || authMode.value !== null,
+    () => isMenuOpen.value || isProfileOpen.value || isNotificationOpen.value || authMode.value !== null,
     (isOpen) => {
         if (typeof document !== "undefined") {
             const isMobile = window.matchMedia("(max-width: 767px)").matches;
@@ -370,6 +415,35 @@ onUnmounted(() => {
                         aria-hidden="true"
                     />
                 </button>
+                <button
+                    type="button"
+                    :class="[$style.quickThemeButton, $style.notificationButton]"
+                    :aria-expanded="isNotificationOpen"
+                    aria-haspopup="dialog"
+                    aria-label="Open notifications"
+                    @click.stop="toggleNotifications"
+                >
+                    <span :class="$style.maskIcon" :style="{ '--navbar-icon': `url(${icons.notification})` }" aria-hidden="true" />
+                    <span v-if="unreadNotifications" :class="$style.notificationDot" aria-hidden="true" />
+                </button>
+
+                <section v-if="isNotificationOpen" :class="$style.notificationDialog" role="dialog" aria-label="Notifications">
+                    <div :class="$style.notificationHeader">
+                        <strong>Notifications</strong>
+                        <span>{{ unreadNotifications }} unread</span>
+                    </div>
+                    <p v-if="notificationsLoading" :class="$style.notificationEmpty">Loading…</p>
+                    <p v-else-if="notifications.length === 0" :class="$style.notificationEmpty">No notifications yet.</p>
+                    <template v-else>
+                        <button v-for="notification in notifications" :key="notification.id" type="button"
+                            :class="[$style.notificationItem, !notification.isRead ? $style.notificationUnread : '']"
+                            @click="openNotification(notification)">
+                            <span :class="$style.notificationItemTitle">{{ notification.title }}</span>
+                            <span :class="$style.notificationMessage">{{ notification.message }}</span>
+                            <time :datetime="notification.createdAt">{{ formatNotificationDate(notification.createdAt) }}</time>
+                        </button>
+                    </template>
+                </section>
                 <button
                     type="button"
                     :class="$style.creditProfileButton"
@@ -885,6 +959,18 @@ onUnmounted(() => {
     background: color-mix(in srgb, var(--color-nav-text) 8%, transparent);
     transform: scale(1.05);
 }
+.notificationButton { position: relative; }
+.notificationDot { position: absolute; top: 5px; right: 5px; width: 8px; height: 8px; box-sizing: border-box; border: 2px solid var(--color-nav-background); border-radius: var(--radius-full); background: var(--color-status-error); }
+.notificationDialog { position: absolute; z-index: 72; top: calc(100% + 8px); right: 150px; display: flex; width: min(380px, calc(100vw - 32px)); max-height: min(520px, calc(100vh - 96px)); flex-direction: column; overflow: auto; border: 1px solid var(--color-dialog-divider); border-radius: var(--radius-xl); background: var(--color-dialog-background); color: var(--color-dialog-text-primary); box-shadow: 0 8px 24px rgb(0 0 0 / 14%); }
+.notificationHeader { display: flex; align-items: center; justify-content: space-between; padding: 16px; border-bottom: 1px solid var(--color-dialog-divider); }
+.notificationHeader span, .notificationMessage, .notificationItem time { color: var(--color-dialog-text-secondary); font-size: var(--type-size-support); }
+.notificationEmpty { margin: 0; padding: 32px 16px; color: var(--color-dialog-text-secondary); text-align: center; }
+.notificationItem { position: relative; display: flex; flex-direction: column; padding: 14px 16px 14px 20px; gap: 4px; border: 0; border-bottom: 1px solid var(--color-dialog-divider); background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.notificationItem:last-child { border-bottom: 0; }
+.notificationItem:hover { background: color-mix(in srgb, var(--color-dialog-text-primary) 6%, transparent); }
+.notificationUnread { background: color-mix(in srgb, var(--color-main-brand-secondary) 12%, transparent); }
+.notificationUnread::before { position: absolute; top: 20px; left: 8px; width: 6px; height: 6px; border-radius: 50%; background: var(--color-main-brand-secondary); content: ""; }
+.notificationItemTitle { font-weight: 700; }
 
 .creditText { font-size: var(--type-size-button); font-weight: 600; }
 .profileImage { width: 32px; height: 32px; flex-shrink: 0; border-radius: var(--radius-full); object-fit: cover; }
@@ -1063,6 +1149,7 @@ onUnmounted(() => {
     .desktopProfileDialog { display: none; }
     .guestActions { gap: var(--spacing-space-2); }
     .signInLink { padding: 10px; border: 1px solid var(--color-nav-text); }
+    .notificationDialog { position: fixed; top: 63px; right: 12px; left: 12px; width: auto; max-height: calc(100dvh - 75px); }
 
     .authOverlay { align-items: flex-end; padding: 0; }
     .authDialog { width: 100%; max-width: none; box-shadow: 0 -12px 36px rgb(0 0 0 / 18%); transform: translateY(var(--sheet-drag-y, 0)); }
