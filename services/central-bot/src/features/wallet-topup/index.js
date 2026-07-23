@@ -107,17 +107,34 @@ async function handleTopupPanel(interaction, ctx) {
     return;
   }
   await interaction.deferReply({ ephemeral: true });
+  let notice = 'โพสต์แผงเติมเงินแล้ว ✅';
   try {
     await interaction.channel.send(await topup.buildTopupPanel(ctx, interaction));
   } catch (error) {
     ctx.log(
-      'Configurable top-up panel send failed; retrying with classic panel:',
+      'Configurable top-up panel send failed; retrying with safe Components V2 panel:',
       error?.code || 'unknown',
       error?.message || String(error),
     );
-    await interaction.channel.send(topup.buildEmergencyTopupPanel());
+    const primaryCode = error?.code || 'unknown';
+    try {
+      await interaction.channel.send(topup.buildEmergencyTopupPanel());
+      notice = `โพสต์แผง Components V2 สำรองแล้ว ⚠️ (Template error: ${primaryCode})`;
+    } catch (fallbackError) {
+      ctx.log(
+        'Safe Components V2 panel failed; retrying with classic panel:',
+        fallbackError?.code || 'unknown',
+        fallbackError?.message || String(fallbackError),
+      );
+      await interaction.channel.send(topup.buildClassicEmergencyTopupPanel());
+      notice = [
+        'Discord ปฏิเสธ Components V2 จึงโพสต์แผงข้อความสำรอง ⚠️',
+        `Template error: ${primaryCode}`,
+        `Components error: ${fallbackError?.code || 'unknown'}`,
+      ].join('\n');
+    }
   }
-  await interaction.editReply({ content: 'โพสต์แผงเติมเงินแล้ว ✅' });
+  await interaction.editReply({ content: notice });
 }
 
 module.exports = {
