@@ -552,13 +552,18 @@ async function onPpModal(interaction, ctx) {
     ? `https://discord.com/channels/${interaction.guildId}/${slipChannelId}`
     : null;
 
-  const renderQr = (secLeft) => renderTopupStatus(ctx, 'topup_qr', {
-      amount: `${amount.toFixed(2)} THB`,
-      account_name: ctx.config.get('PROMPTPAY_ACCOUNT_NAME', '-'),
-      countdown: fmtCountdown(secLeft),
-      qr_image: qrImage,
-      slip_url: slipUrl,
-    }, legacySlipComponents(slipUrl), interaction);
+  // This modal reply was deferred as ephemeral. Preserve that immutable flag
+  // when editing it into a Components V2 message; sending only IsComponentsV2
+  // makes Discord reject the edit as an attempt to change reply visibility.
+  const renderQr = async (secLeft) => ephemeralPayload(
+    await renderTopupStatus(ctx, 'topup_qr', {
+        amount: `${amount.toFixed(2)} THB`,
+        account_name: ctx.config.get('PROMPTPAY_ACCOUNT_NAME', '-'),
+        countdown: fmtCountdown(secLeft),
+        qr_image: qrImage,
+        slip_url: slipUrl,
+      }, legacySlipComponents(slipUrl), interaction),
+  );
 
   // Link to the slip channel so the member knows where to post the slip. A
   // customer-edited Embed can still be malformed independently of the payment
@@ -593,7 +598,7 @@ async function onPpModal(interaction, ctx) {
         if (left <= 0) {
           ctx.lifecycle.clearTimer(tick);
           await interaction.editReply(
-            await renderTopupStatus(ctx, 'topup_timeout', {}, [], interaction),
+            ephemeralPayload(await renderTopupStatus(ctx, 'topup_timeout', {}, [], interaction)),
           ).catch(() => {});
           return;
         }
@@ -812,12 +817,14 @@ async function onBalance(interaction, ctx) {
 
 // Member clicked เติมเงิน on the standalone panel → show the method picker (ephemeral).
 async function onOpenTopup(interaction, ctx) {
+  // A cold template-cache read can exceed Discord's initial interaction window.
+  // Acknowledge immediately, then build and edit the private response.
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   try {
-    await interaction.reply(ephemeralPayload(
+    await interaction.editReply(ephemeralPayload(
       await buildTopupMethod(ctx, interaction),
     ));
   } catch (error) {
-    if (interaction.deferred || interaction.replied) throw error;
     ctx.log(
       'Configurable top-up method reply failed; retrying with emergency controls:',
       error?.code || 'unknown',
@@ -835,10 +842,9 @@ async function onOpenTopup(interaction, ctx) {
         .setStyle(ButtonStyle.Success)
         .setEmoji('🧧'),
     );
-    await interaction.reply({
+    await interaction.editReply({
       content: '**เลือกช่องทางเติมเงิน**',
       components: [emergencyRow],
-      flags: MessageFlags.Ephemeral,
     });
   }
 }
