@@ -736,19 +736,34 @@ async function onBalance(interaction, ctx) {
 
 // Member clicked เติมเงิน on the standalone panel → show the method picker (ephemeral).
 async function onOpenTopup(interaction, ctx) {
-  const payload = ephemeralPayload(await buildTopupMethod(ctx, interaction));
   try {
-    await interaction.reply(payload);
+    await interaction.reply(ephemeralPayload(
+      await buildTopupMethod(ctx, interaction),
+    ));
   } catch (error) {
-    if (!usesComponentsV2(ctx) || interaction.deferred || interaction.replied) throw error;
+    if (interaction.deferred || interaction.replied) throw error;
     ctx.log(
-      'Components V2 top-up method reply failed; retrying with Embed:',
+      'Configurable top-up method reply failed; retrying with emergency controls:',
       error?.code || 'unknown',
       error?.message || String(error),
     );
-    await interaction.reply(ephemeralPayload(
-      await buildTopupMethod(ctx, interaction, { forceEmbed: true }),
-    ));
+    const emergencyRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('kanom:topup:btn:promptpay')
+        .setLabel('พร้อมเพย์ธนาคาร')
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('🏧'),
+      new ButtonBuilder()
+        .setCustomId('kanom:topup:btn:truemoney')
+        .setLabel('ซองอั่งเปาทรูมันนี่')
+        .setStyle(ButtonStyle.Success)
+        .setEmoji('🧧'),
+    );
+    await interaction.reply({
+      content: '**เลือกช่องทางเติมเงิน**',
+      components: [emergencyRow],
+      flags: MessageFlags.Ephemeral,
+    });
   }
 }
 
