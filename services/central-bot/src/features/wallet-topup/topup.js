@@ -751,19 +751,10 @@ async function buildConfigurableTopupPanel(ctx, source = null) {
 }
 
 async function buildTopupPanel(ctx, source = null) {
-  try {
-    return await buildConfigurableTopupPanel(ctx, source);
-  } catch (error) {
-    ctx.log(
-      'Configurable top-up panel failed; using emergency panel:',
-      error?.code || 'unknown',
-      error?.message || String(error),
-    );
-    return buildEmergencyTopupPanel();
-  }
+  return buildConfigurableTopupPanel(ctx, source);
 }
 
-function buildEmergencyTopupPanel() {
+function emergencyTopupButtons() {
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('kanom:topup:open')
@@ -776,9 +767,30 @@ function buildEmergencyTopupPanel() {
       .setStyle(ButtonStyle.Secondary)
       .setEmoji('💳'),
   );
+  return row;
+}
+
+function buildEmergencyTopupPanel() {
+  const row = emergencyTopupButtons();
+  return {
+    // Keep this payload deliberately independent of the database template. If a
+    // saved layout is rejected by Discord, members still receive a real
+    // Components V2 panel instead of silently falling back to a plain message.
+    flags: MessageFlags.IsComponentsV2,
+    components: [container([
+      text('# เติมเงินเข้ากระเป๋า'),
+      separator(),
+      text('กดปุ่มด้านล่างเพื่อเติมเงินหรือเช็คยอดเงินคงเหลือ'),
+      separator(),
+      actionRow(...row.components),
+    ])],
+  };
+}
+
+function buildClassicEmergencyTopupPanel() {
   return {
     content: '**เติมเงินเข้ากระเป๋า**\nกดปุ่มด้านล่างเพื่อเติมเงินหรือเช็คยอดเงินคงเหลือ',
-    components: [row],
+    components: [emergencyTopupButtons()],
   };
 }
 
@@ -863,6 +875,7 @@ module.exports = {
   buildTopupMethod,
   buildTopupPanel,
   buildEmergencyTopupPanel,
+  buildClassicEmergencyTopupPanel,
   buildWalletBalance,
   renderTopupStatus,
   usesComponentsV2,

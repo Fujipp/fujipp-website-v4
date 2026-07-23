@@ -1,9 +1,10 @@
 # Changelog — Backend
 
-**Current version: `0.5.12`**  ·  see [release workflow](./README.md)
+**Current version: `0.5.17`**  ·  see [release workflow](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.5.17` | 2026-07-24 | Kept Wallet top-up panels on Components V2 when a customized template is rejected and made the private admin response report whether Discord required a safe component or classic fallback. |
 | `0.5.16` | 2026-07-24 | Restored reliable designed Wallet Components V2 responses by preserving ephemeral visibility throughout deferred QR edits and acknowledging cold payment-method interactions before loading their templates. |
 | `0.5.15` | 2026-07-24 | Restored the selectable Wallet & Top-up presentation so QR, validation, processing, failure, and success messages use each bot's designed Components V2 templates when that display mode is selected, while retaining emergency delivery fallbacks. |
 | `0.5.14` | 2026-07-24 | Completed the Wallet & Top-up modal-submit isolation from configurable messages by rendering invalid-amount feedback as a template-free reply and adding an emergency PromptPay QR response when a configured reply cannot be sent. |
