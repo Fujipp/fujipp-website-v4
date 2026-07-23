@@ -65,56 +65,42 @@ const closeStyle = { "--toast-close-src": `url(${icons.hamburgerClose})` };
 
 <style module>
 .statusToast {
-    --toast-accent: var(--color-status-info);
-
     position: relative;
-    display: flex;
-    align-items: flex-start;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
     box-sizing: border-box;
     width: 100%;
-    min-height: var(--spacing-space-20);
-    padding: var(--spacing-space-4);
+    min-height: var(--spacing-space-14);
+    padding: var(--spacing-space-3) var(--spacing-space-4);
     gap: var(--spacing-space-3);
     overflow: hidden;
-    border-radius: var(--radius-2xl);
-    border: 1px solid color-mix(in srgb, var(--toast-accent) 28%, var(--color-dialog-divider));
-    background-color: color-mix(in srgb, var(--toast-accent) 3%, var(--color-dialog-background));
-    box-shadow:
-        0 14px 32px rgb(0 0 0 / 14%),
-        inset 0 1px 0 rgb(255 255 255 / 10%);
-    color: var(--color-dialog-text-primary);
+    border: 0;
+    border-radius: var(--radius-full);
+    background-color: var(--color-main-surface);
+    box-shadow: 0 var(--spacing-space-3) var(--spacing-space-8) color-mix(in srgb, var(--color-main-brand-primary) 22%, transparent);
+    color: var(--color-button-primary);
     font-family: var(--font-sans);
     text-align: left;
 }
 
-.statusToast::before {
-    position: absolute;
-    inset: 0 auto 0 0;
-    width: var(--spacing-space-1);
-    background-color: var(--toast-accent);
-    content: "";
-}
-
-.success { --toast-accent: var(--color-status-success); }
-.warning { --toast-accent: var(--color-status-warning); }
-.error { --toast-accent: var(--color-status-error); }
-.info { --toast-accent: var(--color-status-info); }
+.success, .warning, .error, .info { color: var(--color-button-primary); }
 
 .iconWell {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: var(--spacing-space-10);
-    height: var(--spacing-space-10);
+    width: var(--spacing-space-6);
+    height: var(--spacing-space-6);
     flex-shrink: 0;
-    border-radius: var(--radius-xl);
-    background-color: color-mix(in srgb, var(--toast-accent) 14%, transparent);
+    border: 0;
+    background: transparent;
 }
 
 .leftIcon {
     flex-shrink: 0;
-    width: var(--spacing-icon-md);
-    height: var(--spacing-icon-md);
+    width: var(--spacing-icon-sm);
+    height: var(--spacing-icon-sm);
     object-fit: contain;
     user-select: none;
     -webkit-user-drag: none;
@@ -123,30 +109,30 @@ const closeStyle = { "--toast-close-src": `url(${icons.hamburgerClose})` };
 .content {
     display: flex;
     flex: 1;
-    flex-direction: column;
-    align-items: flex-start;
+    flex-wrap: wrap;
+    flex-direction: row;
+    align-items: center;
     min-width: 0;
-    gap: var(--spacing-space-1);
-    padding-top: var(--spacing-space-1);
+    justify-content: flex-start;
+    min-height: var(--spacing-space-6);
+    gap: var(--spacing-space-2);
 }
 
 .title {
-    align-self: stretch;
     overflow-wrap: anywhere;
-    color: var(--color-dialog-text-primary);
+    color: var(--color-button-primary);
     font-size: var(--type-size-caption);
     font-weight: 600;
-    line-height: 1.3;
+    line-height: 1.35;
 }
 
 .description {
-    align-self: stretch;
     margin: 0;
     overflow-wrap: anywhere;
-    color: var(--color-dialog-text-secondary);
-    font-size: var(--type-size-overline);
-    font-weight: 300;
-    line-height: 1.45;
+    color: color-mix(in srgb, var(--color-button-primary) 68%, transparent);
+    font-size: var(--type-size-input-label);
+    font-weight: 400;
+    line-height: 1.4;
 }
 
 .closeButton {
@@ -157,22 +143,24 @@ const closeStyle = { "--toast-close-src": `url(${icons.hamburgerClose})` };
     width: var(--spacing-space-8);
     height: var(--spacing-space-8);
     padding: 0;
-    border: 0;
+    border: 1px solid transparent;
     border-radius: var(--radius-full);
     background-color: transparent;
     cursor: pointer;
-    color: var(--color-dialog-text-secondary);
+    color: var(--color-button-primary);
     transition: background-color 160ms ease, color 160ms ease, transform 160ms ease;
 }
 
 .closeButton:hover {
-    background-color: color-mix(in srgb, var(--toast-accent) 12%, transparent);
-    color: var(--color-dialog-text-primary);
-    transform: scale(1.04);
+    border-color: color-mix(in srgb, var(--color-button-primary) 24%, transparent);
+    background-color: color-mix(in srgb, var(--color-button-primary) 12%, transparent);
+    color: var(--color-button-primary);
 }
 
+.closeButton:active { transform: scale(.94); }
+
 .closeButton:focus-visible {
-    outline: 2px solid var(--color-main-primary);
+    outline: 2px solid var(--color-button-primary);
     outline-offset: 2px;
 }
 

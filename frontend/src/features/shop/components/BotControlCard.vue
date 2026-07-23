@@ -3,6 +3,9 @@ import { computed, ref, watch } from "vue";
 import { PrimaryButton } from "@/shared/ui/buttons";
 import { icons } from "@/config";
 import BotStatusBadge, { type BotOnlineStatus } from "./BotStatusBadge.vue";
+import { useLocaleText } from "@/i18n";
+
+const text = useLocaleText();
 
 export type BotControlCardMode = "default" | "skeleton";
 export type BotControlAction = "power" | "restart" | "edit";
@@ -29,7 +32,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{ control: [action: BotControlAction] }>();
 const avatarFailed = ref(false);
-const powerLabel = computed(() => (props.status === "online" ? "Stop" : "Start"));
+const powerLabel = computed(() => (props.status === "online" ? text("Stop", "หยุด") : text("Start", "เริ่ม")));
 const powerIcon = computed(() => (props.status === "online" ? icons.pause : icons.play));
 
 watch(() => props.avatar, () => { avatarFailed.value = false; });
@@ -61,7 +64,7 @@ watch(() => props.avatar, () => { avatarFailed.value = false; });
                     <h3 :class="$style.name" class="type-h3-card-title-eb">{{ name }}</h3>
                     <BotStatusBadge :status="status" />
                     <p :class="$style.runtime" class="type-body-small-r">
-                        <strong>{{ runtimeDays }}</strong>
+                        <strong>{{ runtimeDays === "No Runtime" ? text("No Runtime", "ไม่มี Runtime") : runtimeDays }}</strong>
                         <span v-if="runtimeClock"> {{ runtimeClock }}</span>
                     </p>
                 </div>
@@ -69,15 +72,15 @@ watch(() => props.avatar, () => { avatarFailed.value = false; });
 
             <div :class="$style.divider" />
 
-            <div :class="$style.controls" aria-label="Bot controls">
+            <div :class="$style.controls" :aria-label="text('Bot controls', 'การควบคุมบอท')">
                 <PrimaryButton width-mode="hug" :leading-icon="powerIcon" :disabled="disabled" @click="emit('control', 'power')">
                     {{ powerLabel }}
                 </PrimaryButton>
                 <PrimaryButton width-mode="hug" :leading-icon="icons.restart" :disabled="disabled" @click="emit('control', 'restart')">
-                    Restart
+                    {{ text("Restart", "รีสตาร์ต") }}
                 </PrimaryButton>
                 <PrimaryButton width-mode="hug" :leading-icon="icons.setting" :disabled="disabled" @click="emit('control', 'edit')">
-                    Setting
+                    {{ text("Settings", "ตั้งค่า") }}
                 </PrimaryButton>
             </div>
         </template>

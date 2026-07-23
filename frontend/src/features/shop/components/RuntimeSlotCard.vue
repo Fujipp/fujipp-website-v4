@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { SecondaryButton } from "@/shared/ui/buttons";
 import { icons } from "@/config";
+import { useLocaleText } from "@/i18n";
+
+const text = useLocaleText();
 
 export type RuntimeSlotCardVariant = "sell" | "owned";
 
@@ -69,15 +72,15 @@ const emit = defineEmits<{ buy: []; use: []; "add-time": [] }>();
                 :trailing-icon="icons.buy"
                 @click="emit('buy')"
             >
-                {{ buyLabel }}
+                {{ buyLabel === "Buy" ? text("Buy", "ซื้อ") : buyLabel }}
             </SecondaryButton>
 
             <template v-else>
-                <SecondaryButton width-mode="fill" @click="emit('use')">{{ useLabel }}</SecondaryButton>
+                <SecondaryButton width-mode="fill" @click="emit('use')">{{ useLabel === "Use" ? text("Use", "ใช้งาน") : useLabel }}</SecondaryButton>
                 <SecondaryButton
                     variant="icon"
                     :leading-icon="icons.shopReTime"
-                    aria-label="เพิ่มเวลา runtime"
+                    :aria-label="text('Add Runtime time', 'เพิ่มเวลา Runtime')"
                     @click="emit('add-time')"
                 />
             </template>

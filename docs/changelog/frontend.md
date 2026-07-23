@@ -1,9 +1,10 @@
 # Changelog — Frontend
 
-**Current version: `0.7.19`**  ·  see [release workflow](./README.md)
+**Current version: `0.7.20`**  ·  see [release workflow](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.7.20` | 2026-07-21 | Added spacious Wallet and Top-up Embed and Components V2 editors with numbered event navigation, editable blocks and controls, aligned classic Embed templates, realistic previews, complete `{{` autocomplete across message, media, field, and link controls, documented Discord context and syntax, a reset-to-latest-template action, a minimal global Toast with sound, a persistent bilingual Shop experience, and refreshed Fujipp branding. |
 | `0.7.19` | 2026-07-21 | Redesigned Discord message configuration into a wider Embed and Components V2 workspace with live previews, editable controls, variable suggestions, and resilient authenticated saving. |
 | `0.7.18` | 2026-07-20 | Added responsive bot access controls for allowing or denying specific Discord Roles and Users globally or per Feature. |
 | `0.7.17` | 2026-07-19 | Redesigned release notes, stabilized strict template typing, and added authenticated Runtime notifications with a right-aligned Lucide Bell indicator, durable read state, and renewal confirmation dialogs. |

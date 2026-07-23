@@ -1,13 +1,11 @@
 # Changelog — Backend
 
-**Current version: `0.5.13`**  ·  see [release workflow](./README.md)
+**Current version: `0.5.11`**  ·  see [release workflow](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
-| `0.5.13` | 2026-07-21 | Made Wallet and Top-up Components V2 fully configurable per bot, including message text, variables, buttons, links, and generated dropdown option labels. |
-| `0.5.12` | 2026-07-21 | Added selectable Discord Components V2 Wallet and Top-up messages, and refined Runtime expiry alerts with direct renewal actions. |
-| `0.5.11` | 2026-07-20 | Removed duplicate Discord slash commands by keeping server-bound shop bots Guild-scoped and clearing their stale Global registrations. |
-| `0.5.10` | 2026-07-20 | Kept Discord bots online when optional Features are degraded while preserving readiness failures for bots that cannot connect. |
+| `0.5.11` | 2026-07-23 | Added shared Discord member, server, channel, and bot context to dynamic Wallet and Top-up messages, aligned Embed and Components V2 rendering, and added an authenticated reset-to-latest-template API for owners and administrators. |
+| `0.5.10` | 2026-07-21 | Made Wallet and Top-up Components V2 fully configurable per bot, including ordered content, sections, separators, media, container appearance, behavior-safe required actions, Top-up Panel balance controls, a live Wallet Balance response, and validated custom link-button rows. |
 | `0.5.9` | 2026-07-20 | Added per-bot Role and User access rules while hardening Discord feature lifecycle, recovery, external-call handling, and operational health checks. |
 | `0.5.8` | 2026-07-16 | Expanded audited billing administration, exposed customer Runtime notifications through the authenticated API, and shortened failed-renewal grace to one day. |
 | `0.4.9` | 2026-07-09 | Connected billing, vouchers, feature configuration, bot messaging, monitoring, and operational controls into the platform API. |

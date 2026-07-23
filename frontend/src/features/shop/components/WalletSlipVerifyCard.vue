@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useLocaleText } from "@/i18n";
+
+const text = useLocaleText();
 interface Props {
     dragActive?: boolean;
     fileName?: string;
@@ -29,9 +32,9 @@ const emit = defineEmits<{
             @dragleave.prevent="emit('dragActiveChange', false)"
             @drop.prevent="emit('dropFile', $event)"
         >
-            <span :class="$style.dropTitle">ไฟล์สลิปการโอนเงิน</span>
-            <span :class="$style.dropAction">{{ fileName || "เลือกไฟล์" }}</span>
-            <span :class="$style.dropHint">หรือ<br>ลากแล้วปล่อยไฟล์</span>
+            <span :class="$style.dropTitle">{{ text("Payment slip", "ไฟล์สลิปการโอนเงิน") }}</span>
+            <span :class="$style.dropAction">{{ fileName || text("Choose file", "เลือกไฟล์") }}</span>
+            <span :class="$style.dropHint">{{ text("or", "หรือ") }}<br>{{ text("drag and drop a file", "ลากแล้วปล่อยไฟล์") }}</span>
             <input
                 id="wallet-slip-file"
                 type="file"
@@ -47,7 +50,7 @@ const emit = defineEmits<{
             :disabled="verifying"
             @click="emit('verify')"
         >
-            {{ verifying ? "Confirming..." : "Confirm" }}
+            {{ verifying ? text("Confirming…", "กำลังยืนยัน…") : text("Confirm", "ยืนยัน") }}
         </button>
     </article>
 </template>

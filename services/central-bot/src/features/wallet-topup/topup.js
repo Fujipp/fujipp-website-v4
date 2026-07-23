@@ -14,6 +14,7 @@ const {
 const { grantTopupRole } = require('./topup-role');
 const { parseEmoji, buttonStyle } = require('../../lib/components');
 const { query } = require('../../lib/db');
+const { withDiscordContext } = require('./discord-context');
 
 const thb = (satang) => `฿${(satang / 100).toLocaleString('th-TH')}`;
 const GIFT_RE = /^https:\/\/gift\.truemoney\.com\/campaign\/\?v=/;
@@ -50,6 +51,14 @@ function container(components, options = {}) {
 
 function mediaGallery(url) {
   return { type: 12, items: [{ media: { url } }] };
+}
+
+function section(content, accessoryUrl) {
+  return {
+    type: 9,
+    components: [text(content)],
+    accessory: { type: 11, media: { url: accessoryUrl } },
+  };
 }
 
 function v2Payload(components, options = {}) {
@@ -115,6 +124,108 @@ function componentText(config, key, fallback) {
   return String(config?.componentsV2?.texts?.[key] || fallback);
 }
 
+function configuredContainerOptions(config) {
+  const raw = config?.componentsV2?.container;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const options = {};
+  const accent = Number(raw.accentColor);
+  if (Number.isInteger(accent) && accent >= 0 && accent <= 0xFFFFFF) options.accent_color = accent;
+  if (raw.spoiler === true) options.spoiler = true;
+  return options;
+}
+
+function customLinkRow(block) {
+  if (!Array.isArray(block?.buttons)) return null;
+  const buttons = [];
+  for (const item of block.buttons.slice(0, 5)) {
+    const label = String(item?.label || '').trim().slice(0, 80);
+    const url = String(item?.url || '').trim();
+    let parsedUrl;
+    try { parsedUrl = new URL(url); } catch (_e) { continue; }
+    if (!label || url.length > 512 || !['http:', 'https:'].includes(parsedUrl.protocol)) continue;
+    const button = new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel(label).setURL(url);
+    const emoji = parseEmoji(item?.emoji);
+    if (emoji) { try { button.setEmoji(emoji); } catch (_e) { /* skip invalid emoji */ } }
+    buttons.push(button);
+  }
+  return buttons.length ? actionRow(...buttons) : null;
+}
+
+function configuredChildren(config, fallback, rows = {}, requiredRowKeys = []) {
+  const layout = config?.componentsV2?.layout;
+  if (!Array.isArray(layout) || layout.length === 0) return fallback;
+
+  const usedRows = new Set();
+  const children = [];
+  let nodeCount = 0;
+  const rowNodeCost = (row) => 1 + (Array.isArray(row?.components) ? row.components.length : 0);
+  const pendingRequiredRows = new Set(requiredRowKeys.filter((key) => rows[key]));
+  let reservedNodeCount = [...pendingRequiredRows].reduce((total, key) => total + rowNodeCost(rows[key]), 0);
+  const append = (child, cost = 1, requiredRowKey = '') => {
+    const releasedNodes = requiredRowKey && pendingRequiredRows.has(requiredRowKey) ? cost : 0;
+    if (nodeCount + cost + reservedNodeCount - releasedNodes > 40) return false;
+    children.push(child);
+    nodeCount += cost;
+    if (releasedNodes) {
+      pendingRequiredRows.delete(requiredRowKey);
+      reservedNodeCount -= releasedNodes;
+    }
+    return true;
+  };
+
+  // Discord counts nested buttons inside action rows toward the 40-node limit.
+  // Stop before that boundary so an oversized custom layout cannot reject the
+  // entire top-up response.
+  for (const block of layout) {
+    if (!block || typeof block !== 'object') continue;
+    if (block.type === 'text') {
+      const content = String(block.content || '').slice(0, 4000);
+      if (content && !append(text(content))) break;
+      continue;
+    }
+    if (block.type === 'separator') {
+      if (!append(separator(block.divider !== false, Number(block.spacing) === 1 ? 1 : 2))) break;
+      continue;
+    }
+    if (block.type === 'media') {
+      const url = String(block.url || '').trim();
+      if (/^https?:\/\//i.test(url)) {
+        const item = { media: { url } };
+        if (block.description) item.description = String(block.description).slice(0, 1024);
+        if (block.spoiler === true) item.spoiler = true;
+        if (!append({ type: 12, items: [item] }, 2)) break;
+      }
+      continue;
+    }
+    if (block.type === 'section') {
+      const content = String(block.content || '').slice(0, 4000);
+      const accessoryUrl = String(block.accessoryUrl || '').trim();
+      if (content && /^https?:\/\//i.test(accessoryUrl) && !append(section(content, accessoryUrl), 3)) break;
+      continue;
+    }
+    if (block.type === 'row') {
+      const fixedRow = rows[block.rowKey];
+      const linkRow = customLinkRow(block);
+      const row = fixedRow
+        ? { ...fixedRow, components: [...(fixedRow.components || []), ...(linkRow?.components || [])].slice(0, 5) }
+        : linkRow;
+      if (!row) continue;
+      if (!append(row, rowNodeCost(row), fixedRow ? block.rowKey : '')) break;
+      if (fixedRow) usedRows.add(block.rowKey);
+    }
+  }
+
+  for (const rowKey of requiredRowKeys) {
+    if (!usedRows.has(rowKey) && rows[rowKey]) append(rows[rowKey], rowNodeCost(rows[rowKey]), rowKey);
+  }
+  return children.length ? children : fallback;
+}
+
+function configuredV2Payload(config, fallback, rows = {}, requiredRowKeys = [], options = {}) {
+  const children = configuredChildren(config, fallback, rows, requiredRowKeys);
+  return v2Payload([container(children, configuredContainerOptions(config))], options);
+}
+
 function slipLinkButton(config, url) {
   const role = appearance(config, 'btn_slip');
   const button = new ButtonBuilder()
@@ -126,22 +237,24 @@ function slipLinkButton(config, url) {
   return button;
 }
 
-async function invalidAmountV2(ctx, message) {
-  const config = await ctx.services.embeds.renderConfig('topup_invalid', { reason: message });
-  return v2Payload([
-    container([
-      text(componentText(config, 'heading', '# ⚠️ แจ้งเตือน')),
-      separator(),
-      text(componentText(config, 'detail', message)),
-      separator(),
-      actionRow(closeButton(config)),
-    ]),
-  ], { ephemeral: true });
+async function invalidAmountV2(ctx, message, values = { reason: message }) {
+  const config = await ctx.services.embeds.renderConfig('topup_invalid', values);
+  const fallback = [
+    text(componentText(config, 'heading', '# ⚠️ แจ้งเตือน')),
+    separator(),
+    text(componentText(config, 'detail', message)),
+    separator(),
+    actionRow(closeButton(config)),
+  ];
+  return configuredV2Payload(config, fallback, {
+    close_action: actionRow(closeButton(config)),
+  }, ['close_action'], { ephemeral: true });
 }
 
-async function invalidAmountPayload(ctx, message) {
-  if (usesComponentsV2(ctx)) return invalidAmountV2(ctx, message);
-  return { embeds: [await ctx.services.embeds.renderEmbed('topup_invalid', { reason: message })], ephemeral: true };
+async function invalidAmountPayload(ctx, message, source = null) {
+  const values = withDiscordContext(source, { reason: message });
+  if (usesComponentsV2(ctx)) return invalidAmountV2(ctx, message, values);
+  return { embeds: [await ctx.services.embeds.renderEmbed('topup_invalid', values)], ephemeral: true };
 }
 
 async function topupStatusV2(ctx, slot, data = {}) {
@@ -159,78 +272,79 @@ async function topupStatusV2(ctx, slot, data = {}) {
         mediaGallery(data.qr_image),
         separator(),
       ];
+      const rows = {};
       if (data.slip_url) {
-        children.push(actionRow(
-          slipLinkButton(config, data.slip_url),
-        ));
+        rows.slip_action = actionRow(slipLinkButton(config, data.slip_url));
+        children.push(rows.slip_action);
       }
-      return v2Payload([container(children)]);
+      return configuredV2Payload(config, children, rows, data.slip_url ? ['slip_action'] : []);
     }
-    case 'topup_timeout':
-      return v2Payload([
-        container([
-          text(componentText(config, 'heading', '# 🔴 เกินเวลาที่กำหนด')),
-          separator(),
-          text(componentText(config, 'detail_heading', '**📋 รายละเอียด**')),
-          separator(false, 1),
-          text(componentText(config, 'detail', 'หากทำรายการไม่ทันให้กดทำรายการใหม่อีกครั้ง แล้วแนบสลิปได้เลยหากส่งสลิปไม่ทัน ขออภัยหากคุณได้ทำรายการไปแล้ว')),
-          separator(),
-          actionRow(retryPromptPayButton(config), closeButton(config)),
-        ]),
-      ]);
-    case 'processing':
-      return v2Payload([
-        container([
-          text(componentText(config, 'heading', '# ⌛️ กำลังประมวลผล')),
-          separator(),
-          text(componentText(config, 'detail_heading', '**📋 รายละเอียด**')),
-          separator(false, 1),
-          text(componentText(config, 'detail', 'กำลังตรวจสอบสลิป กรุณารอสักครู่')),
-        ]),
-      ]);
-    case 'error':
-      return v2Payload([
-        container([
-          text(componentText(config, 'heading', '# 🔴 เกิดข้อผิดพลาด')),
-          separator(),
-          text(componentText(config, 'detail_heading', '**📋 รายละเอียด**')),
-          separator(false, 1),
-          text(componentText(config, 'detail', data.reason || 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง')),
-        ]),
-      ]);
-    case 'topup_failed':
-      return v2Payload([
-        container([
-          text(componentText(config, 'heading', '# 🔴 เติมเงินไม่สำเร็จ')),
-          separator(),
-          text(componentText(config, 'detail_heading', '**📋 รายละเอียด**')),
-          separator(false, 1),
-          text(componentText(config, 'detail', data.reason || 'ไม่สามารถเติมเงินได้ในขณะนี้')),
-        ]),
-      ]);
-    case 'topup_success':
-      return v2Payload([
-        container([
-          text(componentText(config, 'heading', '# 🟢 เติมเงินสำเร็จ')),
-          separator(),
-          text(componentText(config, 'detail', [
+    case 'topup_timeout': {
+      const row = actionRow(retryPromptPayButton(config), closeButton(config));
+      const fallback = [
+        text(componentText(config, 'heading', '# 🔴 เกินเวลาที่กำหนด')),
+        separator(),
+        text(componentText(config, 'detail_heading', '**📋 รายละเอียด**')),
+        separator(false, 1),
+        text(componentText(config, 'detail', 'หากทำรายการไม่ทันให้กดทำรายการใหม่อีกครั้ง แล้วแนบสลิปได้เลยหากส่งสลิปไม่ทัน ขออภัยหากคุณได้ทำรายการไปแล้ว')),
+        separator(), row,
+      ];
+      return configuredV2Payload(config, fallback, { timeout_actions: row }, ['timeout_actions']);
+    }
+    case 'processing': {
+      const fallback = [
+        text(componentText(config, 'heading', '# ⌛️ กำลังประมวลผล')),
+        separator(),
+        text(componentText(config, 'detail_heading', '**📋 รายละเอียด**')),
+        separator(false, 1),
+        text(componentText(config, 'detail', 'กำลังตรวจสอบสลิป กรุณารอสักครู่')),
+      ];
+      return configuredV2Payload(config, fallback);
+    }
+    case 'error': {
+      const fallback = [
+        text(componentText(config, 'heading', '# 🔴 เกิดข้อผิดพลาด')),
+        separator(),
+        text(componentText(config, 'detail_heading', '**📋 รายละเอียด**')),
+        separator(false, 1),
+        text(componentText(config, 'detail', data.reason || 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง')),
+      ];
+      return configuredV2Payload(config, fallback);
+    }
+    case 'topup_failed': {
+      const fallback = [
+        text(componentText(config, 'heading', '# 🔴 เติมเงินไม่สำเร็จ')),
+        separator(),
+        text(componentText(config, 'detail_heading', '**📋 รายละเอียด**')),
+        separator(false, 1),
+        text(componentText(config, 'detail', data.reason || 'ไม่สามารถเติมเงินได้ในขณะนี้')),
+      ];
+      return configuredV2Payload(config, fallback);
+    }
+    case 'topup_success': {
+      const fallback = [
+        text(componentText(config, 'heading', '# 🟢 เติมเงินสำเร็จ')),
+        separator(),
+        text(componentText(config, 'detail', [
             `**👤 คนทำรายการ**\n<@${data.member}>`,
             `**💰 จำนวนเงินที่เติม**\n${currencyLabel(data.amount)}`,
             `**🏧 ยอดทั้งหมดที่มี**\n${currencyLabel(data.total_balance)}`,
             `**🏦 ช่องทางการเติม**\n${data.method || '-'}`,
             `**🕑 วันที่และเวลาทำรายการ**\n${data.datetime || '-'}`,
           ].join('\n\n'))),
-        ]),
-      ]);
+      ];
+      return configuredV2Payload(config, fallback);
+    }
     default:
       throw new Error(`Unsupported wallet-topup Components V2 slot: ${slot}`);
   }
 }
 
-async function renderTopupStatus(ctx, slot, data = {}, legacyComponents = []) {
-  if (usesComponentsV2(ctx)) return topupStatusV2(ctx, slot, data);
+async function renderTopupStatus(ctx, slot, data = {}, legacyComponents = [], source = null) {
+  const values = withDiscordContext(source, data);
+  if (usesComponentsV2(ctx)) return topupStatusV2(ctx, slot, values);
   return {
-    embeds: [await ctx.services.embeds.renderEmbed(slot, data)],
+    embeds: [await ctx.services.embeds.renderEmbed(slot, values)],
     components: legacyComponents,
   };
 }
@@ -372,7 +486,7 @@ async function onTopupMethod(interaction, ctx) {
   // promptpay — QR scan + slip verification
   const phone = String(ctx.config.get('PROMPTPAY_NUMBER', '')).replace(/\D/g, '');
   if (phone.length !== 10 && phone.length !== 13) {
-    await interaction.reply(await invalidAmountPayload(ctx, 'ร้านยังไม่ได้ตั้งค่าพร้อมเพย์ กรุณาติดต่อผู้ดูแลร้าน'));
+    await interaction.reply(await invalidAmountPayload(ctx, 'ร้านยังไม่ได้ตั้งค่าพร้อมเพย์ กรุณาติดต่อผู้ดูแลร้าน', interaction));
     return;
   }
   const modal = promptPayAmountModal(ctx);
@@ -395,11 +509,11 @@ async function onPpModal(interaction, ctx) {
   const min = ctx.config.number('MIN_TOPUP', 20);
   const amount = Number(interaction.fields.getTextInputValue('amount').trim());
   if (!Number.isFinite(amount) || amount <= 0) {
-    await interaction.reply(await invalidAmountPayload(ctx, 'กรุณาระบุจำนวนเงินมากกว่า 0 บาท'));
+    await interaction.reply(await invalidAmountPayload(ctx, 'กรุณาระบุจำนวนเงินมากกว่า 0 บาท', interaction));
     return;
   }
   if (amount < min) {
-    await interaction.reply(await invalidAmountPayload(ctx, `ต้องเติมขั้นต่ำ ${min} บาท`));
+    await interaction.reply(await invalidAmountPayload(ctx, `ต้องเติมขั้นต่ำ ${min} บาท`, interaction));
     return;
   }
 
@@ -422,7 +536,7 @@ async function onPpModal(interaction, ctx) {
       countdown: fmtCountdown(secLeft),
       qr_image: qrImage,
       slip_url: slipUrl,
-    }, legacySlipComponents(slipUrl));
+    }, legacySlipComponents(slipUrl), interaction);
 
   // Link to the slip channel so the member knows where to post the slip.
   await interaction.editReply(await renderQr(minutes * 60));
@@ -436,7 +550,7 @@ async function onPpModal(interaction, ctx) {
       try {
         if (left <= 0) {
           ctx.lifecycle.clearTimer(tick);
-          await interaction.editReply(await renderTopupStatus(ctx, 'topup_timeout')).catch(() => {});
+          await interaction.editReply(await renderTopupStatus(ctx, 'topup_timeout', {}, [], interaction)).catch(() => {});
           return;
         }
         await interaction.editReply(await renderQr(left));
@@ -462,20 +576,16 @@ function legacySlipComponents(slipUrl) {
 async function onTmnModal(interaction, ctx) {
   const giftUrl = interaction.fields.getTextInputValue('gift').trim();
   if (!GIFT_RE.test(giftUrl)) {
-    if (usesComponentsV2(ctx)) {
-      await interaction.reply(ephemeralPayload(await renderTopupStatus(ctx, 'topup_failed', {
-        reason: 'กรุณากรอกลิงก์ซองอั่งเปาให้ถูกต้อง',
-      })));
-    } else {
-      await interaction.reply({ content: 'กรุณากรอกลิงก์ซองอั่งเปาให้ถูกต้อง (ขึ้นต้น https://gift.truemoney.com/campaign/?v=)', ephemeral: true });
-    }
+    await interaction.reply(ephemeralPayload(await renderTopupStatus(ctx, 'topup_failed', {
+      reason: 'กรุณากรอกลิงก์ซองอั่งเปาให้ถูกต้อง (ขึ้นต้น https://gift.truemoney.com/campaign/?v=)',
+    }, [], interaction)));
     return;
   }
   await interaction.deferReply({ ephemeral: true });
 
   const result = await redeemVoucher(ctx, giftUrl);
   if (!result.ok) {
-    await interaction.editReply(await renderTopupStatus(ctx, 'topup_failed', { reason: result.message }));
+    await interaction.editReply(await renderTopupStatus(ctx, 'topup_failed', { reason: result.message }, [], interaction));
     return;
   }
 
@@ -489,7 +599,7 @@ async function onTmnModal(interaction, ctx) {
   if (creditSatang <= 0) {
     await interaction.editReply(await renderTopupStatus(ctx, 'topup_failed', {
       reason: 'ค่าธรรมเนียมมากกว่าหรือเท่ากับยอดซอง — ไม่สามารถเติมได้',
-    }));
+    }, [], interaction));
     return;
   }
 
@@ -506,7 +616,7 @@ async function onTmnModal(interaction, ctx) {
     fee: thb(feeSatang),
     gross: thb(gross),
   };
-  const success = await renderTopupStatus(ctx, 'topup_success', successData);
+  const success = await renderTopupStatus(ctx, 'topup_success', successData, [], interaction);
   await interaction.editReply(success);
 
   // Post the same success embed publicly, like a SlipOK top-up does (slip.js).
@@ -525,17 +635,18 @@ async function onTmnModal(interaction, ctx) {
 }
 
 // Build the top-up method picker (PromptPay / TrueMoney buttons) on the topup_method
-// embed. Buttons keep fixed styles (only label/emoji are configurable, like the
-// Roblox panel's เติมเงิน flow) and reuse the existing kanom:topup:btn: handlers.
-async function buildTopupMethod(ctx) {
-  const cfg = await ctx.services.embeds.renderConfig('topup_method', { fee_text: trueMoneyFeeText(ctx) });
+// message. Labels, emoji, and styles are configurable while the custom IDs and
+// handlers stay fixed so appearance edits cannot break the payment flow.
+async function buildTopupMethod(ctx, source = null) {
+  const values = withDiscordContext(source, { fee_text: trueMoneyFeeText(ctx) });
+  const cfg = await ctx.services.embeds.renderConfig('topup_method', values);
   const roles = (cfg && cfg.components) || {};
   const mkButton = (id, label, style, fallbackEmoji, roleKey) => {
     const role = roles[roleKey] || {};
     const btn = new ButtonBuilder()
       .setCustomId(id)
       .setLabel(String(role.label || label).slice(0, 80))
-      .setStyle(style);
+      .setStyle(buttonStyle(role.style, style));
     const emoji = parseEmoji(role.emoji) || fallbackEmoji;
     if (emoji) { try { btn.setEmoji(emoji); } catch (_e) { /* skip invalid emoji */ } }
     return btn;
@@ -546,51 +657,85 @@ async function buildTopupMethod(ctx) {
     mkButton('kanom:topup:btn:truemoney', 'ซองอั่งเปาทรูมันนี่', trueMoneyStyle, '🧧', 'btn_truemoney'),
   );
   if (usesComponentsV2(ctx)) {
-    return v2Payload([
-      container([
-        text(componentText(cfg, 'heading', '# เลือกช่องทางเติมเงิน')),
-        separator(),
-        text(componentText(cfg, 'notice_heading', '**🔻 อ่านก่อนเติม**')),
-        separator(false, 1),
-        text(componentText(cfg, 'notice', `เติมเงินผ่านซองอั่งเปาทรูมันนี่ ${trueMoneyFeeText(ctx)}`)),
-        separator(),
-        actionRow(...row.components),
-      ]),
-    ]);
+    const actions = actionRow(...row.components);
+    const fallback = [
+      text(componentText(cfg, 'heading', '# เลือกช่องทางเติมเงิน')),
+      separator(),
+      text(componentText(cfg, 'notice_heading', '**🔻 อ่านก่อนเติม**')),
+      separator(false, 1),
+      text(componentText(cfg, 'notice', `เติมเงินผ่านซองอั่งเปาทรูมันนี่ ${trueMoneyFeeText(ctx)}`)),
+      separator(), actions,
+    ];
+    return configuredV2Payload(cfg, fallback, { topup_method_actions: actions }, ['topup_method_actions']);
   }
-  const embed = await ctx.services.embeds.renderEmbed('topup_method');
+  const embed = await ctx.services.embeds.renderEmbed('topup_method', {
+    ...values,
+  });
   return { embeds: [embed], components: [row] };
 }
 
 // Build the standalone top-up panel (topup_panel embed + a "เติมเงิน" button). Posted
 // by /topup-panel so members can top up WITHOUT the Roblox Robux Payout feature.
-async function buildTopupPanel(ctx) {
-  const cfg = await ctx.services.embeds.renderConfig('topup_panel');
-  const role = ((cfg && cfg.components) || {}).btn_topup || {};
-  const btn = new ButtonBuilder()
-    .setCustomId('kanom:topup:open')
-    .setLabel(String(role.label || 'เติมเงิน').slice(0, 80))
-    .setStyle(buttonStyle(role.style, ButtonStyle.Primary));
-  const emoji = parseEmoji(role.emoji) || '💰';
-  if (emoji) { try { btn.setEmoji(emoji); } catch (_e) { /* skip invalid emoji */ } }
+async function buildTopupPanel(ctx, source = null) {
+  const values = withDiscordContext(source);
+  for (const key of [
+    'member', 'member_id', 'member_mention', 'member_username',
+    'member_display_name', 'member_avatar_url', 'avatar_url',
+  ]) delete values[key];
+  const cfg = await ctx.services.embeds.renderConfig('topup_panel', values);
+  const btn = configurableButton(cfg, 'btn_topup', 'kanom:topup:open', 'เติมเงิน', ButtonStyle.Success, '💰');
+  const balanceBtn = configurableButton(cfg, 'btn_balance', 'kanom:topup:balance', 'เช็คยอดเงินคงเหลือ', ButtonStyle.Secondary, '💳');
   if (usesComponentsV2(ctx)) {
-    return v2Payload([
-      container([
-        text(componentText(cfg, 'heading', `# ${cfg.title || '💰 เติมเงินเข้ากระเป๋า'}`)),
-        separator(),
-        text(componentText(cfg, 'description', cfg.description || 'กดปุ่ม **เติมเงิน** ด้านล่างเพื่อเลือกช่องทางและเติมเงินเข้ากระเป๋าเงินของคุณ')),
-        separator(),
-        actionRow(btn),
-      ]),
-    ]);
+    const actions = actionRow(btn, balanceBtn);
+    const fallback = [
+      text(componentText(cfg, 'heading', '# เติมเงินเข้ากระเป๋า')),
+      separator(),
+      separator(false, 1),
+      text(componentText(cfg, 'description', 'กดปุ่ม เติมเงิน ด้านล่างเพื่อเลือกช่องทางและเติมเงินเข้ากระเป๋าเงินของคุณ')),
+      separator(), actions,
+    ];
+    return configuredV2Payload(cfg, fallback, { topup_panel_actions: actions }, ['topup_panel_actions']);
   }
-  const embed = await ctx.services.embeds.renderEmbed('topup_panel');
-  return { embeds: [embed], components: [new ActionRowBuilder().addComponents(btn)] };
+  const embed = await ctx.services.embeds.renderEmbed('topup_panel', values);
+  return { embeds: [embed], components: [new ActionRowBuilder().addComponents(btn, balanceBtn)] };
+}
+
+async function buildWalletBalance(ctx, user, balanceSatang, source = null) {
+  const avatarUrl = user.displayAvatarURL({ extension: 'webp', size: 160 });
+  if (!usesComponentsV2(ctx)) {
+    return {
+      embeds: [await ctx.services.embeds.renderEmbed('balance', withDiscordContext(source, {
+        member: user.id,
+        balance: thb(balanceSatang),
+        avatar_url: avatarUrl,
+      }, user))],
+    };
+  }
+  const balance = currencyLabel(thb(balanceSatang));
+  const cfg = await ctx.services.embeds.renderConfig('balance', withDiscordContext(source, {
+    member: user.id,
+    balance,
+    avatar_url: avatarUrl,
+  }, user));
+  const fallback = [
+    text(componentText(cfg, 'heading', '# 💳 เงินในบัญชีของคุณ')),
+    separator(),
+    section(componentText(cfg, 'balance_text', `# ยอดคงเหลือ ${balance}`), avatarUrl),
+    separator(false, 1),
+    separator(),
+  ];
+  return configuredV2Payload(cfg, fallback);
+}
+
+async function onBalance(interaction, ctx) {
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  const balance = await ctx.services.wallet.getBalance(interaction.user.id);
+  await interaction.editReply(await buildWalletBalance(ctx, interaction.user, balance, interaction));
 }
 
 // Member clicked เติมเงิน on the standalone panel → show the method picker (ephemeral).
 async function onOpenTopup(interaction, ctx) {
-  await interaction.reply(ephemeralPayload(await buildTopupMethod(ctx)));
+  await interaction.reply(ephemeralPayload(await buildTopupMethod(ctx, interaction)));
 }
 
 async function onRetryPromptPay(interaction, ctx) {
@@ -606,10 +751,12 @@ module.exports = {
   onReady,
   buildTopupMethod,
   buildTopupPanel,
+  buildWalletBalance,
   renderTopupStatus,
   usesComponentsV2,
   components: {
     'kanom:topup:open': onOpenTopup,
+    'kanom:topup:balance': onBalance,
     'kanom:topup:btn:': onTopupMethod,
     'kanom:topup:retry:promptpay': onRetryPromptPay,
     'kanom:topup:close': onClose,

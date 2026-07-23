@@ -1,7 +1,10 @@
 <script setup lang="ts">
+import { useLocaleText } from "@/i18n";
 import { PrimaryButton } from "@/shared/ui/buttons";
 import { TextField } from "@/shared/ui/fields";
 import { icons } from "@/config";
+
+const text = useLocaleText();
 
 interface Props {
     amountError?: string;
@@ -43,7 +46,7 @@ const emit = defineEmits<{
 
 <template>
     <article :class="$style.panel">
-        <nav :class="$style.steps" aria-label="Top up progress">
+        <nav :class="$style.steps" :aria-label="text('Top up progress', 'ขั้นตอนการเติมเงิน')">
             <template v-for="stepNumber in 3" :key="stepNumber">
                 <span :class="[$style.step, stepNumber <= step && $style.stepActive]" :aria-current="stepNumber === step ? 'step' : undefined">
                     Step {{ stepNumber }}
@@ -57,7 +60,7 @@ const emit = defineEmits<{
                 <div v-if="step === 1" key="amount" :class="$style.stepContent">
                     <TextField
                         :model-value="customAmount"
-                        label="Top-up amount"
+                        :label="text('Top-up amount', 'จำนวนเงินที่เติม')"
                         unit="฿"
                         placeholder="50"
                         support-text="Minimum 50.00 THB"
@@ -69,7 +72,7 @@ const emit = defineEmits<{
                 <div v-else-if="step === 2" key="qr" :class="$style.stepContent">
                     <div :class="$style.qrBox">
                         <img v-if="qrImageUrl" :class="$style.qrImage" :src="qrImageUrl" :alt="`QR Code ${topupAmount} THB`">
-                        <span v-else :class="$style.qrHint">QR Code is unavailable</span>
+                        <span v-else :class="$style.qrHint">{{ text("QR Code is unavailable", "QR Code ไม่พร้อมใช้งาน") }}</span>
                     </div>
                     <p :class="$style.amountLabel">{{ topupAmount }} THB</p>
                 </div>
@@ -84,7 +87,7 @@ const emit = defineEmits<{
                         @drop.prevent="emit('dropFile', $event)"
                     >
                         <img :class="$style.uploadIcon" :src="icons.upload" alt="" aria-hidden="true">
-                        <span :class="$style.uploadText">{{ fileName || "อัปโหลดสลิป" }}</span>
+                        <span :class="$style.uploadText">{{ fileName || text("Upload slip", "อัปโหลดสลิป") }}</span>
                         <input
                             id="wallet-slip-file"
                             type="file"
@@ -98,7 +101,7 @@ const emit = defineEmits<{
         </div>
 
         <div :class="$style.actions">
-            <PrimaryButton width-mode="hug" :leading-icon="icons.directionLeft" @click="emit('back')">Back</PrimaryButton>
+            <PrimaryButton width-mode="hug" :leading-icon="icons.directionLeft" @click="emit('back')">{{ text("Back", "กลับ") }}</PrimaryButton>
             <PrimaryButton
                 v-if="step === 1"
                 width-mode="hug"
@@ -106,13 +109,13 @@ const emit = defineEmits<{
                 :disabled="!canGenerate || generating"
                 @click="emit('generate')"
             >
-                {{ generating ? "Generating…" : "Next" }}
+                {{ generating ? text("Generating…", "กำลังสร้าง…") : text("Next", "ถัดไป") }}
             </PrimaryButton>
             <PrimaryButton v-else-if="step === 2" width-mode="hug" :trailing-icon="icons.directionRight" @click="emit('next')">
                 Next
             </PrimaryButton>
             <PrimaryButton v-else width-mode="hug" :disabled="verifying || !canVerify" @click="emit('verify')">
-                {{ verifying ? "Submitting…" : "Submit" }}
+                {{ verifying ? text("Submitting…", "กำลังส่ง…") : text("Submit", "ยืนยัน") }}
             </PrimaryButton>
         </div>
     </article>

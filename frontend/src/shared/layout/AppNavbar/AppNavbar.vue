@@ -11,7 +11,7 @@ import {
     ThemeApp,
 } from "@/config";
 import type { ThemeMode } from "@/config/theme";
-import { saveLocale, type SupportedLocale } from "@/i18n";
+import { saveLocale, useLocaleText, type SupportedLocale } from "@/i18n";
 import { useThemeStore, useUserStore } from "@/stores";
 import { AuthCard } from "@/features/auth/components";
 import { SecondaryButton } from "@/shared/ui/buttons";
@@ -39,6 +39,7 @@ const userStore = useUserStore();
 const themeStore = useThemeStore();
 const { selectedTheme } = storeToRefs(themeStore);
 const { locale } = useI18n();
+const text = useLocaleText();
 
 const isMenuOpen = ref(false);
 const isProfileOpen = ref(false);
@@ -65,7 +66,17 @@ const WALLET_BALANCE_CHANGED_EVENT = "fujipp:wallet-balance-changed";
 const isAuthenticated = computed(() => userStore.isAuthenticated);
 const navigationLinks = computed(() => (
     isAuthenticated.value ? authenticatedNavbarLinks : guestNavbarLinks
-));
+).map((link) => ({
+    ...link,
+    label: ({
+        "/": text("Home", "หน้าหลัก"),
+        "/projects": text("Projects", "ผลงาน"),
+        "/about": text("About", "เกี่ยวกับ"),
+        "/store": text("Store", "ร้านค้า"),
+        "/my-bot": text("My Bot", "บอทของฉัน"),
+        "/add-credit": text("Add credit", "เติมเงิน"),
+    } as Record<string, string>)[link.path] ?? link.label,
+})));
 const avatarSrc = computed(() => userStore.profile?.avatarUrl || "/brand/avatar-default.svg");
 const displayName = computed(() => (
     userStore.profile?.displayName
@@ -330,7 +341,7 @@ onUnmounted(() => {
                     type="button"
                     :class="$style.burgerButton"
                     :aria-expanded="isMenuOpen"
-                    aria-label="Open navigation"
+                    :aria-label="text('Open navigation', 'เปิดเมนูนำทาง')"
                     @click.stop="toggleMenu"
                 >
                     <span
@@ -340,20 +351,13 @@ onUnmounted(() => {
                     />
                 </button>
 
-                <RouterLink to="/" :class="$style.logo" aria-label="Fujipp home">
-                    <svg :class="$style.logoMark" viewBox="0 0 344 300" aria-hidden="true">
-                        <path
-                            :class="$style.logoPrimary"
-                            d="M0 75.0001V300C49.8638 300 90.3073 259.617 90.3822 209.753L90.4156 187.5H231.875V112.5H90.5745V91.0001H231.875V87.2419C231.875 60.5309 242.561 34.93 261.552 16.1459L277.875 0.00012207H74.5033C33.3563 0.00012207 0 33.5788 0 75.0001Z"
-                        />
-                        <path
-                            :class="$style.logoSecondary"
-                            d="M343.75 225V3.05176e-05C293.768 3.05176e-05 253.25 40.5182 253.25 90.5V209H111.875V212.758C111.875 239.469 101.189 265.07 82.1982 283.854L65.875 300H269.247C310.394 300 343.75 266.421 343.75 225Z"
-                        />
-                    </svg>
+                <RouterLink to="/" :class="$style.logo" :aria-label="text('Fujipp home', 'หน้าหลัก Fujipp')">
+                    <span :class="$style.logoIcon" aria-hidden="true" />
+                    <span :class="$style.logoText" aria-hidden="true" />
                 </RouterLink>
+            </div>
 
-                <nav :class="$style.desktopNavigation" aria-label="Main navigation">
+            <nav :class="$style.desktopNavigation" :aria-label="text('Main navigation', 'เมนูหลัก')">
                     <RouterLink
                         v-for="link in navigationLinks"
                         :key="link.path"
@@ -370,14 +374,13 @@ onUnmounted(() => {
                             <span :class="$style.activeIndicator" aria-hidden="true" />
                         </a>
                     </RouterLink>
-                </nav>
-            </div>
+            </nav>
 
             <div v-if="!isAuthenticated" :class="$style.guestActions">
                 <button
                     type="button"
                     :class="$style.quickThemeButton"
-                    aria-label="Toggle light and dark theme"
+                    :aria-label="text('Toggle light and dark theme', 'สลับธีมสว่างและมืด')"
                     @click="toggleQuickTheme"
                 >
                     <span
@@ -406,7 +409,7 @@ onUnmounted(() => {
                 <button
                     type="button"
                     :class="$style.quickThemeButton"
-                    aria-label="Toggle light and dark theme"
+                    :aria-label="text('Toggle light and dark theme', 'สลับธีมสว่างและมืด')"
                     @click="toggleQuickTheme"
                 >
                     <span
@@ -420,20 +423,20 @@ onUnmounted(() => {
                     :class="[$style.quickThemeButton, $style.notificationButton]"
                     :aria-expanded="isNotificationOpen"
                     aria-haspopup="dialog"
-                    aria-label="Open notifications"
+                    :aria-label="text('Open notifications', 'เปิดการแจ้งเตือน')"
                     @click.stop="toggleNotifications"
                 >
                     <span :class="$style.maskIcon" :style="{ '--navbar-icon': `url(${icons.notification})` }" aria-hidden="true" />
                     <span v-if="unreadNotifications" :class="$style.notificationDot" aria-hidden="true" />
                 </button>
 
-                <section v-if="isNotificationOpen" :class="$style.notificationDialog" role="dialog" aria-label="Notifications">
+                <section v-if="isNotificationOpen" :class="$style.notificationDialog" role="dialog" :aria-label="text('Notifications', 'การแจ้งเตือน')">
                     <div :class="$style.notificationHeader">
-                        <strong>Notifications</strong>
+                        <strong>{{ text("Notifications", "การแจ้งเตือน") }}</strong>
                         <span>{{ unreadNotifications }} unread</span>
                     </div>
-                    <p v-if="notificationsLoading" :class="$style.notificationEmpty">Loading…</p>
-                    <p v-else-if="notifications.length === 0" :class="$style.notificationEmpty">No notifications yet.</p>
+                    <p v-if="notificationsLoading" :class="$style.notificationEmpty">{{ text("Loading…", "กำลังโหลด…") }}</p>
+                    <p v-else-if="notifications.length === 0" :class="$style.notificationEmpty">{{ text("No notifications yet.", "ยังไม่มีการแจ้งเตือน") }}</p>
                     <template v-else>
                         <button v-for="notification in notifications" :key="notification.id" type="button"
                             :class="[$style.notificationItem, !notification.isRead ? $style.notificationUnread : '']"
@@ -449,7 +452,7 @@ onUnmounted(() => {
                     :class="$style.creditProfileButton"
                     :aria-expanded="isProfileOpen"
                     aria-haspopup="dialog"
-                    aria-label="Open profile settings"
+                    :aria-label="text('Open profile settings', 'เปิดการตั้งค่าโปรไฟล์')"
                     @click.stop="toggleProfile"
                 >
                     <span :class="$style.creditText">{{ formattedCredit }}</span>
@@ -466,7 +469,7 @@ onUnmounted(() => {
                     v-if="isProfileOpen"
                     :class="$style.desktopProfileDialog"
                     role="dialog"
-                    aria-label="Profile settings"
+                    :aria-label="text('Profile settings', 'การตั้งค่าโปรไฟล์')"
                 >
                     <div :class="$style.profileRow">
                         <img
@@ -483,7 +486,7 @@ onUnmounted(() => {
                     </div>
                     <div :class="$style.divider" />
                     <div :class="$style.settingRow">
-                        <span>Theme</span>
+                        <span>{{ text("Theme", "ธีม") }}</span>
                         <div :class="$style.optionButtons">
                             <button
                                 v-for="theme in ThemeApp"
@@ -503,12 +506,12 @@ onUnmounted(() => {
                         </div>
                     </div>
                     <div :class="$style.settingRow">
-                        <span>Language</span>
+                        <span>{{ text("Language", "ภาษา") }}</span>
                         <div :class="$style.languageButtons">
                             <button
                                 type="button"
                                 :class="$style.iconOption"
-                                aria-label="Use Thai"
+                                :aria-label="text('Use Thai', 'ใช้ภาษาไทย')"
                                 :aria-pressed="currentLocale === 'th'"
                                 @click="selectLanguage('th')"
                             >
@@ -517,7 +520,7 @@ onUnmounted(() => {
                             <button
                                 type="button"
                                 :class="$style.iconOption"
-                                aria-label="Use English"
+                                :aria-label="text('Use English', 'ใช้ภาษาอังกฤษ')"
                                 :aria-pressed="currentLocale === 'en'"
                                 @click="selectLanguage('en')"
                             >
@@ -527,22 +530,22 @@ onUnmounted(() => {
                     </div>
                     <div v-if="userStore.isAdmin" :class="$style.divider" />
                     <div v-if="userStore.isAdmin" :class="$style.settingRow">
-                        <span>Tools</span>
+                        <span>{{ text("Tools", "เครื่องมือ") }}</span>
                         <ToggleSwitch
                             :model-value="adminToolsEnabled"
-                            aria-label="Show admin tools"
+                            :aria-label="text('Show admin tools', 'แสดงเครื่องมือผู้ดูแล')"
                             @update:model-value="emit('update:adminToolsEnabled', $event)"
                         />
                     </div>
                     <RouterLink :to="accountPath" :class="$style.manageAccount" @click="closeOverlays">
-                        <span>Manage Account</span>
+                        <span>{{ text("Manage Account", "จัดการบัญชี") }}</span>
                         <span
                             :class="$style.maskIcon"
                             :style="{ '--navbar-icon': `url(${icons.directionRight})` }"
                             aria-hidden="true"
                         />
                     </RouterLink>
-                    <SecondaryButton @click="handleLogout">Sign out</SecondaryButton>
+                    <SecondaryButton @click="handleLogout">{{ text("Sign out", "ออกจากระบบ") }}</SecondaryButton>
                 </section>
             </div>
         </div>
@@ -558,7 +561,7 @@ onUnmounted(() => {
             v-if="isMenuOpen || isProfileOpen"
             type="button"
             :class="$style.mobileBackdrop"
-            aria-label="Close navigation overlay"
+            :aria-label="text('Close navigation overlay', 'ปิดเมนูนำทาง')"
             @click="closeOverlays"
         />
     </Transition>
@@ -569,24 +572,16 @@ onUnmounted(() => {
         :enter-from-class="$style.drawerHidden"
         :leave-to-class="$style.drawerHidden"
     >
-        <aside v-if="isMenuOpen" :class="$style.mobileDrawer" aria-label="Mobile navigation">
+        <aside v-if="isMenuOpen" :class="$style.mobileDrawer" :aria-label="text('Mobile navigation', 'เมนูมือถือ')">
             <div :class="$style.drawerHeader">
                 <div :class="$style.portalBrand">
-                    <RouterLink to="/" :class="$style.logo" aria-label="Fujipp home" @click="closeOverlays">
-                        <svg :class="$style.logoMark" viewBox="0 0 344 300" aria-hidden="true">
-                            <path
-                                :class="$style.logoPrimary"
-                                d="M0 75.0001V300C49.8638 300 90.3073 259.617 90.3822 209.753L90.4156 187.5H231.875V112.5H90.5745V91.0001H231.875V87.2419C231.875 60.5309 242.561 34.93 261.552 16.1459L277.875 0.00012207H74.5033C33.3563 0.00012207 0 33.5788 0 75.0001Z"
-                            />
-                            <path
-                                :class="$style.logoSecondary"
-                                d="M343.75 225V3.05176e-05C293.768 3.05176e-05 253.25 40.5182 253.25 90.5V209H111.875V212.758C111.875 239.469 101.189 265.07 82.1982 283.854L65.875 300H269.247C310.394 300 343.75 266.421 343.75 225Z"
-                            />
-                        </svg>
+                    <RouterLink to="/" :class="$style.logo" :aria-label="text('Fujipp home', 'หน้าหลัก Fujipp')" @click="closeOverlays">
+                        <span :class="$style.logoIcon" aria-hidden="true" />
+                        <span :class="$style.logoText" aria-hidden="true" />
                     </RouterLink>
                     <span :class="$style.portalText">PORTAL</span>
                 </div>
-                <button type="button" :class="$style.drawerClose" aria-label="Close navigation" @click="closeOverlays">
+                <button type="button" :class="$style.drawerClose" :aria-label="text('Close navigation', 'ปิดเมนูนำทาง')" @click="closeOverlays">
                     <span
                         :class="$style.maskIcon"
                         :style="{ '--navbar-icon': `url(${icons.hamburgerClose})` }"
@@ -642,18 +637,18 @@ onUnmounted(() => {
             :style="{ '--sheet-drag-y': `${sheetDragY}px` }"
             role="dialog"
             aria-modal="true"
-            aria-label="Profile settings"
+            :aria-label="text('Profile settings', 'การตั้งค่าโปรไฟล์')"
             @pointerdown="startSheetDrag"
             @pointermove="moveSheetDrag"
             @pointerup="endSheetDrag"
             @pointercancel="endSheetDrag"
         >
-            <button :class="$style.sheetHandle" type="button" data-sheet-handle aria-label="ลากลงเพื่อปิด">
+            <button :class="$style.sheetHandle" type="button" data-sheet-handle :aria-label="text('Drag down to close', 'ลากลงเพื่อปิด')">
                 <span :class="$style.sheetIndicator" aria-hidden="true" />
             </button>
             <div :class="$style.sheetHeader">
-                <span>Setting</span>
-                <button type="button" :class="$style.sheetClose" aria-label="Close profile settings" @click="closeOverlays">
+                <span>{{ text("Settings", "การตั้งค่า") }}</span>
+                <button type="button" :class="$style.sheetClose" :aria-label="text('Close profile settings', 'ปิดการตั้งค่าโปรไฟล์')" @click="closeOverlays">
                     <span
                         :class="$style.maskIcon"
                         :style="{ '--navbar-icon': `url(${icons.directionDown})` }"
@@ -676,7 +671,7 @@ onUnmounted(() => {
             </div>
             <div :class="$style.divider" />
             <div :class="$style.settingRow">
-                <span>Theme</span>
+                <span>{{ text("Theme", "ธีม") }}</span>
                 <div :class="$style.optionButtons">
                     <button
                         v-for="theme in ThemeApp"
@@ -696,30 +691,30 @@ onUnmounted(() => {
                 </div>
             </div>
             <div :class="$style.settingRow">
-                <span>Language</span>
+                <span>{{ text("Language", "ภาษา") }}</span>
                 <div :class="$style.languageButtons">
-                    <button type="button" :class="$style.iconOption" aria-label="Use Thai" :aria-pressed="currentLocale === 'th'" @click="selectLanguage('th')">
+                    <button type="button" :class="$style.iconOption" :aria-label="text('Use Thai', 'ใช้ภาษาไทย')" :aria-pressed="currentLocale === 'th'" @click="selectLanguage('th')">
                         <img :src="icons.languageThai" alt="" aria-hidden="true">
                     </button>
-                    <button type="button" :class="$style.iconOption" aria-label="Use English" :aria-pressed="currentLocale === 'en'" @click="selectLanguage('en')">
+                    <button type="button" :class="$style.iconOption" :aria-label="text('Use English', 'ใช้ภาษาอังกฤษ')" :aria-pressed="currentLocale === 'en'" @click="selectLanguage('en')">
                         <img :src="icons.languageUs" alt="" aria-hidden="true">
                     </button>
                 </div>
             </div>
             <div v-if="userStore.isAdmin" :class="$style.divider" />
             <div v-if="userStore.isAdmin" :class="$style.settingRow">
-                <span>Tools</span>
+                <span>{{ text("Tools", "เครื่องมือ") }}</span>
                 <ToggleSwitch
                     :model-value="adminToolsEnabled"
-                    aria-label="Show admin tools"
+                    :aria-label="text('Show admin tools', 'แสดงเครื่องมือผู้ดูแล')"
                     @update:model-value="emit('update:adminToolsEnabled', $event)"
                 />
             </div>
             <RouterLink :to="accountPath" :class="$style.manageAccount" @click="closeOverlays">
-                <span>Manage Account</span>
+                <span>{{ text("Manage Account", "จัดการบัญชี") }}</span>
                 <span :class="$style.maskIcon" :style="{ '--navbar-icon': `url(${icons.directionRight})` }" aria-hidden="true" />
             </RouterLink>
-            <SecondaryButton @click="handleLogout">Sign out</SecondaryButton>
+            <SecondaryButton @click="handleLogout">{{ text("Sign out", "ออกจากระบบ") }}</SecondaryButton>
         </section>
     </Transition>
 
@@ -789,6 +784,7 @@ onUnmounted(() => {
 }
 
 .navbarContainer {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -822,24 +818,38 @@ onUnmounted(() => {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
+    width: 104px;
     height: 32px;
+    gap: var(--spacing-space-2);
     flex-shrink: 0;
     border-radius: var(--radius-base);
 }
 
-.logoMark {
-    width: 32px;
-    height: 28px;
-    overflow: visible;
+.logoIcon,
+.logoText {
+    display: inline-block;
+    flex-shrink: 0;
+    background: currentColor;
 }
 
-.logoPrimary,
-.logoSecondary {
-    fill: var(--color-text-primary);
+.logoIcon {
+    width: 24px;
+    height: 24px;
+    mask: url('/brand/logo-fujipp-new-icons.svg') center / contain no-repeat;
+    -webkit-mask: url('/brand/logo-fujipp-new-icons.svg') center / contain no-repeat;
+}
+
+.logoText {
+    width: 72px;
+    height: 19px;
+    mask: url('/brand/logo-fujipp-new-text.svg') center / contain no-repeat;
+    -webkit-mask: url('/brand/logo-fujipp-new-text.svg') center / contain no-repeat;
 }
 
 .desktopNavigation {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
     display: flex;
     align-items: center;
     min-height: 39px;

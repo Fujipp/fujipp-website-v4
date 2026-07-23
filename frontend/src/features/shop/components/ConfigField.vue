@@ -2,6 +2,11 @@
 import { computed, ref, watch } from "vue";
 import { TextField, TextareaField, SelectField, type SelectFieldOption } from "@/shared/ui";
 import type { FeatureConfigField, ConfigFieldOption } from "@/features/shop/config/featureConfig";
+import { useLocaleText } from "@/i18n";
+import { useI18n } from "vue-i18n";
+
+const text = useLocaleText();
+const { locale } = useI18n();
 
 interface Props {
     field: FeatureConfigField;
@@ -25,10 +30,10 @@ const update = (value: string) => emit("update:modelValue", value);
 const labelText = computed(() => (props.field.isRequired ? `${props.field.label} *` : props.field.label));
 const placeholder = computed(() => props.field.defaultValue ?? "");
 
-const booleanOptions: SelectFieldOption[] = [
-    { label: "เปิด", value: "true" },
-    { label: "ปิด", value: "false" },
-];
+const booleanOptions = computed<SelectFieldOption[]>(() => [
+    { label: text("Enabled", "เปิด"), value: "true" },
+    { label: text("Disabled", "ปิด"), value: "false" },
+]);
 
 // Resolve which widget to render. CHANNEL_ID/ROLE_ID fall back to a text input
 // when no options are available yet (bot not invited to the server).
@@ -75,7 +80,12 @@ const enumOptions = computed<SelectFieldOption[]>(() => {
     } else if (Array.isArray(raw)) {
         parsed = raw;
     }
-    return parsed.map((o) => ({ label: o.label, value: o.value }));
+    return parsed.map((o) => ({
+        label: locale.value === "th"
+            ? o.label
+            : o.value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()),
+        value: o.value,
+    }));
 });
 
 // STRING_LIST is stored as a JSON string array but edited as one input box per item
@@ -196,7 +206,7 @@ function removeTier(index: number): void {
                     :value="item"
                     type="text"
                     :class="$style.listInput"
-                    :placeholder="`รายการที่ ${index + 1}`"
+                    :placeholder="`${text('Item', 'รายการ')} ${index + 1}`"
                     :disabled="disabled"
                     @input="setItem(index, ($event.target as HTMLInputElement).value)"
                 >
@@ -204,11 +214,11 @@ function removeTier(index: number): void {
                     type="button"
                     :class="$style.removeBtn"
                     :disabled="disabled"
-                    aria-label="ลบรายการ"
+                    :aria-label="text('Remove item', 'ลบรายการ')"
                     @click="removeItem(index)"
                 >×</button>
             </div>
-            <button type="button" :class="$style.addBtn" :disabled="disabled" @click="addItem">+ เพิ่มรายการ</button>
+            <button type="button" :class="$style.addBtn" :disabled="disabled" @click="addItem">+ {{ text("Add item", "เพิ่มรายการ") }}</button>
             <p v-if="error" :class="$style.listError">{{ error }}</p>
         </div>
         <div v-else-if="widget === 'tierlist'" :class="$style.list">
@@ -219,8 +229,8 @@ function removeTier(index: number): void {
                     type="number"
                     min="1"
                     :class="[$style.listInput, $style.tierAmount]"
-                    placeholder="ยอด (บาท)"
-                    aria-label="ยอดสะสม (บาท)"
+                    :placeholder="text('Amount (THB)', 'ยอด (บาท)')"
+                    :aria-label="text('Accumulated amount (THB)', 'ยอดสะสม (บาท)')"
                     :disabled="disabled"
                     @input="setTierAmount(index, ($event.target as HTMLInputElement).value)"
                 >
@@ -228,11 +238,11 @@ function removeTier(index: number): void {
                     v-if="options.length"
                     :value="tier.roleId"
                     :class="$style.tierRole"
-                    aria-label="ยศ"
+                    :aria-label="text('Role', 'ยศ')"
                     :disabled="disabled"
                     @change="setTierRole(index, ($event.target as HTMLSelectElement).value)"
                 >
-                    <option value="">เลือกยศ…</option>
+                    <option value="">{{ text("Select a role…", "เลือกยศ…") }}</option>
                     <option v-for="opt in options" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
                 </select>
                 <input
@@ -249,11 +259,11 @@ function removeTier(index: number): void {
                     type="button"
                     :class="$style.removeBtn"
                     :disabled="disabled"
-                    aria-label="ลบยศ"
+                    :aria-label="text('Remove role', 'ลบยศ')"
                     @click="removeTier(index)"
                 >×</button>
             </div>
-            <button type="button" :class="$style.addBtn" :disabled="disabled" @click="addTier">+ เพิ่มยศตามยอด</button>
+            <button type="button" :class="$style.addBtn" :disabled="disabled" @click="addTier">+ {{ text("Add spending role", "เพิ่มยศตามยอด") }}</button>
             <p v-if="error" :class="$style.listError">{{ error }}</p>
         </div>
         <TextareaField
@@ -280,7 +290,7 @@ function removeTier(index: number): void {
             :label="labelText"
             :model-value="modelValue"
             :options="enumOptions"
-            placeholder="เลือก…"
+            :placeholder="text('Select…', 'เลือก…')"
             :error="error"
             :disabled="disabled"
             @update:model-value="update"
@@ -290,7 +300,7 @@ function removeTier(index: number): void {
             :label="labelText"
             :model-value="modelValue"
             :options="options"
-            placeholder="เลือก…"
+            :placeholder="text('Select…', 'เลือก…')"
             :error="error"
             :disabled="disabled"
             @update:model-value="update"

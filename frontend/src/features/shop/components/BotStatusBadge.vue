@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useLocaleText } from "@/i18n";
+
+const text = useLocaleText();
 export type BotOnlineStatus = "online" | "offline";
 
 interface Props {
@@ -15,7 +18,7 @@ withDefaults(defineProps<Props>(), {
         :class="[$style.badge, status === 'online' ? $style.online : $style.offline]"
         role="status"
     >
-        {{ status }}
+        {{ status === "online" ? text("online", "ออนไลน์") : text("offline", "ออฟไลน์") }}
     </span>
 </template>
 

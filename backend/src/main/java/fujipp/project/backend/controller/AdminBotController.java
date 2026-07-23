@@ -17,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -148,6 +149,17 @@ public class AdminBotController {
         adminAccess.requireAdmin(adminId);
         String result = embeds.saveEmbedForAdmin(botId, slotKey, body);
         billing.recordAudit(adminId, "BOT_EMBED_UPDATE", null, "BOT", botId.toString(),
+            Map.of("botId", botId.toString(), "slotKey", slotKey));
+        return json(result);
+    }
+
+    @DeleteMapping("/{botId}/embeds/{slotKey}")
+    public ResponseEntity<String> resetEmbed(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable UUID botId, @PathVariable String slotKey) {
+        UUID adminId = UUID.fromString(jwt.getSubject());
+        adminAccess.requireAdmin(adminId);
+        String result = embeds.resetEmbedForAdmin(botId, slotKey);
+        billing.recordAudit(adminId, "BOT_EMBED_RESET", null, "BOT", botId.toString(),
             Map.of("botId", botId.toString(), "slotKey", slotKey));
         return json(result);
     }

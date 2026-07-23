@@ -1,8 +1,11 @@
 <script setup lang="ts">
+import { useI18n } from "vue-i18n";
 import { computed } from "vue";
 import { PrimaryButton, SecondaryButton } from "@/shared/ui/buttons";
 import { BaseDialog } from "@/shared/ui/modals";
 import { thb } from "@/features/shop/config/catalog";
+
+const { t } = useI18n();
 
 interface Props {
     open?: boolean;
@@ -35,32 +38,32 @@ const insufficient = computed(() => balanceAfter.value < 0);
     >
         <div :class="$style.content">
             <header :class="$style.header">
-                <h2 id="purchase-title" :class="$style.title">ยืนยันการสั่งซื้อ</h2>
+                <h2 id="purchase-title" :class="$style.title">{{ t("shop.purchase.title") }}</h2>
                 <p :class="$style.subtitle">
-                    โปรดตรวจสอบรายละเอียดการชำระเงินก่อนยืนยัน ระบบจะหักยอดจากกระเป๋าเงินของคุณทันที
+                    {{ t("shop.purchase.subtitle") }}
                 </p>
             </header>
             <div :class="$style.divider" />
 
             <dl :class="$style.paymentSummary">
                 <div :class="$style.paymentRow">
-                    <dt :class="$style.paymentLabel">รายการ</dt>
+                    <dt :class="$style.paymentLabel">{{ t("shop.purchase.item") }}</dt>
                     <dd :class="$style.paymentValue">{{ title }}</dd>
                 </div>
                 <div :class="$style.paymentRow">
-                    <dt :class="$style.paymentLabel">แบบ</dt>
+                    <dt :class="$style.paymentLabel">{{ t("shop.purchase.option") }}</dt>
                     <dd :class="$style.paymentValue">{{ optionLabel }}</dd>
                 </div>
                 <div :class="$style.paymentRow">
-                    <dt :class="$style.paymentLabel">ยอดชำระ</dt>
+                    <dt :class="$style.paymentLabel">{{ t("shop.common.paymentAmount") }}</dt>
                     <dd :class="[$style.paymentValue, $style.paymentAmount]">{{ thb(priceSatang) }}</dd>
                 </div>
                 <div :class="[$style.paymentRow, $style.paymentDivider]">
-                    <dt :class="$style.paymentLabel">ยอดเงินในกระเป๋า</dt>
+                    <dt :class="$style.paymentLabel">{{ t("shop.common.walletBalance") }}</dt>
                     <dd :class="$style.paymentValue">{{ thb(balanceSatang) }}</dd>
                 </div>
                 <div :class="$style.paymentRow">
-                    <dt :class="$style.paymentLabel">คงเหลือหลังชำระ</dt>
+                    <dt :class="$style.paymentLabel">{{ t("shop.common.balanceAfterPayment") }}</dt>
                     <dd :class="[$style.paymentValue, insufficient ? $style.paymentNegative : '']">
                         {{ thb(balanceAfter) }}
                     </dd>
@@ -68,20 +71,20 @@ const insufficient = computed(() => balanceAfter.value < 0);
             </dl>
 
             <p :class="$style.notice">
-                ซื้อเก็บไว้ก่อนได้ — Feature จะอยู่ในคลังและเลือกบอทที่จะใช้งานภายหลังได้จากหน้า My bot
+                {{ t("shop.purchase.notice") }}
             </p>
 
             <p v-if="insufficient" :class="$style.paymentWarning">
-                ยอดเงินในกระเป๋าไม่เพียงพอ — กรุณาเติมเงินก่อนทำรายการ
+                {{ t("shop.common.insufficientBalance") }}
             </p>
 
             <div :class="$style.actions">
-                <SecondaryButton width-mode="hug" @click="emit('cancel')">ยกเลิก</SecondaryButton>
+                <SecondaryButton width-mode="hug" @click="emit('cancel')">{{ t("shop.common.cancel") }}</SecondaryButton>
                 <PrimaryButton v-if="insufficient" width-mode="hug" @click="emit('topup')">
-                    เติมเงิน
+                    {{ t("shop.common.addCredit") }}
                 </PrimaryButton>
                 <PrimaryButton v-else width-mode="hug" :disabled="submitting" @click="emit('confirm')">
-                    ยืนยันชำระเงิน
+                    {{ t("shop.common.confirmPayment") }}
                 </PrimaryButton>
             </div>
         </div>

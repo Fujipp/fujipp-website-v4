@@ -1,12 +1,14 @@
 package fujipp.project.backend.controller;
 
 import fujipp.project.backend.service.EmbedConfigService;
+import fujipp.project.backend.service.BotRuntimeOps;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -22,6 +24,7 @@ import java.util.UUID;
 public class BotEmbedController {
 
     private final EmbedConfigService embeds;
+    private final BotRuntimeOps runtimeOps;
 
     /** All embed slots with their effective embed (override or default). */
     @GetMapping
@@ -44,7 +47,17 @@ public class BotEmbedController {
             @AuthenticationPrincipal Jwt jwt, @PathVariable UUID botId, @PathVariable String slotKey,
             @RequestBody String body) {
         UUID userId = UUID.fromString(jwt.getSubject());
-        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON)
-            .body(embeds.saveEmbed(userId, botId, slotKey, body));
+        String saved = embeds.saveEmbed(userId, botId, slotKey, body);
+        runtimeOps.restartIfRunning(botId);
+        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(saved);
+    }
+
+    @DeleteMapping("/{slotKey}")
+    public ResponseEntity<String> reset(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable UUID botId, @PathVariable String slotKey) {
+        UUID userId = UUID.fromString(jwt.getSubject());
+        String result = embeds.resetEmbed(userId, botId, slotKey);
+        runtimeOps.restartIfRunning(botId);
+        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(result);
     }
 }

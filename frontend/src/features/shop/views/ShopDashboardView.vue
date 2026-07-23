@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { useI18n } from "vue-i18n";
 import { API_BASE_URL, icons, resolveShopFeatureIcon } from "@/config";
 import { PurchaseDialog, type PackageOption } from "@/features/shop/components";
-import { priceKindLabel, thb, type CatalogFeature, type RuntimePlan } from "@/features/shop/config/catalog";
+import { localizeCatalogFeature, priceKindLabel, thb, type CatalogFeature, type RuntimePlan } from "@/features/shop/config/catalog";
 import { AppFooter } from "@/shared/layout";
 import { PrimaryButton } from "@/shared/ui/buttons";
 import { StatusToast } from "@/shared/ui/toasts";
@@ -32,6 +33,7 @@ const RECOMMENDED_LIMIT = 6;
 const router = useRouter();
 const route = useRoute();
 const userStore = useUserStore();
+const { locale, t } = useI18n();
 const isStoreMenu = computed(() => route.name === "shop-dashboard");
 
 const activeSlide = ref(0);
@@ -51,33 +53,34 @@ const toast = ref<{ status: "success" | "error"; title: string; description: str
 let heroTimer: ReturnType<typeof setInterval> | undefined;
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
-const heroSlides: HeroSlide[] = [
+const heroSlides = computed<HeroSlide[]>(() => [
     {
-        eyebrow: "FUJIPP SHOP",
-        title: "Discord bot features that are ready to work",
-        description: "เลือกฟีเจอร์ที่ต้องการ แล้วเพิ่มความสามารถให้บอทของคุณได้จากที่เดียว",
+        eyebrow: t("shop.dashboard.eyebrowOne"),
+        title: t("shop.dashboard.titleOne"),
+        description: t("shop.dashboard.slideOne"),
     },
     {
-        eyebrow: "BUILD YOUR BOT",
-        title: "Start small. Add only what your community needs.",
-        description: "ซื้อฟีเจอร์แยกตามงาน พร้อมนำไปใช้กับบอทที่คุณเป็นเจ้าของ",
+        eyebrow: t("shop.dashboard.eyebrowTwo"),
+        title: t("shop.dashboard.titleTwo"),
+        description: t("shop.dashboard.slideTwo"),
     },
     {
-        eyebrow: "RUN WITH CONFIDENCE",
-        title: "Features, runtime, and bot management in one platform",
-        description: "จัดการบริการสำหรับ Discord bot อย่างเป็นระบบและขยายต่อได้เมื่อพร้อม",
+        eyebrow: t("shop.dashboard.eyebrowThree"),
+        title: t("shop.dashboard.titleThree"),
+        description: t("shop.dashboard.slideThree"),
     },
-];
+]);
 
 const recommendedFeatures = computed(() => [...catalogFeatures.value]
     .sort((a, b) => Number(b.featured) - Number(a.featured))
-    .slice(0, RECOMMENDED_LIMIT));
+    .slice(0, RECOMMENDED_LIMIT)
+    .map((feature) => localizeCatalogFeature(feature, locale.value)));
 
 const metrics = computed<ShopMetric[]>(() => [
-    { label: "Users", value: platformOverview.value.users, icon: icons.user },
-    { label: "Packages", value: catalogFeatures.value.length, icon: icons.package },
-    { label: "Runtime", value: runtimePlans.value.length, icon: icons.shopServer },
-    { label: "Bots", value: platformOverview.value.bots, icon: icons.shopBot },
+    { label: t("shop.dashboard.users"), value: platformOverview.value.users, icon: icons.user },
+    { label: t("shop.dashboard.packages"), value: catalogFeatures.value.length, icon: icons.package },
+    { label: t("shop.dashboard.runtime"), value: runtimePlans.value.length, icon: icons.shopServer },
+    { label: t("shop.dashboard.bots"), value: platformOverview.value.bots, icon: icons.shopBot },
 ]);
 
 const purchaseDialogProps = computed(() => ({
@@ -91,7 +94,7 @@ function featurePrice(feature: CatalogFeature): string {
         .map((price) => price.effectivePriceSatang)
         .filter((price) => Number.isFinite(price));
 
-    if (prices.length === 0) return "ดูราคา";
+    if (prices.length === 0) return t("shop.dashboard.viewPricing");
     return thb(Math.min(...prices));
 }
 
@@ -102,7 +105,7 @@ function cheapestOption(feature: CatalogFeature): PackageOption | null {
     if (!price) return null;
     return {
         id: price.id,
-        label: priceKindLabel(price.kind) + (price.durationMonths ? ` · ${price.durationMonths} เดือน` : ""),
+        label: priceKindLabel(price.kind, locale.value) + (price.durationMonths ? ` · ${price.durationMonths} ${t("shop.common.months")}` : ""),
         priceSatang: price.effectivePriceSatang,
         promotionLabel: price.promotionLabel,
         requiresSubject: false,
@@ -119,7 +122,7 @@ function notify(status: "success" | "error", title: string, description: string)
 function openPurchase(feature: CatalogFeature): void {
     const option = cheapestOption(feature);
     if (!option) {
-        notify("error", "ยังไม่สามารถซื้อรายการนี้ได้", "Feature นี้ยังไม่มีราคาที่เปิดขาย");
+        notify("error", t("shop.dashboard.unavailableTitle"), t("shop.dashboard.unavailableBody"));
         return;
     }
     purchaseDialog.value = { open: true, title: feature.name, option };
@@ -133,7 +136,7 @@ function setSlide(index: number): void {
 function restartHeroTimer(): void {
     if (heroTimer) clearInterval(heroTimer);
     heroTimer = setInterval(() => {
-        activeSlide.value = (activeSlide.value + 1) % heroSlides.length;
+        activeSlide.value = (activeSlide.value + 1) % heroSlides.value.length;
     }, HERO_INTERVAL_MS);
 }
 
@@ -169,7 +172,7 @@ async function loadShopMain(): Promise<void> {
         runtimePlans.value = [];
         platformOverview.value = { users: 0, bots: 0 };
         balanceSatang.value = 0;
-        loadError.value = "ไม่สามารถโหลดรายการสินค้าได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง";
+        loadError.value = t("shop.dashboard.loadError");
     } finally {
         isLoading.value = false;
     }
@@ -196,11 +199,11 @@ async function confirmPurchase(): Promise<void> {
             }),
         });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        notify("success", "สั่งซื้อสำเร็จ", "Feature ถูกเก็บไว้ในคลังของคุณแล้ว");
+        notify("success", t("shop.dashboard.purchasedTitle"), t("shop.dashboard.purchasedBody"));
         window.dispatchEvent(new Event("fujipp:wallet-balance-changed"));
         await loadShopMain();
     } catch {
-        notify("error", "สั่งซื้อไม่สำเร็จ", "เครดิตอาจไม่เพียงพอ กรุณาตรวจสอบยอดเงินแล้วลองใหม่อีกครั้ง");
+        notify("error", t("shop.dashboard.purchaseFailedTitle"), t("shop.dashboard.purchaseFailedBody"));
     } finally {
         isSubmitting.value = false;
     }
@@ -227,20 +230,20 @@ onUnmounted(() => {
     <div v-if="isStoreMenu" :class="$style.storeMenuPage">
         <main :class="$style.storeMenuHero">
             <div :class="$style.storeMenuTitleRow">
-                <h1 :class="$style.storeMenuTitle">All Products</h1>
+                <h1 :class="$style.storeMenuTitle">{{ t("shop.dashboard.allProducts") }}</h1>
             </div>
             <div :class="$style.storeMenuControlsRow">
-                <p :class="$style.storeMenuSectionTitle" class="type-caption-sb">Main</p>
+                <p :class="$style.storeMenuSectionTitle" class="type-caption-sb">{{ t("shop.dashboard.main") }}</p>
             </div>
 
-            <nav :class="$style.storeMenuGrid" aria-label="Store categories">
+            <nav :class="$style.storeMenuGrid" :aria-label="t('shop.dashboard.storeCategories')">
                 <RouterLink :class="$style.storeMenuCard" :to="{ name: 'shop-package' }">
                     <span :class="$style.storeMenuIcon" :style="{ '--store-menu-icon': `url(${icons.package})` }" aria-hidden="true" />
-                    <span>Packages</span>
+                    <span>{{ t("shop.dashboard.packages") }}</span>
                 </RouterLink>
                 <RouterLink :class="$style.storeMenuCard" :to="{ name: 'shop-runtime' }">
                     <span :class="$style.storeMenuIcon" :style="{ '--store-menu-icon': `url(${icons.shopServer})` }" aria-hidden="true" />
-                    <span>Runtime</span>
+                    <span>{{ t("shop.dashboard.runtime") }}</span>
                 </RouterLink>
             </nav>
         </main>
@@ -249,7 +252,7 @@ onUnmounted(() => {
 
     <div v-else :class="$style.shopMain">
         <main>
-            <section :class="$style.heroSection" aria-label="Shop highlights">
+            <section :class="$style.heroSection" :aria-label="t('shop.dashboard.highlights')">
                 <div :class="$style.heroViewport">
                     <article
                         v-for="(slide, index) in heroSlides"
@@ -268,13 +271,13 @@ onUnmounted(() => {
                         </div>
                     </article>
 
-                    <div :class="$style.heroDots" aria-label="เลือก Shop highlight">
+                    <div :class="$style.heroDots" :aria-label="t('shop.dashboard.highlightsLabel')">
                         <button
                             v-for="(_, index) in heroSlides"
                             :key="index"
                             type="button"
                             :class="[$style.heroDot, { [$style.heroDotActive]: activeSlide === index }]"
-                            :aria-label="`แสดงสไลด์ที่ ${index + 1}`"
+                            :aria-label="t('shop.dashboard.showSlide', { number: index + 1 })"
                             :aria-current="activeSlide === index ? 'true' : undefined"
                             @click="setSlide(index)"
                         />
@@ -282,7 +285,7 @@ onUnmounted(() => {
                 </div>
             </section>
 
-            <section :class="$style.metricsSection" aria-label="Shop overview">
+            <section :class="$style.metricsSection" :aria-label="t('shop.dashboard.overview')">
                 <div :class="$style.metricsGrid">
                     <article v-for="metric in metrics" :key="metric.label" :class="$style.metricCard">
                         <div :class="$style.metricCopy">
@@ -300,7 +303,7 @@ onUnmounted(() => {
 
             <section :class="$style.recommendedSection" aria-labelledby="recommended-packages-title">
                 <div :class="$style.recommendedContent">
-                    <h2 id="recommended-packages-title" :class="$style.sectionTitle">Recommended Packages</h2>
+                    <h2 id="recommended-packages-title" :class="$style.sectionTitle">{{ t("shop.dashboard.recommendedPackages") }}</h2>
 
                     <p v-if="loadError" :class="$style.stateMessage" role="status">{{ loadError }}</p>
 
@@ -316,7 +319,7 @@ onUnmounted(() => {
                                     :style="{ '--package-icon': `url(${resolveShopFeatureIcon(feature.iconKey)})` }"
                                     aria-hidden="true"
                                 />
-                                <span :class="$style.imageStatus">Feature artwork coming soon</span>
+                                <span :class="$style.imageStatus">{{ t("shop.dashboard.artworkComingSoon") }}</span>
                             </div>
                             <div :class="$style.packageBody">
                                 <div :class="$style.packageCopy">

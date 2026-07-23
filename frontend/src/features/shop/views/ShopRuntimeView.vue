@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
+import { useI18n } from "vue-i18n";
 import { StatusToast } from "@/shared/ui";
 import { PrimaryButton, SecondaryButton } from "@/shared/ui/buttons";
 import { BaseDialog } from "@/shared/ui/modals";
@@ -8,11 +9,13 @@ import { AppFooter } from "@/shared/layout";
 import { API_BASE_URL, icons } from "@/config";
 import { useUserStore } from "@/stores";
 import type { RuntimePlan } from "@/features/shop/config/catalog";
+import { useLocaleText } from "@/i18n";
 
 type ToastStatus = "info" | "success" | "warning" | "error";
 
 const SKELETON_COUNT = 8;
 const VPS_REFRESH_MS = 30_000;
+const text = useLocaleText();
 
 interface VpsSlot {
     id: string;
@@ -44,6 +47,7 @@ interface SlotCard {
 
 const router = useRouter();
 const userStore = useUserStore();
+const { locale, t } = useI18n();
 
 const isLoading = ref(false);
 const loadError = ref("");
@@ -100,7 +104,7 @@ async function authHeaders(): Promise<Record<string, string> | null> {
 }
 
 function formatMoney(satang: number): string {
-    return (satang / 100).toLocaleString("th-TH", { minimumFractionDigits: 0 });
+    return (satang / 100).toLocaleString(locale.value === "th" ? "th-TH" : "en-US", { minimumFractionDigits: 0 });
 }
 
 function formatPrice(satang: number): string {
@@ -112,15 +116,18 @@ function isAvailable(card: SlotCard): boolean {
 }
 
 function availabilityLabel(slot: VpsSlot): string {
-    if (slot.occupancy === "MAINTENANCE") return "Unavailable during maintenance";
-    if (!slot.expiresAt) return slot.occupancy === "RESERVED" ? "Reserved" : "Currently unavailable";
+    if (slot.occupancy === "MAINTENANCE") return text("Unavailable during maintenance", "ไม่พร้อมใช้งานระหว่างการบำรุงรักษา");
+    if (!slot.expiresAt) return slot.occupancy === "RESERVED" ? text("Reserved", "ถูกจองแล้ว") : text("Currently unavailable", "ยังไม่พร้อมใช้งาน");
     const remaining = Math.max(0, new Date(slot.expiresAt).getTime() - now.value);
     const totalSeconds = Math.floor(remaining / 1000);
     const days = Math.floor(totalSeconds / 86400);
     const hours = Math.floor((totalSeconds % 86400) / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
-    return `Available in : ${days}d ${hours}h ${minutes}m ${seconds}s`;
+    return text(
+        `Available in: ${days}d ${hours}h ${minutes}m ${seconds}s`,
+        `พร้อมใช้งานใน: ${days} วัน ${hours} ชม. ${minutes} นาที ${seconds} วินาที`,
+    );
 }
 
 async function parseError(res: Response): Promise<string> {
@@ -154,7 +161,7 @@ async function load(): Promise<void> {
     } catch {
         nodes.value = []; plans.value = [];
         walletBalanceSatang.value = 0;
-        loadError.value = "โหลดหน้า Runtime ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+        loadError.value = t("shop.runtime.loadFailed");
     } finally {
         isLoading.value = false;
     }
@@ -186,7 +193,7 @@ async function refreshVps(): Promise<void> {
 async function confirmBuy(): Promise<void> {
     const slot = buySlot.value;
     const planId = buyPlanId.value;
-    if (!slot || !planId) { notify("warning", "เลือกแพ็กก่อน"); return; }
+    if (!slot || !planId) { notify("warning", t("shop.runtime.choosePlan")); return; }
     // Close right away — success or failure is reported via toast.
     buySlot.value = null;
 
@@ -203,11 +210,11 @@ async function confirmBuy(): Promise<void> {
             }),
         });
         if (!res.ok) throw new Error(await parseError(res) || `HTTP ${res.status}`);
-        notify("success", "ซื้อ Runtime แล้ว", "เลือกบอทที่จะใช้ Runtime นี้ได้จากหน้า Dashboard");
+        notify("success", t("shop.runtime.purchasedTitle"), t("shop.runtime.purchasedBody"));
         window.dispatchEvent(new Event("fujipp:wallet-balance-changed"));
         await load();
     } catch (e) {
-        notify("error", "ซื้อ Runtime ไม่สำเร็จ", (e as Error).message || "เครดิตอาจไม่พอ — เติมเงินแล้วลองใหม่");
+        notify("error", t("shop.runtime.purchaseFailedTitle"), (e as Error).message || t("shop.runtime.purchaseFailedBody"));
     } finally {
         isBusy.value = false;
     }
@@ -238,21 +245,21 @@ onUnmounted(() => {
         <main :class="$style.content">
             <section :class="$style.section" aria-labelledby="shop-runtime-title">
                 <div :class="$style.titleRow">
-                    <h1 id="shop-runtime-title" :class="$style.pageTitle">All Products</h1>
-                    <PrimaryButton width-mode="hug" :leading-icon="icons.directionLeft" @click="goBack">Back</PrimaryButton>
+                    <h1 id="shop-runtime-title" :class="$style.pageTitle">{{ t("shop.common.allProducts") }}</h1>
+                    <PrimaryButton width-mode="hug" :leading-icon="icons.directionLeft" @click="goBack">{{ t("shop.common.back") }}</PrimaryButton>
                 </div>
             </section>
 
             <section :class="$style.section" aria-labelledby="shop-runtime-slots-title">
                 <div :class="$style.controlsRow">
                     <h2 id="shop-runtime-slots-title" :class="$style.sectionTitle" class="type-caption-sb">
-                        <RouterLink :class="$style.breadcrumbLink" :to="{ name: 'shop-dashboard' }">Main</RouterLink>
+                        <RouterLink :class="$style.breadcrumbLink" :to="{ name: 'shop-dashboard' }">{{ t("shop.common.main") }}</RouterLink>
                         <span :class="$style.breadcrumbTrail">
                             <span aria-hidden="true">&gt;</span><span>Runtime</span>
                             <span aria-hidden="true">&gt;</span><span>VPS {{ selectedNodeNumber }}</span>
                         </span>
                     </h2>
-                    <div :class="$style.nodeTabs" aria-label="Choose VPS server">
+                    <div :class="$style.nodeTabs" :aria-label="t('shop.runtime.chooseVps')">
                         <button
                             v-for="(node, index) in nodes"
                             :key="node.id"
@@ -271,9 +278,9 @@ onUnmounted(() => {
                 </div>
 
                 <section v-else-if="loadError" :class="$style.statePanel" aria-live="polite">
-                    <h3 :class="$style.stateTitle">โหลดข้อมูลไม่สำเร็จ</h3>
+                    <h3 :class="$style.stateTitle">{{ t("shop.runtime.stateTitle") }}</h3>
                     <p :class="$style.stateText">{{ loadError }}</p>
-                    <PrimaryButton type="button" width-mode="hug" @click="load">ลองใหม่</PrimaryButton>
+                    <PrimaryButton type="button" width-mode="hug" @click="load">{{ t("shop.common.retry") }}</PrimaryButton>
                 </section>
 
                 <template v-else>
@@ -313,14 +320,14 @@ onUnmounted(() => {
                             >
                                 Buy
                             </PrimaryButton>
-                            <PrimaryButton v-else width-mode="fill" :leading-icon="icons.not" disabled aria-label="Runtime slot unavailable">
-                                <span :class="$style.visuallyHidden">Unavailable</span>
+                            <PrimaryButton v-else width-mode="fill" :leading-icon="icons.not" disabled :aria-label="t('shop.common.unavailable')">
+                                <span :class="$style.visuallyHidden">{{ t("shop.common.unavailable") }}</span>
                             </PrimaryButton>
                         </article>
                     </div>
 
                     <p v-if="visibleSlots.length === 0" :class="$style.emptyText">
-                        VPS นี้ยังไม่มี Slot ที่เปิดให้บริการ
+                        {{ t("shop.runtime.noSlots") }}
                     </p>
                 </template>
             </section>
@@ -340,10 +347,10 @@ onUnmounted(() => {
         >
             <div :class="$style.modalContent">
                 <h2 id="buy-runtime-title" :class="$style.modalTitle">
-                    เลือกแพ็ก Runtime — VPS {{ buyVps }} ช่อง #{{ buySlot.slotIndex }}
+                    {{ t("shop.runtime.choosePlanForSlot", { vps: buyVps, slot: buySlot.slotIndex }) }}
                 </h2>
                 <fieldset :class="$style.group">
-                    <legend :class="$style.groupLabel">เลือกแพ็ก</legend>
+                    <legend :class="$style.groupLabel">{{ t("shop.runtime.choosePlanLegend") }}</legend>
                     <label
                         v-for="plan in sortedPlans"
                         :key="plan.id"
@@ -354,42 +361,42 @@ onUnmounted(() => {
                         <span :class="$style.optionMeta">{{ plan.name }}</span>
                         <span :class="$style.optionPrice">฿{{ formatMoney(plan.effectivePriceSatang) }}</span>
                     </label>
-                    <p v-if="sortedPlans.length === 0" :class="$style.stateText">ยังไม่มีแพ็ก Runtime ที่เปิดขาย</p>
+                    <p v-if="sortedPlans.length === 0" :class="$style.stateText">{{ t("shop.runtime.noPlans") }}</p>
                 </fieldset>
                 <p :class="$style.assignmentNote">
-                    หลังชำระเงิน Runtime จะอยู่ในคลังของคุณก่อน แล้วเลือกบอทที่จะใช้งานได้จากหน้า Dashboard
+                    {{ t("shop.runtime.inventoryNote") }}
                 </p>
 
                 <dl :class="$style.paymentSummary">
                     <div :class="$style.paymentRow">
-                        <dt :class="$style.paymentLabel">ยอดชำระ</dt>
+                        <dt :class="$style.paymentLabel">{{ t("shop.common.paymentAmount") }}</dt>
                         <dd :class="[$style.paymentValue, buyPrice != null ? $style.paymentAmount : $style.paymentPlaceholder]">
-                            {{ buyPrice != null ? `${formatMoney(buyPrice)} บาท` : "เลือกแพ็กก่อน" }}
+                            {{ buyPrice != null ? `${formatMoney(buyPrice)} ${t("shop.common.baht")}` : t("shop.common.selectPlanFirst") }}
                         </dd>
                     </div>
                     <div :class="[$style.paymentRow, $style.paymentDivider]">
-                        <dt :class="$style.paymentLabel">ยอดเงินในกระเป๋า</dt>
-                        <dd :class="$style.paymentValue">{{ formatMoney(walletBalanceSatang) }} บาท</dd>
+                        <dt :class="$style.paymentLabel">{{ t("shop.common.walletBalance") }}</dt>
+                        <dd :class="$style.paymentValue">{{ formatMoney(walletBalanceSatang) }} {{ t("shop.common.baht") }}</dd>
                     </div>
                     <div v-if="buyBalanceAfter != null" :class="$style.paymentRow">
-                        <dt :class="$style.paymentLabel">คงเหลือหลังชำระ</dt>
+                        <dt :class="$style.paymentLabel">{{ t("shop.common.balanceAfterPayment") }}</dt>
                         <dd :class="[$style.paymentValue, buyInsufficient ? $style.paymentNegative : '']">
-                            {{ formatMoney(buyBalanceAfter) }} บาท
+                            {{ formatMoney(buyBalanceAfter) }} {{ t("shop.common.baht") }}
                         </dd>
                     </div>
                 </dl>
 
                 <p v-if="buyInsufficient" :class="$style.paymentWarning">
-                    ยอดเงินในกระเป๋าไม่เพียงพอ — กรุณาเติมเงินก่อนทำรายการ
+                    {{ t("shop.common.insufficientBalance") }}
                 </p>
 
                 <div :class="$style.modalActions">
-                    <SecondaryButton width-mode="hug" @click="buySlot = null">ยกเลิก</SecondaryButton>
+                    <SecondaryButton width-mode="hug" @click="buySlot = null">{{ t("shop.common.cancel") }}</SecondaryButton>
                     <PrimaryButton v-if="buyInsufficient" width-mode="hug" @click="goToWallet">
-                        เติมเงิน
+                        {{ t("shop.common.addCredit") }}
                     </PrimaryButton>
                     <PrimaryButton v-else width-mode="hug" :disabled="isBusy || !buyPlanId" @click="confirmBuy">
-                        ยืนยันชำระเงิน
+                        {{ t("shop.common.confirmPayment") }}
                     </PrimaryButton>
                 </div>
             </div>
