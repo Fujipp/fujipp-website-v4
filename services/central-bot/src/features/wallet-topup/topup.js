@@ -340,9 +340,9 @@ async function topupStatusV2(ctx, slot, data = {}) {
   }
 }
 
-async function renderTopupStatus(ctx, slot, data = {}, legacyComponents = [], source = null) {
+async function renderTopupStatus(ctx, slot, data = {}, legacyComponents = [], source = null, options = {}) {
   const values = withDiscordContext(source, data);
-  if (usesComponentsV2(ctx)) return topupStatusV2(ctx, slot, values);
+  if (usesComponentsV2(ctx) && options.forceEmbed !== true) return topupStatusV2(ctx, slot, values);
   return {
     embeds: [await ctx.services.embeds.renderEmbed(slot, values)],
     components: legacyComponents,
@@ -558,7 +558,7 @@ async function onPpModal(interaction, ctx) {
       countdown: fmtCountdown(secLeft),
       qr_image: qrImage,
       slip_url: slipUrl,
-    }, legacySlipComponents(slipUrl), interaction);
+    }, legacySlipComponents(slipUrl), interaction, { forceEmbed: true });
 
   // Link to the slip channel so the member knows where to post the slip.
   await interaction.editReply(await renderQr(minutes * 60));
@@ -572,7 +572,9 @@ async function onPpModal(interaction, ctx) {
       try {
         if (left <= 0) {
           ctx.lifecycle.clearTimer(tick);
-          await interaction.editReply(await renderTopupStatus(ctx, 'topup_timeout', {}, [], interaction)).catch(() => {});
+          await interaction.editReply(
+            await renderTopupStatus(ctx, 'topup_timeout', {}, [], interaction, { forceEmbed: true }),
+          ).catch(() => {});
           return;
         }
         await interaction.editReply(await renderQr(left));
@@ -732,23 +734,27 @@ async function buildTopupPanel(ctx, source = null) {
       error?.code || 'unknown',
       error?.message || String(error),
     );
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId('kanom:topup:open')
-        .setLabel('เติมเงิน')
-        .setStyle(ButtonStyle.Success)
-        .setEmoji('💰'),
-      new ButtonBuilder()
-        .setCustomId('kanom:topup:balance')
-        .setLabel('เช็คยอดเงินคงเหลือ')
-        .setStyle(ButtonStyle.Secondary)
-        .setEmoji('💳'),
-    );
-    return {
-      content: '**เติมเงินเข้ากระเป๋า**\nกดปุ่มด้านล่างเพื่อเติมเงินหรือเช็คยอดเงินคงเหลือ',
-      components: [row],
-    };
+    return buildEmergencyTopupPanel();
   }
+}
+
+function buildEmergencyTopupPanel() {
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('kanom:topup:open')
+      .setLabel('เติมเงิน')
+      .setStyle(ButtonStyle.Success)
+      .setEmoji('💰'),
+    new ButtonBuilder()
+      .setCustomId('kanom:topup:balance')
+      .setLabel('เช็คยอดเงินคงเหลือ')
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji('💳'),
+  );
+  return {
+    content: '**เติมเงินเข้ากระเป๋า**\nกดปุ่มด้านล่างเพื่อเติมเงินหรือเช็คยอดเงินคงเหลือ',
+    components: [row],
+  };
 }
 
 async function buildWalletBalance(ctx, user, balanceSatang, source = null) {
@@ -830,6 +836,7 @@ module.exports = {
   onReady,
   buildTopupMethod,
   buildTopupPanel,
+  buildEmergencyTopupPanel,
   buildWalletBalance,
   renderTopupStatus,
   usesComponentsV2,

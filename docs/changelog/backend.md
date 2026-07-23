@@ -4,7 +4,7 @@
 
 | Version | Date | Change |
 | --- | --- | --- |
-| `0.5.12` | 2026-07-24 | Added emergency payment-method controls, conservative payment modals, and a classic Top-up Panel fallback when configurable Wallet or Roblox top-up surfaces fail, while logging the original runtime error for diagnosis. |
+| `0.5.12` | 2026-07-24 | Restored the payment-critical PromptPay QR/countdown path to stable Embeds, added send-time fallback for the Top-up Panel, and retained emergency payment controls and modals when configurable Wallet or Roblox top-up surfaces fail. |
 | `0.5.11` | 2026-07-23 | Added shared Discord member, server, channel, and bot context to dynamic Wallet and Top-up messages, aligned Embed and Components V2 rendering, and added an authenticated reset-to-latest-template API for owners and administrators. |
 | `0.5.10` | 2026-07-21 | Made Wallet and Top-up Components V2 fully configurable per bot, including ordered content, sections, separators, media, container appearance, behavior-safe required actions, Top-up Panel balance controls, a live Wallet Balance response, and validated custom link-button rows. |
 | `0.5.9` | 2026-07-20 | Added per-bot Role and User access rules while hardening Discord feature lifecycle, recovery, external-call handling, and operational health checks. |

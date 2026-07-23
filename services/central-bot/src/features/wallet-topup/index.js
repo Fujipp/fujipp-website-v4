@@ -107,7 +107,16 @@ async function handleTopupPanel(interaction, ctx) {
     return;
   }
   await interaction.deferReply({ ephemeral: true });
-  await interaction.channel.send(await topup.buildTopupPanel(ctx, interaction));
+  try {
+    await interaction.channel.send(await topup.buildTopupPanel(ctx, interaction));
+  } catch (error) {
+    ctx.log(
+      'Configurable top-up panel send failed; retrying with classic panel:',
+      error?.code || 'unknown',
+      error?.message || String(error),
+    );
+    await interaction.channel.send(topup.buildEmergencyTopupPanel());
+  }
   await interaction.editReply({ content: 'โพสต์แผงเติมเงินแล้ว ✅' });
 }
 
