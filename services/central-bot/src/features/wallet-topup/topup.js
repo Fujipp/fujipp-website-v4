@@ -637,9 +637,10 @@ async function onTmnModal(interaction, ctx) {
 // Build the top-up method picker (PromptPay / TrueMoney buttons) on the topup_method
 // message. Labels, emoji, and styles are configurable while the custom IDs and
 // handlers stay fixed so appearance edits cannot break the payment flow.
-async function buildTopupMethod(ctx, source = null) {
+async function buildTopupMethod(ctx, source = null, options = {}) {
   const values = withDiscordContext(source, { fee_text: trueMoneyFeeText(ctx) });
   const cfg = await ctx.services.embeds.renderConfig('topup_method', values);
+  const renderComponentsV2 = options.forceEmbed !== true && usesComponentsV2(ctx);
   const roles = (cfg && cfg.components) || {};
   const mkButton = (id, label, style, fallbackEmoji, roleKey) => {
     const role = roles[roleKey] || {};
@@ -651,12 +652,12 @@ async function buildTopupMethod(ctx, source = null) {
     if (emoji) { try { btn.setEmoji(emoji); } catch (_e) { /* skip invalid emoji */ } }
     return btn;
   };
-  const trueMoneyStyle = usesComponentsV2(ctx) ? ButtonStyle.Danger : ButtonStyle.Success;
+  const trueMoneyStyle = renderComponentsV2 ? ButtonStyle.Danger : ButtonStyle.Success;
   const row = new ActionRowBuilder().addComponents(
     mkButton('kanom:topup:btn:promptpay', 'พร้อมเพย์ธนาคาร', ButtonStyle.Primary, '🏧', 'btn_promptpay'),
     mkButton('kanom:topup:btn:truemoney', 'ซองอั่งเปาทรูมันนี่', trueMoneyStyle, '🧧', 'btn_truemoney'),
   );
-  if (usesComponentsV2(ctx)) {
+  if (renderComponentsV2) {
     const actions = actionRow(...row.components);
     const fallback = [
       text(componentText(cfg, 'heading', '# เลือกช่องทางเติมเงิน')),
@@ -735,7 +736,20 @@ async function onBalance(interaction, ctx) {
 
 // Member clicked เติมเงิน on the standalone panel → show the method picker (ephemeral).
 async function onOpenTopup(interaction, ctx) {
-  await interaction.reply(ephemeralPayload(await buildTopupMethod(ctx, interaction)));
+  const payload = ephemeralPayload(await buildTopupMethod(ctx, interaction));
+  try {
+    await interaction.reply(payload);
+  } catch (error) {
+    if (!usesComponentsV2(ctx) || interaction.deferred || interaction.replied) throw error;
+    ctx.log(
+      'Components V2 top-up method reply failed; retrying with Embed:',
+      error?.code || 'unknown',
+      error?.message || String(error),
+    );
+    await interaction.reply(ephemeralPayload(
+      await buildTopupMethod(ctx, interaction, { forceEmbed: true }),
+    ));
+  }
 }
 
 async function onRetryPromptPay(interaction, ctx) {

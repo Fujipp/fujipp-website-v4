@@ -1,9 +1,10 @@
 # Changelog — Backend
 
-**Current version: `0.5.11`**  ·  see [release workflow](./README.md)
+**Current version: `0.5.12`**  ·  see [release workflow](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.5.12` | 2026-07-24 | Added a safe Embed fallback when Discord rejects the Shop Wallet & Top-up Components V2 payment-method response, while logging the original Discord API error for diagnosis. |
 | `0.5.11` | 2026-07-23 | Added shared Discord member, server, channel, and bot context to dynamic Wallet and Top-up messages, aligned Embed and Components V2 rendering, and added an authenticated reset-to-latest-template API for owners and administrators. |
 | `0.5.10` | 2026-07-21 | Made Wallet and Top-up Components V2 fully configurable per bot, including ordered content, sections, separators, media, container appearance, behavior-safe required actions, Top-up Panel balance controls, a live Wallet Balance response, and validated custom link-button rows. |
 | `0.5.9` | 2026-07-20 | Added per-bot Role and User access rules while hardening Discord feature lifecycle, recovery, external-call handling, and operational health checks. |
