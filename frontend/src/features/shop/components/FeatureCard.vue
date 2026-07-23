@@ -2,6 +2,9 @@
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { SecondaryButton } from "@/shared/ui/buttons";
 import { icons } from "@/config";
+import { useLocaleText } from "@/i18n";
+
+const text = useLocaleText();
 
 export type FeatureCardVariant = "sell" | "owned";
 
@@ -28,7 +31,6 @@ const props = withDefaults(defineProps<Props>(), {
     itemsLabel: "",
     buyLabel: "Buy",
     useLabel: "Use",
-    readMoreLabel: "อ่านเพิ่มเติม",
 });
 
 const emit = defineEmits<{ buy: []; use: []; "read-more": [] }>();
@@ -71,7 +73,7 @@ onBeforeUnmount(() => resizeObserver?.disconnect());
                     :class="$style.readMore"
                     @click="emit('read-more')"
                 >
-                    {{ readMoreLabel }}
+                    {{ readMoreLabel || text("Read more", "อ่านเพิ่มเติม") }}
                 </button>
             </div>
         </div>
@@ -82,12 +84,12 @@ onBeforeUnmount(() => resizeObserver?.disconnect());
             :trailing-icon="icons.buy"
             @click="emit('buy')"
         >
-            {{ buyLabel }}
+            {{ buyLabel === "Buy" ? text("Buy", "ซื้อ") : buyLabel }}
         </SecondaryButton>
 
         <div v-else :class="$style.ownedRow">
             <span :class="$style.itemsLabel">{{ itemsLabel }}</span>
-            <SecondaryButton width-mode="hug" @click="emit('use')">{{ useLabel }}</SecondaryButton>
+            <SecondaryButton width-mode="hug" @click="emit('use')">{{ useLabel === "Use" ? text("Use", "ใช้งาน") : useLabel }}</SecondaryButton>
         </div>
     </article>
 </template>

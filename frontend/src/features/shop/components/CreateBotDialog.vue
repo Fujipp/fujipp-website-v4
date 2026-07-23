@@ -5,6 +5,9 @@ import { PrimaryButton, SecondaryButton } from "@/shared/ui/buttons";
 import { BaseDialog } from "@/shared/ui/modals";
 import { icons } from "@/config";
 import type { RuntimePlan } from "@/features/shop/config/catalog";
+import { useLocaleText } from "@/i18n";
+
+const text = useLocaleText();
 
 export interface CreateBotPayload {
     name: string;
@@ -65,9 +68,9 @@ function reset(): void {
 watch(() => props.open, (open) => { if (open) reset(); });
 
 function submit(): void {
-    if (!form.name.trim()) { error.value = "กรุณาตั้งชื่อบอท"; return; }
-    if (!isEdit.value && !form.discordToken.trim()) { error.value = "กรุณากรอก Discord Bot Token"; return; }
-    if (!isEdit.value && !form.discordApplicationId.trim()) { error.value = "กรุณากรอก Application ID (Client ID)"; return; }
+    if (!form.name.trim()) { error.value = text("Enter a bot name.", "กรุณาตั้งชื่อบอท"); return; }
+    if (!isEdit.value && !form.discordToken.trim()) { error.value = text("Enter the Discord Bot Token.", "กรุณากรอก Discord Bot Token"); return; }
+    if (!isEdit.value && !form.discordApplicationId.trim()) { error.value = text("Enter the Application ID (Client ID).", "กรุณากรอก Application ID (Client ID)"); return; }
     error.value = "";
     emit("submit", { ...form });
 }
@@ -78,16 +81,16 @@ function submit(): void {
                 <section :class="$style.modalContent">
                     <header :class="$style.header">
                         <h2 id="create-bot-title" :class="$style.title">
-                            {{ isEdit ? "Edit Bot Discord" : "New Bot Discord" }}
+                            {{ isEdit ? text("Edit Discord Bot", "แก้ไข Discord Bot") : text("New Discord Bot", "เพิ่ม Discord Bot") }}
                         </h2>
                     </header>
                     <div :class="$style.divider" />
 
                     <form :class="$style.fields" @submit.prevent="submit">
-                        <TextField v-model="form.name" label="Bot Name" required placeholder="ชื่อบอท" :disabled="submitting" />
+                        <TextField v-model="form.name" :label="text('Bot Name', 'ชื่อบอท')" required :placeholder="text('Bot name', 'ชื่อบอท')" :disabled="submitting" />
                         <TextField
                             v-model="form.discordToken"
-                            :label="isEdit ? 'Bot Token (เว้นว่าง = คงเดิม)' : 'Bot Token'"
+                            :label="isEdit ? text('Bot Token (leave blank to keep current)', 'Bot Token (เว้นว่างเพื่อใช้ค่าเดิม)') : 'Bot Token'"
                             :required="!isEdit"
                             type="password"
                             placeholder="••••••••••••••••••••••"
@@ -97,16 +100,16 @@ function submit(): void {
                             v-model="form.discordApplicationId"
                             label="Application ID (Client ID)"
                             :required="!isEdit"
-                            placeholder="ตัวเลข"
+                            :placeholder="text('Numbers only', 'ตัวเลขเท่านั้น')"
                             :disabled="submitting"
                         />
-                        <TextField v-model="form.discordGuildId" label="Server ID (Guild)" placeholder="ตัวเลข" :disabled="submitting" />
-                        <TextField v-model="form.discordPublicKey" label="Public Key" placeholder="(ไม่บังคับ)" :disabled="submitting" />
+                        <TextField v-model="form.discordGuildId" label="Server ID (Guild)" :placeholder="text('Numbers only', 'ตัวเลขเท่านั้น')" :disabled="submitting" />
+                        <TextField v-model="form.discordPublicKey" label="Public Key" :placeholder="text('Optional', 'ไม่บังคับ')" :disabled="submitting" />
                         <TextField
                             v-model="form.discordClientSecret"
-                            :label="isEdit ? 'Client Secret (เว้นว่าง = คงเดิม)' : 'Client Secret'"
+                            :label="isEdit ? text('Client Secret (leave blank to keep current)', 'Client Secret (เว้นว่างเพื่อใช้ค่าเดิม)') : 'Client Secret'"
                             type="password"
-                            placeholder="(ไม่บังคับ)"
+                            :placeholder="text('Optional', 'ไม่บังคับ')"
                             :disabled="submitting"
                         />
 
@@ -116,14 +119,14 @@ function submit(): void {
                     <div :class="$style.divider" />
 
                     <div :class="$style.actions">
-                        <SecondaryButton width-mode="hug" @click="emit('cancel')">Close</SecondaryButton>
+                        <SecondaryButton width-mode="hug" @click="emit('cancel')">{{ text("Close", "ปิด") }}</SecondaryButton>
                         <PrimaryButton
                             width-mode="hug"
                             :leading-icon="icons.add"
                             :disabled="submitting"
                             @click="submit"
                         >
-                            {{ submitting ? "กำลังบันทึก…" : (isEdit ? "Save" : "Add") }}
+                            {{ submitting ? text("Saving…", "กำลังบันทึก…") : (isEdit ? text("Save", "บันทึก") : text("Add", "เพิ่ม")) }}
                         </PrimaryButton>
                     </div>
                 </section>

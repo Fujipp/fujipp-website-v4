@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
+import { useI18n } from "vue-i18n";
 import { PurchaseDialog, type PackageOption } from "@/features/shop/components";
 import { StatusToast, SearchField } from "@/shared/ui";
 import { PrimaryButton } from "@/shared/ui/buttons";
 import { AppFooter } from "@/shared/layout";
 import { useUserStore } from "@/stores";
 import { API_BASE_URL, icons, resolveShopFeatureIcon } from "@/config";
-import { priceKindLabel, type CatalogFeature } from "@/features/shop/config/catalog";
+import { localizeCatalogFeature, priceKindLabel, type CatalogFeature } from "@/features/shop/config/catalog";
 
 type ToastStatus = "info" | "success" | "warning" | "error";
 
@@ -15,6 +16,7 @@ const SKELETON_COUNT = 6;
 
 const router = useRouter();
 const userStore = useUserStore();
+const { locale, t } = useI18n();
 
 const features = ref<CatalogFeature[]>([]);
 const balanceSatang = ref(0);
@@ -28,7 +30,7 @@ let toastTimeout: ReturnType<typeof setTimeout> | undefined;
 const dialog = ref<{ open: boolean; title: string; option: PackageOption | null }>({ open: false, title: "", option: null });
 
 function formatPrice(satang: number): string {
-    return `${(satang / 100).toLocaleString("th-TH", { maximumFractionDigits: 2 })} THB`;
+    return `${(satang / 100).toLocaleString(locale.value === "th" ? "th-TH" : "en-US", { maximumFractionDigits: 2 })} THB`;
 }
 
 function clearToast(): void {
@@ -55,7 +57,7 @@ async function authHeaders(): Promise<Record<string, string> | null> {
 function featureOptions(feature: CatalogFeature): PackageOption[] {
     return feature.prices.map((price) => ({
         id: price.id,
-        label: priceKindLabel(price.kind) + (price.durationMonths ? ` · ${price.durationMonths} เดือน` : ""),
+        label: priceKindLabel(price.kind, locale.value) + (price.durationMonths ? ` · ${price.durationMonths} ${t("shop.common.months")}` : ""),
         priceSatang: price.effectivePriceSatang,
         promotionLabel: price.promotionLabel,
         requiresSubject: false,
@@ -75,16 +77,17 @@ const dialogProps = computed(() => {
 // One sell card per (feature × price option) so multi-price features stay buyable
 // through the existing PurchaseDialog flow.
 const featureCards = computed(() =>
-    features.value.flatMap((feature) =>
-        featureOptions(feature).map((option) => ({
+    features.value.flatMap((rawFeature) => {
+        const feature = localizeCatalogFeature(rawFeature, locale.value);
+        return featureOptions(feature).map((option) => ({
             id: option.id,
             title: feature.name,
             description: feature.description,
             icon: resolveShopFeatureIcon(feature.iconKey),
             price: formatPrice(option.priceSatang),
             option,
-        })),
-    ),
+        }));
+    }),
 );
 
 const filteredFeatureCards = computed(() => {
@@ -99,7 +102,7 @@ async function loadCatalog(): Promise<void> {
     try {
         const headers = await authHeaders();
         if (!headers) {
-            catalogError.value = "กรุณาเข้าสู่ระบบก่อนดูแพ็กเกจ";
+            catalogError.value = t("shop.packages.signInRequired");
             return;
         }
         const [fRes, wRes] = await Promise.all([
@@ -112,8 +115,8 @@ async function loadCatalog(): Promise<void> {
     } catch {
         features.value = [];
         balanceSatang.value = 0;
-        catalogError.value = "โหลดแพ็กเกจไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
-        notify("error", "โหลดแพ็กเกจไม่สำเร็จ", "ระบบไม่สามารถเชื่อมต่อ catalog หรือ wallet ได้");
+        catalogError.value = t("shop.packages.loadFailed");
+        notify("error", t("shop.packages.loadFailed"), t("shop.packages.connectionFailed"));
     } finally {
         isLoading.value = false;
     }
@@ -134,7 +137,7 @@ async function confirmPurchase(): Promise<void> {
     try {
         const headers = await authHeaders();
         if (!headers) {
-            notify("error", "กรุณาเข้าสู่ระบบก่อน");
+            notify("error", t("shop.packages.signInFirst"));
             return;
         }
         const res = await fetch(`${API_BASE_URL}/api/orders`, {
@@ -146,11 +149,11 @@ async function confirmPurchase(): Promise<void> {
             }),
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        notify("success", "สั่งซื้อสำเร็จ", "เก็บไว้ในคลังแล้ว — กด Use ที่หน้า Dashboard เพื่อผูกกับบอท");
+        notify("success", t("shop.packages.purchasedTitle"), t("shop.packages.purchasedBody"));
         window.dispatchEvent(new Event("fujipp:wallet-balance-changed"));
         await loadCatalog();
     } catch {
-        notify("error", "สั่งซื้อไม่สำเร็จ", "เครดิตอาจไม่พอ หรือรายการซ้ำ — ลองใหม่อีกครั้ง");
+        notify("error", t("shop.packages.purchaseFailedTitle"), t("shop.packages.purchaseFailedBody"));
     } finally {
         isSubmitting.value = false;
     }
@@ -181,7 +184,7 @@ onUnmounted(clearToast);
         <main :class="$style.content">
             <section :class="$style.section" aria-labelledby="shop-package-title">
                 <div :class="$style.titleRow">
-                    <h1 id="shop-package-title" :class="$style.pageTitle">All Products</h1>
+                    <h1 id="shop-package-title" :class="$style.pageTitle">{{ t("shop.common.allProducts") }}</h1>
                     <div :class="$style.backButton">
                         <PrimaryButton width-mode="hug" :leading-icon="icons.directionLeft" @click="goBack">
                             Back
@@ -193,16 +196,16 @@ onUnmounted(clearToast);
             <section :class="$style.section" aria-labelledby="shop-package-features-title">
                 <div :class="$style.controlsRow">
                     <h2 id="shop-package-features-title" :class="$style.sectionTitle" class="type-caption-sb">
-                        <RouterLink :class="$style.breadcrumbLink" :to="{ name: 'shop-dashboard' }">Main</RouterLink>
+                        <RouterLink :class="$style.breadcrumbLink" :to="{ name: 'shop-dashboard' }">{{ t("shop.common.main") }}</RouterLink>
                         <span :class="$style.breadcrumbTrail">
                             <span aria-hidden="true">&gt;</span>
-                            <span>Packages</span>
+                            <span>{{ t("shop.dashboard.packages") }}</span>
                         </span>
                     </h2>
                     <SearchField
                         v-model="searchQuery"
-                        aria-label="Search packages by name"
-                        placeholder="Search"
+                        :aria-label="t('shop.common.search')"
+                        :placeholder="t('shop.common.search')"
                     />
                 </div>
 
@@ -211,9 +214,9 @@ onUnmounted(clearToast);
                 </div>
 
                 <section v-else-if="catalogError" :class="$style.statePanel" aria-live="polite">
-                    <h3 :class="$style.stateTitle">โหลดข้อมูลร้านไม่สำเร็จ</h3>
+                    <h3 :class="$style.stateTitle">{{ t("shop.packages.stateTitle") }}</h3>
                     <p :class="$style.stateText">{{ catalogError }}</p>
-                    <PrimaryButton type="button" width-mode="hug" @click="loadCatalog">ลองใหม่</PrimaryButton>
+                    <PrimaryButton type="button" width-mode="hug" @click="loadCatalog">{{ t("shop.common.retry") }}</PrimaryButton>
                 </section>
 
                 <template v-else>
@@ -229,7 +232,7 @@ onUnmounted(clearToast);
                                     :style="{ '--package-icon': `url(${card.icon})` }"
                                     aria-hidden="true"
                                 />
-                                <span :class="$style.imageStatus">Feature artwork coming soon</span>
+                                <span :class="$style.imageStatus">{{ t("shop.common.artworkComingSoon") }}</span>
                             </div>
                             <div :class="$style.packageBody">
                                 <div :class="$style.packageCopy">
@@ -245,7 +248,7 @@ onUnmounted(clearToast);
                     </div>
 
                     <p v-if="filteredFeatureCards.length === 0" :class="$style.emptyText">
-                        {{ searchQuery.trim() ? `No packages found for “${searchQuery.trim()}”` : "ยังไม่มีฟีเจอร์ที่เปิดขาย — เมื่อ catalog เปิดฟีเจอร์ active แล้ว รายการจะแสดงที่นี่" }}
+                        {{ searchQuery.trim() ? `No packages found for “${searchQuery.trim()}”` : t("shop.packages.empty") }}
                     </p>
 
                 </template>

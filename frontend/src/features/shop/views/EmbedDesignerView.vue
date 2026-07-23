@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useLocaleText } from "@/i18n";
 import { computed } from "vue";
 import { useRoute } from "vue-router";
 import { icons } from "@/config";
@@ -6,10 +7,16 @@ import { AppFooter } from "@/shared/layout";
 import { PrimaryButton, SecondaryButton } from "@/shared/ui";
 import { EmbedEditor } from "@/shared/ui/embeds";
 
+const text = useLocaleText();
+
 const route = useRoute();
 
 const botId = computed(() => String(route.params.botId ?? ""));
 const featureCode = computed(() => String(route.query.feature ?? ""));
+const editorMode = computed<"embed" | "components">(() => (
+    route.query.mode === "components" && featureCode.value === "wallet-topup" ? "components" : "embed"
+));
+const editorTitle = computed(() => editorMode.value === "components" ? text("COMPONENT SETTINGS", "ตั้งค่า COMPONENT") : text("EMBED SETTINGS", "ตั้งค่า EMBED"));
 const configRoute = computed(() => ({ name: "shop-bot-config", params: { botId: botId.value } }));
 const dashboardRoute = computed(() => ({ name: "shop-dashboard" }));
 </script>
@@ -19,32 +26,32 @@ const dashboardRoute = computed(() => ({ name: "shop-dashboard" }));
         <main :class="$style.content">
             <section :class="$style.hero" aria-labelledby="embed-setting-title">
                 <div :class="$style.heroCopy">
-                    <span :class="$style.eyebrow" class="type-overline-sb">Discord message editor</span>
-                    <h1 id="embed-setting-title" :class="$style.pageTitle" class="type-h1-page-title-sb">EMBED SETTING</h1>
+                    <span :class="$style.eyebrow" class="type-overline-sb">{{ text("Discord message editor", "ตัวแก้ไขข้อความ Discord") }}</span>
+                    <h1 id="embed-setting-title" :class="$style.pageTitle" class="type-h1-page-title-sb">{{ editorTitle }}</h1>
                     <p :class="$style.subtitle" class="type-body-small-r">
-                        {{ featureCode ? `ฟีเจอร์ ${featureCode}` : "ทุก Embed Slot" }} · {{ botId || "—" }}
+                        {{ featureCode ? `${text("Feature", "ฟีเจอร์")} ${featureCode}` : text("All embed slots", "Embed ทั้งหมด") }} · {{ botId || "—" }}
                     </p>
                 </div>
 
                 <div :class="$style.heroActions">
                     <SecondaryButton width-mode="hug" :leading-icon="icons.directionLeft" :to="dashboardRoute">
-                        Dashboard
+                        {{ text("Dashboard", "แดชบอร์ด") }}
                     </SecondaryButton>
                     <PrimaryButton width-mode="hug" :leading-icon="icons.setting" :to="configRoute">
-                        Bot Config
+                        {{ text("Bot settings", "ตั้งค่าบอท") }}
                     </PrimaryButton>
                 </div>
             </section>
 
-            <section :class="$style.workspace" aria-label="Embed setting workspace">
+            <section :class="$style.workspace" :aria-label="text('Embed settings workspace', 'พื้นที่ตั้งค่า Embed')">
                 <div :class="$style.workspaceHeader">
                     <div>
-                        <h2 class="type-h2-section-title-sb">Message Layout</h2>
-                        <p class="type-body-small-r">เลือก slot ด้านซ้าย ปรับเนื้อหา แล้วดู preview ด้านขวา</p>
+                        <h2 class="type-h2-section-title-sb">{{ editorMode === "components" ? text("Component layout", "รูปแบบ Component") : text("Embed layout", "รูปแบบ Embed") }}</h2>
+                        <p class="type-body-small-r">{{ text("Select an event on the left, edit its content, and review the Discord preview on the right.", "เลือกเหตุการณ์ด้านซ้าย แก้ไขเนื้อหา และดูตัวอย่าง Discord ทางด้านขวา") }}</p>
                     </div>
                 </div>
 
-                <EmbedEditor :bot-id="botId" :feature-code="featureCode" />
+                <EmbedEditor :bot-id="botId" :feature-code="featureCode" :mode="editorMode" />
             </section>
         </main>
 

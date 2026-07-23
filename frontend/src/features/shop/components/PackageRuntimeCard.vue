@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { thb } from "@/features/shop/config/catalog";
 import type { PackageCardMode, PackageOption } from "./PackageCard.vue";
+import { useLocaleText } from "@/i18n";
+
+const text = useLocaleText();
 
 interface Props {
     title?: string;
@@ -21,7 +24,7 @@ const props = withDefaults(defineProps<Props>(), {
     meta: "",
     mode: "default",
     disabled: false,
-    buttonLabel: "ซื้อ",
+    buttonLabel: "Buy",
 });
 
 const emit = defineEmits<{ select: [option: PackageOption] }>();
@@ -72,7 +75,7 @@ function selectOption(): void {
                 :disabled="disabled || !option"
                 @click="selectOption"
             >
-                {{ buttonLabel }}
+                {{ buttonLabel === "Buy" ? text("Buy", "ซื้อ") : buttonLabel }}
             </button>
         </div>
     </article>

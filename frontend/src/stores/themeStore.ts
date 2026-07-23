@@ -47,6 +47,13 @@ export const useThemeStore = defineStore('theme', () => {
     if (instant) root.classList.add('theme-switching')
     root.dataset.theme = useDarkTheme ? 'dark' : 'light'
 
+    const favicon = document.querySelector<HTMLLinkElement>('#app-favicon')
+    if (favicon) {
+      favicon.href = useDarkTheme
+        ? '/brand/logo-fujipp-new-icons-dark.svg'
+        : '/brand/logo-fujipp-new-icons.svg'
+    }
+
     if (instant) {
       // Resolve the new token values while transitions are disabled, then restore
       // normal hover and interaction motion without cross-fading the theme.

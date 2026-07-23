@@ -4,6 +4,9 @@ import { useRoute, useRouter } from "vue-router";
 import { storeToRefs } from "pinia";
 import { icons } from "@/config";
 import { useUserStore } from "@/stores";
+import { useLocaleText } from "@/i18n";
+
+const text = useLocaleText();
 
 const POSITION_STORAGE_KEY = "fujipp-admin-profile-control-position";
 const DEFAULT_BUTTON_SIZE = 48;
@@ -204,14 +207,14 @@ onUnmounted(() => {
         ref="controlRef"
         :class="[$style.userControl, isExpanded ? $style.expanded : '', isDragging ? $style.dragging : '']"
         :style="controlStyle"
-        aria-label="Admin tools"
+        :aria-label="text('Admin tools', 'เครื่องมือผู้ดูแล')"
         @focusout="handleFocusOut"
     >
         <button
             :class="$style.profileButton"
             type="button"
             :aria-expanded="isExpanded"
-            aria-label="Open admin tools"
+            :aria-label="text('Open admin tools', 'เปิดเครื่องมือผู้ดูแล')"
             @pointerdown="handlePointerDown"
             @pointermove="handlePointerMove"
             @pointerup="handlePointerUp"
@@ -232,51 +235,51 @@ onUnmounted(() => {
             <span :class="$style.statusDot" aria-hidden="true" />
         </button>
 
-        <nav v-show="isExpanded" :class="$style.actionList" :style="panelStyle" aria-label="Admin quick actions">
+        <nav v-show="isExpanded" :class="$style.actionList" :style="panelStyle" :aria-label="text('Admin quick actions', 'เมนูลัดผู้ดูแล')">
             <div :class="$style.menuHeader">
-                <span :class="$style.menuTitle">Admin tools</span>
-                <span :class="$style.menuStatus">Online</span>
+                <span :class="$style.menuTitle">{{ text("Admin tools", "เครื่องมือผู้ดูแล") }}</span>
+                <span :class="$style.menuStatus">{{ text("Online", "ออนไลน์") }}</span>
             </div>
             <RouterLink
                 :class="$style.actionButton"
                 :to="{ name: 'admin-dashboard' }"
-                aria-label="Admin dashboard"
+                :aria-label="text('Admin dashboard', 'แดชบอร์ดผู้ดูแล')"
                 @click="isExpanded = false"
             >
                 <span :class="$style.actionIcon" :style="{ '--action-icon': `url(${icons.home})` }" aria-hidden="true" />
-                <span>Dashboard</span>
+                <span>{{ text("Dashboard", "แดชบอร์ด") }}</span>
             </RouterLink>
             <RouterLink
                 :class="$style.actionButton"
                 :to="{ name: 'admin-users' }"
-                aria-label="Admin users"
+                :aria-label="text('Admin users', 'จัดการผู้ใช้')"
                 @click="isExpanded = false"
             >
                 <span :class="$style.actionIcon" :style="{ '--action-icon': `url(${icons.user})` }" aria-hidden="true" />
-                <span>Users</span>
+                <span>{{ text("Users", "ผู้ใช้") }}</span>
             </RouterLink>
             <RouterLink
                 :class="$style.actionButton"
                 :to="{ name: 'admin-pricing' }"
-                aria-label="Admin pricing"
+                :aria-label="text('Admin pricing', 'จัดการราคา')"
                 @click="isExpanded = false"
             >
                 <span :class="$style.actionIcon" :style="{ '--action-icon': `url(${icons.package})` }" aria-hidden="true" />
-                <span>Pricing</span>
+                <span>{{ text("Pricing", "ราคา") }}</span>
             </RouterLink>
             <RouterLink
                 :class="$style.actionButton"
                 :to="{ name: 'admin-bots' }"
-                aria-label="Admin bots"
+                :aria-label="text('Admin bots', 'จัดการบอท')"
                 @click="isExpanded = false"
             >
                 <span :class="$style.actionIcon" :style="{ '--action-icon': `url(${icons.shopBot})` }" aria-hidden="true" />
-                <span>Bots</span>
+                <span>{{ text("Bots", "บอท") }}</span>
             </RouterLink>
             <RouterLink
                 :class="$style.actionButton"
                 :to="{ name: 'admin-vps' }"
-                aria-label="Admin VPS"
+                :aria-label="text('Admin VPS', 'จัดการ VPS')"
                 @click="isExpanded = false"
             >
                 <span :class="$style.actionIcon" :style="{ '--action-icon': `url(${icons.shopServer})` }" aria-hidden="true" />
@@ -286,11 +289,11 @@ onUnmounted(() => {
                 :class="[$style.actionButton, $style.logOutButton]"
                 type="button"
                 :disabled="store.isLoading"
-                aria-label="Log out"
+                :aria-label="text('Log out', 'ออกจากระบบ')"
                 @click="handleLogOut"
             >
                 <span :class="$style.actionIcon" :style="{ '--action-icon': `url(${icons.logout})` }" aria-hidden="true" />
-                <span>Log out</span>
+                <span>{{ text("Log out", "ออกจากระบบ") }}</span>
             </button>
         </nav>
     </aside>

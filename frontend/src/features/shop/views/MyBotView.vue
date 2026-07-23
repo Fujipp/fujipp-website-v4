@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
+import { useI18n } from "vue-i18n";
 import { API_BASE_URL, icons } from "@/config";
 import { BotControlCard, CreateBotDialog, type BotControlAction, type CreateBotPayload } from "@/features/shop/components";
-import type { CatalogFeature, RuntimePlan } from "@/features/shop/config/catalog";
+import { localizeCatalogFeature, type CatalogFeature, type RuntimePlan } from "@/features/shop/config/catalog";
 import { AppFooter } from "@/shared/layout";
 import { PrimaryButton, SecondaryButton } from "@/shared/ui/buttons";
 import { SearchField, SelectField } from "@/shared/ui/fields";
@@ -11,6 +12,7 @@ import { BaseDialog, ConfirmModal } from "@/shared/ui/modals";
 import { TablePagination } from "@/shared/ui/paginations";
 import { StatusToast } from "@/shared/ui/toasts";
 import { useUserStore } from "@/stores";
+import { useLocaleText } from "@/i18n";
 
 interface BotItem {
     id: string;
@@ -44,6 +46,8 @@ type AssignmentKind = "feature" | "runtime";
 const PAGE_SIZE = 8;
 const router = useRouter();
 const userStore = useUserStore();
+const text = useLocaleText();
+const { locale } = useI18n();
 
 const bots = ref<BotItem[]>([]);
 const features = ref<CatalogFeature[]>([]);
@@ -78,7 +82,7 @@ const planMap = computed(() => new Map(plans.value.map((item) => [item.id, item]
 const botMap = computed(() => new Map(bots.value.map((item) => [item.id, item])));
 const botOptions = computed(() => bots.value.map((bot) => ({ label: bot.name, value: bot.id })));
 const runtimeBotOptions = computed(() => [
-    { label: "ไม่ใช้งาน", value: "" },
+    { label: text("Not in use", "ไม่ใช้งาน"), value: "" },
     ...botOptions.value,
 ]);
 
@@ -92,7 +96,8 @@ const packageRows = computed(() => {
     }>();
 
     for (const subscription of featureSubscriptions.value) {
-        const feature = featureMap.value.get(subscription.featureId);
+        const rawFeature = featureMap.value.get(subscription.featureId);
+        const feature = rawFeature ? localizeCatalogFeature(rawFeature, locale.value) : undefined;
         const isSystemFeature = ["runtime-expiry-alert", "runtime-monitor"].includes(feature?.code ?? "");
         const isAvailable = !subscription.externalSubjectId && ["ACTIVE", "PAST_DUE"].includes(subscription.status);
         if (isSystemFeature || !isAvailable) continue;
@@ -119,7 +124,7 @@ const packageRows = computed(() => {
 const runtimeRows = computed(() => runtimeSubscriptions.value.map((subscription) => ({
     ...subscription,
     name: subscription.runtimePlanId ? planMap.value.get(subscription.runtimePlanId)?.name ?? "Runtime" : "Runtime",
-    usedBy: subscription.externalSubjectId ? botMap.value.get(subscription.externalSubjectId)?.name ?? "Unknown bot" : "Available",
+    usedBy: subscription.externalSubjectId ? botMap.value.get(subscription.externalSubjectId)?.name ?? text("Unknown bot", "ไม่ทราบบอท") : text("Available", "พร้อมใช้งาน"),
 })).filter((row) => `${row.name} ${row.usedBy}`.toLowerCase().includes(runtimeSearch.value.trim().toLowerCase())));
 
 const packagePageCount = computed(() => Math.max(1, Math.ceil(packageRows.value.length / PAGE_SIZE)));
@@ -180,24 +185,24 @@ async function loadData(): Promise<void> {
         plans.value = [];
         featureSubscriptions.value = [];
         runtimeSubscriptions.value = [];
-        notify("error", "โหลด My Bot ไม่สำเร็จ", "ระบบไม่สามารถโหลดบอทและรายการที่ซื้อได้ กรุณาลองใหม่อีกครั้ง");
+        notify("error", text("Unable to load My Bot", "โหลด My Bot ไม่สำเร็จ"), text("Bots and purchased items could not be loaded. Please try again.", "ระบบไม่สามารถโหลดบอทและรายการที่ซื้อได้ กรุณาลองใหม่อีกครั้ง"));
     } finally {
         loading.value = false;
     }
 }
 
 function runtimeParts(bot: BotItem): { days: string; clock: string } {
-    if (!bot.runtimeExpiresAt) return { days: "No Runtime", clock: "" };
+    if (!bot.runtimeExpiresAt) return { days: text("No Runtime", "ไม่มี Runtime"), clock: "" };
     const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(bot.runtimeExpiresAt);
     const expiry = new Date(isDateOnly ? `${bot.runtimeExpiresAt}T00:00:00` : bot.runtimeExpiresAt);
     if (isDateOnly) expiry.setDate(expiry.getDate() + 1);
     const remaining = expiry.getTime() - currentTime.value;
-    if (remaining <= 0) return { days: "Expired", clock: "" };
+    if (remaining <= 0) return { days: text("Expired", "หมดอายุ"), clock: "" };
     const days = Math.floor(remaining / 86_400_000);
     const hours = Math.floor((remaining % 86_400_000) / 3_600_000);
     const minutes = Math.floor((remaining % 3_600_000) / 60_000);
     const seconds = Math.floor((remaining % 60_000) / 1_000);
-    return { days: `${days} Days`, clock: `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}` };
+    return { days: text(`${days} Days`, `${days} วัน`), clock: `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}` };
 }
 
 async function controlBot(bot: BotItem, action: BotControlAction): Promise<void> {
@@ -210,10 +215,10 @@ async function controlBot(bot: BotItem, action: BotControlAction): Promise<void>
     try {
         const response = await fetch(`${API_BASE_URL}/api/bots/${bot.id}/${endpoint}`, { method: "POST", headers: authHeaders() });
         if (!response.ok) throw new Error("Bot action failed");
-        notify("success", "อัปเดตสถานะบอทแล้ว", `${bot.name}: ${endpoint}`);
+        notify("success", text("Bot status updated", "อัปเดตสถานะบอทแล้ว"), `${bot.name}: ${endpoint}`);
         await loadData();
     } catch {
-        notify("error", "สั่งบอทไม่สำเร็จ", "กรุณาตรวจสอบ Runtime และลองใหม่อีกครั้ง");
+        notify("error", text("Bot command failed", "สั่งบอทไม่สำเร็จ"), text("Check the Runtime and try again.", "กรุณาตรวจสอบ Runtime และลองใหม่อีกครั้ง"));
     } finally {
         busyBotId.value = "";
     }
@@ -236,10 +241,10 @@ async function createBot(payload: CreateBotPayload): Promise<void> {
         });
         if (!response.ok) throw new Error("Create bot failed");
         createDialogOpen.value = false;
-        notify("success", "สร้างบอทแล้ว", "บอทใหม่พร้อมให้เลือกใช้ Package และ Runtime");
+        notify("success", text("Bot created", "สร้างบอทแล้ว"), text("The new bot is ready for a Package and Runtime.", "บอทใหม่พร้อมให้เลือกใช้ Package และ Runtime"));
         await loadData();
     } catch {
-        notify("error", "สร้างบอทไม่สำเร็จ", "กรุณาตรวจสอบ Bot Token และ Application ID");
+        notify("error", text("Unable to create bot", "สร้างบอทไม่สำเร็จ"), text("Check the Bot Token and Application ID.", "กรุณาตรวจสอบ Bot Token และ Application ID"));
     } finally {
         creating.value = false;
     }
@@ -264,12 +269,12 @@ async function saveAssignment(): Promise<void> {
         if (!response.ok) throw new Error("Assignment failed");
         assignment.value.open = false;
         const description = assignment.value.botId
-            ? `${assignment.value.title} ถูกผูกกับบอทที่เลือกแล้ว`
-            : `${assignment.value.title} ถูกเปลี่ยนเป็นไม่ใช้งานแล้ว`;
-        notify("success", "อัปเดตการใช้งานแล้ว", description);
+            ? text(`${assignment.value.title} is now assigned to the selected bot.`, `${assignment.value.title} ถูกผูกกับบอทที่เลือกแล้ว`)
+            : text(`${assignment.value.title} is no longer in use.`, `${assignment.value.title} ถูกเปลี่ยนเป็นไม่ใช้งานแล้ว`);
+        notify("success", text("Assignment updated", "อัปเดตการใช้งานแล้ว"), description);
         await loadData();
     } catch {
-        notify("error", "ใช้งานรายการนี้ไม่สำเร็จ", "บอทอาจมี Package หรือ Runtime ประเภทเดียวกันอยู่แล้ว");
+        notify("error", text("Unable to assign item", "ใช้งานรายการนี้ไม่สำเร็จ"), text("The bot may already have a Package or Runtime of this type.", "บอทอาจมี Package หรือ Runtime ประเภทเดียวกันอยู่แล้ว"));
     } finally {
         assigning.value = false;
     }
@@ -283,11 +288,11 @@ async function renewRuntime(subscription: RuntimeSubscription): Promise<void> {
             headers: authHeaders(),
         });
         if (!response.ok) throw new Error("Runtime renewal failed");
-        notify("success", "ต่อ Runtime สำเร็จ", "วันหมดอายุของ Runtime ถูกอัปเดตแล้ว");
+        notify("success", text("Runtime renewed", "ต่อ Runtime สำเร็จ"), text("The Runtime expiration date has been updated.", "วันหมดอายุของ Runtime ถูกอัปเดตแล้ว"));
         window.dispatchEvent(new Event("fujipp:wallet-balance-changed"));
         await loadData();
     } catch {
-        notify("error", "ต่อ Runtime ไม่สำเร็จ", "กรุณาตรวจสอบเครดิตคงเหลือแล้วลองใหม่อีกครั้ง");
+        notify("error", text("Runtime renewal failed", "ต่อ Runtime ไม่สำเร็จ"), text("Check your credit balance and try again.", "กรุณาตรวจสอบเครดิตคงเหลือแล้วลองใหม่อีกครั้ง"));
     } finally {
         renewingRuntimeId.value = "";
     }
@@ -324,36 +329,36 @@ onUnmounted(() => {
         <main :class="$style.content">
             <section :class="$style.section" aria-labelledby="my-bot-title">
                 <div :class="$style.headingRow">
-                    <h1 id="my-bot-title" :class="$style.pageTitle">My bot</h1>
-                    <PrimaryButton width-mode="hug" :leading-icon="icons.add" @click="createDialogOpen = true">New bot</PrimaryButton>
+                    <h1 id="my-bot-title" :class="$style.pageTitle">{{ text("My Bot", "บอทของฉัน") }}</h1>
+                    <PrimaryButton width-mode="hug" :leading-icon="icons.add" @click="createDialogOpen = true">{{ text("New bot", "เพิ่มบอท") }}</PrimaryButton>
                 </div>
 
                 <div :class="$style.botGrid">
                     <BotControlCard v-for="bot in bots" :key="bot.id" :name="bot.name" :avatar="bot.avatarUrl ?? ''" :status="bot.runtimeStatus === 'ONLINE' ? 'online' : 'offline'" :runtime-days="runtimeParts(bot).days" :runtime-clock="runtimeParts(bot).clock" :disabled="busyBotId === bot.id" @control="controlBot(bot, $event)" />
                     <BotControlCard v-for="index in loading ? 3 : 0" :key="`bot-skeleton-${index}`" mode="skeleton" />
                 </div>
-                <p v-if="!loading && bots.length === 0" :class="$style.emptyState">No bot found.</p>
+                <p v-if="!loading && bots.length === 0" :class="$style.emptyState">{{ text("No bots found.", "ไม่พบบอท") }}</p>
             </section>
 
             <section :class="$style.section" aria-labelledby="my-purchases-title">
                 <div :class="$style.headingRow">
-                    <h2 id="my-purchases-title" :class="$style.sectionTitle">My Purchases</h2>
-                    <PrimaryButton width-mode="hug" :leading-icon="icons.package" :to="{ name: 'shop-dashboard' }">Store</PrimaryButton>
+                    <h2 id="my-purchases-title" :class="$style.sectionTitle">{{ text("My purchases", "รายการที่ซื้อ") }}</h2>
+                    <PrimaryButton width-mode="hug" :leading-icon="icons.package" :to="{ name: 'shop-dashboard' }">{{ text("Store", "ร้านค้า") }}</PrimaryButton>
                 </div>
 
                 <div :class="$style.tableSection">
-                    <h3 :class="$style.tableTitle">Package</h3>
-                    <SearchField v-model="packageSearch" :class="$style.search" placeholder="Search Package" />
+                    <h3 :class="$style.tableTitle">{{ text("Packages", "แพ็กเกจ") }}</h3>
+                    <SearchField v-model="packageSearch" :class="$style.search" :placeholder="text('Search Packages', 'ค้นหา Package')" />
                     <div :class="$style.tableScroll">
                         <table :class="$style.table">
                             <colgroup><col :class="$style.numberColumn"><col :class="$style.nameColumn"><col><col :class="$style.metaColumn"><col :class="$style.actionColumn"></colgroup>
-                            <thead><tr><th>No</th><th>Name</th><th>Description</th><th>Stack</th><th>Action</th></tr></thead>
+                            <thead><tr><th>{{ text("No.", "ลำดับ") }}</th><th>{{ text("Name", "ชื่อ") }}</th><th>{{ text("Description", "รายละเอียด") }}</th><th>{{ text("Stack", "คลัง") }}</th><th>{{ text("Action", "การทำงาน") }}</th></tr></thead>
                             <tbody>
                                 <tr v-for="(row, index) in visiblePackages" :key="row.id">
                                     <td>{{ (packagePage - 1) * PAGE_SIZE + index + 1 }}</td><td>{{ row.name }}</td><td>{{ row.description }}</td><td>{{ row.stack }}</td>
-                                    <td><PrimaryButton width-mode="hug" :disabled="bots.length === 0" @click="openAssignment('feature', row.id, row.name, null)">Use</PrimaryButton></td>
+                                    <td><PrimaryButton width-mode="hug" :disabled="bots.length === 0" @click="openAssignment('feature', row.id, row.name, null)">{{ text("Use", "ใช้งาน") }}</PrimaryButton></td>
                                 </tr>
-                                <tr v-if="!loading && visiblePackages.length === 0"><td colspan="5" :class="$style.emptyCell">No package found.</td></tr>
+                                <tr v-if="!loading && visiblePackages.length === 0"><td colspan="5" :class="$style.emptyCell">{{ text("No packages found.", "ไม่พบ Package") }}</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -362,11 +367,11 @@ onUnmounted(() => {
 
                 <div :class="$style.tableSection">
                     <h3 :class="$style.tableTitle">Runtime</h3>
-                    <SearchField v-model="runtimeSearch" :class="$style.search" placeholder="Search Runtime" />
+                    <SearchField v-model="runtimeSearch" :class="$style.search" :placeholder="text('Search Runtime', 'ค้นหา Runtime')" />
                     <div :class="$style.tableScroll">
                         <table :class="$style.table">
                             <colgroup><col :class="$style.numberColumn"><col :class="$style.nameColumn"><col><col :class="$style.metaColumn"><col :class="$style.actionColumn"></colgroup>
-                            <thead><tr><th>No</th><th>Name</th><th>Expired</th><th>Use by</th><th>Action</th></tr></thead>
+                            <thead><tr><th>{{ text("No.", "ลำดับ") }}</th><th>{{ text("Name", "ชื่อ") }}</th><th>{{ text("Expires", "หมดอายุ") }}</th><th>{{ text("Used by", "ใช้งานโดย") }}</th><th>{{ text("Action", "การทำงาน") }}</th></tr></thead>
                             <tbody>
                                 <tr v-for="(row, index) in visibleRuntimes" :key="row.id">
                                     <td>{{ (runtimePage - 1) * PAGE_SIZE + index + 1 }}</td><td>{{ row.name }}</td><td>{{ formatDate(row.currentPeriodEnd) }}</td><td>{{ row.usedBy }}</td>
@@ -377,7 +382,7 @@ onUnmounted(() => {
                                         </div>
                                     </td>
                                 </tr>
-                                <tr v-if="!loading && visibleRuntimes.length === 0"><td colspan="5" :class="$style.emptyCell">No runtime found.</td></tr>
+                                <tr v-if="!loading && visibleRuntimes.length === 0"><td colspan="5" :class="$style.emptyCell">{{ text("No Runtime found.", "ไม่พบ Runtime") }}</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -392,19 +397,19 @@ onUnmounted(() => {
 
         <BaseDialog v-if="assignment.open" size="small" aria-labelled-by="assignment-title" @close="assignment.open = false">
             <div :class="$style.dialogContent">
-                <h2 id="assignment-title" :class="$style.dialogTitle">{{ assignment.kind === 'runtime' ? 'Select Runtime Bot' : 'Use Package' }}</h2>
+                <h2 id="assignment-title" :class="$style.dialogTitle">{{ assignment.kind === 'runtime' ? text('Select Runtime Bot', 'เลือกบอทสำหรับ Runtime') : text('Use Package', 'ใช้งาน Package') }}</h2>
                 <p :class="$style.dialogDescription">{{ assignment.title }}</p>
-                <SelectField v-model="assignment.botId" label="Bot" :options="assignment.kind === 'runtime' ? runtimeBotOptions : botOptions" placeholder="Select bot" />
+                <SelectField v-model="assignment.botId" :label="text('Bot', 'บอท')" :options="assignment.kind === 'runtime' ? runtimeBotOptions : botOptions" :placeholder="text('Select a bot', 'เลือกบอท')" />
                 <div :class="$style.dialogActions">
-                    <SecondaryButton width-mode="hug" @click="assignment.open = false">Cancel</SecondaryButton>
-                    <PrimaryButton width-mode="hug" :disabled="(assignment.kind === 'feature' && !assignment.botId) || assigning" @click="saveAssignment">{{ assigning ? 'Saving…' : 'Confirm' }}</PrimaryButton>
+                    <SecondaryButton width-mode="hug" @click="assignment.open = false">{{ text("Cancel", "ยกเลิก") }}</SecondaryButton>
+                    <PrimaryButton width-mode="hug" :disabled="(assignment.kind === 'feature' && !assignment.botId) || assigning" @click="saveAssignment">{{ assigning ? text('Saving…', 'กำลังบันทึก…') : text('Confirm', 'ยืนยัน') }}</PrimaryButton>
                 </div>
             </div>
         </BaseDialog>
 
-        <ConfirmModal v-if="renewTarget" title="ยืนยันต่ออายุ Runtime"
-            :reason="`ระบบจะหักเครดิต ${((renewTarget.renewPriceSatang ?? planMap.get(renewTarget.runtimePlanId || '')?.priceSatang ?? 0) / 100).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} บาท และต่ออายุจากวันหมดอายุปัจจุบัน`"
-            confirm-label="ยืนยันต่ออายุ" :disabled="renewingRuntimeId === renewTarget.id"
+        <ConfirmModal v-if="renewTarget" :title="text('Confirm Runtime renewal', 'ยืนยันต่ออายุ Runtime')"
+            :reason="text(`The system will charge ${((renewTarget.renewPriceSatang ?? planMap.get(renewTarget.runtimePlanId || '')?.priceSatang ?? 0) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} THB and extend the current expiration date.`, `ระบบจะหักเครดิต ${((renewTarget.renewPriceSatang ?? planMap.get(renewTarget.runtimePlanId || '')?.priceSatang ?? 0) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} บาท และต่ออายุจากวันหมดอายุปัจจุบัน`)"
+            :confirm-label="text('Confirm renewal', 'ยืนยันต่ออายุ')" :disabled="renewingRuntimeId === renewTarget.id"
             @cancel="renewTarget = null" @confirm="confirmRuntimeRenewal" />
 
         <div v-if="toast" :class="$style.toastRegion" aria-live="polite">

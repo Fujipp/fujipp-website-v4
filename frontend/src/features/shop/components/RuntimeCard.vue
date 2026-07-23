@@ -1,5 +1,8 @@
 <script setup lang="ts">
+import { useLocaleText } from "@/i18n";
 import CountdownTimer from "./CountdownTimer.vue";
+
+const text = useLocaleText();
 
 export type RuntimeCardMode = "default" | "skeleton";
 export type RuntimeStatus = "idle" | "usage";
@@ -55,7 +58,7 @@ const emit = defineEmits<{ toggleAutoRenew: [value: boolean]; renew: [] }>();
                         :class="[$style.statusDot, status === 'usage' ? $style.usageDot : $style.idleDot]"
                         aria-hidden="true"
                     />
-                    {{ status === "usage" ? "Usage" : "Not use" }}
+                    {{ status === "usage" ? text("In use", "กำลังใช้งาน") : text("Not in use", "ไม่ได้ใช้งาน") }}
                 </span>
                 <span v-if="status === 'usage' && botName" :class="$style.botBadge">
                     {{ botName }}
@@ -72,10 +75,10 @@ const emit = defineEmits<{ toggleAutoRenew: [value: boolean]; renew: [] }>();
                         :disabled="busy"
                         @change="emit('toggleAutoRenew', ($event.target as HTMLInputElement).checked)"
                     />
-                    <span>ต่ออัตโนมัติ</span>
+                    <span>{{ text("Auto renew", "ต่ออายุอัตโนมัติ") }}</span>
                 </label>
                 <button type="button" :class="$style.renewButton" :disabled="busy" @click="emit('renew')">
-                    {{ busy ? "…" : "ต่ออายุ" }}
+                    {{ busy ? "…" : text("Renew", "ต่ออายุ") }}
                 </button>
             </div>
         </template>

@@ -3,6 +3,9 @@ import { computed, reactive, ref, watch } from "vue";
 import { PrimaryButton, type SelectFieldOption } from "@/shared/ui";
 import ConfigField from "./ConfigField.vue";
 import type { FeatureDefinition } from "@/features/shop/config/featureConfig";
+import { useLocaleText } from "@/i18n";
+
+const text = useLocaleText();
 
 interface Props {
     feature: FeatureDefinition;
@@ -22,7 +25,7 @@ const props = withDefaults(defineProps<Props>(), {
     roleOptions: () => [],
     saving: false,
     submitFixedWidth: "160px",
-    submitLabel: "บันทึกการตั้งค่า",
+    submitLabel: "Save settings",
     submitWidthMode: "fill",
 });
 
@@ -54,7 +57,7 @@ function validate(): boolean {
         // sensitive required fields may stay blank (means "keep the saved secret")
         const needsValue = field.isRequired && !field.isSensitive;
         if (needsValue && !String(form[field.variableKey] ?? "").trim()) {
-            errors[field.variableKey] = "จำเป็นต้องกรอก";
+            errors[field.variableKey] = text("Required", "จำเป็นต้องกรอก");
             ok = false;
         } else {
             errors[field.variableKey] = "";
@@ -91,7 +94,7 @@ function onSubmit(): void {
         <div :class="$style.actions">
             <slot name="actions" />
             <PrimaryButton type="submit" :disabled="saving" :fixed-width="submitFixedWidth" :leading-icon="submitIcon" :width-mode="submitWidthMode">
-                {{ saving ? "กำลังบันทึก…" : submitLabel }}
+                {{ saving ? text("Saving…", "กำลังบันทึก…") : submitLabel === "Save settings" ? text("Save settings", "บันทึกการตั้งค่า") : submitLabel }}
             </PrimaryButton>
         </div>
     </form>

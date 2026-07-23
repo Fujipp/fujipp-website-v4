@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useLocaleText } from "@/i18n";
+
+const text = useLocaleText();
 interface Props {
     amountError?: string;
     canGenerate?: boolean;
@@ -39,11 +42,11 @@ const emit = defineEmits<{
 
 <template>
     <article :class="$style.topupCard">
-        <section :class="$style.instructionPanel" aria-label="Payment instructions">
+        <section :class="$style.instructionPanel" :aria-label="text('Payment instructions', 'วิธีการชำระเงิน')">
             <p :class="$style.instructionText">
-                <strong>วิธีการชำระเงิน</strong><br>
-                1) เข้าแอพธนาคาร ชำระเงินด้วย QR CODE ที่สร้างขึ้น ชื่อ นาย อนวัตร กรุดธูป<br>
-                2) เมื่อโอนเงินเสร็จแล้ว โปรดนำสลิปที่ได้จากการโอนเงินมาแนบในเว็บ
+                <strong>{{ text("How to pay", "วิธีการชำระเงิน") }}</strong><br>
+                {{ text("1) Open your banking app and pay with the generated QR code. Account name: Anawat Krudthup.", "1) เปิดแอปธนาคารและชำระด้วย QR Code ที่สร้างขึ้น ชื่อบัญชี อนวัตร กรุดธูป") }}<br>
+                {{ text("2) After completing the transfer, upload the payment slip on this page.", "2) เมื่อโอนเงินเสร็จแล้ว ให้อัปโหลดสลิปในหน้านี้") }}
             </p>
             <span :class="$style.statusDot" aria-hidden="true" />
         </section>
@@ -60,7 +63,7 @@ const emit = defineEmits<{
             </div>
 
             <div :class="$style.controls">
-                <div :class="$style.quickAmountGrid" aria-label="Quick top-up amounts">
+                <div :class="$style.quickAmountGrid" :aria-label="text('Quick top-up amounts', 'จำนวนเงินเติมด่วน')">
                     <button
                         v-for="amount in quickAmounts"
                         :key="amount"
@@ -73,7 +76,7 @@ const emit = defineEmits<{
                 </div>
 
                 <label :class="$style.fieldGroup" for="wallet-topup-amount">
-                    <span :class="$style.fieldLabel">จำนวนขั้นต่ำ: 50</span>
+                    <span :class="$style.fieldLabel">{{ text("Minimum amount: 50", "จำนวนขั้นต่ำ: 50") }}</span>
                     <input
                         id="wallet-topup-amount"
                         :value="customAmount"
@@ -94,17 +97,17 @@ const emit = defineEmits<{
                     :disabled="!canGenerate"
                     @click="emit('generate')"
                 >
-                    {{ generating ? "Generating..." : "Generate QR Code" }}
+                    {{ generating ? text("Generating…", "กำลังสร้าง…") : text("Generate QR Code", "สร้าง QR Code") }}
                 </button>
 
                 <div v-if="topupReference" :class="$style.referenceBox">
-                    <span>Reference</span>
+                    <span>{{ text("Reference", "เลขอ้างอิง") }}</span>
                     <strong>{{ topupReference }}</strong>
                 </div>
             </div>
         </section>
 
-        <section :class="$style.slipPanel" aria-label="Slip verification">
+        <section :class="$style.slipPanel" :aria-label="text('Slip verification', 'ตรวจสอบสลิป')">
             <label
                 :class="[$style.dropZone, dragActive ? $style.dropZoneActive : '']"
                 for="wallet-slip-file"
@@ -114,9 +117,9 @@ const emit = defineEmits<{
                 @drop.prevent="emit('dropFile', $event)"
             >
                 <span>
-                    <span :class="$style.dropNormal">ไฟล์สลิปการโอนเงิน<br></span>
-                    <span :class="$style.dropStrong">{{ fileName || "เลือกไฟล์" }}<br></span>
-                    <span :class="$style.dropNormal">หรือ<br>ลากแล้วปล่อยไฟล์</span>
+                    <span :class="$style.dropNormal">{{ text("Payment slip", "ไฟล์สลิปการโอนเงิน") }}<br></span>
+                    <span :class="$style.dropStrong">{{ fileName || text("Choose file", "เลือกไฟล์") }}<br></span>
+                    <span :class="$style.dropNormal">{{ text("or", "หรือ") }}<br>{{ text("drag and drop a file", "ลากแล้วปล่อยไฟล์") }}</span>
                 </span>
                 <input
                     id="wallet-slip-file"
@@ -133,7 +136,7 @@ const emit = defineEmits<{
                 :disabled="verifying"
                 @click="emit('verify')"
             >
-                {{ verifying ? "Confirming..." : "Confirm" }}
+                {{ verifying ? text("Confirming…", "กำลังยืนยัน…") : text("Confirm", "ยืนยัน") }}
             </button>
         </section>
     </article>

@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useLocaleText } from "@/i18n";
+
+const text = useLocaleText();
 interface Props {
     avatarUrl?: string;
     balance: string;
@@ -28,22 +31,22 @@ withDefaults(defineProps<Props>(), {
                 >
                 <span :class="$style.brandName">Fujipp Wallet</span>
             </div>
-            <span :class="$style.network">CREDIT</span>
+            <span :class="$style.network">{{ text("CREDIT", "เครดิต") }}</span>
         </header>
 
         <span :class="$style.chip" aria-hidden="true" />
 
         <div :class="$style.balanceBlock">
-            <span :class="$style.creditLabel">เครดิตของคุณ</span>
+            <span :class="$style.creditLabel">{{ text("Your credit", "เครดิตของคุณ") }}</span>
             <div :class="$style.balanceLine">
                 <span :class="$style.balanceValue">{{ loading ? "•••" : balance }}</span>
-                <span :class="$style.balanceUnit">บาท</span>
+                <span :class="$style.balanceUnit">{{ text("THB", "บาท") }}</span>
             </div>
         </div>
 
         <footer :class="$style.bottom">
             <div :class="$style.holder">
-                <span :class="$style.holderLabel">CARD HOLDER</span>
+                <span :class="$style.holderLabel">{{ text("CARD HOLDER", "เจ้าของกระเป๋า") }}</span>
                 <span :class="$style.holderName">{{ username }}</span>
             </div>
             <span :class="$style.mark" aria-hidden="true">

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import {
     FeatureConfigForm,
@@ -17,9 +18,10 @@ import {
     type BotConfigResponse,
     type FeatureDefinition,
 } from "@/features/shop/config/featureConfig";
-import type { CatalogFeature } from "@/features/shop/config/catalog";
+import { localizeCatalogFeature, type CatalogFeature } from "@/features/shop/config/catalog";
 import CountdownTimer from "@/features/shop/components/CountdownTimer.vue";
 import { supabase } from "@/shared/lib/supabase";
+import { useLocaleText } from "@/i18n";
 
 type ToastStatus = "info" | "success" | "warning" | "error";
 
@@ -27,12 +29,15 @@ type ToastStatus = "info" | "success" | "warning" | "error";
 // template-driven FeatureConfigForm.
 const ROBLOX_ROBUX_PAYOUT = "roblox-robux-payout";
 const REVIEW_CREDIT = "review-credit";
+const WALLET_TOPUP = "wallet-topup";
 const CORE_FEATURE_CODES = ["bot-presence", "runtime-expiry-alert"] as const;
 const PACKAGE_EXCLUDED_CODES = new Set([...CORE_FEATURE_CODES, "runtime-monitor"]);
 
 const route = useRoute();
 const router = useRouter();
 const userStore = useUserStore();
+const text = useLocaleText();
+const { locale } = useI18n();
 
 const botId = computed(() => String(route.params.botId ?? ""));
 
@@ -83,7 +88,7 @@ const botRuntimeExpiresAt = ref<string | null>(null);
 const botActionBusy = ref(false);
 const botInitial = ref<Partial<CreateBotPayload>>({});
 const isSavingBot = ref(false);
-type MainView = "main" | "bot-config" | "runtime-setting" | "package-setting" | "package-feature" | "core-features" | "core-feature" | "embed-setting";
+type MainView = "main" | "bot-config" | "runtime-setting" | "package-setting" | "package-feature" | "core-features" | "core-feature" | "embed-setting" | "component-setting";
 const activeMainView = ref<MainView>("main");
 const botConfigForm = reactive<CreateBotPayload>({
     name: "",
@@ -151,34 +156,67 @@ interface FeatureSubscription {
 const catalogFeatures = ref<CatalogFeature[]>([]);
 const featureSubscriptions = ref<FeatureSubscription[]>([]);
 const packageBusyId = ref("");
-const packageRows = computed(() => features.value
+function humanizeVariableKey(variableKey: string): string {
+    return variableKey
+        .toLowerCase()
+        .split("_")
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(" ");
+}
+
+function localizeFeatureDefinition(feature: FeatureDefinition): FeatureDefinition {
+    const catalog = catalogFeatures.value.find((item) => item.code === feature.code);
+    const localizedCatalog = catalog ? localizeCatalogFeature(catalog, locale.value) : null;
+    if (locale.value === "th") return { ...feature, name: localizedCatalog?.name ?? feature.name };
+
+    return {
+        ...feature,
+        name: localizedCatalog?.name ?? feature.name,
+        fields: feature.fields.map((field) => {
+            const label = humanizeVariableKey(field.variableKey);
+            return {
+                ...field,
+                label,
+                description: `Configure ${label.toLowerCase()}.`,
+                options: Array.isArray(field.options)
+                    ? field.options.map((option) => ({ ...option, label: option.value.replaceAll("_", " ") }))
+                    : field.options,
+            };
+        }),
+    };
+}
+
+const localizedFeatures = computed(() => features.value.map(localizeFeatureDefinition));
+const packageRows = computed(() => localizedFeatures.value
     .filter((feature) => !PACKAGE_EXCLUDED_CODES.has(feature.code))
     .map((feature) => {
         const catalog = catalogFeatures.value.find((item) => item.code === feature.code);
+        const localizedCatalog = catalog ? localizeCatalogFeature(catalog, locale.value) : null;
         const subscription = catalog
             ? featureSubscriptions.value.find((item) => item.featureId === catalog.id && item.externalSubjectId === botId.value)
             : undefined;
         return {
             feature,
-            description: catalog?.description || `${feature.fields.length} configuration fields`,
+            description: localizedCatalog?.description || text(`${feature.fields.length} configuration fields`, `ช่องตั้งค่า ${feature.fields.length} รายการ`),
             subscriptionId: subscription?.id ?? "",
         };
     }));
-const coreFeatureRows = computed(() => features.value
+const coreFeatureRows = computed(() => localizedFeatures.value
     .filter((feature) => CORE_FEATURE_CODES.includes(feature.code as typeof CORE_FEATURE_CODES[number]))
     .sort((left, right) => CORE_FEATURE_CODES.indexOf(left.code as typeof CORE_FEATURE_CODES[number]) - CORE_FEATURE_CODES.indexOf(right.code as typeof CORE_FEATURE_CODES[number]))
     .map((feature) => {
         const catalog = catalogFeatures.value.find((item) => item.code === feature.code);
+        const localizedCatalog = catalog ? localizeCatalogFeature(catalog, locale.value) : null;
         return {
             feature,
-            description: catalog?.description || `${feature.fields.length} configuration fields`,
+            description: localizedCatalog?.description || text(`${feature.fields.length} configuration fields`, `ช่องตั้งค่า ${feature.fields.length} รายการ`),
         };
     }));
 
 // Which feature tab is active in the Feature Setting section.
 const activeFeatureCode = ref("");
 const activeFeature = computed<FeatureDefinition | null>(
-    () => features.value.find((f) => f.code === activeFeatureCode.value) ?? null,
+    () => localizedFeatures.value.find((f) => f.code === activeFeatureCode.value) ?? null,
 );
 
 // Feature codes that own at least one embed slot — drives whether the Embed Setting
@@ -188,7 +226,7 @@ const activeFeatureHasEmbed = computed(() => embedFeatureCodes.value.has(activeF
 const activeFeatureIndex = computed(() => features.value.findIndex((f) => f.code === activeFeatureCode.value));
 const activeFeatureProgress = computed(() => activeFeature.value
     ? `${featureFieldProgress(activeFeature.value)} fields configured`
-    : "เลือกฟีเจอร์เพื่อเริ่มตั้งค่า");
+    : text("Select a feature to start configuring it", "เลือกฟีเจอร์เพื่อเริ่มตั้งค่า"));
 
 function currentFeature(): FeatureDefinition {
     const feature = activeFeature.value;
@@ -237,17 +275,17 @@ const accessRuleForm = reactive({
     effect: "ALLOW",
 });
 const accessFeatureOptions = computed<SelectFieldOption[]>(() => [
-    { label: "ทุก Feature", value: "*" },
-    ...features.value.map((feature) => ({ label: feature.name, value: feature.code })),
+    { label: text("All features", "ทุกฟีเจอร์"), value: "*" },
+    ...localizedFeatures.value.map((feature) => ({ label: feature.name, value: feature.code })),
 ]);
 const accessTargetOptions: SelectFieldOption[] = [
     { label: "Role", value: "ROLE" },
     { label: "User", value: "USER" },
 ];
-const accessEffectOptions: SelectFieldOption[] = [
-    { label: "Allow — อนุญาต", value: "ALLOW" },
-    { label: "Deny — ปฏิเสธ", value: "DENY" },
-];
+const accessEffectOptions = computed<SelectFieldOption[]>(() => [
+    { label: text("Allow", "อนุญาต"), value: "ALLOW" },
+    { label: text("Deny", "ปฏิเสธ"), value: "DENY" },
+]);
 
 function resetAccessRuleForm(): void {
     editingAccessRuleId.value = "";
@@ -258,7 +296,7 @@ function resetAccessRuleForm(): void {
 }
 
 function accessFeatureLabel(code: string): string {
-    if (code === "*") return "ทุก Feature";
+    if (code === "*") return text("All features", "ทุกฟีเจอร์");
     return features.value.find((feature) => feature.code === code)?.name ?? code;
 }
 
@@ -280,7 +318,7 @@ async function loadAccessRules(): Promise<void> {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         accessRules.value = await response.json() as BotAccessRule[];
     } catch {
-        accessRulesError.value = "โหลดกฎสิทธิ์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+        accessRulesError.value = text("Unable to load access rules. Please try again.", "โหลดกฎสิทธิ์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
     } finally {
         accessRulesLoading.value = false;
     }
@@ -288,7 +326,7 @@ async function loadAccessRules(): Promise<void> {
 
 async function saveAccessRule(): Promise<void> {
     if (!/^[0-9]{15,22}$/.test(accessRuleForm.targetDiscordId.trim())) {
-        notify("error", "Discord ID ไม่ถูกต้อง", "กรุณาใส่ Role ID หรือ User ID เป็นตัวเลข 15–22 หลัก");
+        notify("error", text("Invalid Discord ID", "Discord ID ไม่ถูกต้อง"), text("Enter a 15–22 digit Role ID or User ID.", "กรุณาใส่ Role ID หรือ User ID เป็นตัวเลข 15–22 หลัก"));
         return;
     }
     accessRulesBusy.value = true;
@@ -310,9 +348,9 @@ async function saveAccessRule(): Promise<void> {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         resetAccessRuleForm();
         await loadAccessRules();
-        notify("success", editing ? "แก้ไขกฎสิทธิ์แล้ว" : "เพิ่มกฎสิทธิ์แล้ว", "บอทที่กำลังทำงานจะ restart เพื่อใช้กฎใหม่");
+        notify("success", editing ? text("Access rule updated", "แก้ไขกฎสิทธิ์แล้ว") : text("Access rule added", "เพิ่มกฎสิทธิ์แล้ว"), text("Running bots will restart to apply the new rule.", "บอทที่กำลังทำงานจะรีสตาร์ตเพื่อใช้กฎใหม่"));
     } catch {
-        notify("error", "บันทึกกฎไม่สำเร็จ", "กฎอาจซ้ำหรือข้อมูลไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง");
+        notify("error", text("Unable to save rule", "บันทึกกฎไม่สำเร็จ"), text("The rule may be duplicated or invalid. Check it and try again.", "กฎอาจซ้ำหรือข้อมูลไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง"));
     } finally {
         accessRulesBusy.value = false;
     }
@@ -344,9 +382,9 @@ async function toggleAccessRule(rule: BotAccessRule, enabled: boolean): Promise<
         });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         rule.enabled = enabled;
-        notify("success", enabled ? "เปิดใช้กฎแล้ว" : "ปิดใช้กฎแล้ว");
+        notify("success", enabled ? text("Rule enabled", "เปิดใช้กฎแล้ว") : text("Rule disabled", "ปิดใช้กฎแล้ว"));
     } catch {
-        notify("error", "เปลี่ยนสถานะกฎไม่สำเร็จ", "กรุณาลองใหม่อีกครั้ง");
+        notify("error", text("Unable to change rule status", "เปลี่ยนสถานะกฎไม่สำเร็จ"), text("Please try again.", "กรุณาลองใหม่อีกครั้ง"));
     } finally {
         accessRulesBusy.value = false;
     }
@@ -354,9 +392,9 @@ async function toggleAccessRule(rule: BotAccessRule, enabled: boolean): Promise<
 
 function confirmDeleteAccessRule(rule: BotAccessRule): void {
     requestConfirmation(
-        "ลบกฎสิทธิ์นี้?",
+        text("Delete this access rule?", "ลบกฎสิทธิ์นี้หรือไม่?"),
         `${accessFeatureLabel(rule.featureCode)} • ${accessTargetLabel(rule)} • ${rule.effect}`,
-        "ลบกฎ",
+        text("Delete rule", "ลบกฎ"),
         "danger",
         async () => {
             accessRulesBusy.value = true;
@@ -370,9 +408,9 @@ function confirmDeleteAccessRule(rule: BotAccessRule): void {
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 accessRules.value = accessRules.value.filter((item) => item.id !== rule.id);
                 if (editingAccessRuleId.value === rule.id) resetAccessRuleForm();
-                notify("success", "ลบกฎสิทธิ์แล้ว");
+                notify("success", text("Access rule deleted", "ลบกฎสิทธิ์แล้ว"));
             } catch {
-                notify("error", "ลบกฎไม่สำเร็จ", "กรุณาลองใหม่อีกครั้ง");
+                notify("error", text("Unable to delete rule", "ลบกฎไม่สำเร็จ"), text("Please try again.", "กรุณาลองใหม่อีกครั้ง"));
             } finally {
                 accessRulesBusy.value = false;
             }
@@ -447,9 +485,13 @@ function setMainView(view: MainView): void {
         "core-feature": { name: "shop-bot-core-feature", params: { ...params, featureCode } },
         "package-feature": { name: "shop-bot-package-feature", params: { ...params, featureCode } },
         "embed-setting": { name: "shop-bot-embed-setting", params: { ...params, featureCode } },
+        "component-setting": { name: "shop-bot-component-setting", params: { ...params, featureCode } },
     } as const;
-    const featureViews: MainView[] = ["core-feature", "package-feature", "embed-setting"];
-    const safeView = featureViews.includes(view) && !featureCode ? "main" : view;
+    const featureViews: MainView[] = ["core-feature", "package-feature", "embed-setting", "component-setting"];
+    const unsupportedComponentView = view === "component-setting" && featureCode !== WALLET_TOPUP;
+    const safeView = featureViews.includes(view) && !featureCode
+        ? "main"
+        : unsupportedComponentView ? "package-feature" : view;
 
     void router.push(destinations[safeView]);
 }
@@ -463,6 +505,7 @@ const routeViewNames: Record<string, MainView> = {
     "shop-bot-core-features": "core-features",
     "shop-bot-core-feature": "core-feature",
     "shop-bot-embed-setting": "embed-setting",
+    "shop-bot-component-setting": "component-setting",
 };
 
 watch(
@@ -470,7 +513,15 @@ watch(
     ([routeName, featureCode]) => {
         const nextFeatureCode = String(featureCode ?? "");
         if (nextFeatureCode) activeFeatureCode.value = nextFeatureCode;
-        applyMainView(routeViewNames[String(routeName)] ?? "main");
+        const nextView = routeViewNames[String(routeName)] ?? "main";
+        if (nextView === "component-setting" && nextFeatureCode !== WALLET_TOPUP) {
+            void router.replace({
+                name: "shop-bot-package-feature",
+                params: { botId: botId.value, featureCode: nextFeatureCode },
+            });
+            return;
+        }
+        applyMainView(nextView);
     },
     { immediate: true },
 );
@@ -503,7 +554,7 @@ function openCoreFeature(featureCode: string): void {
 }
 
 function handleBack(): void {
-    if (activeMainView.value === "embed-setting") {
+    if (activeMainView.value === "embed-setting" || activeMainView.value === "component-setting") {
         setMainView("package-feature");
         return;
     }
@@ -548,10 +599,10 @@ async function removePackage(subscriptionId: string, featureName: string): Promi
             body: JSON.stringify({ externalSubjectId: null }),
         });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        notify("success", "นำ Package ออกจากบอทแล้ว", `${featureName} ยังอยู่ใน My Bot และสามารถนำไปใช้กับบอทอื่นได้`);
+        notify("success", text("Package removed from bot", "นำ Package ออกจากบอทแล้ว"), text(`${featureName} remains in My Bot and can be assigned to another bot.`, `${featureName} ยังอยู่ใน My Bot และนำไปใช้กับบอทอื่นได้`));
         await Promise.all([loadConfig(), loadPackageAssignments()]);
     } catch {
-        notify("error", "นำ Package ออกไม่สำเร็จ", "กรุณาลองใหม่อีกครั้ง");
+        notify("error", text("Unable to remove Package", "นำ Package ออกไม่สำเร็จ"), text("Please try again.", "กรุณาลองใหม่อีกครั้ง"));
     } finally {
         packageBusyId.value = "";
     }
@@ -559,9 +610,9 @@ async function removePackage(subscriptionId: string, featureName: string): Promi
 
 function confirmRemovePackage(subscriptionId: string, featureName: string): void {
     requestConfirmation(
-        "Remove package?",
-        `Remove ${featureName} from this bot? The feature will stop working immediately.`,
-        "Remove",
+        text("Remove package?", "นำ Package ออกจากบอทหรือไม่?"),
+        text(`Remove ${featureName} from this bot? The feature will stop working immediately.`, `นำ ${featureName} ออกจากบอทนี้หรือไม่? ฟีเจอร์จะหยุดทำงานทันที`),
+        text("Remove", "นำออก"),
         "danger",
         () => removePackage(subscriptionId, featureName),
     );
@@ -575,10 +626,10 @@ async function controlBot(action: "power" | "restart"): Promise<void> {
     try {
         const response = await fetch(`${API_BASE_URL}/api/bots/${botId.value}/${endpoint}`, { method: "POST", headers });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        notify("success", "อัปเดตสถานะบอทแล้ว", `${botName.value}: ${endpoint}`);
+        notify("success", text("Bot status updated", "อัปเดตสถานะบอทแล้ว"), `${botName.value}: ${endpoint}`);
         await loadBot();
     } catch {
-        notify("error", "สั่งบอทไม่สำเร็จ", "กรุณาตรวจสอบ Runtime แล้วลองใหม่อีกครั้ง");
+        notify("error", text("Bot command failed", "สั่งบอทไม่สำเร็จ"), text("Check the Runtime and try again.", "กรุณาตรวจสอบ Runtime แล้วลองใหม่อีกครั้ง"));
     } finally {
         botActionBusy.value = false;
     }
@@ -590,7 +641,7 @@ function openSettingSection(sectionId: string): void {
 
 async function saveBotSettings(payload: CreateBotPayload): Promise<void> {
     if (!payload.name.trim()) {
-        notify("error", "กรุณาตั้งชื่อบอท");
+        notify("error", text("Enter a bot name", "กรุณาตั้งชื่อบอท"));
         return;
     }
     const headers = await authHeaders();
@@ -604,10 +655,10 @@ async function saveBotSettings(payload: CreateBotPayload): Promise<void> {
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         setMainView("main");
-        notify("success", "บันทึกการตั้งค่าบอทแล้ว", "ถ้าบอทกำลังรันอยู่ ให้ restart เพื่อใช้ค่าใหม่");
+        notify("success", text("Bot settings saved", "บันทึกการตั้งค่าบอทแล้ว"), text("Restart the bot if it is running to apply the new settings.", "หากบอทกำลังทำงาน ให้รีสตาร์ตเพื่อใช้ค่าใหม่"));
         await loadBot();
     } catch {
-        notify("error", "บันทึกไม่สำเร็จ", "ชื่อบอทอาจซ้ำ — ลองใหม่อีกครั้ง");
+        notify("error", text("Unable to save", "บันทึกไม่สำเร็จ"), text("The bot name may already exist. Please try again.", "ชื่อบอทอาจซ้ำ กรุณาลองใหม่อีกครั้ง"));
     } finally {
         isSavingBot.value = false;
     }
@@ -615,9 +666,9 @@ async function saveBotSettings(payload: CreateBotPayload): Promise<void> {
 
 function confirmSaveBotSettings(payload: CreateBotPayload): void {
     requestConfirmation(
-        "Save bot configuration?",
-        "Confirm that you want to update this bot's Discord configuration.",
-        "Save",
+        text("Save bot configuration?", "บันทึกการตั้งค่าบอทหรือไม่?"),
+        text("Confirm that you want to update this bot's Discord configuration.", "ยืนยันการอัปเดตการตั้งค่า Discord ของบอทนี้"),
+        text("Save", "บันทึก"),
         "default",
         () => saveBotSettings(payload),
     );
@@ -651,11 +702,11 @@ async function removeRuntime(): Promise<void> {
             body: JSON.stringify({ externalSubjectId: null }),
         });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        notify("success", "นำ Runtime ออกจากบอทแล้ว", "Runtime ยังอยู่ใน My Bot และสามารถนำไปใช้กับบอทอื่นได้");
+        notify("success", text("Runtime removed from bot", "นำ Runtime ออกจากบอทแล้ว"), text("The Runtime remains in My Bot and can be assigned to another bot.", "Runtime ยังอยู่ใน My Bot และนำไปใช้กับบอทอื่นได้"));
         setMainView("main");
         await Promise.all([loadRuntime(), loadBot()]);
     } catch {
-        notify("error", "นำ Runtime ออกไม่สำเร็จ", "กรุณาลองใหม่อีกครั้ง");
+        notify("error", text("Unable to remove Runtime", "นำ Runtime ออกไม่สำเร็จ"), text("Please try again.", "กรุณาลองใหม่อีกครั้ง"));
     } finally {
         runtimeBusy.value = false;
     }
@@ -663,9 +714,9 @@ async function removeRuntime(): Promise<void> {
 
 function confirmRemoveRuntime(): void {
     requestConfirmation(
-        "Remove Runtime?",
-        "This bot will lose its assigned Runtime and can no longer stay online.",
-        "Remove Runtime",
+        text("Remove Runtime?", "นำ Runtime ออกจากบอทหรือไม่?"),
+        text("This bot will lose its assigned Runtime and can no longer stay online.", "บอทนี้จะไม่มี Runtime และไม่สามารถออนไลน์ต่อได้"),
+        text("Remove Runtime", "นำ Runtime ออก"),
         "danger",
         removeRuntime,
     );
@@ -684,11 +735,11 @@ async function setAutoRenew(value: boolean): Promise<void> {
             body: JSON.stringify({ autoRenew: value }),
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        notify("success", value ? "เปิดต่ออัตโนมัติแล้ว" : "ปิดต่ออัตโนมัติแล้ว",
-            value ? "ระบบจะตัดเครดิตต่ออายุให้เมื่อใกล้หมด" : "บอทจะหยุดเมื่อ runtime หมดอายุ");
+        notify("success", value ? text("Auto renew enabled", "เปิดต่ออายุอัตโนมัติแล้ว") : text("Auto renew disabled", "ปิดต่ออายุอัตโนมัติแล้ว"),
+            value ? text("Credit will be charged when renewal is due.", "ระบบจะตัดเครดิตเมื่อถึงเวลาต่ออายุ") : text("The bot will stop when the Runtime expires.", "บอทจะหยุดเมื่อ Runtime หมดอายุ"));
         await loadRuntime();
     } catch {
-        notify("error", "อัปเดตไม่สำเร็จ", "กรุณาลองใหม่อีกครั้ง");
+        notify("error", text("Update failed", "อัปเดตไม่สำเร็จ"), text("Please try again.", "กรุณาลองใหม่อีกครั้ง"));
     } finally {
         runtimeBusy.value = false;
     }
@@ -706,11 +757,11 @@ async function renewRuntime(): Promise<void> {
             headers,
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        notify("success", "ต่ออายุ Runtime แล้ว", "ตัดเครดิตและขยายเวลาเรียบร้อย");
+        notify("success", text("Runtime renewed", "ต่ออายุ Runtime แล้ว"), text("Credit was charged and the expiration date was extended.", "ตัดเครดิตและขยายเวลาเรียบร้อยแล้ว"));
         window.dispatchEvent(new Event("fujipp:wallet-balance-changed"));
         await Promise.all([loadRuntime(), loadBot()]);
     } catch {
-        notify("error", "ต่ออายุไม่สำเร็จ", "เครดิตอาจไม่พอ — ลองเติมเงินก่อน");
+        notify("error", text("Renewal failed", "ต่ออายุไม่สำเร็จ"), text("Your credit may be insufficient. Add credit and try again.", "เครดิตอาจไม่เพียงพอ กรุณาเติมเงินแล้วลองใหม่"));
     } finally {
         runtimeBusy.value = false;
     }
@@ -718,9 +769,9 @@ async function renewRuntime(): Promise<void> {
 
 function confirmRenewRuntime(): void {
     requestConfirmation(
-        "ยืนยันต่ออายุ Runtime",
-        `ระบบจะหักเครดิต ${renewPrice.value} บาท และต่ออายุจากวันหมดอายุปัจจุบัน`,
-        "ยืนยันต่ออายุ",
+        text("Confirm Runtime renewal", "ยืนยันต่ออายุ Runtime"),
+        text(`The system will charge ${renewPrice.value} THB and extend the current expiration date.`, `ระบบจะหักเครดิต ${renewPrice.value} บาท และต่ออายุจากวันหมดอายุปัจจุบัน`),
+        text("Confirm renewal", "ยืนยันต่ออายุ"),
         "default",
         renewRuntime,
     );
@@ -732,7 +783,7 @@ async function loadConfig(): Promise<void> {
     try {
         const headers = await authHeaders();
         if (!headers) {
-            configError.value = "กรุณาเข้าสู่ระบบก่อนตั้งค่าบอท";
+            configError.value = text("Please sign in before configuring a bot.", "กรุณาเข้าสู่ระบบก่อนตั้งค่าบอท");
             return;
         }
         const res = await fetch(`${API_BASE_URL}/api/bots/${botId.value}/config`, { headers });
@@ -747,8 +798,8 @@ async function loadConfig(): Promise<void> {
         values.value = {};
         channels.value = [];
         roles.value = [];
-        configError.value = "โหลดการตั้งค่าบอทไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
-        notify("error", "โหลดการตั้งค่าไม่สำเร็จ", "ระบบไม่สามารถดึง config ของบอทนี้ได้");
+        configError.value = text("Unable to load bot settings. Please try again.", "โหลดการตั้งค่าบอทไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+        notify("error", text("Unable to load settings", "โหลดการตั้งค่าไม่สำเร็จ"), text("The configuration for this bot could not be retrieved.", "ระบบไม่สามารถดึง Config ของบอทนี้ได้"));
     } finally {
         isLoading.value = false;
     }
@@ -759,7 +810,7 @@ async function saveFeature(payload: Record<string, string>): Promise<void> {
     try {
         const headers = await authHeaders();
         if (!headers) {
-            notify("error", "กรุณาเข้าสู่ระบบก่อน");
+            notify("error", text("Please sign in first", "กรุณาเข้าสู่ระบบก่อน"));
             return;
         }
         const url = `${API_BASE_URL}/api/bots/${botId.value}/config`;
@@ -768,7 +819,7 @@ async function saveFeature(payload: Record<string, string>): Promise<void> {
             headers: { Authorization: authorization, "Content-Type": "application/json" },
             body: JSON.stringify({ values: payload }),
         });
-        let res = await request(headers.Authorization);
+        let res = await request(headers.Authorization ?? "");
         // A long-open configuration page can hold an expired access token. Spring may
         // answer 401 or 403 depending on where JWT validation failed, so refresh once.
         if (res.status === 401 || res.status === 403) {
@@ -781,9 +832,9 @@ async function saveFeature(payload: Record<string, string>): Promise<void> {
             throw new Error(`HTTP ${res.status}${reason ? ` — ${reason.slice(0, 240)}` : ""}`);
         }
         values.value = { ...values.value, ...payload };
-        notify("success", "บันทึกการตั้งค่าแล้ว");
+        notify("success", text("Settings saved", "บันทึกการตั้งค่าแล้ว"));
     } catch (error) {
-        notify("error", "บันทึกไม่สำเร็จ", (error as Error).message || "กรุณาลองใหม่อีกครั้ง");
+        notify("error", text("Unable to save", "บันทึกไม่สำเร็จ"), (error as Error).message || text("Please try again.", "กรุณาลองใหม่อีกครั้ง"));
     } finally {
         isSaving.value = false;
     }
@@ -815,6 +866,10 @@ function openEmbedDesigner(): void {
     setMainView("embed-setting");
 }
 
+function openComponentDesigner(): void {
+    setMainView("component-setting");
+}
+
 // ── review-credit counter (shop.review_credit_state) ─────────────────────────
 const hasReviewCredit = computed(() => features.value.some((f) => f.code === REVIEW_CREDIT));
 const reviewCount = ref<number | null>(null);
@@ -839,7 +894,7 @@ async function saveReviewCount(): Promise<void> {
     if (!headers) return;
     const n = Number(reviewCountInput.value);
     if (!Number.isInteger(n) || n < 0) {
-        notify("error", "ใส่ตัวเลขให้ถูกต้อง", "ตัวเลข credit ต้องเป็นจำนวนเต็ม ≥ 0");
+        notify("error", text("Enter a valid number", "กรอกตัวเลขให้ถูกต้อง"), text("Credit must be an integer greater than or equal to 0.", "เครดิตต้องเป็นจำนวนเต็มตั้งแต่ 0 ขึ้นไป"));
         return;
     }
     reviewCountBusy.value = true;
@@ -854,9 +909,9 @@ async function saveReviewCount(): Promise<void> {
         reviewCount.value = data.count;
         reviewCounted.value = data.counted;
         reviewCountInput.value = "";
-        notify("success", "ตั้งตัวเลข credit แล้ว", "ชื่อห้องจะอัปเดตเมื่อมีรีวิวข้อความถัดไป");
+        notify("success", text("Credit count set", "ตั้งจำนวนเครดิตแล้ว"), text("The channel name will update after the next message review.", "ชื่อห้องจะอัปเดตหลังมีข้อความรีวิวถัดไป"));
     } catch {
-        notify("error", "ตั้งตัวเลขไม่สำเร็จ", "ยังไม่ได้ตั้งห้องรีวิว หรือลองใหม่อีกครั้ง");
+        notify("error", text("Unable to set the count", "ตั้งจำนวนไม่สำเร็จ"), text("Set a review channel first, then try again.", "กรุณาตั้งห้องรีวิวก่อนแล้วลองใหม่"));
     } finally {
         reviewCountBusy.value = false;
     }
@@ -872,13 +927,13 @@ async function recountReview(): Promise<void> {
             headers,
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        notify("success", "กำลังนับทั้งห้องใหม่…", "บอทกำลัง restart และนับข้อความทั้งหมด รอสักครู่แล้วรีเฟรช");
+        notify("success", text("Recounting the channel…", "กำลังนับทั้งห้องใหม่…"), text("The bot is restarting and counting all messages. Wait a moment, then refresh.", "บอทกำลังรีสตาร์ตและนับข้อความทั้งหมด กรุณารอสักครู่แล้วรีเฟรช"));
         reviewCount.value = null;
         reviewCounted.value = false;
         // Give the bot a moment to restart + count, then refresh.
         setTimeout(loadReviewCount, 6000);
     } catch {
-        notify("error", "สั่งนับใหม่ไม่สำเร็จ", "กรุณาลองใหม่อีกครั้ง");
+        notify("error", text("Unable to recount", "สั่งนับใหม่ไม่สำเร็จ"), text("Please try again.", "กรุณาลองใหม่อีกครั้ง"));
     } finally {
         reviewCountBusy.value = false;
     }
@@ -900,7 +955,7 @@ onMounted(async () => {
         <main :class="$style.content">
             <section :class="$style.hero" aria-labelledby="bot-config-title">
                 <div :class="$style.heroCopy">
-                    <h1 id="bot-config-title" :class="$style.pageTitle" class="type-h1-page-title-eb">Bot setting</h1>
+                    <h1 id="bot-config-title" :class="$style.pageTitle" class="type-h1-page-title-eb">{{ text("Bot settings", "ตั้งค่าบอท") }}</h1>
                 </div>
 
                 <div :class="$style.heroActions">
@@ -910,7 +965,7 @@ onMounted(async () => {
                 </div>
             </section>
 
-            <section :class="$style.botSummary" aria-label="Bot status and controls">
+            <section :class="$style.botSummary" :aria-label="text('Bot status and controls', 'สถานะและการควบคุมบอท')">
                 <div :class="$style.botIdentity">
                     <img v-if="botAvatarUrl && !botAvatarFailed" :class="$style.botAvatar" :src="botAvatarUrl" :alt="`${botName} avatar`" @error="botAvatarFailed = true">
                     <div v-else :class="[$style.botAvatar, $style.botAvatarFallback]" aria-hidden="true">
@@ -923,7 +978,7 @@ onMounted(async () => {
                         </span>
                         <p :class="$style.botRuntime" class="type-body-small-r">
                             <CountdownTimer v-if="botRuntimeUntil" :until="botRuntimeUntil" />
-                            <strong v-else>No Runtime</strong>
+                            <strong v-else>{{ text("No Runtime", "ไม่มี Runtime") }}</strong>
                         </p>
                     </div>
                 </div>
@@ -939,47 +994,47 @@ onMounted(async () => {
 
             <template v-if="activeMainView === 'main'">
             <section :class="$style.settingMenu" aria-labelledby="main-setting-title">
-                <h2 id="main-setting-title" class="type-body-main-sb">Main</h2>
+                <h2 id="main-setting-title" class="type-body-main-sb">{{ text("Main", "หน้าหลัก") }}</h2>
                 <div :class="$style.settingGrid">
                     <button type="button" :class="$style.settingCard" @click="openBotConfig">
                         <span :class="$style.settingCardIcon" :style="iconMaskStyle(icons.discord)" aria-hidden="true" />
-                        <span>Bot config</span>
+                        <span>{{ text("Bot config", "ตั้งค่าบอท") }}</span>
                     </button>
                     <button type="button" :class="$style.settingCard" @click="openRuntimeSetting">
                         <span :class="$style.settingCardIcon" :style="iconMaskStyle(icons.shopTime)" aria-hidden="true" />
-                        <span>Runtime setting</span>
+                        <span>{{ text("Runtime settings", "ตั้งค่า Runtime") }}</span>
                     </button>
                     <button type="button" :class="$style.settingCard" @click="openPackageSetting">
                         <span :class="$style.settingCardIcon" :style="iconMaskStyle(icons.package)" aria-hidden="true" />
-                        <span>Package setting</span>
+                        <span>{{ text("Package settings", "ตั้งค่า Package") }}</span>
                     </button>
                     <button type="button" :class="$style.settingCard" @click="openCoreFeatures">
                         <span :class="$style.settingCardIcon" :style="iconMaskStyle(icons.featureFlag)" aria-hidden="true" />
-                        <span>Core features</span>
+                        <span>{{ text("Core features", "ฟีเจอร์พื้นฐาน") }}</span>
                     </button>
                 </div>
             </section>
 
             <section v-if="false" :class="$style.sectionHeading" aria-labelledby="advanced-setting-title">
                 <div>
-                    <span :class="$style.eyebrow" class="type-overline-sb">Advanced setup</span>
-                    <h2 id="advanced-setting-title" class="type-h2-section-title-sb">Configuration</h2>
+                    <span :class="$style.eyebrow" class="type-overline-sb">{{ text("Advanced setup", "การตั้งค่าขั้นสูง") }}</span>
+                    <h2 id="advanced-setting-title" class="type-h2-section-title-sb">{{ text("Configuration", "การกำหนดค่า") }}</h2>
                 </div>
                 <SecondaryButton width-mode="hug" :leading-icon="icons.edit" @click="openBotConfig">
                     Edit bot
                 </SecondaryButton>
             </section>
 
-            <section v-if="false" :class="$style.workspace" aria-label="Bot configuration workspace">
-                <aside :class="$style.sidePanel" aria-label="Bot and feature navigation">
+            <section v-if="false" :class="$style.workspace" :aria-label="text('Bot configuration workspace', 'พื้นที่ตั้งค่าบอท')">
+                <aside :class="$style.sidePanel" :aria-label="text('Bot and feature navigation', 'เมนูบอทและฟีเจอร์')">
                     <div :class="$style.panelSection">
                         <div :class="$style.panelHeader">
                             <span :class="$style.panelIcon" :style="iconMaskStyle(icons.setting)" aria-hidden="true" />
-                            <h2 class="type-body-main-sb">Bot Setting</h2>
+                            <h2 class="type-body-main-sb">{{ text("Bot settings", "ตั้งค่าบอท") }}</h2>
                         </div>
                         <dl :class="$style.identityList">
                             <div>
-                                <dt>Name</dt>
+                                <dt>{{ text("Name", "ชื่อ") }}</dt>
                                 <dd>{{ botInitial.name || "—" }}</dd>
                             </div>
                             <div>
@@ -992,7 +1047,7 @@ onMounted(async () => {
                             </div>
                             <div>
                                 <dt>Secret</dt>
-                                <dd>Stored securely</dd>
+                                <dd>{{ text("Stored securely", "จัดเก็บอย่างปลอดภัย") }}</dd>
                             </div>
                         </dl>
                     </div>
@@ -1000,22 +1055,22 @@ onMounted(async () => {
                     <div :class="$style.panelSection">
                         <div :class="$style.panelHeader">
                             <span :class="$style.panelIcon" :style="iconMaskStyle(icons.featureFlag)" aria-hidden="true" />
-                            <h2 class="type-body-main-sb">Features</h2>
+                            <h2 class="type-body-main-sb">{{ text("Features", "ฟีเจอร์") }}</h2>
                         </div>
 
-                        <p v-if="isLoading" :class="$style.state" class="type-body-small-r">กำลังโหลด…</p>
+                        <p v-if="isLoading" :class="$style.state" class="type-body-small-r">{{ text("Loading…", "กำลังโหลด…") }}</p>
                         <div v-else-if="configError" :class="$style.statePanel" aria-live="polite">
-                            <strong>โหลดการตั้งค่าไม่สำเร็จ</strong>
+                            <strong>{{ text("Unable to load settings", "โหลดการตั้งค่าไม่สำเร็จ") }}</strong>
                             <span>{{ configError }}</span>
                             <SecondaryButton width-mode="hug" :leading-icon="icons.restart" @click="loadConfig">
                                 Retry
                             </SecondaryButton>
                         </div>
                         <p v-else-if="features.length === 0" :class="$style.state" class="type-body-small-r">
-                            ยังไม่มีฟีเจอร์ที่เปิดใช้งาน
+                            No features are enabled
                         </p>
 
-                        <div v-else :class="$style.featureNav" role="tablist" aria-label="ฟีเจอร์ที่เปิดใช้งาน">
+                        <div v-else :class="$style.featureNav" role="tablist" :aria-label="text('Enabled features', 'ฟีเจอร์ที่เปิดใช้งาน')">
                             <button
                                 v-for="feature in features"
                                 :key="feature.code"
@@ -1044,7 +1099,7 @@ onMounted(async () => {
                             <p :class="$style.runtimeRemaining">
                                 <CountdownTimer :until="runtimePeriodEnd" />
                             </p>
-                            <span :class="$style.metricHint">ต่ออายุ {{ renewPrice }} บาท</span>
+                            <span :class="$style.metricHint">Renew for {{ renewPrice }} THB</span>
                             <label :class="$style.autoRenew">
                                 <input
                                     type="checkbox"
@@ -1052,7 +1107,7 @@ onMounted(async () => {
                                     :disabled="runtimeBusy"
                                     @change="setAutoRenew(($event.target as HTMLInputElement).checked)"
                                 >
-                                <span>Auto renew</span>
+                                <span>{{ text("Auto renew", "ต่ออายุอัตโนมัติ") }}</span>
                             </label>
                             <SecondaryButton
                                 width-mode="fill"
@@ -1064,7 +1119,7 @@ onMounted(async () => {
                             </SecondaryButton>
                         </template>
                         <p v-else :class="$style.state" class="type-body-small-r">
-                            ซื้อ runtime ในหน้า Package ก่อนเปิดบอทออนไลน์
+                            Purchase a Runtime from Packages before starting the bot
                         </p>
                     </div>
                 </aside>
@@ -1082,20 +1137,20 @@ onMounted(async () => {
                             </p>
                         </div>
 
-                        <PrimaryButton
-                            v-if="activeFeatureHasEmbed && activeFeature"
-                            width-mode="hug"
-                            :leading-icon="icons.comment"
-                            @click="openEmbedDesigner"
-                        >
-                            Embed Setting
-                        </PrimaryButton>
+                        <div v-if="activeFeatureHasEmbed && activeFeature" :class="$style.formHeaderActions">
+                            <PrimaryButton width-mode="hug" :leading-icon="icons.comment" @click="openEmbedDesigner">
+                                Embed Setting
+                            </PrimaryButton>
+                            <PrimaryButton width-mode="hug" :leading-icon="icons.setting" @click="openComponentDesigner">
+                                Component Setting
+                            </PrimaryButton>
+                        </div>
                     </header>
 
-                    <div v-if="isLoading" :class="$style.emptyPanel" class="type-body-small-r">กำลังโหลด…</div>
+                    <div v-if="isLoading" :class="$style.emptyPanel" class="type-body-small-r">{{ text("Loading…", "กำลังโหลด…") }}</div>
                     <div v-else-if="configError" :class="$style.emptyPanel" aria-live="polite">
                         <span :class="$style.emptyIcon" :style="iconMaskStyle(icons.warning)" aria-hidden="true" />
-                        <strong>โหลดการตั้งค่าไม่สำเร็จ</strong>
+                        <strong>{{ text("Unable to load settings", "โหลดการตั้งค่าไม่สำเร็จ") }}</strong>
                         <p>{{ configError }}</p>
                         <SecondaryButton width-mode="hug" :leading-icon="icons.restart" @click="loadConfig">
                             Retry
@@ -1103,8 +1158,8 @@ onMounted(async () => {
                     </div>
                     <div v-else-if="features.length === 0" :class="$style.emptyPanel">
                         <span :class="$style.emptyIcon" :style="iconMaskStyle(icons.package)" aria-hidden="true" />
-                        <strong>ยังไม่มีฟีเจอร์</strong>
-                        <p>ซื้อฟีเจอร์ในหน้า Package แล้วกลับมาตั้งค่าที่นี่</p>
+                        <strong>{{ text("No features yet", "ยังไม่มีฟีเจอร์") }}</strong>
+                        <p>{{ text("Purchase a feature from Packages, then return here to configure it.", "ซื้อฟีเจอร์ในหน้า Package แล้วกลับมาตั้งค่าที่นี่") }}</p>
                     </div>
 
                     <template v-else>
@@ -1135,8 +1190,8 @@ onMounted(async () => {
                             <h3 class="type-body-main-sb">Review Credit</h3>
                         </div>
                         <p :class="$style.cardLead">
-                            ตัวนับปัจจุบัน: <strong :class="$style.countValue">{{ reviewCount ?? "—" }}</strong>
-                            <span v-if="reviewCount !== null && !reviewCounted"> · ยังไม่ได้นับทั้งห้อง</span>
+                            Current count: <strong :class="$style.countValue">{{ reviewCount ?? "—" }}</strong>
+                            <span v-if="reviewCount !== null && !reviewCounted"> · {{ text("Full channel has not been counted", "ยังไม่ได้นับทั้งห้อง") }}</span>
                         </p>
                         <div :class="$style.countRow">
                             <input
@@ -1145,14 +1200,14 @@ onMounted(async () => {
                                 min="0"
                                 inputmode="numeric"
                                 :class="$style.countInput"
-                                placeholder="ตั้งตัวเลข credit"
-                                aria-label="ตั้งตัวเลข credit"
+                                :placeholder="text('Set credit count', 'ตั้งจำนวนเครดิต')"
+                                :aria-label="text('Set credit count', 'ตั้งจำนวนเครดิต')"
                             >
                             <PrimaryButton width-mode="hug" :disabled="reviewCountBusy" :leading-icon="icons.save" @click="saveReviewCount">
-                                ตั้งตัวเลข
+                                Set count
                             </PrimaryButton>
                             <SecondaryButton width-mode="hug" :disabled="reviewCountBusy" :leading-icon="icons.restart" @click="recountReview">
-                                {{ reviewCountBusy ? "…" : "นับทั้งห้องใหม่" }}
+                                {{ reviewCountBusy ? "…" : "Recount channel" }}
                             </SecondaryButton>
                         </div>
                     </section>
@@ -1161,23 +1216,23 @@ onMounted(async () => {
             </template>
 
             <template v-else-if="activeMainView === 'bot-config'">
-                <nav :class="$style.settingBreadcrumb" class="type-caption-sb" aria-label="Bot setting breadcrumb">
-                    <button :class="$style.breadcrumbLink" type="button" @click="setMainView('main')">Main</button>
+                <nav :class="$style.settingBreadcrumb" class="type-caption-sb" :aria-label="text('Bot settings breadcrumb', 'เส้นทางการตั้งค่าบอท')">
+                    <button :class="$style.breadcrumbLink" type="button" @click="setMainView('main')">{{ text("Main", "หน้าหลัก") }}</button>
                     <span :class="$style.breadcrumbTrail">
                         <span aria-hidden="true">&gt;</span>
-                        <span>Bot config</span>
+                        <span>{{ text("Bot config", "ตั้งค่าบอท") }}</span>
                     </span>
                 </nav>
 
                 <section :class="$style.botConfigFormCard" aria-labelledby="inline-bot-config-title">
-                    <h2 id="inline-bot-config-title" class="type-h2-section-title-sb">Bot config</h2>
+                    <h2 id="inline-bot-config-title" class="type-h2-section-title-sb">{{ text("Bot config", "ตั้งค่าบอท") }}</h2>
                     <form :class="$style.botConfigFields" @submit.prevent="confirmSaveBotSettings({ ...botConfigForm })">
-                        <TextField v-model="botConfigForm.name" label="Bot Name" required placeholder="ชื่อบอท" :disabled="isSavingBot" />
-                        <TextField v-model="botConfigForm.discordToken" label="Bot Token (Leave blank to keep current)" type="password" placeholder="••••••••••••••••••••••" :disabled="isSavingBot" />
+                        <TextField v-model="botConfigForm.name" :label="text('Bot Name', 'ชื่อบอท')" required :placeholder="text('Bot name', 'ชื่อบอท')" :disabled="isSavingBot" />
+                        <TextField v-model="botConfigForm.discordToken" :label="text('Bot Token (leave blank to keep current)', 'Bot Token (เว้นว่างเพื่อใช้ค่าเดิม)')" type="password" placeholder="••••••••••••••••••••••" :disabled="isSavingBot" />
                         <TextField v-model="botConfigForm.discordApplicationId" label="Application ID (Client ID)" placeholder="Application ID" :disabled="isSavingBot" />
                         <TextField v-model="botConfigForm.discordGuildId" label="Server ID (Guild)" placeholder="Server ID" :disabled="isSavingBot" />
                         <TextField v-model="botConfigForm.discordPublicKey" label="Public Key" placeholder="Public Key" :disabled="isSavingBot" />
-                        <TextField v-model="botConfigForm.discordClientSecret" label="Client Secret (Leave blank to keep current)" type="password" placeholder="••••••••••••••••••••••" :disabled="isSavingBot" />
+                        <TextField v-model="botConfigForm.discordClientSecret" :label="text('Client Secret (leave blank to keep current)', 'Client Secret (เว้นว่างเพื่อใช้ค่าเดิม)')" type="password" placeholder="••••••••••••••••••••••" :disabled="isSavingBot" />
                         <div :class="$style.botConfigFormActions">
                             <PrimaryButton type="button" width-mode="fixed" :leading-icon="icons.directionLeft" :disabled="isSavingBot" @click="setMainView('main')">
                                 Cancel
@@ -1192,8 +1247,8 @@ onMounted(async () => {
                 <section :class="$style.accessControlCard" aria-labelledby="access-control-title">
                     <div :class="$style.accessControlHeader">
                         <div>
-                            <h2 id="access-control-title" class="type-h2-section-title-sb">Access control</h2>
-                            <p class="type-body-small-r">กำหนด Role หรือ User ที่อนุญาตและปฏิเสธการใช้บอททั้งระบบหรือราย Feature</p>
+                            <h2 id="access-control-title" class="type-h2-section-title-sb">{{ text("Access control", "การควบคุมสิทธิ์") }}</h2>
+                            <p class="type-body-small-r">{{ text("Allow or deny Roles and Users across the bot or for individual features.", "กำหนด Role หรือ User ที่อนุญาตหรือปฏิเสธทั้งระบบหรือแยกตามฟีเจอร์") }}</p>
                         </div>
                         <SecondaryButton width-mode="hug" :leading-icon="icons.restart" :disabled="accessRulesLoading" @click="loadAccessRules">
                             Refresh
@@ -1201,17 +1256,17 @@ onMounted(async () => {
                     </div>
 
                     <form :class="$style.accessRuleForm" @submit.prevent="saveAccessRule">
-                        <SelectField v-model="accessRuleForm.featureCode" label="ขอบเขต" :options="accessFeatureOptions" :disabled="accessRulesBusy" />
-                        <SelectField v-model="accessRuleForm.targetType" label="ประเภทผู้ใช้" :options="accessTargetOptions" :disabled="accessRulesBusy" />
+                        <SelectField v-model="accessRuleForm.featureCode" :label="text('Scope', 'ขอบเขต')" :options="accessFeatureOptions" :disabled="accessRulesBusy" />
+                        <SelectField v-model="accessRuleForm.targetType" :label="text('User type', 'ประเภทผู้ใช้')" :options="accessTargetOptions" :disabled="accessRulesBusy" />
                         <TextField
                             v-model="accessRuleForm.targetDiscordId"
                             :label="accessRuleForm.targetType === 'ROLE' ? 'Role ID' : 'User ID'"
                             :placeholder="accessRuleForm.targetType === 'ROLE' ? 'Discord Role ID' : 'Discord User ID'"
-                            support-text="เปิด Developer Mode ใน Discord แล้ว Copy ID"
+                            :support-text="text('Enable Developer Mode in Discord, then copy the ID', 'เปิด Developer Mode ใน Discord แล้วคัดลอก ID')"
                             required
                             :disabled="accessRulesBusy"
                         />
-                        <SelectField v-model="accessRuleForm.effect" label="สิทธิ์" :options="accessEffectOptions" :disabled="accessRulesBusy" />
+                        <SelectField v-model="accessRuleForm.effect" :label="text('Permission', 'สิทธิ์')" :options="accessEffectOptions" :disabled="accessRulesBusy" />
                         <div :class="$style.accessRuleFormActions">
                             <SecondaryButton v-if="editingAccessRuleId" type="button" width-mode="hug" :disabled="accessRulesBusy" @click="resetAccessRuleForm">
                                 Cancel edit
@@ -1222,13 +1277,13 @@ onMounted(async () => {
                         </div>
                     </form>
 
-                    <p v-if="accessRulesLoading" :class="$style.state" class="type-body-small-r">กำลังโหลดกฎสิทธิ์…</p>
+                    <p v-if="accessRulesLoading" :class="$style.state" class="type-body-small-r">{{ text("Loading access rules…", "กำลังโหลดกฎสิทธิ์…") }}</p>
                     <div v-else-if="accessRulesError" :class="$style.statePanel" aria-live="polite">
-                        <strong>โหลดกฎสิทธิ์ไม่สำเร็จ</strong>
+                        <strong>{{ text("Unable to load access rules", "โหลดกฎสิทธิ์ไม่สำเร็จ") }}</strong>
                         <span>{{ accessRulesError }}</span>
                     </div>
                     <p v-else-if="accessRules.length === 0" :class="$style.accessEmpty" class="type-body-small-r">
-                        ยังไม่มีกฎ — สมาชิกทุกคนสามารถใช้งาน Feature ได้ตามปกติ
+                        No rules yet — all members can use features normally.
                     </p>
                     <div v-else :class="$style.accessRuleList">
                         <article v-for="rule in accessRules" :key="rule.id" :class="[$style.accessRuleItem, !rule.enabled ? $style.accessRuleDisabled : '']">
@@ -1241,9 +1296,9 @@ onMounted(async () => {
                                 <strong class="type-body-main-sb">{{ accessTargetLabel(rule) }}</strong>
                             </div>
                             <div :class="$style.accessRuleActions">
-                                <ToggleSwitch :model-value="rule.enabled" :disabled="accessRulesBusy" :aria-label="`${rule.enabled ? 'ปิด' : 'เปิด'}กฎ ${accessTargetLabel(rule)}`" @update:model-value="toggleAccessRule(rule, $event)" />
-                                <SecondaryButton width-mode="hug" :leading-icon="icons.edit" :disabled="accessRulesBusy" @click="editAccessRule(rule)">Edit</SecondaryButton>
-                                <SecondaryButton width-mode="hug" :leading-icon="icons.delete" :disabled="accessRulesBusy" @click="confirmDeleteAccessRule(rule)">Delete</SecondaryButton>
+                                <ToggleSwitch :model-value="rule.enabled" :disabled="accessRulesBusy" :aria-label="`${rule.enabled ? 'Disable' : 'Enable'} rule ${accessTargetLabel(rule)}`" @update:model-value="toggleAccessRule(rule, $event)" />
+                                <SecondaryButton width-mode="hug" :leading-icon="icons.edit" :disabled="accessRulesBusy" @click="editAccessRule(rule)">{{ text("Edit", "แก้ไข") }}</SecondaryButton>
+                                <SecondaryButton width-mode="hug" :leading-icon="icons.delete" :disabled="accessRulesBusy" @click="confirmDeleteAccessRule(rule)">{{ text("Delete", "ลบ") }}</SecondaryButton>
                             </div>
                         </article>
                     </div>
@@ -1251,11 +1306,11 @@ onMounted(async () => {
             </template>
 
             <template v-else-if="activeMainView === 'runtime-setting'">
-                <nav :class="$style.settingBreadcrumb" class="type-caption-sb" aria-label="Bot setting breadcrumb">
-                    <button :class="$style.breadcrumbLink" type="button" @click="setMainView('main')">Main</button>
+                <nav :class="$style.settingBreadcrumb" class="type-caption-sb" :aria-label="text('Bot settings breadcrumb', 'เส้นทางการตั้งค่าบอท')">
+                    <button :class="$style.breadcrumbLink" type="button" @click="setMainView('main')">{{ text("Main", "หน้าหลัก") }}</button>
                     <span :class="$style.breadcrumbTrail">
                         <span aria-hidden="true">&gt;</span>
-                        <span>Runtime setting</span>
+                        <span>{{ text("Runtime settings", "ตั้งค่า Runtime") }}</span>
                     </span>
                 </nav>
 
@@ -1264,17 +1319,17 @@ onMounted(async () => {
                         <span :class="$style.runtimeServerIcon" :style="iconMaskStyle(icons.shopServer)" aria-hidden="true" />
                         <h2 id="runtime-setting-title" class="type-body-main-sb">{{ runtimeSlotLabel }}</h2>
                         <p :class="$style.runtimeExpiry" class="type-body-small-r">
-                            <strong>Expired in:</strong>
+                            <strong>{{ text("Expires in:", "หมดอายุใน:") }}</strong>
                             <CountdownTimer :until="runtimeSub.currentPeriodEnd" />
                         </p>
                         <div :class="$style.runtimeAutoRenew">
                             <ToggleSwitch
                                 :model-value="runtimeSub.autoRenew"
                                 :disabled="runtimeBusy"
-                                aria-label="Auto renew Runtime"
+                                :aria-label="text('Auto renew Runtime', 'ต่ออายุ Runtime อัตโนมัติ')"
                                 @update:model-value="setAutoRenew"
                             />
-                            <span class="type-body-main-sb">Auto renew</span>
+                            <span class="type-body-main-sb">{{ text("Auto renew", "ต่ออายุอัตโนมัติ") }}</span>
                         </div>
                         <div :class="$style.runtimeSettingActions">
                             <PrimaryButton width-mode="fixed" fixed-width="var(--spacing-space-64)" :leading-icon="icons.directionLeft" :disabled="runtimeBusy" @click="setMainView('main')">
@@ -1290,24 +1345,24 @@ onMounted(async () => {
                     </template>
                     <template v-else>
                         <span :class="$style.runtimeServerIcon" :style="iconMaskStyle(icons.shopServer)" aria-hidden="true" />
-                        <h2 id="runtime-setting-title" class="type-body-main-sb">No Runtime</h2>
-                        <p :class="$style.runtimeExpiry" class="type-body-small-r">เลือก Runtime จากหน้า My Bot เพื่อเปิดใช้งานบอท</p>
-                        <PrimaryButton width-mode="fixed" :leading-icon="icons.directionLeft" @click="setMainView('main')">Back</PrimaryButton>
+                        <h2 id="runtime-setting-title" class="type-body-main-sb">{{ text("No Runtime", "ไม่มี Runtime") }}</h2>
+                        <p :class="$style.runtimeExpiry" class="type-body-small-r">{{ text("Select a Runtime from My Bot to start this bot.", "เลือก Runtime จากหน้า My Bot เพื่อเปิดใช้งานบอท") }}</p>
+                        <PrimaryButton width-mode="fixed" :leading-icon="icons.directionLeft" @click="setMainView('main')">{{ text("Back", "กลับ") }}</PrimaryButton>
                     </template>
                 </section>
             </template>
 
             <template v-else-if="activeMainView === 'package-setting'">
-                <nav :class="$style.settingBreadcrumb" class="type-caption-sb" aria-label="Bot setting breadcrumb">
-                    <button :class="$style.breadcrumbLink" type="button" @click="setMainView('main')">Main</button>
+                <nav :class="$style.settingBreadcrumb" class="type-caption-sb" :aria-label="text('Bot settings breadcrumb', 'เส้นทางการตั้งค่าบอท')">
+                    <button :class="$style.breadcrumbLink" type="button" @click="setMainView('main')">{{ text("Main", "หน้าหลัก") }}</button>
                     <span :class="[$style.breadcrumbTrail, $style.packageBreadcrumbBase]">
                         <span aria-hidden="true">&gt;</span>
-                        <span>Package setting</span>
+                        <span>{{ text("Package settings", "ตั้งค่า Package") }}</span>
                     </span>
                 </nav>
 
                 <section :class="$style.packageSettingTable" aria-labelledby="package-setting-title">
-                    <h2 id="package-setting-title" :class="$style.visuallyHidden">Packages assigned to this bot</h2>
+                    <h2 id="package-setting-title" :class="$style.visuallyHidden">{{ text("Packages assigned to this bot", "Package ที่ผูกกับบอทนี้") }}</h2>
                     <div :class="$style.packageTableScroll">
                         <table>
                             <colgroup>
@@ -1317,7 +1372,7 @@ onMounted(async () => {
                                 <col :class="$style.packageActionColumn">
                             </colgroup>
                             <thead>
-                                <tr><th>No</th><th>Name</th><th>Description</th><th>Action</th></tr>
+                                <tr><th>{{ text("No.", "ลำดับ") }}</th><th>{{ text("Name", "ชื่อ") }}</th><th>{{ text("Description", "รายละเอียด") }}</th><th>{{ text("Action", "การทำงาน") }}</th></tr>
                             </thead>
                             <tbody>
                                 <tr v-for="(row, index) in packageRows" :key="row.feature.code">
@@ -1341,10 +1396,10 @@ onMounted(async () => {
                                     </td>
                                 </tr>
                                 <tr v-if="!isLoading && packageRows.length === 0">
-                                    <td colspan="4" :class="$style.packageEmpty">No package found.</td>
+                                    <td colspan="4" :class="$style.packageEmpty">{{ text("No packages found.", "ไม่พบ Package") }}</td>
                                 </tr>
                                 <tr v-else-if="isLoading">
-                                    <td colspan="4" :class="$style.packageEmpty">Loading packages…</td>
+                                    <td colspan="4" :class="$style.packageEmpty">{{ text("Loading packages…", "กำลังโหลด Package…") }}</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -1353,11 +1408,11 @@ onMounted(async () => {
             </template>
 
             <template v-else-if="activeMainView === 'package-feature'">
-                <nav :class="$style.settingBreadcrumb" class="type-caption-sb" aria-label="Bot setting breadcrumb">
-                    <button :class="$style.breadcrumbLink" type="button" @click="setMainView('main')">Main</button>
+                <nav :class="$style.settingBreadcrumb" class="type-caption-sb" :aria-label="text('Bot settings breadcrumb', 'เส้นทางการตั้งค่าบอท')">
+                    <button :class="$style.breadcrumbLink" type="button" @click="setMainView('main')">{{ text("Main", "หน้าหลัก") }}</button>
                     <span :class="$style.packageBreadcrumbBase">
                         <span aria-hidden="true">&gt;</span>
-                        <button :class="$style.breadcrumbLink" type="button" @click="setMainView('package-setting')">Package setting</button>
+                        <button :class="$style.breadcrumbLink" type="button" @click="setMainView('package-setting')">{{ text("Package settings", "ตั้งค่า Package") }}</button>
                     </span>
                     <span :class="$style.breadcrumbFeatureTrail">
                         <span aria-hidden="true">&gt;</span>
@@ -1366,7 +1421,7 @@ onMounted(async () => {
                 </nav>
 
                 <section :class="$style.packageFeatureCard" :aria-label="`${activeFeature?.name || 'Feature'} settings`">
-                    <div v-if="!activeFeature" :class="$style.packageEmpty">Feature not found.</div>
+                    <div v-if="!activeFeature" :class="$style.packageEmpty">{{ text("Feature not found.", "ไม่พบฟีเจอร์") }}</div>
                     <RobloxRobuxConfigForm
                         v-else-if="activeFeature.code === ROBLOX_ROBUX_PAYOUT"
                         :key="activeFeature.code"
@@ -1376,13 +1431,13 @@ onMounted(async () => {
                         :saving="isSaving"
                         submit-fixed-width="var(--spacing-space-64)"
                         :submit-icon="icons.save"
-                        submit-label="Save"
+                        :submit-label="text('Save', 'บันทึก')"
                         submit-width-mode="fixed"
                         @submit="confirmSaveFeature"
                     >
                         <template #actions>
-                            <PrimaryButton width-mode="fixed" fixed-width="var(--spacing-space-64)" :leading-icon="icons.directionLeft" :disabled="isSaving" @click="setMainView('package-setting')">Cancel</PrimaryButton>
-                            <PrimaryButton width-mode="fixed" fixed-width="var(--spacing-space-64)" :leading-icon="icons.edit" :disabled="isSaving" @click="openEmbedDesigner">Embed setting</PrimaryButton>
+                            <PrimaryButton width-mode="fixed" fixed-width="var(--spacing-space-64)" :leading-icon="icons.directionLeft" :disabled="isSaving" @click="setMainView('package-setting')">{{ text("Cancel", "ยกเลิก") }}</PrimaryButton>
+                            <PrimaryButton width-mode="fixed" fixed-width="var(--spacing-space-64)" :leading-icon="icons.edit" :disabled="isSaving" @click="openEmbedDesigner">{{ text("Embed settings", "ตั้งค่า Embed") }}</PrimaryButton>
                         </template>
                     </RobloxRobuxConfigForm>
                     <FeatureConfigForm
@@ -1395,29 +1450,30 @@ onMounted(async () => {
                         :saving="isSaving"
                         submit-fixed-width="var(--spacing-space-64)"
                         :submit-icon="icons.save"
-                        submit-label="Save"
+                        :submit-label="text('Save', 'บันทึก')"
                         submit-width-mode="fixed"
                         @submit="confirmSaveFeature"
                     >
                         <template #actions>
-                            <PrimaryButton width-mode="fixed" fixed-width="var(--spacing-space-64)" :leading-icon="icons.directionLeft" :disabled="isSaving" @click="setMainView('package-setting')">Cancel</PrimaryButton>
-                            <PrimaryButton width-mode="fixed" fixed-width="var(--spacing-space-64)" :leading-icon="icons.edit" :disabled="isSaving" @click="openEmbedDesigner">Embed setting</PrimaryButton>
+                            <PrimaryButton width-mode="fixed" fixed-width="var(--spacing-space-64)" :leading-icon="icons.directionLeft" :disabled="isSaving" @click="setMainView('package-setting')">{{ text("Cancel", "ยกเลิก") }}</PrimaryButton>
+                            <PrimaryButton width-mode="fixed" fixed-width="var(--spacing-space-64)" :leading-icon="icons.edit" :disabled="isSaving" @click="openEmbedDesigner">{{ text("Embed settings", "ตั้งค่า Embed") }}</PrimaryButton>
+                            <PrimaryButton v-if="activeFeature.code === WALLET_TOPUP" width-mode="fixed" fixed-width="var(--spacing-space-64)" :leading-icon="icons.edit" :disabled="isSaving" @click="openComponentDesigner">{{ text("Component settings", "ตั้งค่า Components") }}</PrimaryButton>
                         </template>
                     </FeatureConfigForm>
                 </section>
             </template>
 
             <template v-else-if="activeMainView === 'core-features'">
-                <nav :class="$style.settingBreadcrumb" class="type-caption-sb" aria-label="Bot setting breadcrumb">
-                    <button :class="$style.breadcrumbLink" type="button" @click="setMainView('main')">Main</button>
+                <nav :class="$style.settingBreadcrumb" class="type-caption-sb" :aria-label="text('Bot settings breadcrumb', 'เส้นทางการตั้งค่าบอท')">
+                    <button :class="$style.breadcrumbLink" type="button" @click="setMainView('main')">{{ text("Main", "หน้าหลัก") }}</button>
                     <span :class="$style.breadcrumbTrail">
                         <span aria-hidden="true">&gt;</span>
-                        <span>Core features</span>
+                        <span>{{ text("Core features", "ฟีเจอร์พื้นฐาน") }}</span>
                     </span>
                 </nav>
 
                 <section :class="[$style.packageSettingTable, $style.coreFeaturesPanel]" aria-labelledby="core-features-title">
-                    <h2 id="core-features-title" :class="$style.visuallyHidden">Features included with every bot</h2>
+                    <h2 id="core-features-title" :class="$style.visuallyHidden">{{ text("Features included with every bot", "ฟีเจอร์ที่รวมมากับบอททุกตัว") }}</h2>
                     <div :class="$style.packageTableScroll">
                         <table>
                             <colgroup>
@@ -1427,7 +1483,7 @@ onMounted(async () => {
                                 <col :class="$style.packageActionColumn">
                             </colgroup>
                             <thead>
-                                <tr><th>No</th><th>Name</th><th>Description</th><th>Action</th></tr>
+                                <tr><th>{{ text("No.", "ลำดับ") }}</th><th>{{ text("Name", "ชื่อ") }}</th><th>{{ text("Description", "รายละเอียด") }}</th><th>{{ text("Action", "การทำงาน") }}</th></tr>
                             </thead>
                             <tbody>
                                 <tr v-for="(row, index) in coreFeatureRows" :key="row.feature.code">
@@ -1443,10 +1499,10 @@ onMounted(async () => {
                                     </td>
                                 </tr>
                                 <tr v-if="!isLoading && coreFeatureRows.length === 0">
-                                    <td colspan="4" :class="$style.packageEmpty">No core features found.</td>
+                                    <td colspan="4" :class="$style.packageEmpty">{{ text("No core features found.", "ไม่พบฟีเจอร์พื้นฐาน") }}</td>
                                 </tr>
                                 <tr v-else-if="isLoading">
-                                    <td colspan="4" :class="$style.packageEmpty">Loading core features…</td>
+                                    <td colspan="4" :class="$style.packageEmpty">{{ text("Loading core features…", "กำลังโหลดฟีเจอร์พื้นฐาน…") }}</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -1455,11 +1511,11 @@ onMounted(async () => {
             </template>
 
             <template v-else-if="activeMainView === 'core-feature'">
-                <nav :class="$style.settingBreadcrumb" class="type-caption-sb" aria-label="Bot setting breadcrumb">
-                    <button :class="$style.breadcrumbLink" type="button" @click="setMainView('main')">Main</button>
+                <nav :class="$style.settingBreadcrumb" class="type-caption-sb" :aria-label="text('Bot settings breadcrumb', 'เส้นทางการตั้งค่าบอท')">
+                    <button :class="$style.breadcrumbLink" type="button" @click="setMainView('main')">{{ text("Main", "หน้าหลัก") }}</button>
                     <span :class="$style.packageBreadcrumbBase">
                         <span aria-hidden="true">&gt;</span>
-                        <button :class="$style.breadcrumbLink" type="button" @click="setMainView('core-features')">Core features</button>
+                        <button :class="$style.breadcrumbLink" type="button" @click="setMainView('core-features')">{{ text("Core features", "ฟีเจอร์พื้นฐาน") }}</button>
                     </span>
                     <span :class="$style.breadcrumbFeatureTrail">
                         <span aria-hidden="true">&gt;</span>
@@ -1468,7 +1524,7 @@ onMounted(async () => {
                 </nav>
 
                 <section :class="[$style.packageFeatureCard, $style.coreFeaturesPanel]" :aria-label="`${activeFeature?.name || 'Core feature'} settings`">
-                    <div v-if="!activeFeature" :class="$style.packageEmpty">Feature not found.</div>
+                    <div v-if="!activeFeature" :class="$style.packageEmpty">{{ text("Feature not found.", "ไม่พบฟีเจอร์") }}</div>
                     <FeatureConfigForm
                         v-else
                         :key="activeFeature.code"
@@ -1479,23 +1535,23 @@ onMounted(async () => {
                         :saving="isSaving"
                         submit-fixed-width="var(--spacing-space-64)"
                         :submit-icon="icons.save"
-                        submit-label="Save"
+                        :submit-label="text('Save', 'บันทึก')"
                         submit-width-mode="fixed"
                         @submit="confirmSaveFeature"
                     >
                         <template #actions>
-                            <PrimaryButton width-mode="fixed" fixed-width="var(--spacing-space-64)" :leading-icon="icons.directionLeft" :disabled="isSaving" @click="setMainView('core-features')">Cancel</PrimaryButton>
+                            <PrimaryButton width-mode="fixed" fixed-width="var(--spacing-space-64)" :leading-icon="icons.directionLeft" :disabled="isSaving" @click="setMainView('core-features')">{{ text("Cancel", "ยกเลิก") }}</PrimaryButton>
                         </template>
                     </FeatureConfigForm>
                 </section>
             </template>
 
-            <template v-else-if="activeMainView === 'embed-setting'">
-                <nav :class="$style.settingBreadcrumb" class="type-caption-sb" aria-label="Embed setting breadcrumb">
-                    <button :class="$style.breadcrumbLink" type="button" @click="setMainView('main')">Main</button>
+            <template v-else-if="activeMainView === 'embed-setting' || activeMainView === 'component-setting'">
+                <nav :class="$style.settingBreadcrumb" class="type-caption-sb" :aria-label="`${activeMainView === 'component-setting' ? 'Component' : 'Embed'} setting breadcrumb`">
+                    <button :class="$style.breadcrumbLink" type="button" @click="setMainView('main')">{{ text("Main", "หน้าหลัก") }}</button>
                     <span :class="$style.packageBreadcrumbBase">
                         <span aria-hidden="true">&gt;</span>
-                        <button :class="$style.breadcrumbLink" type="button" @click="setMainView('package-setting')">Package setting</button>
+                        <button :class="$style.breadcrumbLink" type="button" @click="setMainView('package-setting')">{{ text("Package settings", "ตั้งค่า Package") }}</button>
                     </span>
                     <span :class="$style.packageBreadcrumbBase">
                         <span aria-hidden="true">&gt;</span>
@@ -1503,14 +1559,17 @@ onMounted(async () => {
                     </span>
                     <span :class="$style.breadcrumbEmbedTrail">
                         <span aria-hidden="true">&gt;</span>
-                        <span>Embed setting</span>
+                        <span>{{ activeMainView === "component-setting" ? "Component setting" : "Embed setting" }}</span>
                     </span>
                 </nav>
 
-                <section :class="$style.embedSettingCard" :aria-label="`${activeFeature?.name || 'Feature'} Embed setting`">
+                <section :class="$style.embedSettingCard" :aria-label="`${activeFeature?.name || 'Feature'} ${activeMainView === 'component-setting' ? 'Component' : 'Embed'} setting`">
                     <EmbedEditor
                         :bot-id="botId"
+                        :bot-name="botName"
+                        :bot-avatar-url="botAvatarUrl"
                         :feature-code="activeFeatureCode"
+                        :mode="activeMainView === 'component-setting' ? 'components' : 'embed'"
                         :preview-config-values="values"
                     />
                 </section>
@@ -2787,6 +2846,13 @@ onMounted(async () => {
     color: var(--color-text-secondary);
 }
 
+.formHeaderActions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--spacing-space-3);
+}
+
 .emptyPanel {
     display: flex;
     min-height: 280px;
@@ -2867,6 +2933,10 @@ onMounted(async () => {
     }
 
     .heroActions {
+        justify-content: flex-start;
+    }
+
+    .formHeaderActions {
         justify-content: flex-start;
     }
 

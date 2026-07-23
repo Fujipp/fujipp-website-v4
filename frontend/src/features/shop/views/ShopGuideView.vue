@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { PrimaryButton } from "@/shared/ui/buttons";
 
 const MAINTENANCE_END_AT = new Date("2026-07-16T17:36:36+07:00").getTime();
-const GHOST_APOLOGIES = [
-    "ขอโทษน้า เดี๋ยวกลับมาเร็ว ๆ นี้ 👻",
-    "รออีกนิดนะ กำลังรีบซ่อมให้อยู่เลย! 🛠️",
-    "สัญญาว่าจะกลับมาให้ไวที่สุดนะ ✨",
-] as const;
+const { t } = useI18n();
+const ghostApologies = computed(() => [
+    t("shop.maintenance.messageOne"),
+    t("shop.maintenance.messageTwo"),
+    t("shop.maintenance.messageThree"),
+]);
 
 const ghostRef = ref<SVGSVGElement | null>(null);
 const ghostEyes = ref({ x: 0, y: 0 });
@@ -30,16 +32,16 @@ const countdown = computed(() => {
 
 const countdownLabel = computed(() => (
     remainingMilliseconds.value > 0
-        ? `เหลือเวลา ${countdown.value.days} วัน ${countdown.value.hours} ชั่วโมง ${countdown.value.minutes} นาที ${countdown.value.seconds} วินาที`
-        : "กำลังกลับมาให้บริการ"
+        ? t("shop.maintenance.countdown", countdown.value)
+        : t("shop.maintenance.returning")
 ));
 const countdownItems = computed(() => [
-    { label: "วัน", value: countdown.value.days },
-    { label: "ชั่วโมง", value: countdown.value.hours },
-    { label: "นาที", value: countdown.value.minutes },
-    { label: "วินาที", value: countdown.value.seconds },
+    { label: t("shop.maintenance.days"), value: countdown.value.days },
+    { label: t("shop.maintenance.hours"), value: countdown.value.hours },
+    { label: t("shop.maintenance.minutes"), value: countdown.value.minutes },
+    { label: t("shop.maintenance.seconds"), value: countdown.value.seconds },
 ]);
-const currentApology = computed(() => GHOST_APOLOGIES[apologyIndex.value] ?? GHOST_APOLOGIES[0]);
+const currentApology = computed(() => ghostApologies.value[apologyIndex.value] ?? ghostApologies.value[0]);
 
 function formatCountdownValue(value: number): string {
     return String(value).padStart(2, "0");
@@ -69,7 +71,7 @@ function aimGhostEyes(event: PointerEvent): void {
 }
 
 function showApology(): void {
-    const availableIndexes = GHOST_APOLOGIES
+    const availableIndexes = ghostApologies.value
         .map((_, index) => index)
         .filter((index) => index !== apologyIndex.value);
 
@@ -114,7 +116,7 @@ onUnmounted(() => {
                 <button
                     type="button"
                     :class="$style.ghostButton"
-                    aria-label="ให้ผีน้อยกล่าวขอโทษ"
+                    :aria-label="t('shop.maintenance.ghostLabel')"
                     @click="showApology"
                 >
                     <svg ref="ghostRef" :class="$style.ghostSvg" viewBox="0 0 360 460" aria-hidden="true">
@@ -139,9 +141,9 @@ onUnmounted(() => {
                 </button>
             </div>
 
-            <p :class="$style.eyebrow">TEMPORARY MAINTENANCE</p>
-            <h1 id="shop-maintenance-title" :class="$style.title">กำลังปรับปรุงระบบชั่วคราว</h1>
-            <p :class="$style.description">คาดว่าจะกลับมาให้บริการภายใน</p>
+            <p :class="$style.eyebrow">{{ t("shop.maintenance.eyebrow") }}</p>
+            <h1 id="shop-maintenance-title" :class="$style.title">{{ t("shop.maintenance.title") }}</h1>
+            <p :class="$style.description">{{ t("shop.maintenance.expected") }}</p>
 
             <div
                 v-if="remainingMilliseconds > 0"
@@ -154,13 +156,13 @@ onUnmounted(() => {
                     <span :class="$style.countdownUnit">{{ item.label }}</span>
                 </div>
             </div>
-            <p v-else :class="$style.returningMessage" role="status">กำลังกลับมาให้บริการ</p>
+            <p v-else :class="$style.returningMessage" role="status">{{ t("shop.maintenance.returning") }}</p>
 
             <div :class="$style.divider" aria-hidden="true" />
 
-            <p :class="$style.walletNote">ระบบเติมเงินยังสามารถใช้งานได้ตามปกติ</p>
+            <p :class="$style.walletNote">{{ t("shop.maintenance.walletAvailable") }}</p>
             <PrimaryButton :class="$style.walletButton" width-mode="hug" :to="{ name: 'shop-wallet' }">
-                ไปหน้าเติมเงิน
+                {{ t("shop.maintenance.goToWallet") }}
             </PrimaryButton>
         </section>
     </main>

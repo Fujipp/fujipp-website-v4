@@ -100,6 +100,7 @@ const router = createRouter({
     { path: '/shop/bots/:botId/config/core-features', name: 'shop-bot-core-features', component: BotConfigView, meta: { requiresAuth: true } },
     { path: '/shop/bots/:botId/config/core-features/:featureCode', name: 'shop-bot-core-feature', component: BotConfigView, meta: { requiresAuth: true } },
     { path: '/shop/bots/:botId/config/package-setting/:featureCode/embed-setting', name: 'shop-bot-embed-setting', component: BotConfigView, meta: { requiresAuth: true } },
+    { path: '/shop/bots/:botId/config/package-setting/:featureCode/component-setting', name: 'shop-bot-component-setting', component: BotConfigView, meta: { requiresAuth: true } },
     { path: '/shop/bots/:botId/config/package-setting/:featureCode', name: 'shop-bot-package-feature', component: BotConfigView, meta: { requiresAuth: true } },
     { path: '/shop/bots/:botId/embeds', name: 'shop-bot-embeds', component: EmbedDesignerView, meta: { requiresAuth: true } },
 

@@ -1,14 +1,32 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
+import { ref, watch } from "vue";
 import { useToastStore } from "@/stores";
 import StatusToast from "./StatusToast.vue";
 
 const toastStore = useToastStore();
 const { toasts } = storeToRefs(toastStore);
+const notificationAudio = ref<HTMLAudioElement | null>(null);
+
+watch(
+    () => toasts.value.map((toast) => toast.id),
+    (currentIds, previousIds = []) => {
+        if (!currentIds.some((id) => !previousIds.includes(id))) return;
+        const audio = notificationAudio.value;
+        if (!audio) return;
+        audio.currentTime = 0;
+        audio.volume = 0.28;
+        void audio.play().catch(() => {
+            // Browsers may block audio before the user's first interaction.
+        });
+    },
+);
 </script>
 
 <template>
     <div :class="$style.toastHost" aria-live="polite">
+        <!-- Message pop alert by Mixkit, used under the Mixkit Sound Effects License. -->
+        <audio ref="notificationAudio" src="/sounds/toast-notification.mp3" preload="auto" />
         <TransitionGroup
             :enter-from-class="$style.slideHidden"
             :leave-to-class="$style.slideHidden"
@@ -38,8 +56,8 @@ const { toasts } = storeToRefs(toastStore);
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
-    width: min(calc(100vw - var(--spacing-space-8)), 400px);
-    gap: var(--spacing-space-3);
+    width: min(calc(100vw - var(--spacing-space-8)), 440px);
+    gap: var(--spacing-space-2);
     pointer-events: none;
 }
 

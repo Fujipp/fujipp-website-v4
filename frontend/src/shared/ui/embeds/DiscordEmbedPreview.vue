@@ -31,7 +31,11 @@ export interface EmbedObject {
     timestamp?: string;
     fields?: EmbedField[];
     components?: Record<string, ComponentConfig>;
-    componentsV2?: { texts?: Record<string, string> };
+    componentsV2?: {
+        texts?: Record<string, string>;
+        layout?: Array<Record<string, unknown>>;
+        container?: { accentColor?: number; spoiler?: boolean };
+    };
 }
 
 export interface PreviewRole {
@@ -75,7 +79,8 @@ export const SLOT_ROLES: Record<string, PreviewRole[]> = {
         { key: "btn_close", label: "Close button", type: "button", fallback: "ปิด", style: "secondary" },
     ],
     topup_panel: [
-        { key: "btn_topup", label: "Top-up button", type: "button", fallback: "เติมเงิน", emoji: "💰", style: "primary" },
+        { key: "btn_topup", label: "Top-up button", type: "button", fallback: "เติมเงิน", emoji: "💰", style: "success" },
+        { key: "btn_balance", label: "Balance button", type: "button", fallback: "เช็คยอดเงินคงเหลือ", emoji: "💳", style: "secondary" },
     ],
     buy_eligible: [
         { key: "pkg_select", label: "Package selector", type: "select", fallback: "🎮 เลือก Robux Package" },
@@ -111,12 +116,23 @@ const STATIC_ROLES: Record<string, { label: string; style: string }[]> = {
 
 <script setup lang="ts">
 import { computed } from "vue";
+import { useUserStore } from "@/stores";
 
 const props = defineProps<{
     embed: EmbedObject;
     slotKey?: string;
     configValues?: Record<string, string>;
 }>();
+const userStore = useUserStore();
+const previewMemberName = computed(() => (
+    userStore.profile?.displayName
+    || userStore.profile?.username
+    || "Member"
+));
+const previewMemberAvatar = computed(() => (
+    userStore.profile?.avatarUrl
+    || "/brand/avatar-default.svg"
+));
 
 function cfg(key: string): string {
     return (props.configValues?.[key] ?? "").trim();
@@ -165,7 +181,30 @@ const mockVars = computed<Record<string, string>>(() => {
     const pkgs = configuredPackages();
     const now = new Date().toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" });
     return {
-        member: "@ลูกค้า",
+        member: "1108816021915176962",
+        member_id: "1108816021915176962",
+        member_mention: `<@1108816021915176962>`,
+        member_username: userStore.profile?.username || "member",
+        member_display_name: previewMemberName.value,
+        member_avatar_url: previewMemberAvatar.value,
+        guild_id: "1075695911495274576",
+        guild_name: "Fujipp Community",
+        channel_id: "1528753427679809537",
+        channel_mention: "<#1528753427679809537>",
+        bot_id: "1528753427679809538",
+        bot_name: props.slotKey ? "Fujipp Bot" : "Discord Bot",
+        bot_avatar_url: previewMemberAvatar.value,
+        amount: "58.00 THB",
+        gross: "63.00 THB",
+        fee: "5.00 THB",
+        total_balance: "158.00 THB",
+        method: "QR (SlipOK)",
+        account_name: "อนวัตร กรุดธูป",
+        countdown: "4 นาที 59 วินาที",
+        qr_image: "https://promptpay.io/0835891753/58.00.png",
+        fee_text: "หักค่าธรรมเนียม 5 บาทต่อซอง",
+        minimum: "58",
+        avatar_url: previewMemberAvatar.value,
         balance: "฿100.00",
         balance_after: "฿65.00",
         robux: (pkgs[0]?.robux ?? 1000).toLocaleString(),
@@ -205,7 +244,7 @@ function renderText(raw: string | undefined): string {
     s = s.replace(/&lt;(a)?:(\w+):(\d+)&gt;/g, (_m, anim, name, id) =>
         `<img class="emoji" src="https://cdn.discordapp.com/emojis/${id}.${anim ? "gif" : "png"}" alt=":${name}:" />`);
     s = s.replace(/&lt;@&amp;(\d+)&gt;/g, '<span class="mention">@role</span>');
-    s = s.replace(/&lt;@!?(\d+)&gt;/g, '<span class="mention">@user</span>');
+    s = s.replace(/&lt;@!?(\d+)&gt;/g, `<span class="mention">@${escapeHtml(previewMemberName.value)}</span>`);
     s = s.replace(/&lt;#(\d+)&gt;/g, '<span class="mention">#channel</span>');
     s = s.replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
     s = s.replace(/__([^_]+)__/g, "<u>$1</u>");
@@ -217,7 +256,11 @@ function renderText(raw: string | undefined): string {
 }
 
 function safeUrl(u: string | undefined): string {
-    return u && /^https?:\/\//i.test(u) ? u : "";
+    if (!u) return "";
+    const resolved = subst(u).trim();
+    const isRemoteUrl = /^https?:\/\//i.test(resolved);
+    const isLocalUrl = resolved.startsWith("/") && !resolved.startsWith("//");
+    return isRemoteUrl || isLocalUrl ? resolved : "";
 }
 
 const barColor = computed(() => {

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
+import { useI18n } from "vue-i18n";
 import {
     WalletCreditCard,
     WalletTopupPanel,
@@ -49,6 +50,7 @@ interface NormalizedBackendError {
 
 const router = useRouter();
 const userStore = useUserStore();
+const { locale, t } = useI18n();
 
 const balanceSatang = ref(0);
 const customAmount = ref(String(MIN_TOPUP_THB));
@@ -104,7 +106,7 @@ const qrImageUrl = computed(() => {
 });
 
 function formatMoney(satang: number): string {
-    return new Intl.NumberFormat("th-TH", {
+    return new Intl.NumberFormat(locale.value === "th" ? "th-TH" : "en-US", {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
     }).format(satang / 100);
@@ -150,7 +152,7 @@ function normalizeErrorMessage(rawMessage: string, fallback: string): string {
 
     if (!messageText) return fallback;
     if (backendError.status === 401 || backendError.status === 403) {
-        return "กรุณาเข้าสู่ระบบใหม่ แล้วลองทำรายการอีกครั้ง";
+        return t("shop.wallet.errors.signInAgain");
     }
     if (backendError.code) {
         const codeMessage = mapSlipOkCode(backendError.code);
@@ -161,34 +163,34 @@ function normalizeErrorMessage(rawMessage: string, fallback: string): string {
         || lowerMessage.includes("resourceaccessexception")
         || lowerMessage.includes("localhost:8081")
     ) {
-        return "ระบบกระเป๋าเงินยังไม่พร้อมใช้งาน กรุณาเปิด billing-service ที่พอร์ต 8081";
+        return t("shop.wallet.errors.unavailable");
     }
     if (lowerMessage.includes("minimum top-up") || lowerMessage.includes("minimum amount")) {
-        return "ยอดเติมขั้นต่ำคือ 50 บาท";
+        return t("shop.wallet.errors.minimum", { amount: MIN_TOPUP_THB });
     }
     if (lowerMessage.includes("unauthorized") || lowerMessage.includes("jwt")) {
-        return "กรุณาเข้าสู่ระบบใหม่ แล้วลองทำรายการอีกครั้ง";
+        return t("shop.wallet.errors.signInAgain");
     }
     if (lowerMessage.includes("already been used") || lowerMessage.includes("1012")) {
-        return "สลิปนี้ถูกใช้งานไปแล้ว กรุณาใช้สลิปใหม่";
+        return t("shop.wallet.errors.usedSlip");
     }
     if (lowerMessage.includes("amount") || lowerMessage.includes("1013")) {
-        return "ยอดเงินในสลิปไม่ตรงกับยอด QR Code นี้";
+        return t("shop.wallet.errors.amountMismatch");
     }
     if (lowerMessage.includes("receiver") || lowerMessage.includes("1014")) {
-        return "บัญชีผู้รับในสลิปไม่ตรงกับบัญชีร้าน";
+        return t("shop.wallet.errors.receiverMismatch");
     }
     if (lowerMessage.includes("bank delay") || lowerMessage.includes("1010")) {
-        return "ธนาคารยังตรวจสอบสลิปไม่เสร็จ กรุณารอสักครู่แล้วลองใหม่";
+        return t("shop.wallet.errors.bankDelay");
     }
     if (lowerMessage.includes("could not read slip")) {
-        return "อ่านรูปสลิปไม่ได้ กรุณาอัปโหลดรูปที่ชัดกว่านี้";
+        return t("shop.wallet.errors.unreadableSlip");
     }
     if (lowerMessage.includes("provide exactly one")) {
-        return "กรุณาส่งสลิปเพียงไฟล์เดียวต่อการยืนยันหนึ่งครั้ง";
+        return t("shop.wallet.errors.oneFile");
     }
     if (lowerMessage.includes("top-up is already")) {
-        return "รายการเติมเงินนี้ถูกดำเนินการไปแล้ว กรุณาสร้าง QR Code ใหม่";
+        return t("shop.wallet.errors.alreadyProcessed");
     }
 
     return messageText.length > 180 ? fallback : messageText;
@@ -196,17 +198,17 @@ function normalizeErrorMessage(rawMessage: string, fallback: string): string {
 
 function mapSlipOkCode(code: string): string {
     const slipOkMessages: Record<string, string> = {
-        "1000": "ไม่พบข้อมูลสลิปนี้ กรุณาตรวจสอบรูปสลิปอีกครั้ง",
-        "1001": "รูปสลิปไม่ถูกต้องหรืออ่านข้อมูลไม่ได้ กรุณาอัปโหลดรูปใหม่",
-        "1002": "รูปสลิปไม่ชัดเจน กรุณาใช้ภาพต้นฉบับจากแอปธนาคาร",
-        "1003": "ไม่พบ QR ในสลิป กรุณาอัปโหลดสลิปที่มี QR ครบถ้วน",
-        "1004": "รูปสลิปมีรูปแบบไม่ถูกต้อง กรุณาใช้ไฟล์ PNG, JPG หรือ WebP",
-        "1005": "ข้อมูลสลิปไม่ครบ กรุณาตรวจสอบว่าสลิปเป็นรายการโอนเงินสำเร็จ",
-        "1010": "ธนาคารยังตรวจสอบสลิปไม่เสร็จ กรุณารอสักครู่แล้วลองใหม่",
-        "1011": "ไม่สามารถตรวจสอบสลิปนี้ได้ กรุณาลองใหม่หรือใช้สลิปอื่น",
-        "1012": "สลิปนี้ถูกใช้งานไปแล้ว กรุณาใช้สลิปใหม่",
-        "1013": "ยอดเงินในสลิปไม่ตรงกับยอด QR Code นี้",
-        "1014": "บัญชีผู้รับในสลิปไม่ตรงกับบัญชีร้าน",
+        "1000": t("shop.wallet.slipCodes.1000"),
+        "1001": t("shop.wallet.slipCodes.1001"),
+        "1002": t("shop.wallet.slipCodes.1002"),
+        "1003": t("shop.wallet.slipCodes.1003"),
+        "1004": t("shop.wallet.slipCodes.1004"),
+        "1005": t("shop.wallet.slipCodes.1005"),
+        "1010": t("shop.wallet.slipCodes.1010"),
+        "1011": t("shop.wallet.slipCodes.1011"),
+        "1012": t("shop.wallet.slipCodes.1012"),
+        "1013": t("shop.wallet.slipCodes.1013"),
+        "1014": t("shop.wallet.slipCodes.1014"),
     };
 
     return slipOkMessages[code] ?? "";
@@ -215,7 +217,7 @@ function mapSlipOkCode(code: string): string {
 async function readResponseError(response: Response, fallback: string): Promise<string> {
     const rawMessage = await response.text();
     const statusMessage = response.status === 401 || response.status === 403
-        ? "กรุณาเข้าสู่ระบบใหม่ แล้วลองทำรายการอีกครั้ง"
+        ? t("shop.wallet.errors.signInAgain")
         : fallback;
 
     return normalizeErrorMessage(rawMessage, statusMessage);
@@ -225,7 +227,7 @@ async function getAuthHeaders(): Promise<Record<string, string> | null> {
     await userStore.initAuth();
 
     if (!userStore.accessToken) {
-        showToast("warning", "กรุณาเข้าสู่ระบบ", "ต้องเข้าสู่ระบบก่อนใช้งานกระเป๋าเงิน");
+        showToast("warning", t("shop.wallet.signInTitle"), t("shop.wallet.signInBody"));
         return null;
     }
 
@@ -241,7 +243,7 @@ async function loadWallet(): Promise<void> {
     try {
         const response = await fetch(`${API_BASE_URL}/api/wallet`, { headers });
         if (!response.ok) {
-            throw new Error(await readResponseError(response, "โหลด Wallet ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"));
+            throw new Error(await readResponseError(response, t("shop.wallet.loadFailed")));
         }
 
         const wallet = await response.json() as WalletResponse;
@@ -249,8 +251,8 @@ async function loadWallet(): Promise<void> {
     } catch (error) {
         walletError.value = error instanceof Error && error.message
             ? error.message
-            : "โหลด Wallet ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
-        showToast("error", "โหลด Wallet ไม่สำเร็จ", walletError.value);
+            : t("shop.wallet.loadFailed");
+        showToast("error", t("shop.wallet.loadFailedTitle"), walletError.value);
     } finally {
         isLoadingWallet.value = false;
     }
@@ -283,23 +285,23 @@ async function generateQr(): Promise<void> {
         });
 
         if (!response.ok) {
-            throw new Error(await readResponseError(response, "สร้าง QR Code ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"));
+            throw new Error(await readResponseError(response, t("shop.wallet.qrFailed")));
         }
 
         topup.value = await response.json() as TopupInitResponse;
         currentStep.value = 2;
         showToast(
             "success",
-            "สร้าง QR Code สำเร็จ",
-            "ชำระเงินด้วย QR Code นี้ แล้วอัปโหลดสลิปเพื่อยืนยัน",
+            t("shop.wallet.qrSuccessTitle"),
+            t("shop.wallet.qrSuccessBody"),
         );
     } catch (error) {
         showToast(
             "error",
-            "สร้าง QR Code ไม่สำเร็จ",
+            t("shop.wallet.qrFailedTitle"),
             error instanceof Error && error.message
             ? error.message
-            : "กรุณาลองใหม่อีกครั้ง",
+            : t("shop.common.retry"),
         );
     } finally {
         isGeneratingQr.value = false;
@@ -323,13 +325,13 @@ function setSlipFile(file: File | null): void {
     clearToast();
     if (file && !supportedSlipTypes.includes(file.type)) {
         slipFile.value = null;
-        showToast("warning", "ไฟล์ไม่รองรับ", "กรุณาอัปโหลดสลิปเป็นไฟล์ PNG, JPG หรือ WebP");
+        showToast("warning", t("shop.wallet.unsupportedTitle"), t("shop.wallet.unsupportedBody"));
         return;
     }
 
     slipFile.value = file;
     if (file) {
-        showToast("info", "เลือกสลิปแล้ว", file.name);
+        showToast("info", t("shop.wallet.slipSelected"), file.name);
     }
 }
 
@@ -350,11 +352,11 @@ async function verifySlip(): Promise<void> {
     if (!headers) return;
 
     if (!topup.value) {
-        showToast("warning", "กรุณาสร้าง QR ก่อน", "ต้องสร้าง QR Code ก่อนยืนยันสลิป");
+        showToast("warning", t("shop.wallet.createQrFirstTitle"), t("shop.wallet.createQrFirstBody"));
         return;
     }
     if (!slipFile.value) {
-        showToast("warning", "กรุณาเลือกสลิป", "ต้องอัปโหลดสลิปก่อนกดยืนยัน");
+        showToast("warning", t("shop.wallet.selectSlipTitle"), t("shop.wallet.selectSlipBody"));
         return;
     }
     if (!canVerifySlip.value) return;
@@ -372,10 +374,10 @@ async function verifySlip(): Promise<void> {
         });
 
         if (!response.ok) {
-            throw new Error(await readResponseError(response, "ยืนยันสลิปไม่สำเร็จ กรุณาตรวจสอบสลิปแล้วลองใหม่"));
+            throw new Error(await readResponseError(response, t("shop.wallet.verifyFailed")));
         }
 
-        showToast("success", "ยืนยันสลิปสำเร็จ", "ระบบเติมเงินเข้ากระเป๋าให้แล้ว");
+        showToast("success", t("shop.wallet.verifySuccessTitle"), t("shop.wallet.verifySuccessBody"));
         slipFile.value = null;
         topup.value = null;
         currentStep.value = 1;
@@ -384,10 +386,10 @@ async function verifySlip(): Promise<void> {
     } catch (error) {
         showToast(
             "error",
-            "ยืนยันสลิปไม่สำเร็จ",
+            t("shop.wallet.verifyFailedTitle"),
             error instanceof Error && error.message
             ? error.message
-            : "กรุณาตรวจสอบสลิปแล้วลองใหม่",
+            : t("shop.wallet.verifyFailed"),
         );
     } finally {
         isVerifyingSlip.value = false;
@@ -420,20 +422,20 @@ onUnmounted(() => {
     <div :class="$style.shopWallet">
         <main :class="$style.content">
             <section :class="$style.section" aria-labelledby="shop-wallet-title">
-                <h1 id="shop-wallet-title" :class="$style.pageTitle">Credit</h1>
+                <h1 id="shop-wallet-title" :class="$style.pageTitle">{{ t("shop.wallet.credit") }}</h1>
             </section>
 
             <section :class="$style.section" aria-labelledby="shop-wallet-topup-title">
                 <section v-if="walletError" :class="$style.statePanel" aria-live="polite">
-                    <h2 :class="$style.stateTitle">โหลด Wallet ไม่สำเร็จ</h2>
+                    <h2 :class="$style.stateTitle">{{ t("shop.wallet.loadFailedTitle") }}</h2>
                     <p :class="$style.stateText">{{ walletError }}</p>
-                    <PrimaryButton @click="loadWallet">ลองใหม่</PrimaryButton>
+                    <PrimaryButton @click="loadWallet">{{ t("shop.common.retry") }}</PrimaryButton>
                 </section>
 
-                <section :class="$style.walletFlow" aria-label="Wallet top up">
+                <section :class="$style.walletFlow" :aria-label="t('shop.wallet.topUpLabel')">
                     <WalletCreditCard :class="$style.creditCard" :balance="walletBalance" :holder="walletUsername" :emblem="walletAvatarUrl" />
 
-                    <h2 id="shop-wallet-topup-title" :class="$style.sectionTitle">Top up</h2>
+                    <h2 id="shop-wallet-topup-title" :class="$style.sectionTitle">{{ t("shop.wallet.topUp") }}</h2>
 
                     <WalletTopupPanel
                         :step="currentStep"
@@ -458,9 +460,9 @@ onUnmounted(() => {
                     />
 
                     <aside :class="$style.instructions">
-                        <strong>Payment Instructions</strong>
-                        <span>1) Open your mobile banking app and scan the generated QR code to make a payment (Account Name: Anawat Grudtoop).</span>
-                        <span>2) Once the transfer is complete, please upload the payment slip to the website.</span>
+                        <strong>{{ t("shop.wallet.instructionsTitle") }}</strong>
+                        <span>{{ t("shop.wallet.instructionOne") }}</span>
+                        <span>{{ t("shop.wallet.instructionTwo") }}</span>
                     </aside>
                 </section>
             </section>

@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { useLocaleText } from "@/i18n";
+
+const text = useLocaleText();
 
 interface Props {
     // Target date/time the subscription ends. Accepts a date ("2026-07-09") or a
@@ -8,7 +11,7 @@ interface Props {
     expiredLabel?: string;
 }
 
-const props = withDefaults(defineProps<Props>(), { expiredLabel: "หมดอายุ" });
+const props = withDefaults(defineProps<Props>(), { expiredLabel: "Expired" });
 
 const now = ref(Date.now());
 let timer: ReturnType<typeof setInterval> | undefined;
@@ -29,7 +32,7 @@ const expired = computed(() => remaining.value !== null && remaining.value === 0
 
 const display = computed(() => {
     if (remaining.value === null) return "-";
-    if (remaining.value === 0) return props.expiredLabel;
+    if (remaining.value === 0) return props.expiredLabel === "Expired" ? text("Expired", "หมดอายุ") : props.expiredLabel;
 
     const totalSeconds = Math.floor(remaining.value / 1000);
     const days = Math.floor(totalSeconds / 86_400);

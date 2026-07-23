@@ -1,11 +1,14 @@
 <script setup lang="ts">
+import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import { icons } from "@/config";
 
-const footerLinks = [
-    { label: "TERMS", to: "/terms" },
-    { label: "PRIVACY", to: "/privacy" },
-    { label: "CHANGELOG", to: "/changelog" },
-] as const;
+const { t } = useI18n();
+const footerLinks = computed(() => [
+    { label: t("shop.footer.terms"), to: "/terms" },
+    { label: t("shop.footer.privacy"), to: "/privacy" },
+    { label: t("shop.footer.changelog"), to: "/changelog" },
+]);
 
 const socialLinks = [
     { label: "Email Fujipp", href: "mailto:anawat.grudtoop@gmail.com", icon: icons.gmail, external: false },
@@ -21,19 +24,11 @@ const socialLinks = [
         <div :class="$style.companyInfo">
             <div :class="$style.companyTagline">
                 <RouterLink to="/" :class="$style.logo" aria-label="Fujipp home">
-                    <svg :class="$style.logoMark" viewBox="0 0 344 300" aria-hidden="true">
-                        <path
-                            :class="$style.logoPrimary"
-                            d="M0 75.0001V300C49.8638 300 90.3073 259.617 90.3822 209.753L90.4156 187.5H231.875V112.5H90.5745V91.0001H231.875V87.2419C231.875 60.5309 242.561 34.93 261.552 16.1459L277.875 0.00012207H74.5033C33.3563 0.00012207 0 33.5788 0 75.0001Z"
-                        />
-                        <path
-                            :class="$style.logoSecondary"
-                            d="M343.75 225V3.05176e-05C293.768 3.05176e-05 253.25 40.5182 253.25 90.5V209H111.875V212.758C111.875 239.469 101.189 265.07 82.1982 283.854L65.875 300H269.247C310.394 300 343.75 266.421 343.75 225Z"
-                        />
-                    </svg>
+                    <span :class="$style.logoIcon" aria-hidden="true" />
+                    <span :class="$style.logoText" aria-hidden="true" />
                 </RouterLink>
                 <span :class="$style.tagline" class="type-button-r">
-                    Building ideas, one commit at a time.
+                    {{ t("shop.footer.tagline") }}
                 </span>
             </div>
 
@@ -115,21 +110,32 @@ const socialLinks = [
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
+    width: 104px;
     height: 32px;
+    gap: var(--spacing-space-2);
     border-radius: var(--radius-base);
     color: inherit;
 }
 
-.logoMark {
-    width: 32px;
-    height: 28px;
-    overflow: visible;
+.logoIcon,
+.logoText {
+    display: inline-block;
+    flex-shrink: 0;
+    background: currentColor;
 }
 
-.logoPrimary,
-.logoSecondary {
-    fill: var(--color-text-primary);
+.logoIcon {
+    width: 24px;
+    height: 24px;
+    mask: url('/brand/logo-fujipp-new-icons.svg') center / contain no-repeat;
+    -webkit-mask: url('/brand/logo-fujipp-new-icons.svg') center / contain no-repeat;
+}
+
+.logoText {
+    width: 72px;
+    height: 19px;
+    mask: url('/brand/logo-fujipp-new-text.svg') center / contain no-repeat;
+    -webkit-mask: url('/brand/logo-fujipp-new-text.svg') center / contain no-repeat;
 }
 
 .tagline {

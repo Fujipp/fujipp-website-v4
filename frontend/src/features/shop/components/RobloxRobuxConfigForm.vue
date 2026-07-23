@@ -2,6 +2,9 @@
 import { computed, reactive, ref, watch } from "vue";
 import { PrimaryButton, SelectField, TextField, type SelectFieldOption } from "@/shared/ui";
 import type { FeatureDefinition } from "@/features/shop/config/featureConfig";
+import { useLocaleText } from "@/i18n";
+
+const text = useLocaleText();
 
 // Custom config renderer for the `roblox-robux-payout` feature. Replaces the
 // generic, one-field-per-template form with a purpose-built layout: up to three
@@ -25,7 +28,7 @@ const props = withDefaults(defineProps<Props>(), {
     channelOptions: () => [],
     saving: false,
     submitFixedWidth: "160px",
-    submitLabel: "บันทึกการตั้งค่า",
+    submitLabel: "Save settings",
     submitWidthMode: "fill",
 });
 
@@ -48,15 +51,15 @@ const errors = reactive<Record<string, string>>({});
 // the secrets stay blank (= keep existing) instead of forcing re-entry.
 const configured = reactive<Record<GroupIndex, boolean>>({ 1: false, 2: false, 3: false });
 
-const RATE_OPTIONS: SelectFieldOption[] = [
-    { label: "1 บาท = 3 Robux", value: "3" },
-    { label: "1 บาท = 3.5 Robux", value: "3.5" },
-    { label: "1 บาท = 4 Robux", value: "4" },
-];
-const ON_OFF_OPTIONS: SelectFieldOption[] = [
-    { label: "เปิด", value: "true" },
-    { label: "ปิด", value: "false" },
-];
+const RATE_OPTIONS = computed<SelectFieldOption[]>(() => [
+    { label: text("1 THB = 3 Robux", "1 บาท = 3 Robux"), value: "3" },
+    { label: text("1 THB = 3.5 Robux", "1 บาท = 3.5 Robux"), value: "3.5" },
+    { label: text("1 THB = 4 Robux", "1 บาท = 4 Robux"), value: "4" },
+]);
+const ON_OFF_OPTIONS = computed<SelectFieldOption[]>(() => [
+    { label: text("Enabled", "เปิด"), value: "true" },
+    { label: text("Disabled", "ปิด"), value: "false" },
+]);
 
 function val(key: string): string {
     return props.modelValue[key] ?? "";
@@ -96,7 +99,7 @@ const countdownMinutes = computed(() => {
     const seconds = Number(fv("PAYMENT_COUNTDOWN_TARGET"));
     if (!Number.isFinite(seconds) || seconds <= 0) return "";
     const mins = seconds / 60;
-    return `≈ ${Number.isInteger(mins) ? mins : mins.toFixed(1)} นาที`;
+    return `≈ ${Number.isInteger(mins) ? mins : mins.toFixed(1)} ${text("minutes", "นาที")}`;
 });
 
 function groupHasAnyInput(i: GroupIndex): boolean {
@@ -118,17 +121,17 @@ function validateGroup(i: GroupIndex): boolean {
 
     let ok = true;
     if (!fv(idKey(i)).trim()) {
-        errors[idKey(i)] = "ต้องกรอก Group ID";
+        errors[idKey(i)] = text("Group ID is required", "ต้องกรอก Group ID");
         ok = false;
     }
     // For a never-configured group the secrets must be provided up-front.
     if (!configured[i]) {
         if (!fv(cookieKey(i)).trim()) {
-            errors[cookieKey(i)] = "ต้องกรอก Cookie สำหรับกลุ่มใหม่";
+            errors[cookieKey(i)] = text("Cookie is required for a new group", "ต้องกรอก Cookie สำหรับกลุ่มใหม่");
             ok = false;
         }
         if (!fv(totpKey(i)).trim()) {
-            errors[totpKey(i)] = "ต้องกรอก TOTP Secret สำหรับกลุ่มใหม่";
+            errors[totpKey(i)] = text("TOTP Secret is required for a new group", "ต้องกรอก TOTP Secret สำหรับกลุ่มใหม่");
             ok = false;
         }
     }
@@ -142,14 +145,14 @@ function validate(): boolean {
     errors.ROBUX_PAYOUT_COOLDOWN = "";
     const cooldown = Number(fv("ROBUX_PAYOUT_COOLDOWN"));
     if (fv("ROBUX_PAYOUT_COOLDOWN").trim() && (!Number.isFinite(cooldown) || cooldown < 0)) {
-        errors.ROBUX_PAYOUT_COOLDOWN = "ต้องเป็นจำนวนวินาที 0 ขึ้นไป";
+        errors.ROBUX_PAYOUT_COOLDOWN = text("Must be 0 seconds or greater", "ต้องเป็น 0 วินาทีขึ้นไป");
         ok = false;
     }
 
     errors.PAYMENT_COUNTDOWN_TARGET = "";
     const countdown = Number(fv("PAYMENT_COUNTDOWN_TARGET"));
     if (fv("PAYMENT_COUNTDOWN_TARGET").trim() && (!Number.isFinite(countdown) || countdown < 0)) {
-        errors.PAYMENT_COUNTDOWN_TARGET = "ต้องเป็นจำนวนวินาที 0 ขึ้นไป";
+        errors.PAYMENT_COUNTDOWN_TARGET = text("Must be 0 seconds or greater", "ต้องเป็น 0 วินาทีขึ้นไป");
         ok = false;
     }
     return ok;
@@ -194,28 +197,28 @@ function onSubmit(): void {
                 :class="$style.group"
             >
                 <legend :class="$style.groupTitle" class="type-overline-r">
-                    กลุ่ม {{ i }}<span v-if="i === 1"> · จำเป็น</span><span v-else> · ไม่บังคับ</span>
+                    {{ text("Group", "กลุ่ม") }} {{ i }}<span v-if="i === 1"> · {{ text("Required", "จำเป็น") }}</span><span v-else> · {{ text("Optional", "ไม่บังคับ") }}</span>
                 </legend>
                 <div :class="$style.groupFields">
                     <TextField
                         :label="i === 1 ? 'Roblox Group ID *' : 'Roblox Group ID'"
                         :model-value="form[idKey(i)]"
                         type="text"
-                        placeholder="เช่น 1234567"
+                        :placeholder="text('e.g. 1234567', 'เช่น 1234567')"
                         :error="errors[idKey(i)]"
                         :disabled="saving"
                         @update:model-value="(v: string) => (form[idKey(i)] = v)"
                     />
                     <TextField
-                        label="ชื่อกลุ่ม (แสดงผล)"
+                        :label="text('Group display name', 'ชื่อกลุ่มที่แสดง')"
                         :model-value="form[nameKey(i)]"
                         type="text"
-                        placeholder="ชื่อที่โชว์ใน embed"
+                        :placeholder="text('Name shown in the embed', 'ชื่อที่แสดงใน Embed')"
                         :disabled="saving"
                         @update:model-value="(v: string) => (form[nameKey(i)] = v)"
                     />
                     <TextField
-                        :label="configured[i] ? '.ROBLOSECURITY Cookie (เว้นว่าง = คงเดิม)' : '.ROBLOSECURITY Cookie *'"
+                        :label="configured[i] ? text('.ROBLOSECURITY Cookie (leave blank to keep current)', '.ROBLOSECURITY Cookie (เว้นว่างเพื่อใช้ค่าเดิม)') : '.ROBLOSECURITY Cookie *'"
                         :model-value="form[cookieKey(i)]"
                         type="password"
                         placeholder="••••••••"
@@ -224,7 +227,7 @@ function onSubmit(): void {
                         @update:model-value="(v: string) => (form[cookieKey(i)] = v)"
                     />
                     <TextField
-                        :label="configured[i] ? '2FA TOTP Secret (เว้นว่าง = คงเดิม)' : '2FA TOTP Secret *'"
+                        :label="configured[i] ? text('2FA TOTP Secret (leave blank to keep current)', '2FA TOTP Secret (เว้นว่างเพื่อใช้ค่าเดิม)') : '2FA TOTP Secret *'"
                         :model-value="form[totpKey(i)]"
                         type="password"
                         placeholder="••••••••"
@@ -239,21 +242,21 @@ function onSubmit(): void {
         <!-- Payout settings -->
         <div :class="$style.settings">
             <SelectField
-                label="เรท Robux (1 บาท ได้กี่ Robux)"
+                :label="text('Robux rate (Robux per THB)', 'เรท Robux (จำนวน Robux ต่อบาท)')"
                 :model-value="form.ROBUX_RATE"
                 :options="RATE_OPTIONS"
                 :disabled="saving"
                 @update:model-value="(v: string) => (form.ROBUX_RATE = v)"
             />
             <SelectField
-                label="เปิดระบบจ่าย Robux"
+                :label="text('Enable Robux payouts', 'เปิดระบบจ่าย Robux')"
                 :model-value="form.ROBUX_ENABLED"
                 :options="ON_OFF_OPTIONS"
                 :disabled="saving"
                 @update:model-value="(v: string) => (form.ROBUX_ENABLED = v)"
             />
             <TextField
-                label="คูลดาวน์การจ่าย (วินาที)"
+                :label="text('Payout cooldown (seconds)', 'คูลดาวน์การจ่าย (วินาที)')"
                 :model-value="form.ROBUX_PAYOUT_COOLDOWN"
                 type="number"
                 placeholder="5"
@@ -263,19 +266,19 @@ function onSubmit(): void {
             />
             <SelectField
                 v-if="useChannelSelect"
-                label="ช่องแจ้งเตือนการจ่าย Robux"
+                :label="text('Robux payout notification channel', 'ห้องแจ้งเตือนการจ่าย Robux')"
                 :model-value="form.ROBUX_NOTIFY_CHANNEL"
                 :options="channelOptions"
-                placeholder="เลือกห้อง…"
+                :placeholder="text('Select a channel…', 'เลือกห้อง…')"
                 :disabled="saving"
                 @update:model-value="(v: string) => (form.ROBUX_NOTIFY_CHANNEL = v)"
             />
             <TextField
                 v-else
-                label="ช่องแจ้งเตือนการจ่าย Robux (Channel ID)"
+                :label="text('Robux payout notification Channel ID', 'Channel ID ห้องแจ้งเตือนการจ่าย Robux')"
                 :model-value="form.ROBUX_NOTIFY_CHANNEL"
                 type="text"
-                placeholder="วาง Channel ID หรือเชิญบอทเข้ากลุ่มก่อน"
+                :placeholder="text('Paste a Channel ID or invite the bot first', 'วาง Channel ID หรือเชิญบอทก่อน')"
                 :disabled="saving"
                 @update:model-value="(v: string) => (form.ROBUX_NOTIFY_CHANNEL = v)"
             />
@@ -284,7 +287,7 @@ function onSubmit(): void {
         <!-- Countdown -->
         <div :class="$style.settings">
             <SelectField
-                label="เปิดนับถอยหลังโปรโมชัน"
+                :label="text('Enable promotion countdown', 'เปิดนับถอยหลังโปรโมชัน')"
                 :model-value="form.PAYMENT_COUNTDOWN_ENABLED"
                 :options="ON_OFF_OPTIONS"
                 :disabled="saving"
@@ -292,10 +295,10 @@ function onSubmit(): void {
             />
             <div :class="$style.countdownField">
                 <TextField
-                    label="เวลานับถอยหลัง (วินาที)"
+                    :label="text('Countdown duration (seconds)', 'เวลานับถอยหลัง (วินาที)')"
                     :model-value="form.PAYMENT_COUNTDOWN_TARGET"
                     type="number"
-                    placeholder="เช่น 60 หรือ 300"
+                    :placeholder="text('e.g. 60 or 300', 'เช่น 60 หรือ 300')"
                     :error="errors.PAYMENT_COUNTDOWN_TARGET"
                     :disabled="saving"
                     @update:model-value="(v: string) => (form.PAYMENT_COUNTDOWN_TARGET = v)"
@@ -307,7 +310,7 @@ function onSubmit(): void {
         <div :class="$style.actions">
             <slot name="actions" />
             <PrimaryButton type="submit" :disabled="saving" :fixed-width="submitFixedWidth" :leading-icon="submitIcon" :width-mode="submitWidthMode">
-                {{ saving ? "กำลังบันทึก…" : submitLabel }}
+                {{ saving ? text("Saving…", "กำลังบันทึก…") : submitLabel === "Save settings" ? text("Save settings", "บันทึกการตั้งค่า") : submitLabel }}
             </PrimaryButton>
         </div>
     </form>
