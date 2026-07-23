@@ -4,6 +4,7 @@
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.5.16` | 2026-07-24 | Restored reliable designed Wallet Components V2 responses by preserving ephemeral visibility throughout deferred QR edits and acknowledging cold payment-method interactions before loading their templates. |
 | `0.5.15` | 2026-07-24 | Restored the selectable Wallet & Top-up presentation so QR, validation, processing, failure, and success messages use each bot's designed Components V2 templates when that display mode is selected, while retaining emergency delivery fallbacks. |
 | `0.5.14` | 2026-07-24 | Completed the Wallet & Top-up modal-submit isolation from configurable messages by rendering invalid-amount feedback as a template-free reply and adding an emergency PromptPay QR response when a configured reply cannot be sent. |
 | `0.5.13` | 2026-07-24 | Isolated the complete Wallet & Top-up payment lifecycle from Components V2 rendering so processing, SlipOK verification, failure, success, and wallet-credit results use stable configurable Embeds; also guaranteed that an empty configured embed receives visible fallback content. |
