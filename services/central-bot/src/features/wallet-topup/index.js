@@ -16,24 +16,17 @@ const topup = require('./topup');
 const slip = require('./slip');
 const { grantTopupRole } = require('./topup-role');
 const { isAdmin } = require('../../lib/perms');
+const { withDiscordContext } = require('./discord-context');
 
 const thb = (satang) => `฿${(satang / 100).toLocaleString('th-TH')}`;
 
 async function handleWallet(interaction, ctx) {
   await interaction.deferReply({ ephemeral: true });
   const balance = await ctx.services.wallet.getBalance(interaction.user.id);
-  const embed = await ctx.services.embeds.renderEmbed('balance', {
-    member: interaction.user.id,
-    balance: thb(balance),
-  });
-  await interaction.editReply({ embeds: [embed] });
+  await interaction.editReply(await topup.buildWalletBalance(ctx, interaction.user, balance, interaction));
   const unsubscribe = ctx.services.wallet.subscribeBalance(interaction.user.id, async (nextBalance) => {
     try {
-      const nextEmbed = await ctx.services.embeds.renderEmbed('balance', {
-        member: interaction.user.id,
-        balance: thb(nextBalance),
-      });
-      await interaction.editReply({ embeds: [nextEmbed] });
+      await interaction.editReply(await topup.buildWalletBalance(ctx, interaction.user, nextBalance, interaction));
     } catch {
       unsubscribe();
     }
@@ -53,13 +46,13 @@ async function handleWalletAdd(interaction, ctx) {
     type: 'TOPUP',
     note: `manual by ${interaction.user.id}`,
   });
-  const embed = await ctx.services.embeds.renderEmbed('topup_success', {
+  const embed = await ctx.services.embeds.renderEmbed('topup_success', withDiscordContext(interaction, {
     member: member.id,
     amount: thb(amountThb * 100),
     total_balance: thb(balance),
     method: 'แอดมินเติม',
     datetime: new Date().toLocaleString('th-TH'),
-  });
+  }, member));
   await interaction.editReply({ embeds: [embed] });
 
   // Post the same success embed publicly, like a SlipOK top-up does (slip.js).
@@ -114,7 +107,7 @@ async function handleTopupPanel(interaction, ctx) {
     return;
   }
   await interaction.deferReply({ ephemeral: true });
-  await interaction.channel.send(await topup.buildTopupPanel(ctx));
+  await interaction.channel.send(await topup.buildTopupPanel(ctx, interaction));
   await interaction.editReply({ content: 'โพสต์แผงเติมเงินแล้ว ✅' });
 }
 

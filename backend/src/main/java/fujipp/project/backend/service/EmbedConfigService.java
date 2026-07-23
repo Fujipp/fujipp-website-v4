@@ -207,6 +207,24 @@ public class EmbedConfigService {
         return saveEmbedInternal(botId, slotKey, embedJson);
     }
 
+    @Transactional
+    public String resetEmbed(UUID userId, UUID botId, String slotKey) {
+        assertOwner(userId, botId);
+        return resetEmbedInternal(botId, slotKey);
+    }
+
+    @Transactional
+    public String resetEmbedForAdmin(UUID botId, String slotKey) {
+        return resetEmbedInternal(botId, slotKey);
+    }
+
+    private String resetEmbedInternal(UUID botId, String slotKey) {
+        jdbc.update(
+            "DELETE FROM bots.bot_embeds WHERE subject_id = ? AND slot_key = ?",
+            botId.toString(), slotKey);
+        return getEmbedInternal(botId, slotKey);
+    }
+
     private String saveEmbedInternal(UUID botId, String slotKey, String embedJson) {
         Integer exists = jdbc.query(
             "SELECT 1 FROM bots.embed_slots WHERE slot_key = ? LIMIT 1",

@@ -101,14 +101,14 @@ async function onMessage(message, ctx) {
   if (!branchId || !apiKey) {
     const payload = await renderTopupStatus(ctx, 'error', {
       reason: 'ร้านยังตั้งค่า SlipOK ไม่ครบ (SLIPOK_BRANCH_ID / API_SLIPOK_KEY)',
-    });
+    }, [], message);
     await message.reply(payload).catch(() => {});
     return;
   }
 
   const images = [...message.attachments.values()].filter(isImage).slice(0, 3);
   for (const att of images) {
-    const loading = await message.reply(await renderTopupStatus(ctx, 'processing')).catch(() => null);
+    const loading = await message.reply(await renderTopupStatus(ctx, 'processing', {}, [], message)).catch(() => null);
     if (!loading) continue;
 
     try {
@@ -122,7 +122,7 @@ async function onMessage(message, ctx) {
         if (!Number.isFinite(amountBaht) || amountBaht <= 0) {
           const failed = await renderTopupStatus(ctx, 'topup_failed', {
             reason: 'ตรวจสลิปผ่าน แต่ไม่พบยอดเงินในข้อมูลสลิป',
-          });
+          }, [], message);
           await loading.edit(failed).catch(() => {});
           continue;
         }
@@ -139,7 +139,7 @@ async function onMessage(message, ctx) {
           total_balance: thb(balance),
           method: 'QR (SlipOK)',
           datetime: new Date().toLocaleString('th-TH'),
-        });
+        }, [], message);
         await loading.edit(success).catch(() => {});
         await notifyChannel(message, ctx, success);
         // Grant the configured top-up role (no-op if unset).
@@ -151,14 +151,14 @@ async function onMessage(message, ctx) {
         const reason = SLIP_ERRORS[code]
           || String(result.body?.message || '').trim()
           || 'ไม่สามารถตรวจสอบสลิปได้ในขณะนี้';
-        const failed = await renderTopupStatus(ctx, 'topup_failed', { reason });
+        const failed = await renderTopupStatus(ctx, 'topup_failed', { reason }, [], message);
         await loading.edit(failed).catch(() => {});
       }
     } catch (err) {
       console.error('[central-bot] slip verify failed:', err.message);
       const failed = await renderTopupStatus(ctx, 'error', {
         reason: 'เชื่อมต่อบริการตรวจสลิปล้มเหลว กรุณาลองใหม่อีกครั้ง',
-      });
+      }, [], message);
       await loading.edit(failed).catch(() => {});
     }
   }
