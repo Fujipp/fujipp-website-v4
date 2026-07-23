@@ -115,6 +115,12 @@ function buildEmbed(json, slotKey) {
 
   const title = clip(str(json.title), LIMIT.title);
   const description = clip(str(json.description), LIMIT.description);
+  const fields = Array.isArray(json.fields)
+    ? json.fields
+      .filter((f) => f && str(f.name) && str(f.value))
+      .slice(0, 25)
+      .map((f) => ({ name: clip(str(f.name), LIMIT.fieldName), value: clip(str(f.value), LIMIT.fieldValue), inline: !!f.inline }))
+    : [];
   if (title) e.setTitle(title);
   // A url only renders as a clickable title, so apply it only when a title exists.
   if (title) {
@@ -122,8 +128,9 @@ function buildEmbed(json, slotKey) {
     if (titleUrl) e.setURL(titleUrl);
   }
   if (description) e.setDescription(description);
-  // An embed must carry at least one visible element.
-  if (!title && !description && !Array.isArray(json.fields)) e.setDescription(slotKey);
+  // An embed must carry at least one visible element. An empty fields array is
+  // not visible and Discord rejects an otherwise empty embed.
+  if (!title && !description && fields.length === 0) e.setDescription(slotKey);
 
   const image = httpUrl(json.image && json.image.url);
   if (image) e.setImage(image);
@@ -145,13 +152,7 @@ function buildEmbed(json, slotKey) {
     const ts = new Date(str(json.timestamp));
     if (!Number.isNaN(ts.getTime())) e.setTimestamp(ts);
   }
-  if (Array.isArray(json.fields)) {
-    const fields = json.fields
-      .filter((f) => f && str(f.name) && str(f.value))
-      .slice(0, 25)
-      .map((f) => ({ name: clip(str(f.name), LIMIT.fieldName), value: clip(str(f.value), LIMIT.fieldValue), inline: !!f.inline }));
-    if (fields.length) e.addFields(fields);
-  }
+  if (fields.length) e.addFields(fields);
   return e;
 }
 
