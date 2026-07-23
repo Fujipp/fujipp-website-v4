@@ -295,12 +295,16 @@ async function start() {
     client.once(Events.ClientReady, async (c) => {
       log(`logged in as ${c.user.tag}`);
       try {
-        c.commandSync.global = await syncCommands(c.application.commands, commandData, { label: 'global' });
         if (config.guildId) {
+          // Guild-scoped shop bots must not also publish the same commands
+          // globally; Discord displays both registrations as duplicate entries.
+          c.commandSync.global = await syncCommands(c.application.commands, [], { label: 'global cleanup' });
           c.commandSync.guild = await syncCommands(c.application.commands, commandData, {
             guildId: config.guildId,
             label: `guild ${config.guildId}`,
           });
+        } else {
+          c.commandSync.global = await syncCommands(c.application.commands, commandData, { label: 'global' });
         }
       } catch (err) {
         c.commandSync.error = 'command synchronization failed';
