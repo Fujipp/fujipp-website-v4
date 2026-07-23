@@ -77,19 +77,6 @@ function ephemeralPayload(payload) {
   return { ...payload, ephemeral: true };
 }
 
-function editReplyPayload(payload) {
-  if (!(payload.flags & MessageFlags.IsComponentsV2)) return payload;
-  return {
-    ...payload,
-    // EPHEMERAL is selected when deferring the response and cannot be changed
-    // through the webhook message-edit endpoint. Keep only the V2 bit here and
-    // explicitly clear legacy message fields while converting the placeholder.
-    flags: payload.flags & ~MessageFlags.Ephemeral,
-    content: null,
-    embeds: [],
-  };
-}
-
 function currencyLabel(value) {
   const normalized = String(value ?? '').trim().replace(/^฿/, '').replace(/,/g, '');
   const amount = Number(normalized);
@@ -564,17 +551,13 @@ async function onPpModal(interaction, ctx) {
     ? `https://discord.com/channels/${interaction.guildId}/${slipChannelId}`
     : null;
 
-  // This modal reply was deferred as ephemeral. Its visibility is already
-  // immutable; the edit only enables Components V2 and clears legacy fields.
-  const renderQr = async (secLeft) => editReplyPayload(
-    await renderTopupStatus(ctx, 'topup_qr', {
+  const renderQr = (secLeft) => renderTopupStatus(ctx, 'topup_qr', {
         amount: `${amount.toFixed(2)} THB`,
         account_name: ctx.config.get('PROMPTPAY_ACCOUNT_NAME', '-'),
         countdown: fmtCountdown(secLeft),
         qr_image: qrImage,
         slip_url: slipUrl,
-      }, legacySlipComponents(slipUrl), interaction),
-  );
+      }, legacySlipComponents(slipUrl), interaction);
 
   // Link to the slip channel so the member knows where to post the slip. A
   // customer-edited Embed can still be malformed independently of the payment
@@ -608,9 +591,9 @@ async function onPpModal(interaction, ctx) {
       try {
         if (left <= 0) {
           ctx.lifecycle.clearTimer(tick);
-          await interaction.editReply(
-            editReplyPayload(await renderTopupStatus(ctx, 'topup_timeout', {}, [], interaction)),
-          ).catch(() => {});
+          await interaction.editReply(await renderTopupStatus(
+            ctx, 'topup_timeout', {}, [], interaction,
+          )).catch(() => {});
           return;
         }
         await interaction.editReply(await renderQr(left));
@@ -645,8 +628,8 @@ async function onTmnModal(interaction, ctx) {
 
   const result = await redeemVoucher(ctx, giftUrl);
   if (!result.ok) {
-    await interaction.editReply(editReplyPayload(
-      await renderTopupStatus(ctx, 'topup_failed', { reason: result.message }, [], interaction),
+    await interaction.editReply(await renderTopupStatus(
+      ctx, 'topup_failed', { reason: result.message }, [], interaction,
     ));
     return;
   }
@@ -659,11 +642,9 @@ async function onTmnModal(interaction, ctx) {
   const feeSatang = Math.min(gross, Math.max(0, Math.round((gross * feePercent) / 100) + feeFlatSatang));
   const creditSatang = gross - feeSatang;
   if (creditSatang <= 0) {
-    await interaction.editReply(editReplyPayload(
-      await renderTopupStatus(ctx, 'topup_failed', {
-        reason: 'ค่าธรรมเนียมมากกว่าหรือเท่ากับยอดซอง — ไม่สามารถเติมได้',
-      }, [], interaction),
-    ));
+    await interaction.editReply(await renderTopupStatus(ctx, 'topup_failed', {
+      reason: 'ค่าธรรมเนียมมากกว่าหรือเท่ากับยอดซอง — ไม่สามารถเติมได้',
+    }, [], interaction));
     return;
   }
 
@@ -681,7 +662,7 @@ async function onTmnModal(interaction, ctx) {
     gross: thb(gross),
   };
   const success = await renderTopupStatus(ctx, 'topup_success', successData, [], interaction);
-  await interaction.editReply(editReplyPayload(success));
+  await interaction.editReply(success);
 
   // Post the same success embed publicly, like a SlipOK top-up does (slip.js).
   const channelId = ctx.config.get('TOPUP_NOTIFY_CHANNEL');
@@ -839,43 +820,12 @@ async function buildWalletBalance(ctx, user, balanceSatang, source = null) {
 async function onBalance(interaction, ctx) {
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const balance = await ctx.services.wallet.getBalance(interaction.user.id);
-  await interaction.editReply(editReplyPayload(
-    await buildWalletBalance(ctx, interaction.user, balance, interaction),
-  ));
+  await interaction.editReply(await buildWalletBalance(ctx, interaction.user, balance, interaction));
 }
 
 // Member clicked เติมเงิน on the standalone panel → show the method picker (ephemeral).
 async function onOpenTopup(interaction, ctx) {
-  // A cold template-cache read can exceed Discord's initial interaction window.
-  // Acknowledge immediately, then build and edit the private response.
-  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-  try {
-    await interaction.editReply(editReplyPayload(
-      await buildTopupMethod(ctx, interaction),
-    ));
-  } catch (error) {
-    ctx.log(
-      'Configurable top-up method reply failed; retrying with emergency controls:',
-      error?.code || 'unknown',
-      error?.message || String(error),
-    );
-    const emergencyRow = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId('kanom:topup:btn:promptpay')
-        .setLabel('พร้อมเพย์ธนาคาร')
-        .setStyle(ButtonStyle.Primary)
-        .setEmoji('🏧'),
-      new ButtonBuilder()
-        .setCustomId('kanom:topup:btn:truemoney')
-        .setLabel('ซองอั่งเปาทรูมันนี่')
-        .setStyle(ButtonStyle.Success)
-        .setEmoji('🧧'),
-    );
-    await interaction.editReply({
-      content: '**เลือกช่องทางเติมเงิน**',
-      components: [emergencyRow],
-    });
-  }
+  await interaction.reply(ephemeralPayload(await buildTopupMethod(ctx, interaction)));
 }
 
 async function onRetryPromptPay(interaction, ctx) {
