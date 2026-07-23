@@ -1,9 +1,10 @@
 # Changelog — Database
 
-**Current version: `0.3.13`**  ·  see [versioning scheme](./README.md)
+**Current version: `0.3.14`**  ·  see [versioning scheme](./README.md)
 
 | Version | Date | Change |
 | --- | --- | --- |
+| `0.3.14` | 2026-07-24 | Restored the known-good Wallet & Top-up Components V2 panel defaults while preserving every customization saved after the previous template rollout. |
 | `0.3.13` | 2026-07-16 | BOT-scoped Feature subscriptions can now remain unassigned as reusable stack items while assigned live Features stay unique per bot. |
 | `0.3.12` | 2026-07-15 | Replaced the admin Runtime monitor with configurable expiry alerts granted automatically to every bot. |
 | `0.3.11` | 2026-07-10 | Added a stored icon choice for each Shop feature. |
