@@ -473,33 +473,55 @@ async function onTopupMethod(interaction, ctx) {
   // every click, unlike a select which sticks on the chosen value. (.values kept as a
   // fallback for any legacy select interaction.)
   const method = interaction.values?.[0] ?? interaction.customId.split(':').pop();
-  if (method === 'truemoney') {
-    const modal = new ModalBuilder().setCustomId('kanom:topup:tmn:modal').setTitle('เติมเงินผ่านซองทรูมันนี่');
-    const link = new TextInputBuilder()
-      .setCustomId('gift').setLabel('ลิงก์ซองอั่งเปา').setStyle(TextInputStyle.Short).setRequired(true)
-      .setPlaceholder('https://gift.truemoney.com/campaign/?v=...');
-    modal.addComponents(new ActionRowBuilder().addComponents(link));
-    await interaction.showModal(modal);
-    return;
-  }
+  try {
+    if (method === 'truemoney') {
+      await interaction.showModal(trueMoneyGiftModal());
+      return;
+    }
 
-  // promptpay — QR scan + slip verification
-  const phone = String(ctx.config.get('PROMPTPAY_NUMBER', '')).replace(/\D/g, '');
-  if (phone.length !== 10 && phone.length !== 13) {
-    await interaction.reply(await invalidAmountPayload(ctx, 'ร้านยังไม่ได้ตั้งค่าพร้อมเพย์ กรุณาติดต่อผู้ดูแลร้าน', interaction));
-    return;
+    // promptpay — QR scan + slip verification
+    const phone = String(ctx.config.get('PROMPTPAY_NUMBER', '')).replace(/\D/g, '');
+    if (phone.length !== 10 && phone.length !== 13) {
+      await interaction.reply(await invalidAmountPayload(ctx, 'ร้านยังไม่ได้ตั้งค่าพร้อมเพย์ กรุณาติดต่อผู้ดูแลร้าน', interaction));
+      return;
+    }
+    await interaction.showModal(promptPayAmountModal(ctx));
+  } catch (error) {
+    if (interaction.deferred || interaction.replied) throw error;
+    ctx.log(
+      `Top-up ${method} modal failed; retrying with emergency modal:`,
+      error?.code || 'unknown',
+      error?.message || String(error),
+    );
+    await interaction.showModal(method === 'truemoney'
+      ? trueMoneyGiftModal({ emergency: true })
+      : promptPayAmountModal(ctx, { emergency: true }));
   }
-  const modal = promptPayAmountModal(ctx);
-  await interaction.showModal(modal);
 }
 
-function promptPayAmountModal(ctx) {
+function trueMoneyGiftModal(options = {}) {
+  const modal = new ModalBuilder()
+    .setCustomId('kanom:topup:tmn:modal')
+    .setTitle(options.emergency ? 'TrueMoney top-up' : 'เติมเงินผ่านซองทรูมันนี่');
+  const link = new TextInputBuilder()
+    .setCustomId('gift')
+    .setLabel(options.emergency ? 'TrueMoney gift link' : 'ลิงก์ซองอั่งเปา')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true)
+    .setPlaceholder('https://gift.truemoney.com/campaign/?v=...');
+  modal.addComponents(new ActionRowBuilder().addComponents(link));
+  return modal;
+}
+
+function promptPayAmountModal(ctx, options = {}) {
   const min = ctx.config.number('MIN_TOPUP', 20);
   const amount = new TextInputBuilder()
-    .setCustomId('amount').setLabel('จำนวนเงินที่ต้องการเติม (บาท)')
+    .setCustomId('amount').setLabel(options.emergency ? 'Amount (THB)' : 'จำนวนเงินที่ต้องการเติม (บาท)')
     .setStyle(TextInputStyle.Short).setRequired(true)
     .setPlaceholder(`ขั้นต่ำ ${min} บาท`);
-  const modal = new ModalBuilder().setCustomId('kanom:topup:pp:modal').setTitle('เติมเงินผ่านพร้อมเพย์');
+  const modal = new ModalBuilder()
+    .setCustomId('kanom:topup:pp:modal')
+    .setTitle(options.emergency ? 'PromptPay top-up' : 'เติมเงินผ่านพร้อมเพย์');
   modal.addComponents(new ActionRowBuilder().addComponents(amount));
   return modal;
 }
@@ -677,7 +699,7 @@ async function buildTopupMethod(ctx, source = null, options = {}) {
 
 // Build the standalone top-up panel (topup_panel embed + a "เติมเงิน" button). Posted
 // by /topup-panel so members can top up WITHOUT the Roblox Robux Payout feature.
-async function buildTopupPanel(ctx, source = null) {
+async function buildConfigurableTopupPanel(ctx, source = null) {
   const values = withDiscordContext(source);
   for (const key of [
     'member', 'member_id', 'member_mention', 'member_username',
@@ -699,6 +721,34 @@ async function buildTopupPanel(ctx, source = null) {
   }
   const embed = await ctx.services.embeds.renderEmbed('topup_panel', values);
   return { embeds: [embed], components: [new ActionRowBuilder().addComponents(btn, balanceBtn)] };
+}
+
+async function buildTopupPanel(ctx, source = null) {
+  try {
+    return await buildConfigurableTopupPanel(ctx, source);
+  } catch (error) {
+    ctx.log(
+      'Configurable top-up panel failed; using emergency panel:',
+      error?.code || 'unknown',
+      error?.message || String(error),
+    );
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('kanom:topup:open')
+        .setLabel('เติมเงิน')
+        .setStyle(ButtonStyle.Success)
+        .setEmoji('💰'),
+      new ButtonBuilder()
+        .setCustomId('kanom:topup:balance')
+        .setLabel('เช็คยอดเงินคงเหลือ')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('💳'),
+    );
+    return {
+      content: '**เติมเงินเข้ากระเป๋า**\nกดปุ่มด้านล่างเพื่อเติมเงินหรือเช็คยอดเงินคงเหลือ',
+      components: [row],
+    };
+  }
 }
 
 async function buildWalletBalance(ctx, user, balanceSatang, source = null) {
