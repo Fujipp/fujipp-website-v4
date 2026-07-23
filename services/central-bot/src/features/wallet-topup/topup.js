@@ -252,9 +252,10 @@ async function invalidAmountV2(ctx, message, values = { reason: message }) {
 }
 
 async function invalidAmountPayload(ctx, message, source = null) {
-  const values = withDiscordContext(source, { reason: message });
-  if (usesComponentsV2(ctx)) return invalidAmountV2(ctx, message, values);
-  return { embeds: [await ctx.services.embeds.renderEmbed('topup_invalid', values)], ephemeral: true };
+  // Modal-submit validation is payment-critical. Keep it template-free: a
+  // malformed configurable message must not turn an ordinary invalid amount
+  // into the global "processing error" response.
+  return { content: `⚠️ ${message}`, ephemeral: true };
 }
 
 async function topupStatusV2(ctx, slot, data = {}) {
@@ -563,8 +564,28 @@ async function onPpModal(interaction, ctx) {
       slip_url: slipUrl,
     }, legacySlipComponents(slipUrl), interaction);
 
-  // Link to the slip channel so the member knows where to post the slip.
-  await interaction.editReply(await renderQr(minutes * 60));
+  // Link to the slip channel so the member knows where to post the slip. A
+  // customer-edited Embed can still be malformed independently of the payment
+  // logic, so retain a template-free response that keeps the QR flow usable.
+  try {
+    await interaction.editReply(await renderQr(minutes * 60));
+  } catch (error) {
+    ctx.log(
+      'Configured PromptPay QR reply failed; using emergency QR response:',
+      error?.code || 'unknown',
+      error?.message || String(error),
+    );
+    await interaction.editReply({
+      content: [
+        '**เติมเงินผ่านพร้อมเพย์**',
+        `จำนวนเงิน: **${amount.toFixed(2)} THB**`,
+        `ชื่อบัญชี: **${ctx.config.get('PROMPTPAY_ACCOUNT_NAME', '-')}**`,
+        `กรุณาชำระภายใน ${minutes} นาที`,
+        qrImage,
+      ].join('\n'),
+      components: legacySlipComponents(slipUrl),
+    });
+  }
 
   // Temp role so the member can see the slip channel; auto-removed after the QR window.
   await grantTempSlipRole(interaction, ctx, minutes);
