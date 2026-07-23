@@ -252,10 +252,9 @@ async function invalidAmountV2(ctx, message, values = { reason: message }) {
 }
 
 async function invalidAmountPayload(ctx, message, source = null) {
-  // Modal-submit validation is payment-critical. Keep it template-free: a
-  // malformed configurable message must not turn an ordinary invalid amount
-  // into the global "processing error" response.
-  return { content: `⚠️ ${message}`, ephemeral: true };
+  const values = withDiscordContext(source, { reason: message });
+  if (usesComponentsV2(ctx)) return invalidAmountV2(ctx, message, values);
+  return { embeds: [await ctx.services.embeds.renderEmbed('topup_invalid', values)], ephemeral: true };
 }
 
 async function topupStatusV2(ctx, slot, data = {}) {
@@ -343,10 +342,7 @@ async function topupStatusV2(ctx, slot, data = {}) {
 
 async function renderTopupStatus(ctx, slot, data = {}, legacyComponents = [], source = null) {
   const values = withDiscordContext(source, data);
-  // Payment lifecycle replies must remain on Discord's stable Embed surface.
-  // Panel and method-selection messages can use Components V2, but a malformed
-  // configurable component layout must never prevent slip verification, wallet
-  // crediting, or the success/failure result from being delivered.
+  if (usesComponentsV2(ctx)) return topupStatusV2(ctx, slot, values);
   return {
     embeds: [await ctx.services.embeds.renderEmbed(slot, values)],
     components: legacyComponents,
