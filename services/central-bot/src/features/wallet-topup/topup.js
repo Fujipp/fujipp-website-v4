@@ -340,9 +340,12 @@ async function topupStatusV2(ctx, slot, data = {}) {
   }
 }
 
-async function renderTopupStatus(ctx, slot, data = {}, legacyComponents = [], source = null, options = {}) {
+async function renderTopupStatus(ctx, slot, data = {}, legacyComponents = [], source = null) {
   const values = withDiscordContext(source, data);
-  if (usesComponentsV2(ctx) && options.forceEmbed !== true) return topupStatusV2(ctx, slot, values);
+  // Payment lifecycle replies must remain on Discord's stable Embed surface.
+  // Panel and method-selection messages can use Components V2, but a malformed
+  // configurable component layout must never prevent slip verification, wallet
+  // crediting, or the success/failure result from being delivered.
   return {
     embeds: [await ctx.services.embeds.renderEmbed(slot, values)],
     components: legacyComponents,
@@ -558,7 +561,7 @@ async function onPpModal(interaction, ctx) {
       countdown: fmtCountdown(secLeft),
       qr_image: qrImage,
       slip_url: slipUrl,
-    }, legacySlipComponents(slipUrl), interaction, { forceEmbed: true });
+    }, legacySlipComponents(slipUrl), interaction);
 
   // Link to the slip channel so the member knows where to post the slip.
   await interaction.editReply(await renderQr(minutes * 60));
@@ -573,7 +576,7 @@ async function onPpModal(interaction, ctx) {
         if (left <= 0) {
           ctx.lifecycle.clearTimer(tick);
           await interaction.editReply(
-            await renderTopupStatus(ctx, 'topup_timeout', {}, [], interaction, { forceEmbed: true }),
+            await renderTopupStatus(ctx, 'topup_timeout', {}, [], interaction),
           ).catch(() => {});
           return;
         }
