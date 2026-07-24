@@ -791,7 +791,7 @@ function buildClassicEmergencyTopupPanel() {
 }
 
 async function buildWalletBalance(ctx, user, balanceSatang, source = null) {
-  const avatarUrl = user.displayAvatarURL({ extension: 'webp', size: 160 });
+  const avatarUrl = user.displayAvatarURL({ extension: 'webp', size: 256 });
   if (!usesComponentsV2(ctx)) {
     return {
       embeds: [await ctx.services.embeds.renderEmbed('balance', withDiscordContext(source, {

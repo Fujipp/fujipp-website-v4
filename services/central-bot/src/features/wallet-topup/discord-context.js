@@ -1,6 +1,6 @@
 function avatarUrl(user) {
   if (!user || typeof user.displayAvatarURL !== 'function') return '';
-  return user.displayAvatarURL({ extension: 'webp', size: 160 });
+  return user.displayAvatarURL({ extension: 'webp', size: 256 });
 }
 
 function discordContext(source, memberOverride = null) {
