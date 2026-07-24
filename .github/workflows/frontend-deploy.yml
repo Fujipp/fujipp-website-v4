@@ -178,22 +178,29 @@ jobs:
             "
           }
 
-          # Verify every current-release asset through the same HTTP path browsers use,
-          # then compare bytes only for changed assets plus the entry chunk. Parallel
+          # Verify every current-release file through the same HTTP path browsers use,
+          # including stable public/ files such as brand and icon SVGs. Then compare
+          # bytes only for changed hashed assets plus the entry chunk. Parallel
           # cache-busted probes avoid both the slow historical FTP listing and a timeout
-          # for every absent file. A missing SPA asset returns index.html, so text/html
+          # for every absent file. A missing SPA file returns index.html, so text/html
           # is treated as missing even when the fallback status is 200.
           heal_missing() {
             verify_directory="$(mktemp -d)"
             missing_files="$(mktemp)"
             export SITE_URL ASSET_PROBE_TOKEN
             xargs -r -P 8 -I '{}' sh -c '
-              name="$1"
-              content_type="$(curl -sS --retry 1 --retry-all-errors --connect-timeout 5 --max-time 10 -H "Cache-Control: no-cache" -o /dev/null -w "%{content_type}" "$SITE_URL/assets/$name?deploy=$ASSET_PROBE_TOKEN" || true)"
-              case "$content_type" in
-                text/html*) echo "assets/$name" ;;
-              esac
-            ' sh '{}' < "$current_assets" > "$missing_files"
+              path="$1"
+              response="$(curl -sS --retry 1 --retry-all-errors --connect-timeout 5 --max-time 10 -H "Cache-Control: no-cache" -o /dev/null -w "%{http_code} %{content_type}" "$SITE_URL/$path?deploy=$ASSET_PROBE_TOKEN" || true)"
+              status="${response%% *}"
+              content_type="${response#* }"
+              if [ "$status" != "200" ]; then
+                echo "$path"
+              else
+                case "$content_type" in
+                  text/html*) echo "$path" ;;
+                esac
+              fi
+            ' sh '{}' < "$current_files" > "$missing_files"
 
             miss="$(wc -l < "$missing_files" | tr -d ' ')"
 
@@ -248,7 +255,7 @@ jobs:
           manifest_upload="$(mktemp -d)/.frontend-files.sha256"
           previous_manifest="$(mktemp)"
           changed_files="$(mktemp)"
-          current_assets="$(mktemp)"
+          current_files="$(mktemp)"
           verify_assets="$(mktemp)"
           find dist -type f ! -name 'index.html' -print0 \
             | sort -z \
@@ -284,14 +291,14 @@ jobs:
             "$previous_manifest" "$current_manifest" > "$changed_files"
           echo "Files requiring FTP upload: $(wc -l < "$changed_files" | tr -d ' ')"
 
-          find dist/assets -maxdepth 1 -type f -printf '%f\n' > "$current_assets"
+          sed -n 's/^[^ ]*  //p' "$current_manifest" > "$current_files"
           sed -n 's#^assets/##p' "$changed_files" > "$verify_assets"
           if [ -n "$entry" ]; then
             basename "$entry" >> "$verify_assets"
           fi
-          sort -u -o "$current_assets" "$current_assets"
+          sort -u -o "$current_files" "$current_files"
           sort -u -o "$verify_assets" "$verify_assets"
-          echo "Current assets requiring HTTP existence checks: $(wc -l < "$current_assets" | tr -d ' ')"
+          echo "Current release files requiring HTTP existence checks: $(wc -l < "$current_files" | tr -d ' ')"
           echo "Changed assets requiring byte verification: $(wc -l < "$verify_assets" | tr -d ' ')"
 
           if [ "${recovery_required:-0}" = 1 ]; then
