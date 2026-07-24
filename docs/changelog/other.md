@@ -4,7 +4,7 @@
 
 | Version | Date | Change |
 | --- | --- | --- |
-| `0.0.38` | 2026-07-24 | Extended frontend deployment recovery to verify and restore stable brand, icon, media, and other public files with lightweight header probes instead of checking hashed application assets alone. |
+| `0.0.38` | 2026-07-24 | Extended frontend deployment recovery to verify and restore stable brand and icon files with lightweight header probes alongside hashed application assets. |
 | `0.0.37` | 2026-07-19 | Replaced per-edit changelog entries with a release-first workflow that records one clear version before each reviewed push. |
 | `0.0.36` | 2026-07-15 | Consolidated repository guidance, architecture maps, deployment operations, migration automation, and AI handoff rules. |
 | `0.0.30` | 2026-06-28 | Stabilized production deployment, service health checks, rollback paths, environment handling, and database migration delivery. |

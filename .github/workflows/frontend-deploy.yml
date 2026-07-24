@@ -178,9 +178,11 @@ jobs:
             "
           }
 
-          # Verify every current-release file through the same HTTP path browsers use,
-          # including stable public/ files such as brand and icon SVGs. Then compare
-          # bytes only for changed hashed assets plus the entry chunk. Parallel
+          # Verify browser-critical release files through the same HTTP path browsers use:
+          # hashed assets, stable brand/icon files, and every file changed in this release.
+          # Large unchanged public media and 3D models stay manifest-managed and are not
+          # probed on every deploy. Then compare bytes only for changed hashed assets plus
+          # the entry chunk. Parallel
           # cache-busted probes avoid both the slow historical FTP listing and a timeout
           # for every absent file. A missing SPA file returns index.html, so text/html
           # is treated as missing even when the fallback status is 200.
@@ -291,7 +293,11 @@ jobs:
             "$previous_manifest" "$current_manifest" > "$changed_files"
           echo "Files requiring FTP upload: $(wc -l < "$changed_files" | tr -d ' ')"
 
-          sed -n 's/^[^ ]*  //p' "$current_manifest" > "$current_files"
+          {
+            find dist/assets dist/brand dist/icons -type f -printf '%p\n' 2>/dev/null \
+              | sed 's#^dist/##'
+            cat "$changed_files"
+          } > "$current_files"
           sed -n 's#^assets/##p' "$changed_files" > "$verify_assets"
           if [ -n "$entry" ]; then
             basename "$entry" >> "$verify_assets"
