@@ -190,7 +190,7 @@ jobs:
             export SITE_URL ASSET_PROBE_TOKEN
             xargs -r -P 8 -I '{}' sh -c '
               path="$1"
-              response="$(curl -sS --retry 1 --retry-all-errors --connect-timeout 5 --max-time 10 -H "Cache-Control: no-cache" -o /dev/null -w "%{http_code} %{content_type}" "$SITE_URL/$path?deploy=$ASSET_PROBE_TOKEN" || true)"
+              response="$(curl -sS --head --retry 1 --retry-all-errors --connect-timeout 5 --max-time 10 -H "Cache-Control: no-cache" -o /dev/null -w "%{http_code} %{content_type}" "$SITE_URL/$path?deploy=$ASSET_PROBE_TOKEN" || true)"
               status="${response%% *}"
               content_type="${response#* }"
               if [ "$status" != "200" ]; then
